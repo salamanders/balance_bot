@@ -10,6 +10,6 @@
 3. - [x] It **will** fall over.  There should be an easy way to prop it back upright and have it resume.
 4. - [x] It should **improve over time** as it gets more experience.
 5. - [x] It should remember "last known good" PID variables and start from there.  Eventually we might be able to skip the calabration step?  Which also means a way to force a new calibration.
-6. - [ ] The battery levels will change over time, so that will be hard to account for.
-7. - [ ] Make a version of https://github.com/salamanders/mecanum/blob/main/AUTO_RUN.md that doesn't wait for WiFi.
+6. - [x] The battery levels will change over time, so that will be hard to account for.
+7. - [x] Make a version of https://github.com/salamanders/mecanum/blob/main/AUTO_RUN.md that doesn't wait for WiFi.
 8. - [ ] Make a version of https://github.com/salamanders/mecanum/blob/main/wiring_check.py that handles both wheels, and then the gyro directions.

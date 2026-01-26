@@ -1,6 +1,7 @@
 import os
 from typing import Tuple, Dict, Any
 
+
 class RobotHardware:
     def __init__(self, motor_l: int, motor_r: int):
         self.motor_l = motor_l
@@ -25,13 +26,14 @@ class RobotHardware:
             print("Running in Mock Mode")
             self.mock_mode = True
             from .mocks import MockPiconZero, MockMPU6050
+
             self.pz = MockPiconZero()
             self.sensor_class = MockMPU6050
 
     def init(self) -> None:
         """Initialize hardware."""
         if hasattr(self.pz, "init"):
-             self.pz.init()
+            self.pz.init()
 
         # Initialize sensor
         self.sensor = self.sensor_class(0x68)
@@ -42,7 +44,7 @@ class RobotHardware:
         Returns: (accel_dict, gyro_dict)
         """
         if not self.sensor:
-             return {"x": 0.0, "y": 0.0, "z": 0.0}, {"x": 0.0, "y": 0.0, "z": 0.0}
+            return {"x": 0.0, "y": 0.0, "z": 0.0}, {"x": 0.0, "y": 0.0, "z": 0.0}
 
         return self.sensor.get_accel_data(), self.sensor.get_gyro_data()
 
