@@ -1,27 +1,28 @@
 import os
 import math
+from typing import Dict
 
 
 class MockPiconZero:
-    def init(self):
+    def init(self) -> None:
         print("[MockPiconZero] init")
 
-    def stop(self):
+    def stop(self) -> None:
         print("[MockPiconZero] stop")
 
-    def setMotor(self, motor, value):
+    def setMotor(self, motor: int, value: int) -> None:
         pass
 
-    def cleanup(self):
+    def cleanup(self) -> None:
         print("[MockPiconZero] cleanup")
 
 
 class MockMPU6050:
-    def __init__(self, address):
+    def __init__(self, address: int):
         self.address = address
         print(f"[MockMPU6050] init at {address}")
 
-    def get_accel_data(self):
+    def get_accel_data(self) -> Dict[str, float]:
         # Default vertical
         pitch = 0.0
 
@@ -44,8 +45,6 @@ class MockMPU6050:
         z = math.cos(rad) * 9.8
 
         return {"x": 0.0, "y": y, "z": z}
-        # Return some wobble to test logic?
-        return {"x": 0.0, "y": 0.0, "z": 9.8}
 
-    def get_gyro_data(self):
+    def get_gyro_data(self) -> Dict[str, float]:
         return {"x": 0.0, "y": 0.0, "z": 0.0}
