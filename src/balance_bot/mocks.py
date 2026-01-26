@@ -14,6 +14,7 @@ class MockPiconZero:
     def cleanup(self):
         print("[MockPiconZero] cleanup")
 
+
 class MockMPU6050:
     def __init__(self, address):
         self.address = address
@@ -42,6 +43,8 @@ class MockMPU6050:
         z = math.cos(rad) * 9.8
 
         return {'x': 0.0, 'y': y, 'z': z}
+        # Return some wobble to test logic?
+        return {"x": 0.0, "y": 0.0, "z": 9.8}
 
     def get_gyro_data(self):
-        return {'x': 0.0, 'y': 0.0, 'z': 0.0}
+        return {"x": 0.0, "y": 0.0, "z": 0.0}
