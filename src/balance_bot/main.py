@@ -178,7 +178,7 @@ class RobotController:
             comp_factor = self.battery.update(output, ang_accel, self.config.loop_time)
             # Log low battery occasionally
             if comp_factor < 0.95 and (time.monotonic() * 10) % 50 < 1:
-                print(f"-> Low Battery? Compensating: {int(comp_factor*100)}%")
+                print(f"-> Low Battery? Compensating: {int(comp_factor * 100)}%")
 
             # Drive
             final_drive = output / comp_factor

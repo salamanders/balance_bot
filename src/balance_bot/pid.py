@@ -17,7 +17,9 @@ class PIDController:
         """
         self.integral += error * dt
         # Anti-windup
-        self.integral = max(min(self.integral, self.integral_limit), -self.integral_limit)
+        self.integral = max(
+            min(self.integral, self.integral_limit), -self.integral_limit
+        )
 
         derivative = (error - self.last_error) / dt if dt > 0 else 0.0
 
