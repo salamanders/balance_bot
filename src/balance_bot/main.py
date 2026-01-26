@@ -13,7 +13,12 @@ from .battery import BatteryEstimator
 class RobotController:
     def __init__(self):
         self.config = RobotConfig.load()
-        self.hw = RobotHardware(self.config.motor_l, self.config.motor_r)
+        self.hw = RobotHardware(
+            self.config.motor_l,
+            self.config.motor_r,
+            self.config.motor_l_invert,
+            self.config.motor_r_invert,
+        )
         self.led = LedController()
         self.pid = PIDController(self.config.pid)
         self.tuner = ContinuousTuner()
@@ -34,10 +39,24 @@ class RobotController:
     def get_pitch(self, dt: float) -> Tuple[float, float, float]:
         accel, gyro = self.hw.read_imu_raw()
 
-        # Calculate Accelerometer Angle (assuming Y is forward)
-        # Handle division by zero or domain errors if necessary, though atan2 is robust
-        acc_angle = math.degrees(math.atan2(accel["y"], accel["z"]))
-        gyro_rate = gyro["x"]
+        # Determine axes based on config
+        if self.config.gyro_pitch_axis == "y":
+            # Pitch around Y axis
+            raw_acc_y = accel["x"]
+            raw_gyro_rate = gyro["y"]
+        else:
+            # Default: Pitch around X axis (Y is forward)
+            raw_acc_y = accel["y"]
+            raw_gyro_rate = gyro["x"]
+
+        # Calculate Accelerometer Angle
+        acc_angle = math.degrees(math.atan2(raw_acc_y, accel["z"]))
+        gyro_rate = raw_gyro_rate
+
+        # Invert if needed
+        if self.config.gyro_pitch_invert:
+            acc_angle = -acc_angle
+            gyro_rate = -gyro_rate
 
         # Complementary Filter
         self.pitch = 0.98 * (self.pitch + gyro_rate * dt) + 0.02 * acc_angle
