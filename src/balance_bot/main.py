@@ -1,6 +1,8 @@
 import time
 import math
 import os
+import json
+import sys
 
 # --- HARDWARE IMPORTS ---
 try:
@@ -20,6 +22,8 @@ MOTOR_L = 0  # PiconZero Channel 0
 MOTOR_R = 1  # PiconZero Channel 1
 KP_START = 5.0  # Starting Proportional Gain
 LOOP_TIME = 0.01  # 10ms loop (100Hz)
+CONFIG_FILE = "pid_config.json"
+FORCE_CALIB_FILE = "force_calibration.txt"
 
 
 # --- STATE MANAGEMENT ---
@@ -36,6 +40,45 @@ class RobotState:
         self.integral = 0.0
         self.vibration_counter = 0
         self.target_angle = 0.0
+        self.load_config()
+
+    def load_config(self):
+        force = False
+        if os.path.exists(FORCE_CALIB_FILE):
+            print(f"-> Force calibration file found: {FORCE_CALIB_FILE}")
+            force = True
+        if "--force-calibration" in sys.argv:
+            print("-> Force calibration flag found")
+            force = True
+
+        if not force and os.path.exists(CONFIG_FILE):
+            try:
+                with open(CONFIG_FILE, "r") as f:
+                    data = json.load(f)
+                    self.pid_kp = data.get("pid_kp", KP_START)
+                    self.pid_ki = data.get("pid_ki", 0.0)
+                    self.pid_kd = data.get("pid_kd", 0.0)
+                    self.target_angle = data.get("target_angle", 0.0)
+                    print(
+                        f"-> Loaded Config: Kp={self.pid_kp:.2f} Ki={self.pid_ki:.2f} Kd={self.pid_kd:.2f} Target={self.target_angle:.2f}"
+                    )
+                    self.mode = "BALANCE"
+            except (json.JSONDecodeError, OSError) as e:
+                print(f"-> Error loading config: {e}")
+
+    def save_config(self):
+        data = {
+            "pid_kp": self.pid_kp,
+            "pid_ki": self.pid_ki,
+            "pid_kd": self.pid_kd,
+            "target_angle": self.target_angle,
+        }
+        try:
+            with open(CONFIG_FILE, "w") as f:
+                json.dump(data, f)
+            print("-> Config saved.")
+        except OSError as e:
+            print(f"-> Error saving config: {e}")
 
     def get_pitch(self):
         # The library returns dicts: {'x': val, 'y': val, 'z': val}
@@ -69,6 +112,7 @@ def set_led(on):
         print(" * ", end="\r", flush=True)
     else:
         print("   ", end="\r", flush=True)
+
 
 def countdown_sequence():
     """
@@ -139,6 +183,7 @@ def main():
                     bot.pid_kd = bot.pid_kp * 0.05
                     bot.pid_ki = bot.pid_kp * 0.005
                     print(f"-> Tuned! Kp={bot.pid_kp:.2f} Kd={bot.pid_kd:.2f}")
+                    bot.save_config()
                     bot.mode = "BALANCE"
                     bot.vibration_counter = 0
 

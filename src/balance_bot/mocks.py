@@ -1,6 +1,7 @@
 import os
 import math
 
+
 class MockPiconZero:
     def init(self):
         print("[MockPiconZero] init")
@@ -42,7 +43,7 @@ class MockMPU6050:
         y = math.sin(rad) * 9.8
         z = math.cos(rad) * 9.8
 
-        return {'x': 0.0, 'y': y, 'z': z}
+        return {"x": 0.0, "y": y, "z": z}
         # Return some wobble to test logic?
         return {"x": 0.0, "y": 0.0, "z": 9.8}
 
