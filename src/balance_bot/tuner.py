@@ -1,18 +1,19 @@
 import statistics
+from typing import Tuple, List
 
 
 class ContinuousTuner:
-    def __init__(self, buffer_size=100):
+    def __init__(self, buffer_size: int = 100):
         """
         Initialize the ContinuousTuner.
         :param buffer_size: Number of error samples to keep (100 samples @ 10ms loop = 1 sec)
         """
         self.buffer_size = buffer_size
-        self.errors = []
+        self.errors: List[float] = []
         self.cooldown_timer = 0
         self.COOLDOWN_RESET = 50  # Wait 0.5s between adjustments
 
-    def update(self, error):
+    def update(self, error: float) -> Tuple[float, float, float]:
         """
         Add a new error sample and return PID nudges.
         :param error: Current pitch error (Target - Pitch)
@@ -72,7 +73,7 @@ class ContinuousTuner:
 
         return kp_nudge, ki_nudge, kd_nudge
 
-    def _count_zero_crossings(self):
+    def _count_zero_crossings(self) -> int:
         crossings = 0
         for i in range(1, len(self.errors)):
             if (self.errors[i - 1] > 0 and self.errors[i] <= 0) or (

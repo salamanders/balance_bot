@@ -1,10 +1,11 @@
 import time
 import os
+from typing import Optional
 
 
 class LedController:
     def __init__(self):
-        self.led_path = self._find_led_path()
+        self.led_path: Optional[str] = self._find_led_path()
         self.mode = "OFF"
         self.last_toggle = 0.0
         self.is_on = False
@@ -13,14 +14,14 @@ class LedController:
         # Turn off initially
         self.set_led(False)
 
-    def _find_led_path(self):
+    def _find_led_path(self) -> Optional[str]:
         paths = ["/sys/class/leds/led0/brightness", "/sys/class/leds/ACT/brightness"]
         for path in paths:
             if os.path.exists(path):
                 return path
         return None
 
-    def set_led(self, on):
+    def set_led(self, on: bool) -> None:
         self.is_on = on
         if not self.led_path:
             return
@@ -32,28 +33,28 @@ class LedController:
         except (PermissionError, OSError):
             pass
 
-    def signal_setup(self):
+    def signal_setup(self) -> None:
         """Fast blink for setup/waiting (10Hz)."""
         if self.mode != "SETUP":
             self.mode = "SETUP"
             self.blink_interval = 0.05
 
-    def signal_tuning(self):
+    def signal_tuning(self) -> None:
         """Slow blink for tuning (2Hz)."""
         if self.mode != "TUNING":
             self.mode = "TUNING"
             self.blink_interval = 0.25
 
-    def signal_ready(self):
+    def signal_ready(self) -> None:
         """Solid on for balancing."""
         self.mode = "ON"
         self.set_led(True)
 
-    def signal_off(self):
+    def signal_off(self) -> None:
         self.mode = "OFF"
         self.set_led(False)
 
-    def update(self):
+    def update(self) -> None:
         if self.mode in ["SETUP", "TUNING"]:
             now = time.time()
             if now - self.last_toggle > self.blink_interval:
@@ -66,7 +67,7 @@ class LedController:
             if self.is_on:
                 self.set_led(False)
 
-    def countdown(self):
+    def countdown(self) -> None:
         """
         Blocking countdown sequence:
         3 blinks, pause, 2 blinks, pause, 1 blink, go.
