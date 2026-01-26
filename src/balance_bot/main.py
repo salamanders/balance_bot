@@ -19,6 +19,7 @@ except (ImportError, OSError):
 
 from .leds import LedController
 from .tuner import ContinuousTuner
+from .battery import BatteryEstimator
 
 # --- CONFIGURATION ---
 MOTOR_L = 0  # PiconZero Channel 0
@@ -44,6 +45,7 @@ class RobotState:
         self.vibration_counter = 0
         self.target_angle = 0.0
         self.tuner = ContinuousTuner()
+        self.battery = BatteryEstimator()
         self.config_dirty = False
         self.last_save_time = time.time()
         self.load_config()
@@ -97,7 +99,8 @@ class RobotState:
         # Complementary Filter: Mix Gyro (fast) + Accel (stable)
         gyro_rate = gyro["x"]
         self.pitch = 0.98 * (self.pitch + gyro_rate * LOOP_TIME) + 0.02 * acc_angle
-        return self.pitch, gyro["z"]  # Return pitch and yaw_rate
+        # Return pitch, pitch_rate (accel check), and yaw_rate
+        return self.pitch, gyro_rate, gyro["z"]
 
 
 # --- MAIN LOOP ---
@@ -117,7 +120,7 @@ def main():
     try:
         while bot.running:
             start_time = time.time()
-            current_pitch, yaw_rate = bot.get_pitch()
+            current_pitch, pitch_rate, yaw_rate = bot.get_pitch()
             led.update()
 
             # --- STEP 1: CALIBRATION ---
@@ -190,7 +193,24 @@ def main():
                         f"-> Tuned: P={bot.pid_kp:.2f} I={bot.pid_ki:.3f} D={bot.pid_kd:.2f}"
                     )
 
-                drive(output, turn_correction)
+                # Battery Estimation
+                # We need Angular Acceleration. Approximate with (rate_now - rate_last) / dt
+                # But we don't store rate_last in bot state yet.
+                # However, derivative term in PID is d(Error)/dt = -d(Pitch)/dt = -PitchRate.
+                # So PitchRate ~ -Derivative (if target is constant).
+                # But we need d(PitchRate)/dt.
+                # Let's approximate angular accel using change in PitchRate
+                if not hasattr(bot, "last_pitch_rate"):
+                    bot.last_pitch_rate = pitch_rate
+
+                ang_accel = (pitch_rate - bot.last_pitch_rate) / LOOP_TIME
+                bot.last_pitch_rate = pitch_rate
+
+                comp_factor = bot.battery.update(output, ang_accel, LOOP_TIME)
+                if comp_factor < 0.95 and (time.time() * 10) % 50 < 1: # Print occasionally
+                    print(f"-> Low Battery? Compensating: {int(comp_factor*100)}%")
+
+                drive(output / comp_factor, turn_correction)
                 bot.last_error = error
 
                 # Save config occasionally if dirty (every 30s) or on fall
