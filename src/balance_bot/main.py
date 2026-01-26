@@ -17,6 +17,8 @@ except (ImportError, OSError):
 
     pz = MockPiconZero()
 
+from .leds import LedController
+
 # --- CONFIGURATION ---
 MOTOR_L = 0  # PiconZero Channel 0
 MOTOR_R = 1  # PiconZero Channel 1
@@ -94,81 +96,42 @@ class RobotState:
         return self.pitch, gyro["z"]  # Return pitch and yaw_rate
 
 
-# --- HELPERS ---
-def set_led(on):
-    paths = ["/sys/class/leds/led0/brightness", "/sys/class/leds/ACT/brightness"]
-    val = "1" if on else "0"
-
-    for path in paths:
-        if os.path.exists(path):
-            try:
-                with open(path, "w") as f:
-                    f.write(val)
-                break
-            except (PermissionError, OSError):
-                continue
-
-    if on:
-        print(" * ", end="\r", flush=True)
-    else:
-        print("   ", end="\r", flush=True)
-
-
-def countdown_sequence():
-    """
-    3 blinks, pause, 2 blinks, pause, 1 blink, go.
-    """
-    print("\nStarting in...")
-
-    # 3 Blinks
-    for _ in range(3):
-        set_led(True)
-        time.sleep(0.2)
-        set_led(False)
-        time.sleep(0.2)
-
-    time.sleep(0.5)
-
-    # 2 Blinks
-    for _ in range(2):
-        set_led(True)
-        time.sleep(0.2)
-        set_led(False)
-        time.sleep(0.2)
-
-    time.sleep(0.5)
-
-    # 1 Blink
-    set_led(True)
-    time.sleep(0.2)
-    set_led(False)
-    time.sleep(0.2)
-
-    print("\nGO!")
-
-
 # --- MAIN LOOP ---
 def main():
     bot = RobotState()
+    led = LedController()
     pz.init()
     print(">>> ROBOT ALIVE. Hold vertical for STEP 1.")
-    time.sleep(2)  # Give user a moment to grab it
+
+    # Fast blink for setup/waiting
+    led.signal_setup()
+    setup_start = time.time()
+    while time.time() - setup_start < 2:
+        led.update()
+        time.sleep(0.01)
 
     try:
         while bot.running:
             start_time = time.time()
             current_pitch, yaw_rate = bot.get_pitch()
+            led.update()
 
             # --- STEP 1: CALIBRATION ---
             if bot.mode == "CALIBRATE":
+                led.signal_setup()
                 bot.target_angle = current_pitch
                 print(f"-> Calibrated Vertical at: {bot.target_angle:.2f}")
                 print("-> Let it wobble gently (Step 2)...")
                 bot.mode = "TUNE"
-                time.sleep(1)
+                # Brief pause for user to react, but keep LED updating
+                pause_start = time.time()
+                while time.time() - pause_start < 1:
+                    led.update()
+                    time.sleep(0.01)
 
             # --- STEP 2: AUTO-TUNING (The "Wobble" Phase) ---
             elif bot.mode == "TUNE":
+                led.signal_tuning()
                 error = bot.target_angle - current_pitch
 
                 bot.pid_kp += 0.05
@@ -193,6 +156,7 @@ def main():
 
             # --- STEP 3: BALANCING ---
             elif bot.mode == "BALANCE":
+                led.signal_ready()
                 error = bot.target_angle - current_pitch
 
                 bot.integral += error * LOOP_TIME
@@ -224,12 +188,13 @@ def main():
 
             # --- STEP 4: RECOVER ---
             elif bot.mode == "RECOVER":
+                led.signal_off()
                 drive(0, 0)
                 error = bot.target_angle - current_pitch
 
                 if abs(error) < 5.0:
                     print(f"-> Upright detected! (Pitch: {current_pitch:.2f})")
-                    countdown_sequence()
+                    led.countdown()
                     bot.mode = "BALANCE"
                     bot.last_error = error
                     bot.integral = 0.0
@@ -243,6 +208,7 @@ def main():
         pass
     finally:
         pz.stop()
+        led.signal_off()
         print("\nMotors Stopped.")
 
 
