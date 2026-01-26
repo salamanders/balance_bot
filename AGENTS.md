@@ -7,7 +7,7 @@
 
 1. - [ ] Implement a pyproject.toml with a make, lint, run. I think we should use "uv".
 2. - [ ] Don't assume I have a console open.  There will need to be other ways to communicate the setup with the user - like blinking the rpi zero light to indicate the setup phase.
-3. - [ ] It **will** fall over.  There should be an easy way to prop it back upright and have it resume.
+3. - [x] It **will** fall over.  There should be an easy way to prop it back upright and have it resume.
 4. - [ ] It should **improve over time** as it gets more experience.
 5. - [ ] It should remember "last known good" PID variables and start from there.  Eventually we might be able to skip the calabration step?  Which also means a way to force a new calibration.
 6. - [ ] The battery levels will change over time, so that will be hard to account for.
