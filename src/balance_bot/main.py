@@ -18,6 +18,7 @@ except (ImportError, OSError):
     pz = MockPiconZero()
 
 from .leds import LedController
+from .tuner import ContinuousTuner
 
 # --- CONFIGURATION ---
 MOTOR_L = 0  # PiconZero Channel 0
@@ -42,6 +43,9 @@ class RobotState:
         self.integral = 0.0
         self.vibration_counter = 0
         self.target_angle = 0.0
+        self.tuner = ContinuousTuner()
+        self.config_dirty = False
+        self.last_save_time = time.time()
         self.load_config()
 
     def load_config(self):
@@ -171,19 +175,36 @@ def main():
 
                 turn_correction = -yaw_rate * 0.5
 
-                if abs(error - bot.last_error) > 5.0:
-                    bot.vibration_counter += 1
-                    if bot.vibration_counter > 10:
-                        print("-> Vibrating! Relaxing gains...")
-                        bot.pid_kp *= 0.9
-                        bot.vibration_counter = 0
+                # Continuous Tuning
+                kp_n, ki_n, kd_n = bot.tuner.update(error)
+                if kp_n != 0 or ki_n != 0 or kd_n != 0:
+                    bot.pid_kp += kp_n
+                    bot.pid_ki += ki_n
+                    bot.pid_kd += kd_n
+                    # Safety limits
+                    bot.pid_kp = max(0.1, bot.pid_kp)
+                    bot.pid_ki = max(0.0, bot.pid_ki)
+                    bot.pid_kd = max(0.0, bot.pid_kd)
+                    bot.config_dirty = True
+                    print(
+                        f"-> Tuned: P={bot.pid_kp:.2f} I={bot.pid_ki:.3f} D={bot.pid_kd:.2f}"
+                    )
 
                 drive(output, turn_correction)
                 bot.last_error = error
 
+                # Save config occasionally if dirty (every 30s) or on fall
+                if bot.config_dirty and (time.time() - bot.last_save_time > 30):
+                    bot.save_config()
+                    bot.last_save_time = time.time()
+                    bot.config_dirty = False
+
                 if abs(error) > 45:
                     print("!!! FELL OVER !!!")
                     drive(0, 0)
+                    if bot.config_dirty:
+                        bot.save_config()
+                        bot.config_dirty = False
                     bot.mode = "RECOVER"
 
             # --- STEP 4: RECOVER ---
@@ -207,6 +228,8 @@ def main():
     except KeyboardInterrupt:
         pass
     finally:
+        if bot.config_dirty:
+            bot.save_config()
         pz.stop()
         led.signal_off()
         print("\nMotors Stopped.")
