@@ -1,24 +1,36 @@
+import sys
 import time
+import logging
+from pathlib import Path
 
-from .config import RobotConfig
+from .config import RobotConfig, PIDParams
 from .robot_hardware import RobotHardware
 from .pid import PIDController
 from .leds import LedController
 from .tuner import ContinuousTuner
 from .battery import BatteryEstimator
+from .utils import RateLimiter, setup_logging
 
-# Constants
-COMPLEMENTARY_ALPHA = 0.98
-FALL_ANGLE_LIMIT = 45.0
-VIBRATION_THRESHOLD = 10
+# Constants that are not in config (system behavior)
+FORCE_CALIB_FILE = Path("force_calibration.txt")
 SETUP_WAIT_SEC = 2.0
 CALIBRATION_PAUSE_SEC = 1.0
 SAVE_INTERVAL_SEC = 30.0
 
+logger = logging.getLogger(__name__)
+
 
 class RobotController:
     def __init__(self):
-        self.config = RobotConfig.load()
+        setup_logging()
+
+        # Check force calibration before loading config
+        if self._check_force_calibration():
+            logger.info("Forcing calibration: Using default configuration.")
+            self.config = RobotConfig(pid=PIDParams())
+        else:
+            self.config = RobotConfig.load()
+
         self.hw = RobotHardware(
             motor_l=self.config.motor_l,
             motor_r=self.config.motor_r,
@@ -40,16 +52,26 @@ class RobotController:
         # State for tuning
         self.vibration_counter = 0
 
+    def _check_force_calibration(self) -> bool:
+        if FORCE_CALIB_FILE.exists():
+            logger.info(f"Force calibration file found: {FORCE_CALIB_FILE}")
+            return True
+        if "--force-calibration" in sys.argv:
+            logger.info("Force calibration flag found")
+            return True
+        return False
+
     def init(self) -> None:
         self.hw.init()
-        print(">>> ROBOT ALIVE. Hold vertical for STEP 1.")
+        logger.info(">>> ROBOT ALIVE. Hold vertical for STEP 1.")
 
     def get_pitch(self, dt: float) -> tuple[float, float, float]:
         acc_angle, gyro_rate, yaw_rate = self.hw.read_imu_processed()
 
         # Complementary Filter
-        self.pitch = (COMPLEMENTARY_ALPHA * (self.pitch + gyro_rate * dt)) + (
-            (1.0 - COMPLEMENTARY_ALPHA) * acc_angle
+        alpha = self.config.complementary_alpha
+        self.pitch = (alpha * (self.pitch + gyro_rate * dt)) + (
+            (1.0 - alpha) * acc_angle
         )
 
         return self.pitch, gyro_rate, yaw_rate
@@ -58,6 +80,8 @@ class RobotController:
         # Initial Setup Phase
         self.led.signal_setup()
         start_wait = time.monotonic()
+
+        # Simple wait loop
         while time.monotonic() - start_wait < SETUP_WAIT_SEC:
             self.led.update()
             time.sleep(self.config.loop_time)
@@ -71,25 +95,27 @@ class RobotController:
             self.run_balance()
 
         except KeyboardInterrupt:
-            pass
+            logger.info("Keyboard Interrupt detected.")
+        except Exception as e:
+            logger.exception(f"Unexpected error: {e}")
         finally:
             if self.config_dirty:
                 self.config.save()
             self.hw.stop()
             self.led.signal_off()
             self.hw.cleanup()
-            print("\nMotors Stopped.")
+            logger.info("Motors Stopped. Exiting.")
 
     def run_calibrate(self) -> None:
-        print("-> Calibrating Vertical...")
+        logger.info("-> Calibrating Vertical...")
         self.led.signal_setup()
 
         # Update pitch once to get initial reading
         self.get_pitch(self.config.loop_time)
         self.config.pid.target_angle = self.pitch
 
-        print(f"-> Calibrated Vertical at: {self.config.pid.target_angle:.2f}")
-        print("-> Let it wobble gently (Step 2)...")
+        logger.info(f"-> Calibrated Vertical at: {self.config.pid.target_angle:.2f}")
+        logger.info("-> Let it wobble gently (Step 2)...")
 
         # Pause
         pause_start = time.monotonic()
@@ -98,12 +124,12 @@ class RobotController:
             time.sleep(self.config.loop_time)
 
     def run_tune(self) -> None:
-        print("-> Auto-Tuning...")
+        logger.info("-> Auto-Tuning...")
         self.led.signal_tuning()
 
-        while self.running:
-            loop_start = time.monotonic()
+        rate = RateLimiter(1.0 / self.config.loop_time)
 
+        while self.running:
             pitch, _, _ = self.get_pitch(self.config.loop_time)
             self.led.update()
 
@@ -118,11 +144,11 @@ class RobotController:
             ):
                 self.vibration_counter += 1
 
-            if self.vibration_counter > VIBRATION_THRESHOLD:
+            if self.vibration_counter > self.config.vibration_threshold:
                 self.config.pid.kp *= 0.6
                 self.config.pid.kd = self.config.pid.kp * 0.05
                 self.config.pid.ki = self.config.pid.kp * 0.005
-                print(
+                logger.info(
                     f"-> Tuned! Kp={self.config.pid.kp:.2f} Kd={self.config.pid.kd:.2f}"
                 )
                 self.config.save()
@@ -134,25 +160,24 @@ class RobotController:
             self.hw.set_motors(output, output)
             self.pid.last_error = error
 
-            self._maintain_loop_timing(loop_start)
+            rate.sleep()
 
     def run_balance(self) -> None:
-        print("-> Balancing...")
+        logger.info("-> Balancing...")
         self.led.signal_ready()
 
         last_pitch_rate = 0.0
+        rate = RateLimiter(1.0 / self.config.loop_time)
 
         while self.running:
-            loop_start = time.monotonic()
-
             pitch, pitch_rate, yaw_rate = self.get_pitch(self.config.loop_time)
             self.led.update()
 
             error = self.config.pid.target_angle - pitch
 
             # Fall detection
-            if abs(error) > FALL_ANGLE_LIMIT:
-                print("!!! FELL OVER !!!")
+            if abs(error) > self.config.fall_angle_limit:
+                logger.warning("!!! FELL OVER !!!")
                 self.hw.stop()
                 if self.config_dirty:
                     self.config.save()
@@ -162,6 +187,7 @@ class RobotController:
                 # Restore state after recover
                 self.led.signal_ready()
                 self.pid.reset()
+                rate.reset() # Reset timer to avoid catch-up
                 continue
 
             # PID Update
@@ -177,7 +203,7 @@ class RobotController:
                 self.config.pid.ki = max(0.0, self.config.pid.ki + ki_n)
                 self.config.pid.kd = max(0.0, self.config.pid.kd + kd_n)
                 self.config_dirty = True
-                print(
+                logger.info(
                     f"-> Tuned: P={self.config.pid.kp:.2f} I={self.config.pid.ki:.3f} D={self.config.pid.kd:.2f}"
                 )
 
@@ -188,7 +214,7 @@ class RobotController:
             comp_factor = self.battery.update(output, ang_accel, self.config.loop_time)
             # Log low battery occasionally
             if comp_factor < 0.95 and (time.monotonic() * 10) % 50 < 1:
-                print(f"-> Low Battery? Compensating: {int(comp_factor * 100)}%")
+                logger.warning(f"-> Low Battery? Compensating: {int(comp_factor * 100)}%")
 
             # Drive
             final_drive = output / comp_factor
@@ -202,29 +228,25 @@ class RobotController:
                 self.last_save_time = time.monotonic()
                 self.config_dirty = False
 
-            self._maintain_loop_timing(loop_start)
+            rate.sleep()
 
     def run_recover(self) -> None:
         self.led.signal_off()
         self.hw.stop()
 
+        rate = RateLimiter(1.0 / self.config.loop_time)
+
         while self.running:
-            loop_start = time.monotonic()
             pitch, _, _ = self.get_pitch(self.config.loop_time)
             self.led.update()
 
             error = self.config.pid.target_angle - pitch
             if abs(error) < 5.0:
-                print(f"-> Upright detected! (Pitch: {pitch:.2f})")
+                logger.info(f"-> Upright detected! (Pitch: {pitch:.2f})")
                 self.led.countdown()
                 return  # Back to balance
 
-            self._maintain_loop_timing(loop_start)
-
-    def _maintain_loop_timing(self, loop_start: float) -> None:
-        elapsed = time.monotonic() - loop_start
-        if elapsed < self.config.loop_time:
-            time.sleep(self.config.loop_time - elapsed)
+            rate.sleep()
 
 
 def main() -> None:

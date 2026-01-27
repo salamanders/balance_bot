@@ -1,11 +1,9 @@
 import json
-import sys
 from dataclasses import dataclass, asdict
 from pathlib import Path
 from typing import Any
 
 CONFIG_FILE = Path("pid_config.json")
-FORCE_CALIB_FILE = Path("force_calibration.txt")
 
 
 @dataclass
@@ -28,13 +26,16 @@ class RobotConfig:
     gyro_pitch_invert: bool = False
     loop_time: float = 0.01  # 10ms
 
+    # Operational Parameters
+    fall_angle_limit: float = 45.0
+    complementary_alpha: float = 0.98
+    vibration_threshold: int = 10
+
     @classmethod
     def load(cls) -> "RobotConfig":
-        pid = PIDParams()
-        cfg = cls(pid=pid)
-
-        if cls._check_force_calibration():
-            return cfg
+        # Start with defaults
+        pid_params = PIDParams()
+        config_kwargs = {}
 
         if CONFIG_FILE.exists():
             try:
@@ -42,40 +43,27 @@ class RobotConfig:
                 data = json.loads(text)
                 data = cls._migrate_legacy_data(data)
 
-                # Apply data to config
-                # Handle PID params
-                if "pid" in data:
+                # 1. Handle PID
+                if "pid" in data and isinstance(data["pid"], dict):
                     pid_data = data["pid"]
-                    # Update existing pid object
-                    for k, v in pid_data.items():
-                        if hasattr(pid, k):
-                            setattr(pid, k, v)
+                    # Filter keys valid for PIDParams
+                    valid_pid = {k: v for k, v in pid_data.items() if k in PIDParams.__annotations__}
+                    pid_params = PIDParams(**valid_pid)
 
-                # Handle root params
-                for k, v in data.items():
-                    if k != "pid" and hasattr(cfg, k):
-                        setattr(cfg, k, v)
+                # 2. Handle Root Config
+                # Filter keys valid for RobotConfig
+                valid_config = {k: v for k, v in data.items() if k in RobotConfig.__annotations__ and k != "pid"}
+                config_kwargs = valid_config
 
                 print(
-                    f"-> Loaded Config: Kp={pid.kp:.2f} Ki={pid.ki:.2f} "
-                    f"Kd={pid.kd:.2f} Target={pid.target_angle:.2f}"
+                    f"-> Loaded Config: Kp={pid_params.kp:.2f} Ki={pid_params.ki:.2f} "
+                    f"Kd={pid_params.kd:.2f} Target={pid_params.target_angle:.2f}"
                 )
 
             except (json.JSONDecodeError, OSError) as e:
                 print(f"-> Error loading config: {e}")
 
-        return cfg
-
-    @staticmethod
-    def _check_force_calibration() -> bool:
-        force = False
-        if FORCE_CALIB_FILE.exists():
-            print(f"-> Force calibration file found: {FORCE_CALIB_FILE}")
-            force = True
-        if "--force-calibration" in sys.argv:
-            print("-> Force calibration flag found")
-            force = True
-        return force
+        return cls(pid=pid_params, **config_kwargs)
 
     @staticmethod
     def _migrate_legacy_data(data: dict[str, Any]) -> dict[str, Any]:
@@ -98,7 +86,7 @@ class RobotConfig:
         for old_key, new_key in legacy_map.items():
             if old_key in data:
                 pid_data[new_key] = data[old_key]
-                del new_data[old_key] # Clean up root
+                del new_data[old_key]  # Clean up root
 
         new_data["pid"] = pid_data
         return new_data

@@ -1,6 +1,52 @@
 import os
 import math
-from typing import Any
+from typing import Protocol, runtime_checkable
+
+from .utils import clamp
+
+
+@runtime_checkable
+class MotorDriver(Protocol):
+    def init(self) -> None: ...
+    def cleanup(self) -> None: ...
+    def stop(self) -> None: ...
+    def setMotor(self, motor: int, value: int) -> None: ...
+
+
+@runtime_checkable
+class IMUDriver(Protocol):
+    def get_accel_data(self) -> dict[str, float]: ...
+    def get_gyro_data(self) -> dict[str, float]: ...
+
+
+class PiconZeroAdapter:
+    """Adapter for the vendored piconzero module."""
+    def __init__(self, pz_module):
+        self.pz = pz_module
+
+    def init(self) -> None:
+        self.pz.init()
+
+    def cleanup(self) -> None:
+        self.pz.cleanup()
+
+    def stop(self) -> None:
+        self.pz.stop()
+
+    def setMotor(self, motor: int, value: int) -> None:
+        self.pz.setMotor(motor, value)
+
+
+class MPU6050Adapter:
+    """Adapter for the mpu6050 library class."""
+    def __init__(self, sensor_instance):
+        self.sensor = sensor_instance
+
+    def get_accel_data(self) -> dict[str, float]:
+        return self.sensor.get_accel_data()
+
+    def get_gyro_data(self) -> dict[str, float]:
+        return self.sensor.get_gyro_data()
 
 
 class RobotHardware:
@@ -20,8 +66,8 @@ class RobotHardware:
         self.gyro_axis = gyro_axis
         self.gyro_invert = gyro_invert
 
-        self.pz: Any = None
-        self.sensor: Any = None
+        self.pz: MotorDriver
+        self.sensor: IMUDriver
 
         self._init_hardware()
 
@@ -35,8 +81,8 @@ class RobotHardware:
             from . import piconzero as pz_module
             from mpu6050 import mpu6050
 
-            self.pz = pz_module
-            self.sensor = mpu6050(0x68)
+            self.pz = PiconZeroAdapter(pz_module)
+            self.sensor = MPU6050Adapter(mpu6050(0x68))
             print("Hardware initialized.")
         except (ImportError, OSError):
             print("Hardware not found. Falling back to Mock Mode.")
@@ -46,22 +92,19 @@ class RobotHardware:
         print("Running in Mock Mode")
         from .mocks import MockPiconZero, MockMPU6050
 
+        # Mocks must implement the Protocols
         self.pz = MockPiconZero()
         self.sensor = MockMPU6050(0x68)
 
     def init(self) -> None:
         """Initialize hardware."""
-        if hasattr(self.pz, "init"):
-            self.pz.init()
+        self.pz.init()
 
     def read_imu_raw(self) -> tuple[dict[str, float], dict[str, float]]:
         """
         Returns raw accelerometer and gyro data.
         Returns: (accel_dict, gyro_dict)
         """
-        if not self.sensor:
-            return {"x": 0.0, "y": 0.0, "z": 0.0}, {"x": 0.0, "y": 0.0, "z": 0.0}
-
         return self.sensor.get_accel_data(), self.sensor.get_gyro_data()
 
     def read_imu_processed(self) -> tuple[float, float, float]:
@@ -103,25 +146,17 @@ class RobotHardware:
         if self.invert_r:
             right = -right
 
-        left_val = self._clamp(left)
-        right_val = self._clamp(right)
+        # Use helper clamp, cast to int for driver
+        left_val = int(clamp(left, -100, 100))
+        right_val = int(clamp(right, -100, 100))
 
         self.pz.setMotor(self.motor_l, left_val)
         self.pz.setMotor(self.motor_r, right_val)
 
-    @staticmethod
-    def _clamp(val: float, min_val: int = -100, max_val: int = 100) -> int:
-        return int(max(min(val, max_val), min_val))
-
     def stop(self) -> None:
         """Stop all motors."""
-        if hasattr(self.pz, "stop"):
-            self.pz.stop()
-        else:
-            self.pz.setMotor(self.motor_l, 0)
-            self.pz.setMotor(self.motor_r, 0)
+        self.pz.stop()
 
     def cleanup(self) -> None:
         """Cleanup hardware resources."""
-        if hasattr(self.pz, "cleanup"):
-            self.pz.cleanup()
+        self.pz.cleanup()
