@@ -1,18 +1,12 @@
 import os
 import math
 import logging
-from typing import Protocol, runtime_checkable, TypedDict
+from typing import Protocol, runtime_checkable
 from dataclasses import dataclass
 
-from .utils import clamp, calculate_pitch
+from .utils import clamp, calculate_pitch, Vector3
 
 logger = logging.getLogger(__name__)
-
-
-class Vector3(TypedDict):
-    x: float
-    y: float
-    z: float
 
 
 @dataclass(frozen=True)
@@ -27,7 +21,7 @@ class MotorDriver(Protocol):
     def init(self) -> None: ...
     def cleanup(self) -> None: ...
     def stop(self) -> None: ...
-    def setMotor(self, motor: int, value: int) -> None: ...
+    def set_motor(self, motor: int, value: int) -> None: ...
 
 
 @runtime_checkable
@@ -50,7 +44,7 @@ class PiconZeroAdapter:
     def stop(self) -> None:
         self.pz.stop()
 
-    def setMotor(self, motor: int, value: int) -> None:
+    def set_motor(self, motor: int, value: int) -> None:
         self.pz.setMotor(motor, value)
 
 
@@ -124,7 +118,7 @@ class RobotHardware:
         """
         return self.sensor.get_accel_data(), self.sensor.get_gyro_data()
 
-    def read_imu_processed(self) -> IMUReading:
+    def read_imu_converted(self) -> IMUReading:
         """
         Read IMU and calculate pitch/rates based on config.
         """
@@ -172,8 +166,8 @@ class RobotHardware:
         left_val = int(clamp(left, -100, 100))
         right_val = int(clamp(right, -100, 100))
 
-        self.pz.setMotor(self.motor_l, left_val)
-        self.pz.setMotor(self.motor_r, right_val)
+        self.pz.set_motor(self.motor_l, left_val)
+        self.pz.set_motor(self.motor_r, right_val)
 
     def stop(self) -> None:
         """Stop all motors."""

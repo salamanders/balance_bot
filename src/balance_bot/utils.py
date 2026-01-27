@@ -3,10 +3,17 @@ import time
 import math
 import logging
 from pathlib import Path
+from typing import TypedDict
 
 logger = logging.getLogger(__name__)
 
 FORCE_CALIB_FILE = Path("force_calibration.txt")
+
+
+class Vector3(TypedDict):
+    x: float
+    y: float
+    z: float
 
 
 class ComplementaryFilter:

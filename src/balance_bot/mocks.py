@@ -9,7 +9,7 @@ class MockPiconZero:
     def stop(self) -> None:
         print("[MockPiconZero] stop")
 
-    def setMotor(self, motor: int, value: int) -> None:
+    def set_motor(self, motor: int, value: int) -> None:
         # Mock implementation, no-op or log if needed
         pass
 

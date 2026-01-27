@@ -145,7 +145,7 @@ class WiringCheck:
         samples = 10
         for _ in range(samples):
             # Now using the shared logic in hw
-            reading = self.hw.read_imu_processed()
+            reading = self.hw.read_imu_converted()
             p_sum += reading.pitch_angle
             time.sleep(0.01)
 

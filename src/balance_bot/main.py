@@ -71,7 +71,7 @@ class RobotController:
         logger.info(">>> ROBOT ALIVE. Hold vertical for STEP 1.")
 
     def get_pitch(self, dt: float) -> IMUReading:
-        reading = self.hw.read_imu_processed()
+        reading = self.hw.read_imu_converted()
         self.pitch = self.filter.update(reading.pitch_angle, reading.pitch_rate, dt)
         return reading
 
@@ -226,7 +226,7 @@ class RobotController:
         Execute one step of the balancing control loop.
         """
         # PID Update
-        output = self.pid.update(error, dt)
+        output = self.pid.update(error, dt, measurement_rate=reading.pitch_rate)
 
         # Turn Correction
         turn_correction = -reading.yaw_rate * 0.5
