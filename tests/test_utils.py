@@ -1,5 +1,6 @@
 import time
-from balance_bot.utils import clamp, RateLimiter, ComplementaryFilter
+import math
+from balance_bot.utils import clamp, RateLimiter, ComplementaryFilter, calculate_pitch
 
 def test_clamp():
     assert clamp(10, 0, 5) == 5.0
@@ -49,3 +50,16 @@ def test_complementary_filter():
 
     # Internal state should update
     assert cf.angle == res
+
+def test_calculate_pitch():
+    # Vertical (Z=1, Y=0)
+    assert math.isclose(calculate_pitch(0.0, 1.0), 0.0)
+
+    # 45 degrees forward (Y=1, Z=1)
+    assert math.isclose(calculate_pitch(1.0, 1.0), 45.0)
+
+    # 90 degrees forward (Y=1, Z=0)
+    assert math.isclose(calculate_pitch(1.0, 0.0), 90.0)
+
+    # -45 degrees backward (Y=-1, Z=1)
+    assert math.isclose(calculate_pitch(-1.0, 1.0), -45.0)

@@ -4,7 +4,7 @@ import logging
 from typing import Protocol, runtime_checkable, TypedDict
 from dataclasses import dataclass
 
-from .utils import clamp
+from .utils import clamp, calculate_pitch
 
 logger = logging.getLogger(__name__)
 
@@ -132,16 +132,18 @@ class RobotHardware:
 
         if self.gyro_axis == "y":
             # Pitch around Y axis
-            raw_acc_y = accel["x"]
+            accel_forward = accel["x"]
+            accel_vertical = accel["z"]
             raw_gyro_rate = gyro["y"]
         else:
             # Default: Pitch around X axis (Y is forward)
-            raw_acc_y = accel["y"]
+            accel_forward = accel["y"]
+            accel_vertical = accel["z"]
             raw_gyro_rate = gyro["x"]
 
         # Calculate Accelerometer Angle
-        # atan2 returns radians, convert to degrees
-        acc_angle = math.degrees(math.atan2(raw_acc_y, accel["z"]))
+        acc_angle = calculate_pitch(accel_forward, accel_vertical)
+
         gyro_rate = raw_gyro_rate
         yaw_rate = gyro["z"]
 

@@ -4,7 +4,7 @@ import logging
 from enum import Enum, auto
 from pathlib import Path
 
-from .config import RobotConfig, PIDParams
+from .config import RobotConfig, PIDParams, temp_pid_overrides
 from .robot_hardware import RobotHardware, IMUReading
 from .pid import PIDController
 from .leds import LedController
@@ -146,14 +146,10 @@ class RobotController:
         # Ensure we start fresh
         self.pid.reset()
 
-        # Temporarily zero I and D for tuning loop
-        saved_ki = self.config.pid.ki
-        saved_kd = self.config.pid.kd
-        self.config.pid.ki = 0.0
-        self.config.pid.kd = 0.0
+        found_tune = False
 
-        success = False
-        try:
+        # Temporarily zero I and D for tuning loop using context manager
+        with temp_pid_overrides(self.config.pid, ki=0.0, kd=0.0):
             while self.running:
                 self.get_pitch(self.config.loop_time)
                 self.led.update()
@@ -170,26 +166,26 @@ class RobotController:
                     self.vibration_counter += 1
 
                 if self.vibration_counter > self.config.vibration_threshold:
-                    self.config.pid.kp *= 0.6
-                    self.config.pid.kd = self.config.pid.kp * 0.05
-                    self.config.pid.ki = self.config.pid.kp * 0.005
-                    logger.info(
-                        f"-> Tuned! Kp={self.config.pid.kp:.2f} Kd={self.config.pid.kd:.2f}"
-                    )
-                    self.config.save()
-                    self.vibration_counter = 0
-                    success = True
-                    return RobotState.BALANCE
+                    found_tune = True
+                    break
 
                 output = self.pid.update(error, self.config.loop_time)
                 # Simple P loop for tuning, no turn correction
                 self.hw.set_motors(output, output)
 
                 rate.sleep()
-        finally:
-            if not success:
-                self.config.pid.ki = saved_ki
-                self.config.pid.kd = saved_kd
+
+        if found_tune:
+            # Re-apply calculations based on the Kp we reached
+            self.config.pid.kp *= 0.6
+            self.config.pid.kd = self.config.pid.kp * 0.05
+            self.config.pid.ki = self.config.pid.kp * 0.005
+            logger.info(
+                f"-> Tuned! Kp={self.config.pid.kp:.2f} Kd={self.config.pid.kd:.2f}"
+            )
+            self.config.save()
+            self.vibration_counter = 0
+            return RobotState.BALANCE
 
         return RobotState.EXIT
 
