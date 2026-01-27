@@ -1,8 +1,25 @@
 import time
 import logging
-from typing import TypeVar
 
-T = TypeVar("T", int, float)
+class ComplementaryFilter:
+    """
+    A simple Complementary Filter for sensor fusion.
+    Combines a noisy but fast signal (Gyro) with a stable but slow signal (Accel).
+    """
+    def __init__(self, alpha: float):
+        self.alpha = alpha
+        self.angle = 0.0
+
+    def update(self, new_angle: float, rate: float, dt: float) -> float:
+        """
+        Update the filter state.
+        :param new_angle: The new absolute angle measurement (e.g., from Accelerometer).
+        :param rate: The rate of change (e.g., from Gyroscope).
+        :param dt: Time delta in seconds.
+        :return: The filtered angle.
+        """
+        self.angle = (self.alpha * (self.angle + rate * dt)) + ((1.0 - self.alpha) * new_angle)
+        return self.angle
 
 
 class RateLimiter:
@@ -40,7 +57,7 @@ class LogThrottler:
         return False
 
 
-def clamp(value: T, min_val: T, max_val: T) -> T:
+def clamp(value: float, min_val: float, max_val: float) -> float:
     """Clamp a value between a minimum and maximum."""
     return max(min(value, max_val), min_val)
 
