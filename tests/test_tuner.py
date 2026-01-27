@@ -1,4 +1,3 @@
-import pytest
 from balance_bot.tuner import ContinuousTuner
 
 def test_oscillation_detection():

@@ -104,14 +104,14 @@ class WiringCheck:
         input()
 
         # Read baseline
-        p, _, _ = self.get_pitch_snapshot()
+        p = self.get_pitch_snapshot()
         print(f"Baseline Pitch: {p:.2f}")
 
         print("\nNow tilt the robot FORWARD (approx 20-30 degrees).")
         print("Hold it there and press Enter.")
         input()
 
-        p_tilt, _, _ = self.get_pitch_snapshot()
+        p_tilt = self.get_pitch_snapshot()
         print(f"Tilted Pitch: {p_tilt:.2f}")
 
         diff = p_tilt - p
@@ -139,17 +139,17 @@ class WiringCheck:
                 self.reload_hw()
                 print(f"Axis changed to {self.config.gyro_pitch_axis}. Please re-test.")
 
-    def get_pitch_snapshot(self):
+    def get_pitch_snapshot(self) -> float:
         # Average a few readings
-        p_sum = 0
+        p_sum = 0.0
         samples = 10
         for _ in range(samples):
             # Now using the shared logic in hw
-            acc_angle, _, _ = self.hw.read_imu_processed()
-            p_sum += acc_angle
+            reading = self.hw.read_imu_processed()
+            p_sum += reading.pitch_angle
             time.sleep(0.01)
 
-        return p_sum / samples, 0, 0
+        return p_sum / samples
 
     def cleanup(self):
         self.hw.stop()

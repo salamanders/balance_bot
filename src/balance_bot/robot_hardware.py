@@ -1,11 +1,25 @@
 import os
 import math
 import logging
-from typing import Protocol, runtime_checkable
+from typing import Protocol, runtime_checkable, TypedDict
+from dataclasses import dataclass
 
 from .utils import clamp
 
 logger = logging.getLogger(__name__)
+
+
+class Vector3(TypedDict):
+    x: float
+    y: float
+    z: float
+
+
+@dataclass(frozen=True)
+class IMUReading:
+    pitch_angle: float
+    pitch_rate: float
+    yaw_rate: float
 
 
 @runtime_checkable
@@ -18,8 +32,8 @@ class MotorDriver(Protocol):
 
 @runtime_checkable
 class IMUDriver(Protocol):
-    def get_accel_data(self) -> dict[str, float]: ...
-    def get_gyro_data(self) -> dict[str, float]: ...
+    def get_accel_data(self) -> Vector3: ...
+    def get_gyro_data(self) -> Vector3: ...
 
 
 class PiconZeroAdapter:
@@ -45,10 +59,10 @@ class MPU6050Adapter:
     def __init__(self, sensor_instance):
         self.sensor = sensor_instance
 
-    def get_accel_data(self) -> dict[str, float]:
+    def get_accel_data(self) -> Vector3:
         return self.sensor.get_accel_data()
 
-    def get_gyro_data(self) -> dict[str, float]:
+    def get_gyro_data(self) -> Vector3:
         return self.sensor.get_gyro_data()
 
 
@@ -103,17 +117,16 @@ class RobotHardware:
         """Initialize hardware."""
         self.pz.init()
 
-    def read_imu_raw(self) -> tuple[dict[str, float], dict[str, float]]:
+    def read_imu_raw(self) -> tuple[Vector3, Vector3]:
         """
         Returns raw accelerometer and gyro data.
         Returns: (accel_dict, gyro_dict)
         """
         return self.sensor.get_accel_data(), self.sensor.get_gyro_data()
 
-    def read_imu_processed(self) -> tuple[float, float, float]:
+    def read_imu_processed(self) -> IMUReading:
         """
         Read IMU and calculate pitch/rates based on config.
-        Returns: (accel_angle, pitch_rate, yaw_rate)
         """
         accel, gyro = self.read_imu_raw()
 
@@ -136,7 +149,11 @@ class RobotHardware:
             acc_angle = -acc_angle
             gyro_rate = -gyro_rate
 
-        return acc_angle, gyro_rate, yaw_rate
+        return IMUReading(
+            pitch_angle=acc_angle,
+            pitch_rate=gyro_rate,
+            yaw_rate=yaw_rate
+        )
 
     def set_motors(self, left: float, right: float) -> None:
         """

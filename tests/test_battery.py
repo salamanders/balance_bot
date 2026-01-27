@@ -1,4 +1,3 @@
-import pytest
 from balance_bot.battery import BatteryEstimator
 
 def test_battery_estimator_baseline():
@@ -56,7 +55,6 @@ def test_battery_estimator_smoothing():
 
     # Instant drop in responsiveness
     # Accel=50, PWM=50 => Ratio=1.0 (vs Baseline 2.0) => Target 0.5
-    prev_factor = 1.0
 
     # One step
     factor = estimator.update(50, 50, 0.01)

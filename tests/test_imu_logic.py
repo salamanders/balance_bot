@@ -1,7 +1,6 @@
-import pytest
 import math
 from unittest.mock import MagicMock
-from balance_bot.robot_hardware import RobotHardware
+from balance_bot.robot_hardware import RobotHardware, IMUReading
 
 # We need to mock the imports inside RobotHardware
 # But RobotHardware mocks them if ImportError.
@@ -18,15 +17,15 @@ def test_imu_processing_default(monkeypatch):
     # Mock the sensor
     hw.sensor = MagicMock()
     # Accel Z = 1G (vertical), others 0
-    hw.sensor.get_accel_data.return_value = {"x": 0, "y": 0, "z": 9.8}
-    hw.sensor.get_gyro_data.return_value = {"x": 0, "y": 0, "z": 0}
+    hw.sensor.get_accel_data.return_value = {"x": 0.0, "y": 0.0, "z": 9.8}
+    hw.sensor.get_gyro_data.return_value = {"x": 0.0, "y": 0.0, "z": 0.0}
 
     # Default axis is X. Y is forward.
     # Pitch = atan2(acc_y, acc_z) = atan2(0, 9.8) = 0
 
-    acc, gyro_rate, yaw_rate = hw.read_imu_processed()
-    assert math.isclose(acc, 0.0)
-    assert math.isclose(gyro_rate, 0.0)
+    reading: IMUReading = hw.read_imu_processed()
+    assert math.isclose(reading.pitch_angle, 0.0)
+    assert math.isclose(reading.pitch_rate, 0.0)
 
 def test_imu_processing_tilted(monkeypatch):
     monkeypatch.setenv("MOCK_HARDWARE", "1")
@@ -36,13 +35,13 @@ def test_imu_processing_tilted(monkeypatch):
     # Simulate tilt 45 deg forward
     # Y = sin(45)*9.8, Z = cos(45)*9.8
     val = 9.8 * 0.707
-    hw.sensor.get_accel_data.return_value = {"x": 0, "y": val, "z": val}
-    hw.sensor.get_gyro_data.return_value = {"x": 10.0, "y": 0, "z": 0}
+    hw.sensor.get_accel_data.return_value = {"x": 0.0, "y": val, "z": val}
+    hw.sensor.get_gyro_data.return_value = {"x": 10.0, "y": 0.0, "z": 0.0}
 
-    acc, gyro_rate, yaw_rate = hw.read_imu_processed()
+    reading = hw.read_imu_processed()
 
-    assert math.isclose(acc, 45.0, abs_tol=0.1)
-    assert math.isclose(gyro_rate, 10.0)
+    assert math.isclose(reading.pitch_angle, 45.0, abs_tol=0.1)
+    assert math.isclose(reading.pitch_rate, 10.0)
 
 def test_imu_processing_axis_y(monkeypatch):
     monkeypatch.setenv("MOCK_HARDWARE", "1")
@@ -52,13 +51,13 @@ def test_imu_processing_axis_y(monkeypatch):
 
     # Simulate tilt on X axis (which is now pitch)
     val = 9.8 * 0.707
-    hw.sensor.get_accel_data.return_value = {"x": val, "y": 0, "z": val}
-    hw.sensor.get_gyro_data.return_value = {"x": 0, "y": 5.0, "z": 0}
+    hw.sensor.get_accel_data.return_value = {"x": val, "y": 0.0, "z": val}
+    hw.sensor.get_gyro_data.return_value = {"x": 0.0, "y": 5.0, "z": 0.0}
 
-    acc, gyro_rate, yaw_rate = hw.read_imu_processed()
+    reading = hw.read_imu_processed()
 
-    assert math.isclose(acc, 45.0, abs_tol=0.1)
-    assert math.isclose(gyro_rate, 5.0) # Uses Y gyro
+    assert math.isclose(reading.pitch_angle, 45.0, abs_tol=0.1)
+    assert math.isclose(reading.pitch_rate, 5.0) # Uses Y gyro
 
 def test_imu_processing_invert(monkeypatch):
     monkeypatch.setenv("MOCK_HARDWARE", "1")
@@ -66,10 +65,10 @@ def test_imu_processing_invert(monkeypatch):
     hw.sensor = MagicMock()
 
     val = 9.8 * 0.707
-    hw.sensor.get_accel_data.return_value = {"x": 0, "y": val, "z": val}
-    hw.sensor.get_gyro_data.return_value = {"x": 10.0, "y": 0, "z": 0}
+    hw.sensor.get_accel_data.return_value = {"x": 0.0, "y": val, "z": val}
+    hw.sensor.get_gyro_data.return_value = {"x": 10.0, "y": 0.0, "z": 0.0}
 
-    acc, gyro_rate, yaw_rate = hw.read_imu_processed()
+    reading = hw.read_imu_processed()
 
-    assert math.isclose(acc, -45.0, abs_tol=0.1)
-    assert math.isclose(gyro_rate, -10.0)
+    assert math.isclose(reading.pitch_angle, -45.0, abs_tol=0.1)
+    assert math.isclose(reading.pitch_rate, -10.0)
