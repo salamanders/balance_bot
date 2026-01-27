@@ -14,8 +14,8 @@ axle_radius = 4;
 // Outer radius of the rigid hub zone
 hub_outer_radius = 16; 
 
-// Outer radius of the compliant spoke zone
-spoke_outer_radius = 38;
+// Outer radius of the compliant soft zone
+soft_outer_radius = 38;
 
 // Final outer radius of the tire (the tread surface)
 tire_outer_radius = 48;  
@@ -35,7 +35,7 @@ vane_thickness = 2*nozzle_diameter;
 // Controls the "V" shape on the tread (Ground smoothness)
 chevron_angle = 35; 
 
-// Controls the "Lean" of the spoke (Torque Stiffness)
+// Controls the "Lean" of the soft (Torque Stiffness)
 // 15-20 degrees is usually enough. Too high and it gets too stiff vertically.
 truss_angle = 55; 
 
@@ -52,27 +52,52 @@ module ring(height, r_outer, r_inner) {
     }
 }
 
+
+// ==============================================
+// Generates the geometry for the interlocking teeth.
+// We call this twice: once to ADD to the hub, once to SUBTRACT from the cushion.
+module interlock_teeth() {
+    num_teeth = 12;      // 12 teeth is plenty for grip
+    tooth_depth = 4.0;   // How deep they bite into the cushion (mm)
+    tooth_width = 4.0;   // Thickness of the tooth
+    
+    for (i = [0 : num_teeth-1]) {
+        rotate([0, 0, i * (360 / num_teeth)]) 
+        translate([hub_outer_radius, 0, 0]) 
+        // We center the cube on the boundary line so half is in, half is out.
+        // But for the Hub, we only care about the part sticking OUT.
+        translate([tooth_depth/2, 0, 0]) 
+        cube([tooth_depth+1, tooth_width, tire_width], center=true);
+    }
+}
+
 // --- ZONE 1: THE HUB (Red) ---
 // Intended Slicer Settings: 100% Solid Infill, high wall count.
 // Function: Rigid connection to motor.
 module Zone1_Hub() {
-    color("FireBrick") {
-    translate([0,0,0.02/2])
-        ring(height=tire_width+0.02, r_outer=hub_outer_radius, r_inner=axle_radius);
+    color("FireBrick")
+    union() {
+        translate([0,0,0.02/2])
+            ring(height=tire_width+0.02, r_outer=hub_outer_radius, r_inner=axle_radius);
+        interlock_teeth();
     }
 }
 
-// --- ZONE 2: COMPLIANT SPOKES (Blue) ---
+// --- ZONE 2: COMPLIANT softS (Blue) ---
 // Intended Slicer Settings: ~10% Gyroid Infill. 0 Top/Bottom Layers.
 // Function: Shock absorption for rocks.
 // Note: We start exactly where the hub ends.
 // "Infill/Perimeter Overlap" to 30%
-module Zone2_Spokes() {
-    color("SteelBlue") {
-    translate([0,0,0.01/2])
-        ring(height=tire_width+0.01, r_outer=spoke_outer_radius, r_inner=hub_outer_radius);
+module Zone2_softs() {
+    color("SteelBlue")
+    difference() {
+        translate([0,0,0.01/2])
+        ring(height=tire_width+0.01, r_outer=soft_outer_radius, r_inner=hub_outer_radius);
+        scale([1,1,2])
+        interlock_teeth();
     }
 }
+
 
 // --- ZONE 3: SHEAR BAND & TREAD (Green) ---
 // You might want 2-3 top/bottom solid layers here for actual grip surface.
@@ -83,8 +108,8 @@ module Zone2_Spokes() {
 // ZONE 3: THE A-FRAME (TORQUE + SQUISH + NO MESH)
 // ==============================================
 
-half_way_between_spoke_and_tire_r = spoke_outer_radius + (tire_outer_radius-spoke_outer_radius)/2;
-gap_between_spoke_and_tire = tire_outer_radius - spoke_outer_radius - nozzle_diameter*6;
+half_way_between_soft_and_tire_r = soft_outer_radius + (tire_outer_radius-soft_outer_radius)/2;
+gap_between_soft_and_tire = tire_outer_radius - soft_outer_radius - nozzle_diameter*6;
     
 module vanes() {
     chamfer_depth = 1.0;
@@ -93,7 +118,7 @@ module vanes() {
             union() {
             for (i = [0 : num_vanes-1]) {
                 rotate([0, 0, i * (360 / num_vanes)]) 
-                translate([(spoke_outer_radius + tire_outer_radius) / 2, 0, 0]) 
+                translate([(soft_outer_radius + tire_outer_radius) / 2, 0, 0]) 
                 // Compound Angle: Tilt for Tread + Lean for Truss
                 rotate([chevron_angle, 0, -truss_angle]) 
                 color("green")
@@ -106,7 +131,7 @@ module vanes() {
                 color("purple")
                     for (i = [0 : num_vanes-1]) {
                     rotate([6.5, 0, i * (360 / num_vanes)]) 
-                    translate([(spoke_outer_radius + tire_outer_radius) / 2, 0, 0]) 
+                    translate([(soft_outer_radius + tire_outer_radius) / 2, 0, 0]) 
                     // Compound Angle: Tilt for Tread + Lean for Truss
                     rotate([chevron_angle*0.95, 0, 0]) 
                     cube([tire_outer_radius*1.6, vane_thickness, tire_width*3], center=true);
@@ -140,18 +165,18 @@ module vanes() {
             }
             
         }
-        cylinder(h=tire_width+0.1, r=spoke_outer_radius, center=true);
+        cylinder(h=tire_width+0.1, r=soft_outer_radius, center=true);
         // Keep the vanes from touching along the spine
         rotate_extrude(convexity = 10)
-            translate([half_way_between_spoke_and_tire_r, 0, 0])
-                circle(d = gap_between_spoke_and_tire, $fn=36);
+            translate([half_way_between_soft_and_tire_r, 0, 0])
+                circle(d = gap_between_soft_and_tire, $fn=36);
     }
 }
 
 
 module Zone3_ShearVanes() {
     // 1. The Drums (Inner & Outer)
-    ring(height=tire_width, r_outer=spoke_outer_radius + min_wall_thickness, r_inner=spoke_outer_radius);
+    ring(height=tire_width, r_outer=soft_outer_radius + min_wall_thickness, r_inner=soft_outer_radius);
     ring(height=tire_width, r_outer=tire_outer_radius, r_inner=tire_outer_radius - min_wall_thickness);
 
     vanes();
@@ -164,12 +189,17 @@ module Zone3_ShearVanes() {
 // DISPLAY
 // ==============================================
 
+
+color("FireBrick")
 union(){ 
     Zone1_Hub();
 }
+
+color("SteelBlue")
 union() {
-    Zone2_Spokes();
+    Zone2_softs();
 }
+
 color("green")
 union() {
     Zone3_ShearVanes();
