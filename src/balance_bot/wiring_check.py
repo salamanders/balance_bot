@@ -31,21 +31,22 @@ class WiringCheck:
 
             choice = input("Select option: ").strip()
 
-            if choice == "1":
-                self.check_motor("left")
-            elif choice == "2":
-                self.check_motor("right")
-            elif choice == "3":
-                self.check_gyro()
-            elif choice == "4":
-                self.config.save()
-                self.cleanup()
-                sys.exit(0)
-            elif choice == "5":
-                self.cleanup()
-                sys.exit(0)
-            else:
-                print("Invalid option.")
+            match choice:
+                case "1":
+                    self.check_motor("left")
+                case "2":
+                    self.check_motor("right")
+                case "3":
+                    self.check_gyro()
+                case "4":
+                    self.config.save()
+                    self.cleanup()
+                    sys.exit(0)
+                case "5":
+                    self.cleanup()
+                    sys.exit(0)
+                case _:
+                    print("Invalid option.")
 
     def reload_hw(self):
         self.hw.stop()
@@ -78,23 +79,24 @@ class WiringCheck:
 
         ans = input("Result (y/n/o): ").strip().lower()
 
-        if ans == 'y':
-            print("Good.")
-        elif ans == 'n':
-            print(f"-> Marking {side.upper()} motor as INVERTED.")
-            if side == "left":
-                self.config.motor_l_invert = not self.config.motor_l_invert
-            else:
-                self.config.motor_r_invert = not self.config.motor_r_invert
-            self.reload_hw()
-        elif ans == 'o':
-            print("-> SWAPPING Left and Right Motor Channels.")
-            # Swap channels
-            self.config.motor_l, self.config.motor_r = self.config.motor_r, self.config.motor_l
-            self.reload_hw()
-            print("Channels swapped. Please re-test.")
-        else:
-            print("Invalid input.")
+        match ans:
+            case 'y':
+                print("Good.")
+            case 'n':
+                print(f"-> Marking {side.upper()} motor as INVERTED.")
+                if side == "left":
+                    self.config.motor_l_invert = not self.config.motor_l_invert
+                else:
+                    self.config.motor_r_invert = not self.config.motor_r_invert
+                self.reload_hw()
+            case 'o':
+                print("-> SWAPPING Left and Right Motor Channels.")
+                # Swap channels
+                self.config.motor_l, self.config.motor_r = self.config.motor_r, self.config.motor_l
+                self.reload_hw()
+                print("Channels swapped. Please re-test.")
+            case _:
+                print("Invalid input.")
 
     def check_gyro(self):
         print("\n>>> Checking Gyro Orientation...")

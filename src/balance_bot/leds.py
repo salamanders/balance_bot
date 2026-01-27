@@ -1,10 +1,10 @@
 import time
-import os
+from pathlib import Path
 
 
 class LedController:
     def __init__(self):
-        self.led_path: str | None = self._find_led_path()
+        self.led_path: Path | None = self._find_led_path()
         self.mode = "OFF"
         self.last_toggle = 0.0
         self.is_on = False
@@ -13,10 +13,13 @@ class LedController:
         # Turn off initially
         self.set_led(False)
 
-    def _find_led_path(self) -> str | None:
-        paths = ["/sys/class/leds/led0/brightness", "/sys/class/leds/ACT/brightness"]
+    def _find_led_path(self) -> Path | None:
+        paths = [
+            Path("/sys/class/leds/led0/brightness"),
+            Path("/sys/class/leds/ACT/brightness")
+        ]
         for path in paths:
-            if os.path.exists(path):
+            if path.exists():
                 return path
         return None
 
@@ -27,9 +30,9 @@ class LedController:
 
         val = "1" if on else "0"
         try:
-            with open(self.led_path, "w") as f:
-                f.write(val)
+            self.led_path.write_text(val)
         except (PermissionError, OSError):
+            # Often happens if permissions aren't set or we're not on Pi
             pass
 
     def signal_setup(self) -> None:
