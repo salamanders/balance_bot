@@ -1,4 +1,12 @@
 import statistics
+from itertools import pairwise
+from typing import NamedTuple
+
+
+class TuningAdjustment(NamedTuple):
+    kp: float
+    ki: float
+    kd: float
 
 
 class ContinuousTuner:
@@ -25,11 +33,11 @@ class ContinuousTuner:
         self.errors: list[float] = []
         self.cooldown_timer = 0
 
-    def update(self, error: float) -> tuple[float, float, float]:
+    def update(self, error: float) -> TuningAdjustment:
         """
         Add a new error sample and return PID nudges.
         :param error: Current pitch error (Target - Pitch)
-        :return: Tuple (kp_nudge, ki_nudge, kd_nudge)
+        :return: TuningAdjustment(kp, ki, kd)
         """
         self.errors.append(error)
         if len(self.errors) > self.buffer_size:
@@ -38,11 +46,11 @@ class ContinuousTuner:
         # Decrement cooldown
         if self.cooldown_timer > 0:
             self.cooldown_timer -= 1
-            return 0.0, 0.0, 0.0
+            return TuningAdjustment(0.0, 0.0, 0.0)
 
         # Need full buffer to analyze
         if len(self.errors) < self.buffer_size:
-            return 0.0, 0.0, 0.0
+            return TuningAdjustment(0.0, 0.0, 0.0)
 
         # Analyze History
         mean_err = statistics.mean(self.errors)
@@ -82,13 +90,11 @@ class ContinuousTuner:
         if tuned:
             self.cooldown_timer = self.COOLDOWN_RESET
 
-        return kp_nudge, ki_nudge, kd_nudge
+        return TuningAdjustment(kp_nudge, ki_nudge, kd_nudge)
 
     def _count_zero_crossings(self) -> int:
         crossings = 0
-        for i in range(1, len(self.errors)):
-            if (self.errors[i - 1] > 0 and self.errors[i] <= 0) or (
-                self.errors[i - 1] < 0 and self.errors[i] >= 0
-            ):
+        for e1, e2 in pairwise(self.errors):
+            if (e1 > 0 and e2 <= 0) or (e1 < 0 and e2 >= 0):
                 crossings += 1
         return crossings

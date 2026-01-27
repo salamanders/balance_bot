@@ -10,10 +10,9 @@ from .pid import PIDController
 from .leds import LedController
 from .tuner import ContinuousTuner
 from .battery import BatteryEstimator
-from .utils import RateLimiter, LogThrottler, setup_logging, ComplementaryFilter
+from .utils import RateLimiter, LogThrottler, setup_logging, ComplementaryFilter, check_force_calibration_flag
 
 # Constants that are not in config (system behavior)
-FORCE_CALIB_FILE = Path("force_calibration.txt")
 SETUP_WAIT_SEC = 2.0
 CALIBRATION_PAUSE_SEC = 1.0
 SAVE_INTERVAL_SEC = 30.0
@@ -35,7 +34,7 @@ class RobotController:
         setup_logging()
 
         # Check force calibration before loading config
-        if self._check_force_calibration():
+        if check_force_calibration_flag():
             logger.info("Forcing calibration: Using default configuration.")
             self.config = RobotConfig(pid=PIDParams())
         else:
@@ -66,15 +65,6 @@ class RobotController:
 
         # Loop state
         self.last_pitch_rate = 0.0
-
-    def _check_force_calibration(self) -> bool:
-        if FORCE_CALIB_FILE.exists():
-            logger.info(f"Force calibration file found: {FORCE_CALIB_FILE}")
-            return True
-        if "--force-calibration" in sys.argv:
-            logger.info("Force calibration flag found")
-            return True
-        return False
 
     def init(self) -> None:
         self.hw.init()
@@ -246,11 +236,11 @@ class RobotController:
         turn_correction = -reading.yaw_rate * 0.5
 
         # Continuous Tuning
-        kp_n, ki_n, kd_n = self.tuner.update(error)
-        if kp_n != 0 or ki_n != 0 or kd_n != 0:
-            self.config.pid.kp = max(0.1, self.config.pid.kp + kp_n)
-            self.config.pid.ki = max(0.0, self.config.pid.ki + ki_n)
-            self.config.pid.kd = max(0.0, self.config.pid.kd + kd_n)
+        adj = self.tuner.update(error)
+        if adj.kp != 0 or adj.ki != 0 or adj.kd != 0:
+            self.config.pid.kp = max(0.1, self.config.pid.kp + adj.kp)
+            self.config.pid.ki = max(0.0, self.config.pid.ki + adj.ki)
+            self.config.pid.kd = max(0.0, self.config.pid.kd + adj.kd)
             self.config_dirty = True
             logger.info(
                 f"-> Tuned: P={self.config.pid.kp:.2f} I={self.config.pid.ki:.3f} D={self.config.pid.kd:.2f}"
