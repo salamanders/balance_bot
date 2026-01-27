@@ -23,7 +23,7 @@ def test_imu_processing_default(monkeypatch):
     # Default axis is X. Y is forward.
     # Pitch = atan2(acc_y, acc_z) = atan2(0, 9.8) = 0
 
-    reading: IMUReading = hw.read_imu_processed()
+    reading: IMUReading = hw.read_imu_converted()
     assert math.isclose(reading.pitch_angle, 0.0)
     assert math.isclose(reading.pitch_rate, 0.0)
 
@@ -38,7 +38,7 @@ def test_imu_processing_tilted(monkeypatch):
     hw.sensor.get_accel_data.return_value = {"x": 0.0, "y": val, "z": val}
     hw.sensor.get_gyro_data.return_value = {"x": 10.0, "y": 0.0, "z": 0.0}
 
-    reading = hw.read_imu_processed()
+    reading = hw.read_imu_converted()
 
     assert math.isclose(reading.pitch_angle, 45.0, abs_tol=0.1)
     assert math.isclose(reading.pitch_rate, 10.0)
@@ -54,7 +54,7 @@ def test_imu_processing_axis_y(monkeypatch):
     hw.sensor.get_accel_data.return_value = {"x": val, "y": 0.0, "z": val}
     hw.sensor.get_gyro_data.return_value = {"x": 0.0, "y": 5.0, "z": 0.0}
 
-    reading = hw.read_imu_processed()
+    reading = hw.read_imu_converted()
 
     assert math.isclose(reading.pitch_angle, 45.0, abs_tol=0.1)
     assert math.isclose(reading.pitch_rate, 5.0) # Uses Y gyro
@@ -68,7 +68,7 @@ def test_imu_processing_invert(monkeypatch):
     hw.sensor.get_accel_data.return_value = {"x": 0.0, "y": val, "z": val}
     hw.sensor.get_gyro_data.return_value = {"x": 10.0, "y": 0.0, "z": 0.0}
 
-    reading = hw.read_imu_processed()
+    reading = hw.read_imu_converted()
 
     assert math.isclose(reading.pitch_angle, -45.0, abs_tol=0.1)
     assert math.isclose(reading.pitch_rate, -10.0)
