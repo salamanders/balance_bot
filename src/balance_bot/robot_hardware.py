@@ -3,9 +3,13 @@ from typing import Tuple, Dict, Any
 
 
 class RobotHardware:
-    def __init__(self, motor_l: int, motor_r: int):
+    def __init__(
+        self, motor_l: int, motor_r: int, invert_l: bool = False, invert_r: bool = False
+    ):
         self.motor_l = motor_l
         self.motor_r = motor_r
+        self.invert_l = invert_l
+        self.invert_r = invert_r
         self.pz: Any = None
         self.sensor: Any = None
         self.sensor_class: Any = None
@@ -54,6 +58,12 @@ class RobotHardware:
         :param left: Speed -100 to 100
         :param right: Speed -100 to 100
         """
+        # Invert if needed
+        if self.invert_l:
+            left = -left
+        if self.invert_r:
+            right = -right
+
         # Clamp values
         left_val = int(max(min(left, 100), -100))
         right_val = int(max(min(right, 100), -100))
