@@ -69,6 +69,14 @@ class LedController:
             if self.is_on:
                 self.set_led(False)
 
+    def _blink(self, count: int, on_time: float, off_time: float) -> None:
+        """Helper for blocking blink sequences."""
+        for _ in range(count):
+            self.set_led(True)
+            time.sleep(on_time)
+            self.set_led(False)
+            time.sleep(off_time)
+
     def countdown(self) -> None:
         """
         Blocking countdown sequence:
@@ -76,28 +84,12 @@ class LedController:
         """
         logger.info("Starting in...")
 
-        # 3 Blinks
-        for _ in range(3):
-            self.set_led(True)
-            time.sleep(0.2)
-            self.set_led(False)
-            time.sleep(0.2)
-
+        self._blink(3, 0.2, 0.2)
         time.sleep(0.5)
 
-        # 2 Blinks
-        for _ in range(2):
-            self.set_led(True)
-            time.sleep(0.2)
-            self.set_led(False)
-            time.sleep(0.2)
-
+        self._blink(2, 0.2, 0.2)
         time.sleep(0.5)
 
-        # 1 Blink
-        self.set_led(True)
-        time.sleep(0.2)
-        self.set_led(False)
-        time.sleep(0.2)
+        self._blink(1, 0.2, 0.2)
 
         logger.info("GO!")

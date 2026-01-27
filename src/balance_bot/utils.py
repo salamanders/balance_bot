@@ -1,5 +1,12 @@
+import sys
 import time
 import logging
+from pathlib import Path
+
+logger = logging.getLogger(__name__)
+
+FORCE_CALIB_FILE = Path("force_calibration.txt")
+
 
 class ComplementaryFilter:
     """
@@ -69,3 +76,16 @@ def setup_logging(level: int = logging.INFO) -> None:
         format="%(asctime)s [%(levelname)s] %(message)s",
         datefmt="%H:%M:%S",
     )
+
+
+def check_force_calibration_flag() -> bool:
+    """
+    Check if force calibration is requested via file or command line argument.
+    """
+    if FORCE_CALIB_FILE.exists():
+        logger.info(f"Force calibration file found: {FORCE_CALIB_FILE}")
+        return True
+    if "--force-calibration" in sys.argv:
+        logger.info("Force calibration flag found")
+        return True
+    return False
