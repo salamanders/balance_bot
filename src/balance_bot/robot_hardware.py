@@ -1,8 +1,11 @@
 import os
 import math
+import logging
 from typing import Protocol, runtime_checkable
 
 from .utils import clamp
+
+logger = logging.getLogger(__name__)
 
 
 @runtime_checkable
@@ -83,13 +86,13 @@ class RobotHardware:
 
             self.pz = PiconZeroAdapter(pz_module)
             self.sensor = MPU6050Adapter(mpu6050(0x68))
-            print("Hardware initialized.")
+            logger.info("Hardware initialized.")
         except (ImportError, OSError):
-            print("Hardware not found. Falling back to Mock Mode.")
+            logger.warning("Hardware not found. Falling back to Mock Mode.")
             self._init_mock_hardware()
 
     def _init_mock_hardware(self) -> None:
-        print("Running in Mock Mode")
+        logger.info("Running in Mock Mode")
         from .mocks import MockPiconZero, MockMPU6050
 
         # Mocks must implement the Protocols

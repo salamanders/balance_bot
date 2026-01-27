@@ -1,5 +1,8 @@
 import time
+import logging
 from pathlib import Path
+
+logger = logging.getLogger(__name__)
 
 
 class LedController:
@@ -14,14 +17,11 @@ class LedController:
         self.set_led(False)
 
     def _find_led_path(self) -> Path | None:
-        paths = [
+        candidates = (
             Path("/sys/class/leds/led0/brightness"),
-            Path("/sys/class/leds/ACT/brightness")
-        ]
-        for path in paths:
-            if path.exists():
-                return path
-        return None
+            Path("/sys/class/leds/ACT/brightness"),
+        )
+        return next((p for p in candidates if p.exists()), None)
 
     def set_led(self, on: bool) -> None:
         self.is_on = on
@@ -74,7 +74,7 @@ class LedController:
         Blocking countdown sequence:
         3 blinks, pause, 2 blinks, pause, 1 blink, go.
         """
-        print("\nStarting in...")
+        logger.info("Starting in...")
 
         # 3 Blinks
         for _ in range(3):
@@ -100,4 +100,4 @@ class LedController:
         self.set_led(False)
         time.sleep(0.2)
 
-        print("\nGO!")
+        logger.info("GO!")

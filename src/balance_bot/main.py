@@ -9,7 +9,7 @@ from .pid import PIDController
 from .leds import LedController
 from .tuner import ContinuousTuner
 from .battery import BatteryEstimator
-from .utils import RateLimiter, setup_logging
+from .utils import RateLimiter, LogThrottler, setup_logging
 
 # Constants that are not in config (system behavior)
 FORCE_CALIB_FILE = Path("force_calibration.txt")
@@ -43,6 +43,7 @@ class RobotController:
         self.pid = PIDController(self.config.pid)
         self.tuner = ContinuousTuner()
         self.battery = BatteryEstimator()
+        self.battery_logger = LogThrottler(5.0)  # Log every 5 seconds
 
         self.running = True
         self.pitch = 0.0
@@ -213,7 +214,7 @@ class RobotController:
 
             comp_factor = self.battery.update(output, ang_accel, self.config.loop_time)
             # Log low battery occasionally
-            if comp_factor < 0.95 and (time.monotonic() * 10) % 50 < 1:
+            if comp_factor < 0.95 and self.battery_logger.should_log():
                 logger.warning(f"-> Low Battery? Compensating: {int(comp_factor * 100)}%")
 
             # Drive
