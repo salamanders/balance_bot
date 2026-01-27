@@ -24,6 +24,22 @@ class RateLimiter:
         self.next_time = time.monotonic()
 
 
+class LogThrottler:
+    """Helper to throttle log messages."""
+
+    def __init__(self, interval_sec: float):
+        self.interval = interval_sec
+        self.last_log_time = 0.0
+
+    def should_log(self) -> bool:
+        """Returns True if enough time has passed since the last log."""
+        now = time.monotonic()
+        if now - self.last_log_time > self.interval:
+            self.last_log_time = now
+            return True
+        return False
+
+
 def clamp(value: T, min_val: T, max_val: T) -> T:
     """Clamp a value between a minimum and maximum."""
     return max(min(value, max_val), min_val)

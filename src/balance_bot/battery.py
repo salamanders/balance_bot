@@ -1,4 +1,9 @@
 class BatteryEstimator:
+    EMA_ALPHA = 0.05
+    FACTOR_SMOOTHING = 0.01
+    MIN_COMPENSATION = 0.5
+    MAX_COMPENSATION = 1.2
+
     def __init__(self, baseline_samples: int = 100, min_pwm: float = 20.0):
         """
         Estimates battery voltage drop by comparing expected vs actual responsiveness.
@@ -16,9 +21,6 @@ class BatteryEstimator:
         # Factor to scale motor output (1.0 = Full Battery, < 1.0 = Low Battery)
         # We actually use this to BOOST output: Final = Command / Factor
         self.compensation_factor = 1.0
-
-        # Exponential Moving Average alpha for smoothness
-        self.ema_alpha = 0.05
 
     def update(self, pwm: float, angular_accel: float, dt: float) -> float:
         """
@@ -49,8 +51,8 @@ class BatteryEstimator:
         # 2. RUNNING ESTIMATION
         # Smooth the current reading
         self.current_responsiveness = (
-            self.ema_alpha * raw_responsiveness
-            + (1 - self.ema_alpha) * self.current_responsiveness
+            self.EMA_ALPHA * raw_responsiveness
+            + (1 - self.EMA_ALPHA) * self.current_responsiveness
         )
 
         # Calculate Ratio
@@ -61,11 +63,12 @@ class BatteryEstimator:
 
         # Update Factor (smoothly)
         # Factor should track the ratio.
-        target_factor = max(0.5, min(1.2, ratio))
+        target_factor = max(self.MIN_COMPENSATION, min(self.MAX_COMPENSATION, ratio))
 
         # Apply slow smoothing to the factor itself to avoid feedback loops
         self.compensation_factor = (
-            0.01 * target_factor + 0.99 * self.compensation_factor
+            self.FACTOR_SMOOTHING * target_factor
+            + (1 - self.FACTOR_SMOOTHING) * self.compensation_factor
         )
 
         return self.compensation_factor

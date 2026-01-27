@@ -1,8 +1,10 @@
 import json
+import logging
 from dataclasses import dataclass, asdict
 from pathlib import Path
 from typing import Any
 
+logger = logging.getLogger(__name__)
 CONFIG_FILE = Path("pid_config.json")
 
 
@@ -31,6 +33,11 @@ class RobotConfig:
     complementary_alpha: float = 0.98
     vibration_threshold: int = 10
 
+    @staticmethod
+    def _filter_keys(dataclass_type, data: dict[str, Any]) -> dict[str, Any]:
+        """Helper to filter dictionary keys based on dataclass annotations."""
+        return {k: v for k, v in data.items() if k in dataclass_type.__annotations__}
+
     @classmethod
     def load(cls) -> "RobotConfig":
         # Start with defaults
@@ -45,23 +52,19 @@ class RobotConfig:
 
                 # 1. Handle PID
                 if "pid" in data and isinstance(data["pid"], dict):
-                    pid_data = data["pid"]
-                    # Filter keys valid for PIDParams
-                    valid_pid = {k: v for k, v in pid_data.items() if k in PIDParams.__annotations__}
-                    pid_params = PIDParams(**valid_pid)
+                    pid_params = PIDParams(**cls._filter_keys(PIDParams, data["pid"]))
 
                 # 2. Handle Root Config
-                # Filter keys valid for RobotConfig
-                valid_config = {k: v for k, v in data.items() if k in RobotConfig.__annotations__ and k != "pid"}
-                config_kwargs = valid_config
+                config_kwargs = cls._filter_keys(RobotConfig, data)
+                config_kwargs.pop("pid", None)  # Handled separately
 
-                print(
-                    f"-> Loaded Config: Kp={pid_params.kp:.2f} Ki={pid_params.ki:.2f} "
+                logger.info(
+                    f"Loaded Config: Kp={pid_params.kp:.2f} Ki={pid_params.ki:.2f} "
                     f"Kd={pid_params.kd:.2f} Target={pid_params.target_angle:.2f}"
                 )
 
             except (json.JSONDecodeError, OSError) as e:
-                print(f"-> Error loading config: {e}")
+                logger.error(f"Error loading config: {e}")
 
         return cls(pid=pid_params, **config_kwargs)
 
@@ -94,6 +97,6 @@ class RobotConfig:
     def save(self) -> None:
         try:
             CONFIG_FILE.write_text(json.dumps(asdict(self), indent=4))
-            print("-> Config saved.")
+            logger.info("Config saved.")
         except OSError as e:
-            print(f"-> Error saving config: {e}")
+            logger.error(f"Error saving config: {e}")
