@@ -10,7 +10,7 @@ from .pid import PIDController
 from .leds import LedController
 from .tuner import ContinuousTuner
 from .battery import BatteryEstimator
-from .utils import RateLimiter, LogThrottler, setup_logging
+from .utils import RateLimiter, LogThrottler, setup_logging, ComplementaryFilter
 
 # Constants that are not in config (system behavior)
 FORCE_CALIB_FILE = Path("force_calibration.txt")
@@ -54,6 +54,7 @@ class RobotController:
         self.tuner = ContinuousTuner()
         self.battery = BatteryEstimator()
         self.battery_logger = LogThrottler(5.0)  # Log every 5 seconds
+        self.filter = ComplementaryFilter(self.config.complementary_alpha)
 
         self.running = True
         self.pitch = 0.0
@@ -81,13 +82,7 @@ class RobotController:
 
     def get_pitch(self, dt: float) -> IMUReading:
         reading = self.hw.read_imu_processed()
-
-        # Complementary Filter
-        alpha = self.config.complementary_alpha
-        self.pitch = (alpha * (self.pitch + reading.pitch_rate * dt)) + (
-            (1.0 - alpha) * reading.pitch_angle
-        )
-
+        self.pitch = self.filter.update(reading.pitch_angle, reading.pitch_rate, dt)
         return reading
 
     def run(self) -> None:
@@ -158,38 +153,53 @@ class RobotController:
 
         rate = RateLimiter(1.0 / self.config.loop_time)
 
-        while self.running:
-            self.get_pitch(self.config.loop_time)
-            self.led.update()
+        # Ensure we start fresh
+        self.pid.reset()
 
-            error = self.config.pid.target_angle - self.pitch
+        # Temporarily zero I and D for tuning loop
+        saved_ki = self.config.pid.ki
+        saved_kd = self.config.pid.kd
+        self.config.pid.ki = 0.0
+        self.config.pid.kd = 0.0
 
-            # Tune Logic: Increment Kp until vibration
-            self.config.pid.kp += 0.05
+        success = False
+        try:
+            while self.running:
+                self.get_pitch(self.config.loop_time)
+                self.led.update()
 
-            # Vibration detection
-            if (error > 0 and self.pid.last_error < 0) or (
-                error < 0 and self.pid.last_error > 0
-            ):
-                self.vibration_counter += 1
+                error = self.config.pid.target_angle - self.pitch
 
-            if self.vibration_counter > self.config.vibration_threshold:
-                self.config.pid.kp *= 0.6
-                self.config.pid.kd = self.config.pid.kp * 0.05
-                self.config.pid.ki = self.config.pid.kp * 0.005
-                logger.info(
-                    f"-> Tuned! Kp={self.config.pid.kp:.2f} Kd={self.config.pid.kd:.2f}"
-                )
-                self.config.save()
-                self.vibration_counter = 0
-                return RobotState.BALANCE
+                # Tune Logic: Increment Kp until vibration
+                self.config.pid.kp += 0.05
 
-            output = self.config.pid.kp * error
-            # Simple P loop for tuning, no turn correction
-            self.hw.set_motors(output, output)
-            self.pid.last_error = error
+                # Vibration detection
+                if (error > 0 and self.pid.last_error < 0) or (
+                    error < 0 and self.pid.last_error > 0
+                ):
+                    self.vibration_counter += 1
 
-            rate.sleep()
+                if self.vibration_counter > self.config.vibration_threshold:
+                    self.config.pid.kp *= 0.6
+                    self.config.pid.kd = self.config.pid.kp * 0.05
+                    self.config.pid.ki = self.config.pid.kp * 0.005
+                    logger.info(
+                        f"-> Tuned! Kp={self.config.pid.kp:.2f} Kd={self.config.pid.kd:.2f}"
+                    )
+                    self.config.save()
+                    self.vibration_counter = 0
+                    success = True
+                    return RobotState.BALANCE
+
+                output = self.pid.update(error, self.config.loop_time)
+                # Simple P loop for tuning, no turn correction
+                self.hw.set_motors(output, output)
+
+                rate.sleep()
+        finally:
+            if not success:
+                self.config.pid.ki = saved_ki
+                self.config.pid.kd = saved_kd
 
         return RobotState.EXIT
 
