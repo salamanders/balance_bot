@@ -1,5 +1,6 @@
 import sys
 import time
+import math
 import logging
 from pathlib import Path
 
@@ -67,6 +68,15 @@ class LogThrottler:
 def clamp(value: float, min_val: float, max_val: float) -> float:
     """Clamp a value between a minimum and maximum."""
     return max(min(value, max_val), min_val)
+
+
+def calculate_pitch(accel_y: float, accel_z: float) -> float:
+    """
+    Calculate pitch angle in degrees from accelerometer data.
+    Assumes Y is forward/backward axis and Z is vertical.
+    Returns value in degrees.
+    """
+    return math.degrees(math.atan2(accel_y, accel_z))
 
 
 def setup_logging(level: int = logging.INFO) -> None:

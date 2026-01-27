@@ -1,5 +1,6 @@
 import json
 import logging
+from contextlib import contextmanager
 from dataclasses import dataclass, asdict
 from pathlib import Path
 from typing import Any
@@ -15,6 +16,29 @@ class PIDParams:
     kd: float = 0.0
     target_angle: float = 0.0
     integral_limit: float = 20.0
+
+
+@contextmanager
+def temp_pid_overrides(pid_params: PIDParams, **overrides):
+    """
+    Context manager to temporarily override PID parameters.
+    Restores original values on exit.
+    """
+    original_values = {}
+    # Save originals
+    for k, v in overrides.items():
+        if hasattr(pid_params, k):
+            original_values[k] = getattr(pid_params, k)
+            setattr(pid_params, k, v)
+        else:
+            logger.warning(f"PIDParams has no attribute '{k}', ignoring override.")
+
+    try:
+        yield
+    finally:
+        # Restore originals
+        for k, v in original_values.items():
+            setattr(pid_params, k, v)
 
 
 @dataclass
@@ -51,12 +75,12 @@ class RobotConfig:
                 data = cls._migrate_legacy_data(data)
 
                 # 1. Handle PID
-                if "pid" in data and isinstance(data["pid"], dict):
-                    pid_params = PIDParams(**cls._filter_keys(PIDParams, data["pid"]))
+                pid_data = data.pop("pid", {})
+                if isinstance(pid_data, dict):
+                    pid_params = PIDParams(**cls._filter_keys(PIDParams, pid_data))
 
                 # 2. Handle Root Config
                 config_kwargs = cls._filter_keys(RobotConfig, data)
-                config_kwargs.pop("pid", None)  # Handled separately
 
                 logger.info(
                     f"Loaded Config: Kp={pid_params.kp:.2f} Ki={pid_params.ki:.2f} "
@@ -76,9 +100,7 @@ class RobotConfig:
 
         # Legacy Flat Format -> Nested
         new_data = data.copy()
-        pid_data = {}
 
-        # Map legacy keys
         legacy_map = {
             "pid_kp": "kp",
             "pid_ki": "ki",
@@ -86,12 +108,15 @@ class RobotConfig:
             "target_angle": "target_angle"
         }
 
-        for old_key, new_key in legacy_map.items():
-            if old_key in data:
-                pid_data[new_key] = data[old_key]
-                del new_data[old_key]  # Clean up root
+        pid_data = {
+            new_key: new_data.pop(old_key)
+            for old_key, new_key in legacy_map.items()
+            if old_key in new_data
+        }
 
-        new_data["pid"] = pid_data
+        if pid_data:
+            new_data["pid"] = pid_data
+
         return new_data
 
     def save(self) -> None:
