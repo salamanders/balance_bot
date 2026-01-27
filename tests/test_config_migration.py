@@ -1,5 +1,4 @@
 import json
-import pytest
 from balance_bot.config import RobotConfig, PIDParams
 
 # Legacy JSON sample
