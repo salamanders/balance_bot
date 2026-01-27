@@ -1,6 +1,5 @@
 import time
 import sys
-import math
 from .config import RobotConfig
 from .robot_hardware import RobotHardware
 
@@ -10,10 +9,12 @@ class WiringCheck:
         self.config = RobotConfig.load()
         # Initialize hardware using current config
         self.hw = RobotHardware(
-            self.config.motor_l,
-            self.config.motor_r,
-            self.config.motor_l_invert,
-            self.config.motor_r_invert,
+            motor_l=self.config.motor_l,
+            motor_r=self.config.motor_r,
+            invert_l=self.config.motor_l_invert,
+            invert_r=self.config.motor_r_invert,
+            gyro_axis=self.config.gyro_pitch_axis,
+            gyro_invert=self.config.gyro_pitch_invert,
         )
         self.hw.init()
         print("\n=== Wiring Check & Calibration Tool ===")
@@ -49,10 +50,12 @@ class WiringCheck:
     def reload_hw(self):
         self.hw.stop()
         self.hw = RobotHardware(
-            self.config.motor_l,
-            self.config.motor_r,
-            self.config.motor_l_invert,
-            self.config.motor_r_invert,
+            motor_l=self.config.motor_l,
+            motor_r=self.config.motor_r,
+            invert_l=self.config.motor_l_invert,
+            invert_r=self.config.motor_r_invert,
+            gyro_axis=self.config.gyro_pitch_axis,
+            gyro_invert=self.config.gyro_pitch_invert,
         )
         self.hw.init()
 
@@ -60,8 +63,6 @@ class WiringCheck:
         print(f"\n>>> Checking {side.upper()} Motor...")
         print("Spinning FORWARD (positive speed) for 2 seconds...")
 
-        # Determine which motor to spin based on side logic handled by set_motors
-        # But wait, set_motors takes (left, right).
         if side == "left":
             self.hw.set_motors(30, 0)
         else:
@@ -90,10 +91,6 @@ class WiringCheck:
             print("-> SWAPPING Left and Right Motor Channels.")
             # Swap channels
             self.config.motor_l, self.config.motor_r = self.config.motor_r, self.config.motor_l
-            # Also swap invert flags? Usually if channels are swapped, wiring is swapped.
-            # But the invert logic stays with the logical side?
-            # If I swap channels, the physical motor on Ch X is now controlled by the other logical side.
-            # Let's just swap channels and ask user to re-test.
             self.reload_hw()
             print("Channels swapped. Please re-test.")
         else:
@@ -127,6 +124,7 @@ class WiringCheck:
             ans = input("Apply Inversion? (y/n): ").strip().lower()
             if ans == 'y':
                 self.config.gyro_pitch_invert = not self.config.gyro_pitch_invert
+                self.reload_hw()
         else:
             print("-> Change was too small or axis is wrong.")
             print(f"Current Axis: {self.config.gyro_pitch_axis}")
@@ -136,6 +134,7 @@ class WiringCheck:
                     self.config.gyro_pitch_axis = "y"
                 else:
                     self.config.gyro_pitch_axis = "x"
+                self.reload_hw()
                 print(f"Axis changed to {self.config.gyro_pitch_axis}. Please re-test.")
 
     def get_pitch_snapshot(self):
@@ -143,24 +142,8 @@ class WiringCheck:
         p_sum = 0
         samples = 10
         for _ in range(samples):
-            accel, gyro = self.hw.read_imu_raw()
-
-            # Re-implement get_pitch logic here or refactor?
-            # Duplicating logic is bad, but RobotController isn't easily importable/usable as a utility without running it.
-            # I'll implement the same math here, ensuring it uses config.
-
-            if self.config.gyro_pitch_axis == "y":
-                raw_acc_y = accel["x"]
-                # raw_gyro_rate = gyro["y"]
-            else:
-                raw_acc_y = accel["y"]
-                # raw_gyro_rate = gyro["x"]
-
-            acc_angle = math.degrees(math.atan2(raw_acc_y, accel["z"]))
-
-            if self.config.gyro_pitch_invert:
-                acc_angle = -acc_angle
-
+            # Now using the shared logic in hw
+            acc_angle, _, _ = self.hw.read_imu_processed()
             p_sum += acc_angle
             time.sleep(0.01)
 

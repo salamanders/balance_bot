@@ -1,6 +1,5 @@
 import os
 import math
-from typing import Dict
 
 
 class MockPiconZero:
@@ -22,7 +21,7 @@ class MockMPU6050:
         self.address = address
         print(f"[MockMPU6050] init at {address}")
 
-    def get_accel_data(self) -> Dict[str, float]:
+    def get_accel_data(self) -> dict[str, float]:
         # Default vertical
         pitch = 0.0
 
@@ -46,5 +45,5 @@ class MockMPU6050:
 
         return {"x": 0.0, "y": y, "z": z}
 
-    def get_gyro_data(self) -> Dict[str, float]:
+    def get_gyro_data(self) -> dict[str, float]:
         return {"x": 0.0, "y": 0.0, "z": 0.0}

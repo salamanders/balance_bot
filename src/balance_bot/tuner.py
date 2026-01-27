@@ -1,19 +1,19 @@
 import statistics
-from typing import Tuple, List
 
 
 class ContinuousTuner:
+    COOLDOWN_RESET = 50  # Wait 0.5s between adjustments
+
     def __init__(self, buffer_size: int = 100):
         """
         Initialize the ContinuousTuner.
         :param buffer_size: Number of error samples to keep (100 samples @ 10ms loop = 1 sec)
         """
         self.buffer_size = buffer_size
-        self.errors: List[float] = []
+        self.errors: list[float] = []
         self.cooldown_timer = 0
-        self.COOLDOWN_RESET = 50  # Wait 0.5s between adjustments
 
-    def update(self, error: float) -> Tuple[float, float, float]:
+    def update(self, error: float) -> tuple[float, float, float]:
         """
         Add a new error sample and return PID nudges.
         :param error: Current pitch error (Target - Pitch)
@@ -50,7 +50,6 @@ class ContinuousTuner:
 
         # 1. OSCILLATION (High Frequency)
         # If crossing zero frequently (>15% of samples), Kp is likely too high.
-        # For buffer=100 (1s), this is 15Hz.
         if zero_crossings > (self.buffer_size * 0.15):
             kp_nudge = -0.1
             kd_nudge = 0.05  # More damping might help

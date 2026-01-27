@@ -1,6 +1,4 @@
 import time
-import math
-from typing import Tuple
 
 from .config import RobotConfig
 from .robot_hardware import RobotHardware
@@ -14,10 +12,12 @@ class RobotController:
     def __init__(self):
         self.config = RobotConfig.load()
         self.hw = RobotHardware(
-            self.config.motor_l,
-            self.config.motor_r,
-            self.config.motor_l_invert,
-            self.config.motor_r_invert,
+            motor_l=self.config.motor_l,
+            motor_r=self.config.motor_r,
+            invert_l=self.config.motor_l_invert,
+            invert_r=self.config.motor_r_invert,
+            gyro_axis=self.config.gyro_pitch_axis,
+            gyro_invert=self.config.gyro_pitch_invert,
         )
         self.led = LedController()
         self.pid = PIDController(self.config.pid)
@@ -36,32 +36,13 @@ class RobotController:
         self.hw.init()
         print(">>> ROBOT ALIVE. Hold vertical for STEP 1.")
 
-    def get_pitch(self, dt: float) -> Tuple[float, float, float]:
-        accel, gyro = self.hw.read_imu_raw()
-
-        # Determine axes based on config
-        if self.config.gyro_pitch_axis == "y":
-            # Pitch around Y axis
-            raw_acc_y = accel["x"]
-            raw_gyro_rate = gyro["y"]
-        else:
-            # Default: Pitch around X axis (Y is forward)
-            raw_acc_y = accel["y"]
-            raw_gyro_rate = gyro["x"]
-
-        # Calculate Accelerometer Angle
-        acc_angle = math.degrees(math.atan2(raw_acc_y, accel["z"]))
-        gyro_rate = raw_gyro_rate
-
-        # Invert if needed
-        if self.config.gyro_pitch_invert:
-            acc_angle = -acc_angle
-            gyro_rate = -gyro_rate
+    def get_pitch(self, dt: float) -> tuple[float, float, float]:
+        acc_angle, gyro_rate, yaw_rate = self.hw.read_imu_processed()
 
         # Complementary Filter
         self.pitch = 0.98 * (self.pitch + gyro_rate * dt) + 0.02 * acc_angle
 
-        return self.pitch, gyro_rate, gyro["z"]
+        return self.pitch, gyro_rate, yaw_rate
 
     def run(self) -> None:
         # Initial Setup Phase
@@ -69,7 +50,7 @@ class RobotController:
         start_wait = time.monotonic()
         while time.monotonic() - start_wait < 2:
             self.led.update()
-            time.sleep(0.01)
+            time.sleep(self.config.loop_time)
 
         try:
             # Mode dispatch
@@ -104,7 +85,7 @@ class RobotController:
         pause_start = time.monotonic()
         while time.monotonic() - pause_start < 1:
             self.led.update()
-            time.sleep(0.01)
+            time.sleep(self.config.loop_time)
 
     def run_tune(self) -> None:
         print("-> Auto-Tuning...")
