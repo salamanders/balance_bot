@@ -1,11 +1,10 @@
 import time
 import os
-from typing import Optional
 
 
 class LedController:
     def __init__(self):
-        self.led_path: Optional[str] = self._find_led_path()
+        self.led_path: str | None = self._find_led_path()
         self.mode = "OFF"
         self.last_toggle = 0.0
         self.is_on = False
@@ -14,7 +13,7 @@ class LedController:
         # Turn off initially
         self.set_led(False)
 
-    def _find_led_path(self) -> Optional[str]:
+    def _find_led_path(self) -> str | None:
         paths = ["/sys/class/leds/led0/brightness", "/sys/class/leds/ACT/brightness"]
         for path in paths:
             if os.path.exists(path):
