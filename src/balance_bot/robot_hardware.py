@@ -26,29 +26,28 @@ class RobotHardware:
         self._init_hardware()
 
     def _init_hardware(self) -> None:
-        # Check for mock request or missing hardware
-        use_mock = False
+        """Initialize hardware components or mocks."""
         if os.environ.get("MOCK_HARDWARE"):
-            use_mock = True
-        else:
-            try:
-                # Try importing real hardware
-                from . import piconzero as pz_module
-                from mpu6050 import mpu6050
+            self._init_mock_hardware()
+            return
 
-                self.pz = pz_module
-                self.sensor = mpu6050(0x68)
-                print("Hardware initialized.")
-            except (ImportError, OSError):
-                print("Hardware not found or Mock requested.")
-                use_mock = True
+        try:
+            from . import piconzero as pz_module
+            from mpu6050 import mpu6050
 
-        if use_mock:
-            print("Running in Mock Mode")
-            from .mocks import MockPiconZero, MockMPU6050
+            self.pz = pz_module
+            self.sensor = mpu6050(0x68)
+            print("Hardware initialized.")
+        except (ImportError, OSError):
+            print("Hardware not found. Falling back to Mock Mode.")
+            self._init_mock_hardware()
 
-            self.pz = MockPiconZero()
-            self.sensor = MockMPU6050(0x68)
+    def _init_mock_hardware(self) -> None:
+        print("Running in Mock Mode")
+        from .mocks import MockPiconZero, MockMPU6050
+
+        self.pz = MockPiconZero()
+        self.sensor = MockMPU6050(0x68)
 
     def init(self) -> None:
         """Initialize hardware."""
@@ -104,11 +103,15 @@ class RobotHardware:
         if self.invert_r:
             right = -right
 
-        left_val = int(max(min(left, 100), -100))
-        right_val = int(max(min(right, 100), -100))
+        left_val = self._clamp(left)
+        right_val = self._clamp(right)
 
         self.pz.setMotor(self.motor_l, left_val)
         self.pz.setMotor(self.motor_r, right_val)
+
+    @staticmethod
+    def _clamp(val: float, min_val: int = -100, max_val: int = 100) -> int:
+        return int(max(min(val, max_val), min_val))
 
     def stop(self) -> None:
         """Stop all motors."""

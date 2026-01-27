@@ -7,6 +7,14 @@ from .leds import LedController
 from .tuner import ContinuousTuner
 from .battery import BatteryEstimator
 
+# Constants
+COMPLEMENTARY_ALPHA = 0.98
+FALL_ANGLE_LIMIT = 45.0
+VIBRATION_THRESHOLD = 10
+SETUP_WAIT_SEC = 2.0
+CALIBRATION_PAUSE_SEC = 1.0
+SAVE_INTERVAL_SEC = 30.0
+
 
 class RobotController:
     def __init__(self):
@@ -40,7 +48,9 @@ class RobotController:
         acc_angle, gyro_rate, yaw_rate = self.hw.read_imu_processed()
 
         # Complementary Filter
-        self.pitch = 0.98 * (self.pitch + gyro_rate * dt) + 0.02 * acc_angle
+        self.pitch = (COMPLEMENTARY_ALPHA * (self.pitch + gyro_rate * dt)) + (
+            (1.0 - COMPLEMENTARY_ALPHA) * acc_angle
+        )
 
         return self.pitch, gyro_rate, yaw_rate
 
@@ -48,7 +58,7 @@ class RobotController:
         # Initial Setup Phase
         self.led.signal_setup()
         start_wait = time.monotonic()
-        while time.monotonic() - start_wait < 2:
+        while time.monotonic() - start_wait < SETUP_WAIT_SEC:
             self.led.update()
             time.sleep(self.config.loop_time)
 
@@ -83,7 +93,7 @@ class RobotController:
 
         # Pause
         pause_start = time.monotonic()
-        while time.monotonic() - pause_start < 1:
+        while time.monotonic() - pause_start < CALIBRATION_PAUSE_SEC:
             self.led.update()
             time.sleep(self.config.loop_time)
 
@@ -108,7 +118,7 @@ class RobotController:
             ):
                 self.vibration_counter += 1
 
-            if self.vibration_counter > 10:
+            if self.vibration_counter > VIBRATION_THRESHOLD:
                 self.config.pid.kp *= 0.6
                 self.config.pid.kd = self.config.pid.kp * 0.05
                 self.config.pid.ki = self.config.pid.kp * 0.005
@@ -141,7 +151,7 @@ class RobotController:
             error = self.config.pid.target_angle - pitch
 
             # Fall detection
-            if abs(error) > 45:
+            if abs(error) > FALL_ANGLE_LIMIT:
                 print("!!! FELL OVER !!!")
                 self.hw.stop()
                 if self.config_dirty:
@@ -187,7 +197,7 @@ class RobotController:
             )
 
             # Periodic Save
-            if self.config_dirty and (time.monotonic() - self.last_save_time > 30):
+            if self.config_dirty and (time.monotonic() - self.last_save_time > SAVE_INTERVAL_SEC):
                 self.config.save()
                 self.last_save_time = time.monotonic()
                 self.config_dirty = False
