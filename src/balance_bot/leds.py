@@ -6,6 +6,17 @@ logger = logging.getLogger(__name__)
 
 
 class LedController:
+    """
+    Manages the onboard LED of the Raspberry Pi (ACT LED) to provide visual feedback.
+    Bypasses the OS trigger to allow manual control.
+
+    Modes:
+    - OFF: LED is off.
+    - ON: LED is solid on.
+    - SETUP: Fast blink (10Hz) to indicate initialization.
+    - TUNING: Slow blink (2Hz) to indicate auto-tuning in progress.
+    """
+
     def __init__(self):
         self.led_path: Path | None = self._find_led_path()
         self.mode = "OFF"
@@ -17,6 +28,7 @@ class LedController:
         self.set_led(False)
 
     def _find_led_path(self) -> Path | None:
+        """Locate the sysfs path for the ACT LED."""
         candidates = (
             Path("/sys/class/leds/led0/brightness"),
             Path("/sys/class/leds/ACT/brightness"),
@@ -24,6 +36,10 @@ class LedController:
         return next((p for p in candidates if p.exists()), None)
 
     def set_led(self, on: bool) -> None:
+        """
+        Directly set the LED state.
+        :param on: True for On, False for Off.
+        """
         self.is_on = on
         if not self.led_path:
             return
@@ -53,10 +69,15 @@ class LedController:
         self.set_led(True)
 
     def signal_off(self) -> None:
+        """Turn LED off."""
         self.mode = "OFF"
         self.set_led(False)
 
     def update(self) -> None:
+        """
+        Update the LED state based on the current mode and time.
+        Should be called inside the main loop.
+        """
         if self.mode in ["SETUP", "TUNING"]:
             now = time.time()
             if now - self.last_toggle > self.blink_interval:
@@ -81,6 +102,7 @@ class LedController:
         """
         Blocking countdown sequence:
         3 blinks, pause, 2 blinks, pause, 1 blink, go.
+        Used before balancing starts to give user time to let go.
         """
         logger.info("Starting in...")
 

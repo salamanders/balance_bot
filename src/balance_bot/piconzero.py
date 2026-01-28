@@ -24,6 +24,8 @@ class PiconZero:
     """
     Driver for 4tronix Picon Zero board.
     Handles I2C communication for motors, inputs, and outputs.
+
+    See: http://4tronix.co.uk/blog/?p=1224
     """
 
     def __init__(self, bus_number: int = 1):
@@ -89,35 +91,37 @@ class PiconZero:
         """
         Set motor speed.
         :param motor: Motor index (0 or 1).
-        :param value: Speed -100 to 100. (Internally maps to -128 to 127, roughly)
-                      Actually original code expected -128 to 127.
-                      We will stick to the input range expected by the register.
+        :param value: Speed -127 to 127.
         """
         if motor not in (0, 1):
             return
 
-        # Original code check: value >= -128 and value < 128
-        # We will clamp it to be safe
+        # Clamp value to safe range supported by PiconZero
         safe_value = int(clamp(value, -127, 127))
         self._write_byte(motor, safe_value)
 
     def forward(self, speed: int) -> None:
+        """Drive both motors forward."""
         self.set_motor(0, speed)
         self.set_motor(1, speed)
 
     def reverse(self, speed: int) -> None:
+        """Drive both motors backward."""
         self.set_motor(0, -speed)
         self.set_motor(1, -speed)
 
     def spin_left(self, speed: int) -> None:
+        """Spin robot left (Left motor back, Right motor forward)."""
         self.set_motor(0, -speed)
         self.set_motor(1, speed)
 
     def spin_right(self, speed: int) -> None:
+        """Spin robot right (Left motor forward, Right motor back)."""
         self.set_motor(0, speed)
         self.set_motor(1, -speed)
 
     def stop(self) -> None:
+        """Stop all motors."""
         self.set_motor(0, 0)
         self.set_motor(1, 0)
 

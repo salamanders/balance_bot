@@ -15,15 +15,24 @@ MOTOR_MAX_OUTPUT = 100
 
 @dataclass(frozen=True)
 class IMUReading:
-    """Immutable data structure for converted IMU readings."""
+    """
+    Immutable data structure for converted IMU readings.
+    """
 
     pitch_angle: float
+    """Current pitch angle in degrees (calculated from Accelerometer)."""
+
     pitch_rate: float
+    """Current rate of change of pitch in degrees/second (from Gyroscope)."""
+
     yaw_rate: float
+    """Current rate of change of yaw in degrees/second (from Gyroscope)."""
 
 
 @runtime_checkable
 class MotorDriver(Protocol):
+    """Protocol for a Motor Driver (e.g. PiconZero or Mock)."""
+
     def init(self) -> None: ...
     def cleanup(self) -> None: ...
     def stop(self) -> None: ...
@@ -32,12 +41,14 @@ class MotorDriver(Protocol):
 
 @runtime_checkable
 class IMUDriver(Protocol):
+    """Protocol for an IMU Driver (e.g. MPU6050 or Mock)."""
+
     def get_accel_data(self) -> Vector3: ...
     def get_gyro_data(self) -> Vector3: ...
 
 
 class MPU6050Adapter:
-    """Adapter for the mpu6050 library class."""
+    """Adapter for the third-party mpu6050 library class to match our Protocol."""
 
     def __init__(self, sensor_instance):
         self.sensor = sensor_instance
@@ -50,7 +61,13 @@ class MPU6050Adapter:
 
 
 class RobotHardware:
-    """Abstraction layer for robot hardware (Motors and IMU)."""
+    """
+    Hardware Abstraction Layer (HAL).
+    Responsible for:
+    1. initializing hardware (or mocks).
+    2. normalizing sensor data into a standard coordinate system.
+    3. normalizing motor commands.
+    """
 
     def __init__(
         self,
@@ -63,12 +80,13 @@ class RobotHardware:
     ):
         """
         Initialize the robot hardware abstraction.
-        :param motor_l: Left motor channel.
-        :param motor_r: Right motor channel.
-        :param invert_l: Whether to invert left motor.
-        :param invert_r: Whether to invert right motor.
-        :param gyro_axis: Axis to use for pitch ('x' or 'y').
-        :param gyro_invert: Whether to invert gyro reading.
+
+        :param motor_l: Channel index for Left Motor.
+        :param motor_r: Channel index for Right Motor.
+        :param invert_l: If True, reverses Left Motor direction.
+        :param invert_r: If True, reverses Right Motor direction.
+        :param gyro_axis: The physical axis of the IMU aligned with the robot's pitch ('x' or 'y').
+        :param gyro_invert: If True, negates the gyro readings (to match pitch direction).
         """
         self.motor_l = motor_l
         self.motor_r = motor_r
@@ -83,7 +101,10 @@ class RobotHardware:
         self._init_hardware()
 
     def _init_hardware(self) -> None:
-        """Initialize hardware components or mocks."""
+        """
+        Initialize hardware components.
+        Checks for `MOCK_HARDWARE` env var or import failures to fallback to mocks.
+        """
         if os.environ.get("MOCK_HARDWARE"):
             self._init_mock_hardware()
             return
@@ -100,48 +121,52 @@ class RobotHardware:
             self._init_mock_hardware()
 
     def _init_mock_hardware(self) -> None:
-        """Initialize mock hardware components."""
+        """Initialize mock hardware components for testing/simulation."""
         logger.info("Running in Mock Mode")
         from .mocks import MockPiconZero, MockMPU6050
 
-        # Mocks must implement the Protocols
         self.pz = MockPiconZero()
         self.sensor = MockMPU6050(0x68)
 
     def init(self) -> None:
-        """Initialize the underlying motor driver."""
+        """Initialize the underlying motor driver (reset registers etc)."""
         self.pz.init()
 
     def read_imu_raw(self) -> tuple[Vector3, Vector3]:
         """
-        Returns raw accelerometer and gyro data.
+        Returns raw accelerometer and gyro data dictionaries.
         :return: Tuple of (accel_dict, gyro_dict).
         """
         return self.sensor.get_accel_data(), self.sensor.get_gyro_data()
 
     def read_imu_converted(self) -> IMUReading:
         """
-        Read IMU and calculate pitch/rates based on config.
-        :return: IMUReading object containing pitch angle and rates.
+        Read IMU and calculate pitch angle and rates based on configuration.
+        Handles axis remapping and inversion so the rest of the code only sees "Pitch".
+
+        :return: IMUReading object containing pitch angle (deg) and rates (deg/s).
         """
         accel, gyro = self.read_imu_raw()
 
+        # Coordinate System Mapping
+        # We need to determine which axis measures "forward/backward" acceleration
+        # and which axis measures "vertical" acceleration to calculate the angle.
         if self.gyro_axis == GYRO_AXIS_Y:
-            # Pitch around Y axis
+            # Pitch around Y axis means X is Forward, Z is Vertical
             accel_forward = accel["x"]
             accel_vertical = accel["z"]
             raw_gyro_rate = gyro["y"]
         else:
-            # Default: Pitch around X axis (Y is forward)
+            # Default: Pitch around X axis means Y is Forward, Z is Vertical
             accel_forward = accel["y"]
             accel_vertical = accel["z"]
             raw_gyro_rate = gyro["x"]
 
-        # Calculate Accelerometer Angle
+        # Calculate Accelerometer Angle using Trigonometry
         acc_angle = calculate_pitch(accel_forward, accel_vertical)
 
         gyro_rate = raw_gyro_rate
-        yaw_rate = gyro["z"]
+        yaw_rate = gyro["z"]  # Yaw is usually Z-axis
 
         if self.gyro_invert:
             acc_angle = -acc_angle
@@ -154,15 +179,18 @@ class RobotHardware:
     def set_motors(self, left: float, right: float) -> None:
         """
         Set motor speeds.
-        :param left: Speed -100 to 100
-        :param right: Speed -100 to 100
+
+        :param left: Speed value from -100 (Full Reverse) to 100 (Full Forward).
+        :param right: Speed value from -100 (Full Reverse) to 100 (Full Forward).
         """
+        # Apply Hardware Inversion
         if self.invert_l:
             left = -left
         if self.invert_r:
             right = -right
 
-        # Use helper clamp, cast to int for driver
+        # Clamp and Cast
+        # The underlying driver expects integers between -100 and 100
         left_val = int(clamp(left, MOTOR_MIN_OUTPUT, MOTOR_MAX_OUTPUT))
         right_val = int(clamp(right, MOTOR_MIN_OUTPUT, MOTOR_MAX_OUTPUT))
 
@@ -170,9 +198,9 @@ class RobotHardware:
         self.pz.set_motor(self.motor_r, right_val)
 
     def stop(self) -> None:
-        """Stop all motors."""
+        """Stop all motors immediately."""
         self.pz.stop()
 
     def cleanup(self) -> None:
-        """Cleanup hardware resources."""
+        """Cleanup hardware resources (e.g. close I2C bus)."""
         self.pz.cleanup()

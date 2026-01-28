@@ -26,16 +26,27 @@ logger = logging.getLogger(__name__)
 
 
 class RobotState(Enum):
-    SETUP = auto()
-    CALIBRATE = auto()
-    TUNE = auto()
-    BALANCE = auto()
-    RECOVER = auto()
-    EXIT = auto()
+    """
+    State machine enumeration for the robot's lifecycle.
+    """
+
+    SETUP = auto()  # Hardware initialization and waiting
+    CALIBRATE = auto()  # Determining the vertical "zero" point
+    TUNE = auto()  # Initial "Rough" Auto-Tuning (Ziegler-Nichols)
+    BALANCE = auto()  # Main balancing loop
+    RECOVER = auto()  # Wait for human assistance after falling
+    EXIT = auto()  # Clean shutdown
 
 
 class RobotController:
+    """
+    Main Controller Class.
+    Orchestrates the robot's state machine, sensor updates, control loops,
+    and hardware interactions.
+    """
+
     def __init__(self):
+        """Initialize the Controller and all sub-systems."""
         setup_logging()
 
         # Check force calibration before loading config
@@ -72,24 +83,28 @@ class RobotController:
         self.last_pitch_rate = 0.0
 
     def init(self) -> None:
-        """Initialize the robot hardware."""
+        """Initialize the robot hardware and signal readiness."""
         self.hw.init()
         logger.info(">>> ROBOT ALIVE. Hold vertical for STEP 1.")
 
     def get_pitch(self, loop_delta_time: float) -> IMUReading:
         """
-        Read IMU and update pitch angle.
+        Read IMU and update pitch angle using Sensor Fusion.
         :param loop_delta_time: Time elapsed since last loop in seconds.
-        :return: Current IMU reading.
+        :return: Current IMU reading (angle, rates).
         """
         reading = self.hw.read_imu_converted()
+        # Update the Complementary Filter state
         self.pitch = self.filter.update(
             reading.pitch_angle, reading.pitch_rate, loop_delta_time
         )
         return reading
 
     def run(self) -> None:
-        """Main application loop managing the robot state machine."""
+        """
+        Main application loop managing the robot state machine.
+        This loops indefinitely until EXIT state is reached.
+        """
         state = RobotState.SETUP
 
         try:
@@ -113,6 +128,7 @@ class RobotController:
         except Exception as e:
             logger.exception(f"Unexpected error: {e}")
         finally:
+            # Ensure safe shutdown
             if self.config_dirty:
                 self.config.save()
             self.hw.stop()
@@ -122,8 +138,8 @@ class RobotController:
 
     def run_setup(self) -> RobotState:
         """
-        Initial setup phase.
-        Waits for a brief period to allow sensors to stabilize.
+        State: SETUP
+        Waits for a brief period to allow sensors to stabilize and user to position robot.
         """
         self.led.signal_setup()
         start_wait = time.monotonic()
@@ -137,8 +153,9 @@ class RobotController:
 
     def run_calibrate(self) -> RobotState:
         """
-        Calibrate the vertical position.
-        Sets the current pitch as the target angle (zero point).
+        State: CALIBRATE
+        Captures the current angle as the "Zero" point (Target Angle).
+        User should be holding the robot vertical during this phase.
         """
         logger.info("-> Calibrating Vertical...")
         self.led.signal_setup()
@@ -150,7 +167,7 @@ class RobotController:
         logger.info(f"-> Calibrated Vertical at: {self.config.pid.target_angle:.2f}")
         logger.info("-> Let it wobble gently (Step 2)...")
 
-        # Pause
+        # Pause to let user release the robot or prepare for tuning
         pause_start = time.monotonic()
         while time.monotonic() - pause_start < SYSTEM_TIMING.calibration_pause:
             self.led.update()
@@ -160,8 +177,12 @@ class RobotController:
 
     def run_tune(self) -> RobotState:
         """
-        Auto-tuning phase using Ziegler-Nichols inspired heuristic.
-        Increases Kp until oscillation, then backs off and sets Ki/Kd.
+        State: TUNE
+        Performs an initial Auto-Tuning procedure if calibration was fresh.
+        Uses a Ziegler-Nichols inspired heuristic:
+        1. Increase Kp (Proportional Gain) until oscillation is detected.
+        2. Back off Kp significantly.
+        3. Set Ki and Kd based on the Kp value that caused oscillation.
         """
         logger.info("-> Auto-Tuning...")
         self.led.signal_tuning()
@@ -173,7 +194,8 @@ class RobotController:
 
         found_tune = False
 
-        # Temporarily zero I and D for tuning loop using context manager
+        # Temporarily zero I and D for tuning loop using context manager.
+        # We only want to test P-stability here.
         with temp_pid_overrides(self.config.pid, ki=0.0, kd=0.0):
             while self.running:
                 self.get_pitch(self.config.loop_time)
@@ -184,12 +206,13 @@ class RobotController:
                 # Tune Logic: Increment Kp until vibration
                 self.config.pid.kp += TUNING_HEURISTICS.kp_increment
 
-                # Vibration detection
+                # Vibration detection (Zero-Crossing Counter)
                 if (error > 0 and self.pid.last_error < 0) or (
                     error < 0 and self.pid.last_error > 0
                 ):
                     self.vibration_counter += 1
 
+                # If we cross zero enough times, we are oscillating
                 if self.vibration_counter > self.config.vibration_threshold:
                     found_tune = True
                     break
@@ -201,7 +224,7 @@ class RobotController:
                 rate.sleep()
 
         if found_tune:
-            # Re-apply calculations based on the Kp we reached
+            # Re-apply calculations based on the Critical Kp we reached
             self.config.pid.kp *= TUNING_HEURISTICS.kp_reduction
             self.config.pid.kd = self.config.pid.kp * TUNING_HEURISTICS.kd_ratio
             self.config.pid.ki = self.config.pid.kp * TUNING_HEURISTICS.ki_ratio
@@ -216,13 +239,19 @@ class RobotController:
 
     def run_balance(self) -> RobotState:
         """
-        Main balancing phase.
-        Executes PID control loop, fall detection, and battery compensation.
+        State: BALANCE
+        The main control loop.
+        - Reads Sensors
+        - Calculates PID Output
+        - Runs Continuous Tuning (Fine-tuning)
+        - Estimates Battery Level
+        - Drives Motors
+        - Checks for Falls
         """
         logger.info("-> Balancing...")
         self.led.signal_ready()
 
-        # Reset control state
+        # Reset control state to prevent jump
         self.pid.reset()
         self.last_pitch_rate = 0.0
 
@@ -255,19 +284,23 @@ class RobotController:
     ) -> None:
         """
         Execute one step of the balancing control loop.
-        :param reading: Current IMU reading.
-        :param error: Current pitch error.
-        :param loop_delta_time: Time elapsed since last loop.
+
+        Sequence:
+        1. PID Control -> Base Output
+        2. Turn Correction -> Yaw Adjustment
+        3. Continuous Tuning -> Adjust PID gains if needed
+        4. Battery Compensation -> Scale Output based on voltage drop
+        5. Drive Motors -> Final Command
         """
-        # PID Update
+        # 1. PID Update
         output = self.pid.update(
             error, loop_delta_time, measurement_rate=reading.pitch_rate
         )
 
-        # Turn Correction
+        # 2. Turn Correction (Simple P-controller on Yaw Rate)
         turn_correction = -reading.yaw_rate * 0.5
 
-        # Continuous Tuning
+        # 3. Continuous Tuning
         adj = self.tuner.update(error)
         if adj.kp != 0 or adj.ki != 0 or adj.kd != 0:
             self.config.pid.kp = max(0.1, self.config.pid.kp + adj.kp)
@@ -278,7 +311,8 @@ class RobotController:
                 f"-> Tuned: P={self.config.pid.kp:.2f} I={self.config.pid.ki:.3f} D={self.config.pid.kd:.2f}"
             )
 
-        # Battery Estimation
+        # 4. Battery Estimation
+        # Calculate Angular Acceleration (for responsiveness estimation)
         ang_accel = (reading.pitch_rate - self.last_pitch_rate) / loop_delta_time
         self.last_pitch_rate = reading.pitch_rate
 
@@ -288,7 +322,8 @@ class RobotController:
         if comp_factor < 0.95 and self.battery_logger.should_log():
             logger.warning(f"-> Low Battery? Compensating: {int(comp_factor * 100)}%")
 
-        # Drive
+        # 5. Drive Motors
+        # Boost output by dividing by the factor (e.g. Output 50 / Factor 0.8 = Command 62)
         final_drive = output / comp_factor
         self.hw.set_motors(final_drive + turn_correction, final_drive - turn_correction)
 
@@ -302,8 +337,9 @@ class RobotController:
 
     def run_recover(self) -> RobotState:
         """
-        Recovery phase after a fall.
-        Waits for the robot to be placed upright again.
+        State: RECOVER
+        Wait for the robot to be placed upright again by the user.
+        Once upright, start a countdown and resume balancing.
         """
         self.led.signal_off()
         self.hw.stop()
@@ -315,6 +351,7 @@ class RobotController:
             self.led.update()
 
             error = self.config.pid.target_angle - self.pitch
+            # Check if we are roughly upright again
             if abs(error) < 5.0:
                 logger.info(f"-> Upright detected! (Pitch: {self.pitch:.2f})")
                 self.led.countdown()
