@@ -36,25 +36,6 @@ class IMUDriver(Protocol):
     def get_gyro_data(self) -> Vector3: ...
 
 
-class PiconZeroAdapter:
-    """Adapter for the vendored piconzero module."""
-
-    def __init__(self, pz_module):
-        self.pz = pz_module
-
-    def init(self) -> None:
-        self.pz.init()
-
-    def cleanup(self) -> None:
-        self.pz.cleanup()
-
-    def stop(self) -> None:
-        self.pz.stop()
-
-    def set_motor(self, motor: int, value: int) -> None:
-        self.pz.setMotor(motor, value)
-
-
 class MPU6050Adapter:
     """Adapter for the mpu6050 library class."""
 
@@ -108,10 +89,10 @@ class RobotHardware:
             return
 
         try:
-            from . import piconzero as pz_module
+            from .piconzero import PiconZero
             from mpu6050 import mpu6050
 
-            self.pz = PiconZeroAdapter(pz_module)
+            self.pz = PiconZero()
             self.sensor = MPU6050Adapter(mpu6050(0x68))
             logger.info("Hardware initialized.")
         except (ImportError, OSError):

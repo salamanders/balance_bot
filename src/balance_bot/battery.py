@@ -1,4 +1,5 @@
 from .config import BatteryConfig
+from .utils import clamp
 
 
 class BatteryEstimator:
@@ -58,9 +59,8 @@ class BatteryEstimator:
 
         # Update Factor (smoothly)
         # Factor should track the ratio.
-        target_factor = max(
-            self.config.min_compensation,
-            min(self.config.max_compensation, ratio),
+        target_factor = clamp(
+            ratio, self.config.min_compensation, self.config.max_compensation
         )
 
         # Apply slow smoothing to the factor itself to avoid feedback loops

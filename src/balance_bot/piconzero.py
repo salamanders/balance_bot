@@ -1,274 +1,189 @@
-# Python library for 4tronix Picon Zero
-# Note that all I2C accesses are wrapped in try clauses with repeats
-
 import time
+import logging
 import smbus2 as smbus
+from typing import Optional, List
+from .utils import clamp
 
-try:
-    bus = smbus.SMBus(1)  # For revision 1 Raspberry Pi, change to bus = smbus.SMBus(0)
-except (FileNotFoundError, PermissionError, OSError):
-    bus = None
+logger = logging.getLogger(__name__)
 
-pzaddr = 0x22  # I2C address of Picon Zero
+# Constants
+I2C_ADDRESS = 0x22
+RETRIES = 10
 
-# ---------------------------------------------
-# Definitions of Commands to Picon Zero
-MOTORA = 0
-OUTCFG0 = 2
-OUTPUT0 = 8
-INCFG0 = 14
-SETBRIGHT = 18
-UPDATENOW = 19
-RESET = 20
-# ---------------------------------------------
-
-# ---------------------------------------------
-# General variables
-DEBUG = False
-RETRIES = 10  # max number of retries for I2C calls
-# ---------------------------------------------
+# Registers
+REG_MOTOR_A = 0
+REG_OUT_CFG_0 = 2
+REG_OUTPUT_0 = 8
+REG_IN_CFG_0 = 14
+REG_SET_BRIGHT = 18
+REG_UPDATE_NOW = 19
+REG_RESET = 20
 
 
-# ---------------------------------------------
-# Get Version and Revision info
-def getRevision():
-    if bus is None:
-        return [0, 0]
-    for i in range(RETRIES):
+class PiconZero:
+    """
+    Driver for 4tronix Picon Zero board.
+    Handles I2C communication for motors, inputs, and outputs.
+    """
+
+    def __init__(self, bus_number: int = 1):
+        """
+        Initialize the PiconZero driver.
+        :param bus_number: I2C bus number (usually 1 for modern Pi, 0 for old).
+        """
+        self.bus: Optional[smbus.SMBus] = None
         try:
-            rval = bus.read_word_data(pzaddr, 0)
-            return [rval // 256, rval % 256]
-        except Exception:
-            if DEBUG:
-                print("Error in getRevision(), retrying")
+            self.bus = smbus.SMBus(bus_number)
+            logger.info(f"PiconZero initialized on bus {bus_number}")
+        except (FileNotFoundError, PermissionError, OSError):
+            logger.warning(
+                f"Could not open I2C bus {bus_number}. Hardware functionality disabled."
+            )
+            self.bus = None
 
-
-# ---------------------------------------------
-
-
-# ---------------------------------------------
-# motor must be in range 0..1
-# value must be in range -128 - +127
-# values of -127, -128, +127 are treated as always ON,, no PWM
-def setMotor(motor, value):
-    if bus is None:
-        return
-    if motor >= 0 and motor <= 1 and value >= -128 and value < 128:
-        for i in range(RETRIES):
+    def _write_byte(self, reg: int, value: int) -> None:
+        """Write a byte to a register with retries."""
+        if self.bus is None:
+            return
+        for _ in range(RETRIES):
             try:
-                bus.write_byte_data(pzaddr, motor, value)
-                break
+                self.bus.write_byte_data(I2C_ADDRESS, reg, value)
+                return
             except Exception:
-                if DEBUG:
-                    print("Error in setMotor(), retrying")
+                pass
+        logger.error(f"Failed to write byte to register {reg}")
 
+    def _write_block(self, reg: int, data: List[int]) -> None:
+        """Write a block of data with retries."""
+        if self.bus is None:
+            return
+        for _ in range(RETRIES):
+            try:
+                self.bus.write_i2c_block_data(I2C_ADDRESS, reg, data)
+                return
+            except Exception:
+                pass
+        logger.error(f"Failed to write block to register {reg}")
 
-def forward(speed):
-    setMotor(0, speed)
-    setMotor(1, speed)
-
-
-def reverse(speed):
-    setMotor(0, -speed)
-    setMotor(1, -speed)
-
-
-def spinLeft(speed):
-    setMotor(0, -speed)
-    setMotor(1, speed)
-
-
-def spinRight(speed):
-    setMotor(0, speed)
-    setMotor(1, -speed)
-
-
-def stop():
-    setMotor(0, 0)
-    setMotor(1, 0)
-
-
-# ---------------------------------------------
-
-
-# ---------------------------------------------
-# Read data for selected input channel (analog or digital)
-# Channel is in range 0 to 3
-def readInput(channel):
-    if bus is None:
+    def _read_word(self, reg: int) -> int:
+        """Read a word from a register with retries."""
+        if self.bus is None:
+            return 0
+        for _ in range(RETRIES):
+            try:
+                return self.bus.read_word_data(I2C_ADDRESS, reg)
+            except Exception:
+                pass
+        logger.error(f"Failed to read word from register {reg}")
         return 0
-    if channel >= 0 and channel <= 3:
-        for i in range(RETRIES):
-            try:
-                return bus.read_word_data(pzaddr, channel + 1)
-            except Exception:
-                if DEBUG:
-                    print("Error in readChannel(), retrying")
 
+    def get_revision(self) -> tuple[int, int]:
+        """
+        Get the board revision.
+        :return: Tuple of (major, minor) revision.
+        """
+        rval = self._read_word(0)
+        return (rval // 256, rval % 256)
 
-# ---------------------------------------------
+    def set_motor(self, motor: int, value: int) -> None:
+        """
+        Set motor speed.
+        :param motor: Motor index (0 or 1).
+        :param value: Speed -100 to 100. (Internally maps to -128 to 127, roughly)
+                      Actually original code expected -128 to 127.
+                      We will stick to the input range expected by the register.
+        """
+        if motor not in (0, 1):
+            return
 
+        # Original code check: value >= -128 and value < 128
+        # We will clamp it to be safe
+        safe_value = int(clamp(value, -127, 127))
+        self._write_byte(motor, safe_value)
 
-# ---------------------------------------------
-# Set configuration of selected output
-# 0: On/Off, 1: PWM, 2: Servo, 3: WS2812B
-def setOutputConfig(output, value):
-    if bus is None:
-        return
-    if output >= 0 and output <= 5 and value >= 0 and value <= 3:
-        for i in range(RETRIES):
-            try:
-                bus.write_byte_data(pzaddr, OUTCFG0 + output, value)
-                break
-            except Exception:
-                if DEBUG:
-                    print("Error in setOutputConfig(), retrying")
+    def forward(self, speed: int) -> None:
+        self.set_motor(0, speed)
+        self.set_motor(1, speed)
 
+    def reverse(self, speed: int) -> None:
+        self.set_motor(0, -speed)
+        self.set_motor(1, -speed)
 
-# ---------------------------------------------
+    def spin_left(self, speed: int) -> None:
+        self.set_motor(0, -speed)
+        self.set_motor(1, speed)
 
+    def spin_right(self, speed: int) -> None:
+        self.set_motor(0, speed)
+        self.set_motor(1, -speed)
 
-# ---------------------------------------------
-# Set configuration of selected input channel
-# 0: Digital, 1: Analog
-def setInputConfig(channel, value, pullup=False):
-    if bus is None:
-        return
-    if channel >= 0 and channel <= 3 and value >= 0 and value <= 3:
-        if value == 0 and pullup:
-            value = 128
-        for i in range(RETRIES):
-            try:
-                bus.write_byte_data(pzaddr, INCFG0 + channel, value)
-                break
-            except Exception:
-                if DEBUG:
-                    print("Error in setInputConfig(), retrying")
+    def stop(self) -> None:
+        self.set_motor(0, 0)
+        self.set_motor(1, 0)
 
+    def read_input(self, channel: int) -> int:
+        """Read data from selected input channel (0-3)."""
+        if 0 <= channel <= 3:
+            return self._read_word(channel + 1)
+        return 0
 
-# ---------------------------------------------
+    def set_output_config(self, output: int, mode: int) -> None:
+        """
+        Set configuration of selected output.
+        :param output: 0-5
+        :param mode: 0: On/Off, 1: PWM, 2: Servo, 3: WS2812B
+        """
+        if 0 <= output <= 5 and 0 <= mode <= 3:
+            self._write_byte(REG_OUT_CFG_0 + output, mode)
 
+    def set_input_config(self, channel: int, mode: int, pullup: bool = False) -> None:
+        """
+        Set configuration of selected input channel.
+        :param channel: 0-3
+        :param mode: 0: Digital, 1: Analog
+        :param pullup: Enable pullup resistor (for Digital mode)
+        """
+        if 0 <= channel <= 3 and 0 <= mode <= 3:
+            val = mode
+            if mode == 0 and pullup:
+                val = 128
+            self._write_byte(REG_IN_CFG_0 + channel, val)
 
-# ---------------------------------------------
-# Set output data for selected output channel
-# Mode  Name    Type    Values
-# 0     On/Off  Byte    0 is OFF, 1 is ON
-# 1     PWM     Byte    0 to 100 percentage of ON time
-# 2     Servo   Byte    -100 to + 100 Position in degrees
-# 3     WS2812B 4 Bytes 0:Pixel ID, 1:Red, 2:Green, 3:Blue
-def setOutput(channel, value):
-    if bus is None:
-        return
-    if channel >= 0 and channel <= 5:
-        for i in range(RETRIES):
-            try:
-                bus.write_byte_data(pzaddr, OUTPUT0 + channel, value)
-                break
-            except Exception:
-                if DEBUG:
-                    print("Error in setOutput(), retrying")
+    def set_output(self, channel: int, value: int) -> None:
+        """
+        Set output data for selected output channel.
+        :param channel: 0-5
+        :param value: Depends on mode (0-100 for PWM, -100 to 100 for Servo)
+        """
+        if 0 <= channel <= 5:
+            self._write_byte(REG_OUTPUT_0 + channel, value)
 
+    def set_pixel(
+        self, pixel: int, red: int, green: int, blue: int, update: bool = True
+    ) -> None:
+        """Set the color of an individual pixel (Output 5 must be WS2812B)."""
+        pixel_data = [pixel, red, green, blue]
+        self._write_block(1 if update else 0, pixel_data)
 
-# ---------------------------------------------
+    def set_all_pixels(self, red: int, green: int, blue: int, update: bool = True) -> None:
+        """Set all pixels to a color."""
+        pixel_data = [100, red, green, blue]
+        self._write_block(1 if update else 0, pixel_data)
 
+    def update_pixels(self) -> None:
+        """Trigger update of pixels."""
+        self._write_byte(REG_UPDATE_NOW, 0)
 
-# ---------------------------------------------
-# Set the colour of an individual pixel (always output 5)
-def setPixel(Pixel, Red, Green, Blue, Update=True):
-    if bus is None:
-        return
-    pixelData = [Pixel, Red, Green, Blue]
-    for i in range(RETRIES):
-        try:
-            bus.write_i2c_block_data(pzaddr, Update, pixelData)
-            break
-        except Exception:
-            if DEBUG:
-                print("Error in setPixel(), retrying")
+    def set_brightness(self, brightness: int) -> None:
+        """Set overall brightness of pixel array."""
+        self._write_byte(REG_SET_BRIGHT, brightness)
 
+    def init(self) -> None:
+        """Initialize/Reset the board."""
+        self._write_byte(REG_RESET, 0)
+        time.sleep(0.01)
 
-def setAllPixels(Red, Green, Blue, Update=True):
-    if bus is None:
-        return
-    pixelData = [100, Red, Green, Blue]
-    for i in range(RETRIES):
-        try:
-            bus.write_i2c_block_data(pzaddr, Update, pixelData)
-            break
-        except Exception:
-            if DEBUG:
-                print("Error in setAllPixels(), retrying")
-
-
-def updatePixels():
-    if bus is None:
-        return
-    for i in range(RETRIES):
-        try:
-            bus.write_byte_data(pzaddr, UPDATENOW, 0)
-            break
-        except Exception:
-            if DEBUG:
-                print("Error in updatePixels(), retrying")
-
-
-# ---------------------------------------------
-
-
-# ---------------------------------------------
-# Set the overall brightness of pixel array
-def setBrightness(brightness):
-    if bus is None:
-        return
-    for i in range(RETRIES):
-        try:
-            bus.write_byte_data(pzaddr, SETBRIGHT, brightness)
-            break
-        except Exception:
-            if DEBUG:
-                print("Error in setBrightness(), retrying")
-
-
-# ---------------------------------------------
-
-
-# ---------------------------------------------
-# Initialise the Board (same as cleanup)
-def init(debug=False):
-    global DEBUG
-    DEBUG = debug
-    if bus is None:
-        if DEBUG:
-            print("Simulator Mode: Bus is None")
-        return
-    for i in range(RETRIES):
-        try:
-            bus.write_byte_data(pzaddr, RESET, 0)
-            break
-        except Exception:
-            if DEBUG:
-                print("Error in init(), retrying")
-    time.sleep(0.01)  # 1ms delay to allow time to complete
-    if DEBUG:
-        print("Debug is", DEBUG)
-
-
-# ---------------------------------------------
-
-
-# ---------------------------------------------
-# Cleanup the Board (same as init)
-def cleanup():
-    if bus is None:
-        return
-    for i in range(RETRIES):
-        try:
-            bus.write_byte_data(pzaddr, RESET, 0)
-            break
-        except Exception:
-            if DEBUG:
-                print("Error in cleanup(), retrying")
-    time.sleep(0.001)  # 1ms delay to allow time to complete
-
-
-# ---------------------------------------------
+    def cleanup(self) -> None:
+        """Cleanup resources (reset board)."""
+        self._write_byte(REG_RESET, 0)
+        time.sleep(0.001)
