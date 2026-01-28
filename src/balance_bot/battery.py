@@ -22,13 +22,13 @@ class BatteryEstimator:
         # We actually use this to BOOST output: Final = Command / Factor
         self.compensation_factor = 1.0
 
-    def update(self, pwm: float, angular_accel: float, dt: float) -> float:
+    def update(self, pwm: float, angular_accel: float, loop_delta_time: float) -> float:
         """
         Update the estimator with new data.
 
         :param pwm: The commanded PWM (before compensation)
         :param angular_accel: Measured angular acceleration (deg/s^2)
-        :param dt: Time step
+        :param loop_delta_time: Time step
         :return: Current compensation factor
         """
         if abs(pwm) < self.min_pwm:

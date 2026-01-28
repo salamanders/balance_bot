@@ -1,21 +1,26 @@
-import sys
 import time
 import logging
 from enum import Enum, auto
-from pathlib import Path
 
-from .config import RobotConfig, PIDParams, temp_pid_overrides
+from .config import (
+    RobotConfig,
+    PIDParams,
+    temp_pid_overrides,
+    SYSTEM_TIMING,
+    TUNING_HEURISTICS,
+)
 from .robot_hardware import RobotHardware, IMUReading
 from .pid import PIDController
 from .leds import LedController
 from .tuner import ContinuousTuner
 from .battery import BatteryEstimator
-from .utils import RateLimiter, LogThrottler, setup_logging, ComplementaryFilter, check_force_calibration_flag
-
-# Constants that are not in config (system behavior)
-SETUP_WAIT_SEC = 2.0
-CALIBRATION_PAUSE_SEC = 1.0
-SAVE_INTERVAL_SEC = 30.0
+from .utils import (
+    RateLimiter,
+    LogThrottler,
+    setup_logging,
+    ComplementaryFilter,
+    check_force_calibration_flag,
+)
 
 logger = logging.getLogger(__name__)
 
@@ -67,15 +72,24 @@ class RobotController:
         self.last_pitch_rate = 0.0
 
     def init(self) -> None:
+        """Initialize the robot hardware."""
         self.hw.init()
         logger.info(">>> ROBOT ALIVE. Hold vertical for STEP 1.")
 
-    def get_pitch(self, dt: float) -> IMUReading:
+    def get_pitch(self, loop_delta_time: float) -> IMUReading:
+        """
+        Read IMU and update pitch angle.
+        :param loop_delta_time: Time elapsed since last loop in seconds.
+        :return: Current IMU reading.
+        """
         reading = self.hw.read_imu_converted()
-        self.pitch = self.filter.update(reading.pitch_angle, reading.pitch_rate, dt)
+        self.pitch = self.filter.update(
+            reading.pitch_angle, reading.pitch_rate, loop_delta_time
+        )
         return reading
 
     def run(self) -> None:
+        """Main application loop managing the robot state machine."""
         state = RobotState.SETUP
 
         try:
@@ -107,18 +121,25 @@ class RobotController:
             logger.info("Motors Stopped. Exiting.")
 
     def run_setup(self) -> RobotState:
-        # Initial Setup Phase
+        """
+        Initial setup phase.
+        Waits for a brief period to allow sensors to stabilize.
+        """
         self.led.signal_setup()
         start_wait = time.monotonic()
 
         # Simple wait loop
-        while time.monotonic() - start_wait < SETUP_WAIT_SEC:
+        while time.monotonic() - start_wait < SYSTEM_TIMING.setup_wait:
             self.led.update()
             time.sleep(self.config.loop_time)
 
         return RobotState.CALIBRATE
 
     def run_calibrate(self) -> RobotState:
+        """
+        Calibrate the vertical position.
+        Sets the current pitch as the target angle (zero point).
+        """
         logger.info("-> Calibrating Vertical...")
         self.led.signal_setup()
 
@@ -131,13 +152,17 @@ class RobotController:
 
         # Pause
         pause_start = time.monotonic()
-        while time.monotonic() - pause_start < CALIBRATION_PAUSE_SEC:
+        while time.monotonic() - pause_start < SYSTEM_TIMING.calibration_pause:
             self.led.update()
             time.sleep(self.config.loop_time)
 
         return RobotState.TUNE
 
     def run_tune(self) -> RobotState:
+        """
+        Auto-tuning phase using Ziegler-Nichols inspired heuristic.
+        Increases Kp until oscillation, then backs off and sets Ki/Kd.
+        """
         logger.info("-> Auto-Tuning...")
         self.led.signal_tuning()
 
@@ -157,7 +182,7 @@ class RobotController:
                 error = self.config.pid.target_angle - self.pitch
 
                 # Tune Logic: Increment Kp until vibration
-                self.config.pid.kp += 0.05
+                self.config.pid.kp += TUNING_HEURISTICS.kp_increment
 
                 # Vibration detection
                 if (error > 0 and self.pid.last_error < 0) or (
@@ -177,9 +202,9 @@ class RobotController:
 
         if found_tune:
             # Re-apply calculations based on the Kp we reached
-            self.config.pid.kp *= 0.6
-            self.config.pid.kd = self.config.pid.kp * 0.05
-            self.config.pid.ki = self.config.pid.kp * 0.005
+            self.config.pid.kp *= TUNING_HEURISTICS.kp_reduction
+            self.config.pid.kd = self.config.pid.kp * TUNING_HEURISTICS.kd_ratio
+            self.config.pid.ki = self.config.pid.kp * TUNING_HEURISTICS.ki_ratio
             logger.info(
                 f"-> Tuned! Kp={self.config.pid.kp:.2f} Kd={self.config.pid.kd:.2f}"
             )
@@ -190,6 +215,10 @@ class RobotController:
         return RobotState.EXIT
 
     def run_balance(self) -> RobotState:
+        """
+        Main balancing phase.
+        Executes PID control loop, fall detection, and battery compensation.
+        """
         logger.info("-> Balancing...")
         self.led.signal_ready()
 
@@ -221,12 +250,19 @@ class RobotController:
 
         return RobotState.EXIT
 
-    def _step_balance(self, reading: IMUReading, error: float, dt: float) -> None:
+    def _step_balance(
+        self, reading: IMUReading, error: float, loop_delta_time: float
+    ) -> None:
         """
         Execute one step of the balancing control loop.
+        :param reading: Current IMU reading.
+        :param error: Current pitch error.
+        :param loop_delta_time: Time elapsed since last loop.
         """
         # PID Update
-        output = self.pid.update(error, dt, measurement_rate=reading.pitch_rate)
+        output = self.pid.update(
+            error, loop_delta_time, measurement_rate=reading.pitch_rate
+        )
 
         # Turn Correction
         turn_correction = -reading.yaw_rate * 0.5
@@ -243,10 +279,10 @@ class RobotController:
             )
 
         # Battery Estimation
-        ang_accel = (reading.pitch_rate - self.last_pitch_rate) / dt
+        ang_accel = (reading.pitch_rate - self.last_pitch_rate) / loop_delta_time
         self.last_pitch_rate = reading.pitch_rate
 
-        comp_factor = self.battery.update(output, ang_accel, dt)
+        comp_factor = self.battery.update(output, ang_accel, loop_delta_time)
 
         # Log low battery occasionally
         if comp_factor < 0.95 and self.battery_logger.should_log():
@@ -254,17 +290,21 @@ class RobotController:
 
         # Drive
         final_drive = output / comp_factor
-        self.hw.set_motors(
-            final_drive + turn_correction, final_drive - turn_correction
-        )
+        self.hw.set_motors(final_drive + turn_correction, final_drive - turn_correction)
 
         # Periodic Save
-        if self.config_dirty and (time.monotonic() - self.last_save_time > SAVE_INTERVAL_SEC):
+        if self.config_dirty and (
+            time.monotonic() - self.last_save_time > SYSTEM_TIMING.save_interval
+        ):
             self.config.save()
             self.last_save_time = time.monotonic()
             self.config_dirty = False
 
     def run_recover(self) -> RobotState:
+        """
+        Recovery phase after a fall.
+        Waits for the robot to be placed upright again.
+        """
         self.led.signal_off()
         self.hw.stop()
 

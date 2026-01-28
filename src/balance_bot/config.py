@@ -18,6 +18,25 @@ class PIDParams:
     integral_limit: float = 20.0
 
 
+@dataclass(frozen=True)
+class SystemTiming:
+    setup_wait: float = 2.0
+    calibration_pause: float = 1.0
+    save_interval: float = 30.0
+
+
+@dataclass(frozen=True)
+class TuningHeuristics:
+    kp_increment: float = 0.05
+    kp_reduction: float = 0.6
+    kd_ratio: float = 0.05
+    ki_ratio: float = 0.005
+
+
+SYSTEM_TIMING = SystemTiming()
+TUNING_HEURISTICS = TuningHeuristics()
+
+
 @contextmanager
 def temp_pid_overrides(pid_params: PIDParams, **overrides):
     """
@@ -105,7 +124,7 @@ class RobotConfig:
             "pid_kp": "kp",
             "pid_ki": "ki",
             "pid_kd": "kd",
-            "target_angle": "target_angle"
+            "target_angle": "target_angle",
         }
 
         pid_data = {

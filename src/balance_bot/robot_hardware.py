@@ -1,5 +1,4 @@
 import os
-import math
 import logging
 from typing import Protocol, runtime_checkable
 from dataclasses import dataclass
@@ -8,9 +7,14 @@ from .utils import clamp, calculate_pitch, Vector3
 
 logger = logging.getLogger(__name__)
 
+GYRO_AXIS_X = "x"
+GYRO_AXIS_Y = "y"
+
 
 @dataclass(frozen=True)
 class IMUReading:
+    """Immutable data structure for converted IMU readings."""
+
     pitch_angle: float
     pitch_rate: float
     yaw_rate: float
@@ -32,6 +36,7 @@ class IMUDriver(Protocol):
 
 class PiconZeroAdapter:
     """Adapter for the vendored piconzero module."""
+
     def __init__(self, pz_module):
         self.pz = pz_module
 
@@ -50,6 +55,7 @@ class PiconZeroAdapter:
 
 class MPU6050Adapter:
     """Adapter for the mpu6050 library class."""
+
     def __init__(self, sensor_instance):
         self.sensor = sensor_instance
 
@@ -61,15 +67,26 @@ class MPU6050Adapter:
 
 
 class RobotHardware:
+    """Abstraction layer for robot hardware (Motors and IMU)."""
+
     def __init__(
         self,
         motor_l: int,
         motor_r: int,
         invert_l: bool = False,
         invert_r: bool = False,
-        gyro_axis: str = "x",
+        gyro_axis: str = GYRO_AXIS_X,
         gyro_invert: bool = False,
     ):
+        """
+        Initialize the robot hardware abstraction.
+        :param motor_l: Left motor channel.
+        :param motor_r: Right motor channel.
+        :param invert_l: Whether to invert left motor.
+        :param invert_r: Whether to invert right motor.
+        :param gyro_axis: Axis to use for pitch ('x' or 'y').
+        :param gyro_invert: Whether to invert gyro reading.
+        """
         self.motor_l = motor_l
         self.motor_r = motor_r
         self.invert_l = invert_l
@@ -100,6 +117,7 @@ class RobotHardware:
             self._init_mock_hardware()
 
     def _init_mock_hardware(self) -> None:
+        """Initialize mock hardware components."""
         logger.info("Running in Mock Mode")
         from .mocks import MockPiconZero, MockMPU6050
 
@@ -108,23 +126,24 @@ class RobotHardware:
         self.sensor = MockMPU6050(0x68)
 
     def init(self) -> None:
-        """Initialize hardware."""
+        """Initialize the underlying motor driver."""
         self.pz.init()
 
     def read_imu_raw(self) -> tuple[Vector3, Vector3]:
         """
         Returns raw accelerometer and gyro data.
-        Returns: (accel_dict, gyro_dict)
+        :return: Tuple of (accel_dict, gyro_dict).
         """
         return self.sensor.get_accel_data(), self.sensor.get_gyro_data()
 
     def read_imu_converted(self) -> IMUReading:
         """
         Read IMU and calculate pitch/rates based on config.
+        :return: IMUReading object containing pitch angle and rates.
         """
         accel, gyro = self.read_imu_raw()
 
-        if self.gyro_axis == "y":
+        if self.gyro_axis == GYRO_AXIS_Y:
             # Pitch around Y axis
             accel_forward = accel["x"]
             accel_vertical = accel["z"]
@@ -146,9 +165,7 @@ class RobotHardware:
             gyro_rate = -gyro_rate
 
         return IMUReading(
-            pitch_angle=acc_angle,
-            pitch_rate=gyro_rate,
-            yaw_rate=yaw_rate
+            pitch_angle=acc_angle, pitch_rate=gyro_rate, yaw_rate=yaw_rate
         )
 
     def set_motors(self, left: float, right: float) -> None:
