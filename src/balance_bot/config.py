@@ -19,10 +19,34 @@ class PIDParams:
 
 
 @dataclass(frozen=True)
+class BatteryConfig:
+    ema_alpha: float = 0.05
+    factor_smoothing: float = 0.01
+    min_compensation: float = 0.5
+    max_compensation: float = 1.2
+    min_pwm: float = 20.0
+    baseline_samples: int = 100
+
+
+@dataclass(frozen=True)
+class TunerConfig:
+    cooldown_reset: int = 50
+    oscillation_threshold: float = 0.15
+    kp_oscillation_penalty: float = -0.1
+    kd_oscillation_boost: float = 0.05
+    stability_std_dev: float = 1.0
+    stability_mean_err: float = 1.0
+    kp_stability_boost: float = 0.02
+    steady_error_threshold: float = 3.0
+    ki_boost: float = 0.005
+
+
+@dataclass(frozen=True)
 class SystemTiming:
     setup_wait: float = 2.0
     calibration_pause: float = 1.0
     save_interval: float = 30.0
+    battery_log_interval: float = 5.0
 
 
 @dataclass(frozen=True)
@@ -63,6 +87,8 @@ def temp_pid_overrides(pid_params: PIDParams, **overrides):
 @dataclass
 class RobotConfig:
     pid: PIDParams
+    battery: BatteryConfig = BatteryConfig()
+    tuner: TunerConfig = TunerConfig()
     motor_l: int = 0
     motor_r: int = 1
     motor_l_invert: bool = False
@@ -85,6 +111,8 @@ class RobotConfig:
     def load(cls) -> "RobotConfig":
         # Start with defaults
         pid_params = PIDParams()
+        battery_config = BatteryConfig()
+        tuner_config = TunerConfig()
         config_kwargs = {}
 
         if CONFIG_FILE.exists():
@@ -98,7 +126,21 @@ class RobotConfig:
                 if isinstance(pid_data, dict):
                     pid_params = PIDParams(**cls._filter_keys(PIDParams, pid_data))
 
-                # 2. Handle Root Config
+                # 2. Handle Battery
+                bat_data = data.pop("battery", {})
+                if isinstance(bat_data, dict):
+                    battery_config = BatteryConfig(
+                        **cls._filter_keys(BatteryConfig, bat_data)
+                    )
+
+                # 3. Handle Tuner
+                tune_data = data.pop("tuner", {})
+                if isinstance(tune_data, dict):
+                    tuner_config = TunerConfig(
+                        **cls._filter_keys(TunerConfig, tune_data)
+                    )
+
+                # 4. Handle Root Config
                 config_kwargs = cls._filter_keys(RobotConfig, data)
 
                 logger.info(
@@ -109,7 +151,12 @@ class RobotConfig:
             except (json.JSONDecodeError, OSError) as e:
                 logger.error(f"Error loading config: {e}")
 
-        return cls(pid=pid_params, **config_kwargs)
+        return cls(
+            pid=pid_params,
+            battery=battery_config,
+            tuner=tuner_config,
+            **config_kwargs,
+        )
 
     @staticmethod
     def _migrate_legacy_data(data: dict[str, Any]) -> dict[str, Any]:

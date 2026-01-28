@@ -2,6 +2,8 @@ import statistics
 from itertools import pairwise
 from typing import NamedTuple
 
+from .config import TunerConfig
+
 
 class TuningAdjustment(NamedTuple):
     kp: float
@@ -10,25 +12,13 @@ class TuningAdjustment(NamedTuple):
 
 
 class ContinuousTuner:
-    COOLDOWN_RESET = 50  # Wait 0.5s between adjustments
-
-    # Heuristic Constants
-    OSCILLATION_THRESHOLD = 0.15  # % of buffer
-    KP_OSCILLATION_PENALTY = -0.1
-    KD_OSCILLATION_BOOST = 0.05
-
-    STABILITY_STD_DEV = 1.0
-    STABILITY_MEAN_ERR = 1.0
-    KP_STABILITY_BOOST = 0.02
-
-    STEADY_ERROR_THRESHOLD = 3.0
-    KI_BOOST = 0.005
-
-    def __init__(self, buffer_size: int = 100):
+    def __init__(self, config: TunerConfig = TunerConfig(), buffer_size: int = 100):
         """
         Initialize the ContinuousTuner.
+        :param config: Tuner configuration object.
         :param buffer_size: Number of error samples to keep (100 samples @ 10ms loop = 1 sec)
         """
+        self.config = config
         self.buffer_size = buffer_size
         self.errors: list[float] = []
         self.cooldown_timer = 0
@@ -70,28 +60,28 @@ class ContinuousTuner:
 
         # 1. OSCILLATION (High Frequency)
         # If crossing zero frequently (>15% of samples), Kp is likely too high.
-        if zero_crossings > (self.buffer_size * self.OSCILLATION_THRESHOLD):
-            kp_nudge = self.KP_OSCILLATION_PENALTY
-            kd_nudge = self.KD_OSCILLATION_BOOST  # More damping might help
+        if zero_crossings > (self.buffer_size * self.config.oscillation_threshold):
+            kp_nudge = self.config.kp_oscillation_penalty
+            kd_nudge = self.config.kd_oscillation_boost  # More damping might help
             tuned = True
 
         # 2. STABILITY (Improving over time)
         # If very stable (low variance) and upright, try to tighten control (Increase Kp).
         elif (
-            stdev_err < self.STABILITY_STD_DEV
-            and abs(mean_err) < self.STABILITY_MEAN_ERR
+            stdev_err < self.config.stability_std_dev
+            and abs(mean_err) < self.config.stability_mean_err
         ):
-            kp_nudge = self.KP_STABILITY_BOOST
+            kp_nudge = self.config.kp_stability_boost
             tuned = True
 
         # 3. STEADY STATE ERROR
         # If consistently leaning, Ki is too low.
-        if abs(mean_err) > self.STEADY_ERROR_THRESHOLD:
-            ki_nudge = self.KI_BOOST
+        if abs(mean_err) > self.config.steady_error_threshold:
+            ki_nudge = self.config.ki_boost
             tuned = True
 
         if tuned:
-            self.cooldown_timer = self.COOLDOWN_RESET
+            self.cooldown_timer = self.config.cooldown_reset
 
         return TuningAdjustment(kp_nudge, ki_nudge, kd_nudge)
 
