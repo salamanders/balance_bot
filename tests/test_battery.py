@@ -1,8 +1,10 @@
 from balance_bot.battery import BatteryEstimator
+from balance_bot.config import BatteryConfig
 
 def test_battery_estimator_baseline():
     """Test that the estimator establishes a baseline correctly."""
-    estimator = BatteryEstimator(baseline_samples=10, min_pwm=10.0)
+    config = BatteryConfig(baseline_samples=10, min_pwm=10.0)
+    estimator = BatteryEstimator(config=config)
 
     # 1. Establish Baseline
     # Simulate constant "Responsiveness" = 2.0 (Accel=100, PWM=50)
@@ -14,7 +16,8 @@ def test_battery_estimator_baseline():
 
 def test_battery_estimator_compensation():
     """Test that the estimator reduces factor when responsiveness drops."""
-    estimator = BatteryEstimator(baseline_samples=10, min_pwm=10.0)
+    config = BatteryConfig(baseline_samples=10, min_pwm=10.0)
+    estimator = BatteryEstimator(config=config)
 
     # 1. Establish Baseline (Ratio=2.0)
     for _ in range(10):
@@ -36,7 +39,8 @@ def test_battery_estimator_compensation():
 
 def test_battery_estimator_deadzone():
     """Test that small PWMs are ignored."""
-    estimator = BatteryEstimator(baseline_samples=10, min_pwm=20.0)
+    config = BatteryConfig(baseline_samples=10, min_pwm=20.0)
+    estimator = BatteryEstimator(config=config)
 
     # 1. Try to update with small PWM
     factor = estimator.update(10, 100, 0.01)
@@ -47,7 +51,8 @@ def test_battery_estimator_deadzone():
 
 def test_battery_estimator_smoothing():
     """Test that the factor changes smoothly, not instantly."""
-    estimator = BatteryEstimator(baseline_samples=10, min_pwm=10.0)
+    config = BatteryConfig(baseline_samples=10, min_pwm=10.0)
+    estimator = BatteryEstimator(config=config)
 
     # Baseline
     for _ in range(10):

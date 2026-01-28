@@ -55,9 +55,9 @@ class RobotController:
         )
         self.led = LedController()
         self.pid = PIDController(self.config.pid)
-        self.tuner = ContinuousTuner()
-        self.battery = BatteryEstimator()
-        self.battery_logger = LogThrottler(5.0)  # Log every 5 seconds
+        self.tuner = ContinuousTuner(self.config.tuner)
+        self.battery = BatteryEstimator(self.config.battery)
+        self.battery_logger = LogThrottler(SYSTEM_TIMING.battery_log_interval)
         self.filter = ComplementaryFilter(self.config.complementary_alpha)
 
         self.running = True
@@ -326,6 +326,7 @@ class RobotController:
 
 
 def main() -> None:
+    """Entry point for the robot control application."""
     bot = RobotController()
     bot.init()
     bot.run()

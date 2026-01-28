@@ -1,18 +1,13 @@
-class BatteryEstimator:
-    EMA_ALPHA = 0.05
-    FACTOR_SMOOTHING = 0.01
-    MIN_COMPENSATION = 0.5
-    MAX_COMPENSATION = 1.2
+from .config import BatteryConfig
 
-    def __init__(self, baseline_samples: int = 100, min_pwm: float = 20.0):
+
+class BatteryEstimator:
+    def __init__(self, config: BatteryConfig = BatteryConfig()):
         """
         Estimates battery voltage drop by comparing expected vs actual responsiveness.
-
-        :param baseline_samples: Number of samples to collect for establishing baseline.
-        :param min_pwm: Minimum PWM value to consider for estimation (deadzone).
+        :param config: Configuration object for battery estimation.
         """
-        self.baseline_samples = baseline_samples
-        self.min_pwm = min_pwm
+        self.config = config
 
         self.samples_collected = 0
         self.baseline_responsiveness = 0.0
@@ -31,14 +26,14 @@ class BatteryEstimator:
         :param loop_delta_time: Time step
         :return: Current compensation factor
         """
-        if abs(pwm) < self.min_pwm:
+        if abs(pwm) < self.config.min_pwm:
             return self.compensation_factor
 
         # Responsiveness = Acceleration / PWM
         raw_responsiveness = abs(angular_accel) / abs(pwm)
 
         # 1. ESTABLISH BASELINE
-        if self.samples_collected < self.baseline_samples:
+        if self.samples_collected < self.config.baseline_samples:
             # Accumulate average
             self.baseline_responsiveness = (
                 (self.baseline_responsiveness * self.samples_collected)
@@ -51,8 +46,8 @@ class BatteryEstimator:
         # 2. RUNNING ESTIMATION
         # Smooth the current reading
         self.current_responsiveness = (
-            self.EMA_ALPHA * raw_responsiveness
-            + (1 - self.EMA_ALPHA) * self.current_responsiveness
+            self.config.ema_alpha * raw_responsiveness
+            + (1 - self.config.ema_alpha) * self.current_responsiveness
         )
 
         # Calculate Ratio
@@ -63,12 +58,15 @@ class BatteryEstimator:
 
         # Update Factor (smoothly)
         # Factor should track the ratio.
-        target_factor = max(self.MIN_COMPENSATION, min(self.MAX_COMPENSATION, ratio))
+        target_factor = max(
+            self.config.min_compensation,
+            min(self.config.max_compensation, ratio),
+        )
 
         # Apply slow smoothing to the factor itself to avoid feedback loops
         self.compensation_factor = (
-            self.FACTOR_SMOOTHING * target_factor
-            + (1 - self.FACTOR_SMOOTHING) * self.compensation_factor
+            self.config.factor_smoothing * target_factor
+            + (1 - self.config.factor_smoothing) * self.compensation_factor
         )
 
         return self.compensation_factor

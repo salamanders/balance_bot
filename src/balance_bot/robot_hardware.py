@@ -9,6 +9,8 @@ logger = logging.getLogger(__name__)
 
 GYRO_AXIS_X = "x"
 GYRO_AXIS_Y = "y"
+MOTOR_MIN_OUTPUT = -100
+MOTOR_MAX_OUTPUT = 100
 
 
 @dataclass(frozen=True)
@@ -180,8 +182,8 @@ class RobotHardware:
             right = -right
 
         # Use helper clamp, cast to int for driver
-        left_val = int(clamp(left, -100, 100))
-        right_val = int(clamp(right, -100, 100))
+        left_val = int(clamp(left, MOTOR_MIN_OUTPUT, MOTOR_MAX_OUTPUT))
+        right_val = int(clamp(right, MOTOR_MIN_OUTPUT, MOTOR_MAX_OUTPUT))
 
         self.pz.set_motor(self.motor_l, left_val)
         self.pz.set_motor(self.motor_r, right_val)
