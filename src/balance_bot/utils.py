@@ -11,6 +11,8 @@ FORCE_CALIB_FILE = Path("force_calibration.txt")
 
 
 class Vector3(TypedDict):
+    """Type definition for a 3D vector."""
+
     x: float
     y: float
     z: float
@@ -23,6 +25,10 @@ class ComplementaryFilter:
     """
 
     def __init__(self, alpha: float):
+        """
+        Initialize the filter.
+        :param alpha: Filter coefficient (0.0 to 1.0). Higher means trust gyro more.
+        """
         self.alpha = alpha
         self.angle = 0.0
 
@@ -44,6 +50,10 @@ class RateLimiter:
     """Helper to maintain a consistent loop frequency."""
 
     def __init__(self, frequency: float):
+        """
+        Initialize the rate limiter.
+        :param frequency: Target frequency in Hz.
+        """
         self.period = 1.0 / frequency
         self.next_time = time.monotonic()
 
@@ -63,11 +73,18 @@ class LogThrottler:
     """Helper to throttle log messages."""
 
     def __init__(self, interval_sec: float):
+        """
+        Initialize the log throttler.
+        :param interval_sec: Minimum interval between logs in seconds.
+        """
         self.interval = interval_sec
         self.last_log_time = 0.0
 
     def should_log(self) -> bool:
-        """Returns True if enough time has passed since the last log."""
+        """
+        Check if it's time to log.
+        :return: True if enough time has passed since the last log.
+        """
         now = time.monotonic()
         if now - self.last_log_time > self.interval:
             self.last_log_time = now
@@ -76,7 +93,13 @@ class LogThrottler:
 
 
 def clamp(value: float, min_val: float, max_val: float) -> float:
-    """Clamp a value between a minimum and maximum."""
+    """
+    Clamp a value between a minimum and maximum.
+    :param value: Input value.
+    :param min_val: Minimum allowed value.
+    :param max_val: Maximum allowed value.
+    :return: Clamped value.
+    """
     return max(min(value, max_val), min_val)
 
 
@@ -85,12 +108,18 @@ def calculate_pitch(accel_y: float, accel_z: float) -> float:
     Calculate pitch angle in degrees from accelerometer data.
     Assumes Y is forward/backward axis and Z is vertical.
     Returns value in degrees.
+    :param accel_y: Y-axis acceleration.
+    :param accel_z: Z-axis acceleration.
+    :return: Pitch angle in degrees.
     """
     return math.degrees(math.atan2(accel_y, accel_z))
 
 
 def setup_logging(level: int = logging.INFO) -> None:
-    """Configure logging for the application."""
+    """
+    Configure logging for the application.
+    :param level: Logging level.
+    """
     logging.basicConfig(
         level=level,
         format="%(asctime)s [%(levelname)s] %(message)s",
@@ -101,6 +130,7 @@ def setup_logging(level: int = logging.INFO) -> None:
 def check_force_calibration_flag() -> bool:
     """
     Check if force calibration is requested via file or command line argument.
+    :return: True if force calibration is requested.
     """
     if FORCE_CALIB_FILE.exists():
         logger.info(f"Force calibration file found: {FORCE_CALIB_FILE}")

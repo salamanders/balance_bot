@@ -1,7 +1,6 @@
 import time
 import logging
 import smbus2 as smbus
-from typing import Optional, List
 from .utils import clamp
 
 logger = logging.getLogger(__name__)
@@ -31,7 +30,7 @@ class PiconZero:
         Initialize the PiconZero driver.
         :param bus_number: I2C bus number (usually 1 for modern Pi, 0 for old).
         """
-        self.bus: Optional[smbus.SMBus] = None
+        self.bus: smbus.SMBus | None = None
         try:
             self.bus = smbus.SMBus(bus_number)
             logger.info(f"PiconZero initialized on bus {bus_number}")
@@ -42,7 +41,11 @@ class PiconZero:
             self.bus = None
 
     def _write_byte(self, reg: int, value: int) -> None:
-        """Write a byte to a register with retries."""
+        """
+        Write a byte to a register with retries.
+        :param reg: Register address.
+        :param value: Byte value to write.
+        """
         if self.bus is None:
             return
         for _ in range(RETRIES):
@@ -53,8 +56,12 @@ class PiconZero:
                 pass
         logger.error(f"Failed to write byte to register {reg}")
 
-    def _write_block(self, reg: int, data: List[int]) -> None:
-        """Write a block of data with retries."""
+    def _write_block(self, reg: int, data: list[int]) -> None:
+        """
+        Write a block of data with retries.
+        :param reg: Register address.
+        :param data: List of bytes to write.
+        """
         if self.bus is None:
             return
         for _ in range(RETRIES):
@@ -66,7 +73,11 @@ class PiconZero:
         logger.error(f"Failed to write block to register {reg}")
 
     def _read_word(self, reg: int) -> int:
-        """Read a word from a register with retries."""
+        """
+        Read a word from a register with retries.
+        :param reg: Register address.
+        :return: Word value read.
+        """
         if self.bus is None:
             return 0
         for _ in range(RETRIES):
@@ -102,27 +113,48 @@ class PiconZero:
         self._write_byte(motor, safe_value)
 
     def forward(self, speed: int) -> None:
+        """
+        Drive both motors forward.
+        :param speed: Speed value.
+        """
         self.set_motor(0, speed)
         self.set_motor(1, speed)
 
     def reverse(self, speed: int) -> None:
+        """
+        Drive both motors in reverse.
+        :param speed: Speed value.
+        """
         self.set_motor(0, -speed)
         self.set_motor(1, -speed)
 
     def spin_left(self, speed: int) -> None:
+        """
+        Spin robot left.
+        :param speed: Speed value.
+        """
         self.set_motor(0, -speed)
         self.set_motor(1, speed)
 
     def spin_right(self, speed: int) -> None:
+        """
+        Spin robot right.
+        :param speed: Speed value.
+        """
         self.set_motor(0, speed)
         self.set_motor(1, -speed)
 
     def stop(self) -> None:
+        """Stop all motors."""
         self.set_motor(0, 0)
         self.set_motor(1, 0)
 
     def read_input(self, channel: int) -> int:
-        """Read data from selected input channel (0-3)."""
+        """
+        Read data from selected input channel (0-3).
+        :param channel: Input channel index.
+        :return: Read value.
+        """
         if 0 <= channel <= 3:
             return self._read_word(channel + 1)
         return 0
@@ -161,12 +193,25 @@ class PiconZero:
     def set_pixel(
         self, pixel: int, red: int, green: int, blue: int, update: bool = True
     ) -> None:
-        """Set the color of an individual pixel (Output 5 must be WS2812B)."""
+        """
+        Set the color of an individual pixel (Output 5 must be WS2812B).
+        :param pixel: Pixel index.
+        :param red: Red component (0-255).
+        :param green: Green component (0-255).
+        :param blue: Blue component (0-255).
+        :param update: Whether to update immediately.
+        """
         pixel_data = [pixel, red, green, blue]
         self._write_block(1 if update else 0, pixel_data)
 
     def set_all_pixels(self, red: int, green: int, blue: int, update: bool = True) -> None:
-        """Set all pixels to a color."""
+        """
+        Set all pixels to a color.
+        :param red: Red component (0-255).
+        :param green: Green component (0-255).
+        :param blue: Blue component (0-255).
+        :param update: Whether to update immediately.
+        """
         pixel_data = [100, red, green, blue]
         self._write_block(1 if update else 0, pixel_data)
 
@@ -175,7 +220,10 @@ class PiconZero:
         self._write_byte(REG_UPDATE_NOW, 0)
 
     def set_brightness(self, brightness: int) -> None:
-        """Set overall brightness of pixel array."""
+        """
+        Set overall brightness of pixel array.
+        :param brightness: Brightness value (0-255).
+        """
         self._write_byte(REG_SET_BRIGHT, brightness)
 
     def init(self) -> None:

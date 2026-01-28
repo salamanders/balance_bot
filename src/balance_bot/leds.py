@@ -2,11 +2,20 @@ import time
 import logging
 from pathlib import Path
 
+from .config import LedConfig
+
 logger = logging.getLogger(__name__)
 
 
 class LedController:
-    def __init__(self):
+    """Controls the robot's LED for status indication."""
+
+    def __init__(self, config: LedConfig = LedConfig()):
+        """
+        Initialize the LED controller.
+        :param config: Configuration for LED timings.
+        """
+        self.config = config
         self.led_path: Path | None = self._find_led_path()
         self.mode = "OFF"
         self.last_toggle = 0.0
@@ -17,6 +26,7 @@ class LedController:
         self.set_led(False)
 
     def _find_led_path(self) -> Path | None:
+        """Find the system path for the status LED."""
         candidates = (
             Path("/sys/class/leds/led0/brightness"),
             Path("/sys/class/leds/ACT/brightness"),
@@ -24,6 +34,10 @@ class LedController:
         return next((p for p in candidates if p.exists()), None)
 
     def set_led(self, on: bool) -> None:
+        """
+        Turn the LED on or off.
+        :param on: True for ON, False for OFF.
+        """
         self.is_on = on
         if not self.led_path:
             return
@@ -36,16 +50,16 @@ class LedController:
             pass
 
     def signal_setup(self) -> None:
-        """Fast blink for setup/waiting (10Hz)."""
+        """Fast blink for setup/waiting."""
         if self.mode != "SETUP":
             self.mode = "SETUP"
-            self.blink_interval = 0.05
+            self.blink_interval = self.config.setup_blink_interval
 
     def signal_tuning(self) -> None:
-        """Slow blink for tuning (2Hz)."""
+        """Slow blink for tuning."""
         if self.mode != "TUNING":
             self.mode = "TUNING"
-            self.blink_interval = 0.25
+            self.blink_interval = self.config.tuning_blink_interval
 
     def signal_ready(self) -> None:
         """Solid on for balancing."""
@@ -53,12 +67,14 @@ class LedController:
         self.set_led(True)
 
     def signal_off(self) -> None:
+        """Turn off LED."""
         self.mode = "OFF"
         self.set_led(False)
 
     def update(self) -> None:
+        """Update LED state based on current mode and time."""
         if self.mode in ["SETUP", "TUNING"]:
-            now = time.time()
+            now = time.monotonic()
             if now - self.last_toggle > self.blink_interval:
                 self.set_led(not self.is_on)
                 self.last_toggle = now
@@ -79,17 +95,28 @@ class LedController:
 
     def countdown(self) -> None:
         """
-        Blocking countdown sequence:
-        3 blinks, pause, 2 blinks, pause, 1 blink, go.
+        Blocking countdown sequence before balancing starts.
         """
         logger.info("Starting in...")
 
-        self._blink(3, 0.2, 0.2)
-        time.sleep(0.5)
+        self._blink(
+            self.config.countdown_blink_count_3,
+            self.config.countdown_blink_on_time,
+            self.config.countdown_blink_off_time,
+        )
+        time.sleep(self.config.countdown_pause_time)
 
-        self._blink(2, 0.2, 0.2)
-        time.sleep(0.5)
+        self._blink(
+            self.config.countdown_blink_count_2,
+            self.config.countdown_blink_on_time,
+            self.config.countdown_blink_off_time,
+        )
+        time.sleep(self.config.countdown_pause_time)
 
-        self._blink(1, 0.2, 0.2)
+        self._blink(
+            self.config.countdown_blink_count_1,
+            self.config.countdown_blink_on_time,
+            self.config.countdown_blink_off_time,
+        )
 
         logger.info("GO!")
