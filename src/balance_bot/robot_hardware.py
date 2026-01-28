@@ -1,6 +1,6 @@
 import os
 import logging
-from typing import Protocol, runtime_checkable
+from typing import Protocol, runtime_checkable, Any
 from dataclasses import dataclass
 
 from .utils import clamp, calculate_pitch, Vector3
@@ -24,6 +24,8 @@ class IMUReading:
 
 @runtime_checkable
 class MotorDriver(Protocol):
+    """Protocol for motor driver implementations."""
+
     def init(self) -> None: ...
     def cleanup(self) -> None: ...
     def stop(self) -> None: ...
@@ -32,6 +34,8 @@ class MotorDriver(Protocol):
 
 @runtime_checkable
 class IMUDriver(Protocol):
+    """Protocol for IMU driver implementations."""
+
     def get_accel_data(self) -> Vector3: ...
     def get_gyro_data(self) -> Vector3: ...
 
@@ -39,13 +43,19 @@ class IMUDriver(Protocol):
 class MPU6050Adapter:
     """Adapter for the mpu6050 library class."""
 
-    def __init__(self, sensor_instance):
+    def __init__(self, sensor_instance: Any):
+        """
+        Initialize the adapter.
+        :param sensor_instance: Instance of mpu6050 class.
+        """
         self.sensor = sensor_instance
 
     def get_accel_data(self) -> Vector3:
+        """Get accelerometer data."""
         return self.sensor.get_accel_data()
 
     def get_gyro_data(self) -> Vector3:
+        """Get gyroscope data."""
         return self.sensor.get_gyro_data()
 
 

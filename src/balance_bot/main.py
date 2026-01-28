@@ -53,7 +53,7 @@ class RobotController:
             gyro_axis=self.config.gyro_pitch_axis,
             gyro_invert=self.config.gyro_pitch_invert,
         )
-        self.led = LedController()
+        self.led = LedController(self.config.led)
         self.pid = PIDController(self.config.pid)
         self.tuner = ContinuousTuner(self.config.tuner)
         self.battery = BatteryEstimator(self.config.battery)
@@ -265,7 +265,7 @@ class RobotController:
         )
 
         # Turn Correction
-        turn_correction = -reading.yaw_rate * 0.5
+        turn_correction = -reading.yaw_rate * self.config.control.yaw_correction_factor
 
         # Continuous Tuning
         adj = self.tuner.update(error)
@@ -285,7 +285,10 @@ class RobotController:
         comp_factor = self.battery.update(output, ang_accel, loop_delta_time)
 
         # Log low battery occasionally
-        if comp_factor < 0.95 and self.battery_logger.should_log():
+        if (
+            comp_factor < self.config.control.low_battery_log_threshold
+            and self.battery_logger.should_log()
+        ):
             logger.warning(f"-> Low Battery? Compensating: {int(comp_factor * 100)}%")
 
         # Drive
@@ -315,7 +318,7 @@ class RobotController:
             self.led.update()
 
             error = self.config.pid.target_angle - self.pitch
-            if abs(error) < 5.0:
+            if abs(error) < self.config.control.upright_threshold:
                 logger.info(f"-> Upright detected! (Pitch: {self.pitch:.2f})")
                 self.led.countdown()
                 return RobotState.BALANCE

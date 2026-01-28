@@ -42,6 +42,25 @@ class TunerConfig:
 
 
 @dataclass(frozen=True)
+class LedConfig:
+    setup_blink_interval: float = 0.05
+    tuning_blink_interval: float = 0.25
+    countdown_blink_count_3: int = 3
+    countdown_blink_count_2: int = 2
+    countdown_blink_count_1: int = 1
+    countdown_blink_on_time: float = 0.2
+    countdown_blink_off_time: float = 0.2
+    countdown_pause_time: float = 0.5
+
+
+@dataclass(frozen=True)
+class ControlConfig:
+    yaw_correction_factor: float = 0.5
+    upright_threshold: float = 5.0
+    low_battery_log_threshold: float = 0.95
+
+
+@dataclass(frozen=True)
 class SystemTiming:
     setup_wait: float = 2.0
     calibration_pause: float = 1.0
@@ -89,6 +108,8 @@ class RobotConfig:
     pid: PIDParams
     battery: BatteryConfig = BatteryConfig()
     tuner: TunerConfig = TunerConfig()
+    led: LedConfig = LedConfig()
+    control: ControlConfig = ControlConfig()
     motor_l: int = 0
     motor_r: int = 1
     motor_l_invert: bool = False
@@ -113,6 +134,8 @@ class RobotConfig:
         pid_params = PIDParams()
         battery_config = BatteryConfig()
         tuner_config = TunerConfig()
+        led_config = LedConfig()
+        control_config = ControlConfig()
         config_kwargs = {}
 
         if CONFIG_FILE.exists():
@@ -140,7 +163,19 @@ class RobotConfig:
                         **cls._filter_keys(TunerConfig, tune_data)
                     )
 
-                # 4. Handle Root Config
+                # 4. Handle Led
+                led_data = data.pop("led", {})
+                if isinstance(led_data, dict):
+                    led_config = LedConfig(**cls._filter_keys(LedConfig, led_data))
+
+                # 5. Handle Control
+                ctrl_data = data.pop("control", {})
+                if isinstance(ctrl_data, dict):
+                    control_config = ControlConfig(
+                        **cls._filter_keys(ControlConfig, ctrl_data)
+                    )
+
+                # 6. Handle Root Config
                 config_kwargs = cls._filter_keys(RobotConfig, data)
 
                 logger.info(
@@ -155,6 +190,8 @@ class RobotConfig:
             pid=pid_params,
             battery=battery_config,
             tuner=tuner_config,
+            led=led_config,
+            control=control_config,
             **config_kwargs,
         )
 
