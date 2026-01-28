@@ -77,7 +77,10 @@ class ContinuousTuner:
 
         # 2. STABILITY (Improving over time)
         # If very stable (low variance) and upright, try to tighten control (Increase Kp).
-        elif stdev_err < self.STABILITY_STD_DEV and abs(mean_err) < self.STABILITY_MEAN_ERR:
+        elif (
+            stdev_err < self.STABILITY_STD_DEV
+            and abs(mean_err) < self.STABILITY_MEAN_ERR
+        ):
             kp_nudge = self.KP_STABILITY_BOOST
             tuned = True
 

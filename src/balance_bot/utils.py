@@ -21,19 +21,22 @@ class ComplementaryFilter:
     A simple Complementary Filter for sensor fusion.
     Combines a noisy but fast signal (Gyro) with a stable but slow signal (Accel).
     """
+
     def __init__(self, alpha: float):
         self.alpha = alpha
         self.angle = 0.0
 
-    def update(self, new_angle: float, rate: float, dt: float) -> float:
+    def update(self, new_angle: float, rate: float, loop_delta_time: float) -> float:
         """
         Update the filter state.
         :param new_angle: The new absolute angle measurement (e.g., from Accelerometer).
         :param rate: The rate of change (e.g., from Gyroscope).
-        :param dt: Time delta in seconds.
+        :param loop_delta_time: Time delta in seconds.
         :return: The filtered angle.
         """
-        self.angle = (self.alpha * (self.angle + rate * dt)) + ((1.0 - self.alpha) * new_angle)
+        self.angle = (self.alpha * (self.angle + rate * loop_delta_time)) + (
+            (1.0 - self.alpha) * new_angle
+        )
         return self.angle
 
 
