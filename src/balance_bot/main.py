@@ -128,8 +128,9 @@ class RobotController:
         self.led.signal_setup()
         start_wait = time.monotonic()
 
-        # Simple wait loop
+        # Simple wait loop with filter warmup
         while time.monotonic() - start_wait < SYSTEM_TIMING.setup_wait:
+            self.get_pitch(self.config.loop_time)
             self.led.update()
             time.sleep(self.config.loop_time)
 
@@ -179,7 +180,7 @@ class RobotController:
                 self.get_pitch(self.config.loop_time)
                 self.led.update()
 
-                error = self.config.pid.target_angle - self.pitch
+                error = self.pitch - self.config.pid.target_angle
 
                 # Tune Logic: Increment Kp until vibration
                 self.config.pid.kp += TUNING_HEURISTICS.kp_increment
@@ -232,7 +233,7 @@ class RobotController:
             reading = self.get_pitch(self.config.loop_time)
             self.led.update()
 
-            error = self.config.pid.target_angle - self.pitch
+            error = self.pitch - self.config.pid.target_angle
 
             # Fall detection
             if abs(error) > self.config.fall_angle_limit:
@@ -317,7 +318,7 @@ class RobotController:
             self.get_pitch(self.config.loop_time)
             self.led.update()
 
-            error = self.config.pid.target_angle - self.pitch
+            error = self.pitch - self.config.pid.target_angle
             if abs(error) < self.config.control.upright_threshold:
                 logger.info(f"-> Upright detected! (Pitch: {self.pitch:.2f})")
                 self.led.countdown()
