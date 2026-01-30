@@ -40,6 +40,21 @@ chevron_angle = 35;
 truss_angle = 55; 
 
 
+// SHAFT SETTINGS
+// ------------------------------------------
+// Measured diameter of your motor shaft (usually 3mm)
+shaft_diameter = 3.0; 
+
+// The "D" thickness (Distance from flat surface to opposite curved wall)
+// For a 3mm shaft, this is usually 2.5mm. Measure yours with calipers!
+shaft_flat_thickness = 2.5; 
+
+// Printing Tolerance (Crucial!)
+// 0.15mm - 0.2mm is usually good for a snug press fit.
+fit_tolerance = 0.2;
+    
+    
+
 /* [Rendering] */
 // Higher makes smoother circles. Use roughly 2x diameter for smooth prints.
 $fn = tire_outer_radius*4; // *4 for final)
@@ -61,13 +76,22 @@ module interlock_teeth() {
     tooth_depth = 4.0;   // How deep they bite into the cushion (mm)
     tooth_width = 4.0;   // Thickness of the tooth
     
-    for (i = [0 : num_teeth-1]) {
-        rotate([0, 0, i * (360 / num_teeth)]) 
-        translate([hub_outer_radius, 0, 0]) 
-        // We center the cube on the boundary line so half is in, half is out.
-        // But for the Hub, we only care about the part sticking OUT.
-        translate([tooth_depth/2, 0, 0]) 
-        cube([tooth_depth+1, tooth_width, tire_width], center=true);
+    intersection() {
+        union() {
+            cylinder(h=tire_width/2, r1=hub_outer_radius+2, r2=hub_outer_radius+10);
+    rotate([180,0,0])
+            cylinder(h=tire_width/2, r1=hub_outer_radius+2, r2=hub_outer_radius+10);
+        }
+        union() {
+        for (i = [0 : num_teeth-1]) {
+            rotate([0, 0, i * (360 / num_teeth)]) 
+            translate([hub_outer_radius, 0, 0]) 
+            // We center the cube on the boundary line so half is in, half is out.
+            // But for the Hub, we only care about the part sticking OUT.
+            translate([tooth_depth/2, 0, 0]) 
+            cube([tooth_depth+1, tooth_width, tire_width], center=true);
+        }
+        }
     }
 }
 
@@ -78,7 +102,26 @@ module Zone1_Hub() {
     color("FireBrick")
     union() {
         translate([0,0,0.02/2])
-            ring(height=tire_width+0.02, r_outer=hub_outer_radius, r_inner=axle_radius);
+        ring(height=tire_width+0.02, r_outer=hub_outer_radius, r_inner=axle_radius);
+            
+        difference() {
+            cylinder(h=tire_width+0.02, r=hub_outer_radius, center=true);
+        
+            // 2. The D-Shaft Cutout (SUBTRACT)
+            translate([0,0, -50]) // Center the cut vertically
+            linear_extrude(height=100) {
+                intersection() {
+                    // A. The Round Shaft
+                    circle(d = shaft_diameter + fit_tolerance, $fn=60);
+                    
+                    // B. The Flat Cut (The D-shape)
+                    // We draw a large square shifted to create the flat edge
+                    translate([ -shaft_diameter, -shaft_diameter ]) 
+                        square([ (shaft_flat_thickness + fit_tolerance) + shaft_diameter/2, shaft_diameter*2 ]);
+                }
+            }
+        }
+            
         interlock_teeth();
     }
 }
@@ -175,15 +218,36 @@ module vanes() {
 
 
 module Zone3_ShearVanes() {
-    // 1. The Drums (Inner & Outer)
-    ring(height=tire_width, r_outer=soft_outer_radius + min_wall_thickness, r_inner=soft_outer_radius);
-    ring(height=tire_width, r_outer=tire_outer_radius, r_inner=tire_outer_radius - min_wall_thickness);
-
-    vanes();
-    mirror([0,0,1])
-    vanes();
+    intersection() {
+        // Need to split for fuzzy tires
+        cylinder(h=tire_width, r=tire_outer_radius-min_wall_thickness+0.4, center=true);
+        union() {
+            // Drums (outer)
+            ring(height=tire_width, r_outer=tire_outer_radius, r_inner=tire_outer_radius - min_wall_thickness);
+            // 1. The Drums (Inner)
+            ring(height=tire_width, r_outer=soft_outer_radius + min_wall_thickness, r_inner=soft_outer_radius);
+            vanes();
+            mirror([0,0,1])
+            vanes();
+        }
+    }
 }
 
+module Zone4_Outer() {
+    difference() {
+        union() {
+            // Drums (outer)
+            ring(height=tire_width, r_outer=tire_outer_radius, r_inner=tire_outer_radius - min_wall_thickness);
+            // 1. The Drums (Inner)
+            ring(height=tire_width, r_outer=soft_outer_radius + min_wall_thickness, r_inner=soft_outer_radius);
+            vanes();
+            mirror([0,0,1])
+            vanes();
+        }
+        // Need to split for fuzzy tires
+        cylinder(h=tire_width, r=tire_outer_radius-min_wall_thickness+0.4, center=true);
+    }
+}
 
 // ==============================================
 // DISPLAY
@@ -204,6 +268,12 @@ color("green")
 union() {
     Zone3_ShearVanes();
 }
+
+color("brown")
+union() {
+    Zone4_Outer();
+}
+
 
 
 
