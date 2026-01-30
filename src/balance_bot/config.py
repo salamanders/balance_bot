@@ -11,9 +11,9 @@ CONFIG_FILE = Path("pid_config.json")
 
 @dataclass
 class PIDParams:
-    kp: float = 5.0
+    kp: float = 25.0
     ki: float = 0.0
-    kd: float = 0.0
+    kd: float = 0.5
     target_angle: float = 0.0
     integral_limit: float = 20.0
 

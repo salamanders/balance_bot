@@ -18,7 +18,10 @@ class WiringCheck:
         )
         self.hw.init()
         print("\n=== Wiring Check & Calibration Tool ===")
-        print("Note: Ensure the robot is on a stand or wheels are free to spin.")
+        print("!!! IMPORTANT !!!")
+        print("Ensure the robot is on a STAND or wheels are lifted off the ground.")
+        print("The motors WILL spin during testing.")
+        print("!!! IMPORTANT !!!")
 
     def run(self):
         while True:
@@ -47,6 +50,8 @@ class WiringCheck:
                 case "4":
                     self.config.save()
                     self.cleanup()
+                    print("\nWiring Check Complete.")
+                    print("You can now place the robot on the floor and run the main program.")
                     sys.exit(0)
                 case "5":
                     self.cleanup()
