@@ -1,6 +1,9 @@
+/* [Rendering] */
+// Higher makes smoother circles. Use roughly 2x diameter for smooth prints.
+$fn = 36; // *4 for final)
+
 // Build outwards from the motor
 overlap = 0.001;
-
 
 // DC N20 motor -bmw dimensions
 silver_height = 10;
@@ -24,6 +27,30 @@ fit_tolerance = 0.2;
 shaft_length = 8;
 //https://botland.store/n20-micro-motors-mp-series-medium-power/12606-micro-motor-n20-bt44-250-1-90rpm-6v-5904422306731.html
 
+// Weel sections, all from center
+press_fit_r = 6;
+squish_r = 20;
+paddle = squish_r + 10;
+
+nozzle_diameter = 0.4;
+wall_thickness = nozzle_diameter * 3;
+num_vanes = 36; // Increased slightly to ensure smooth rolling on the tips
+vane_thickness = 2*nozzle_diameter; 
+
+// Controls the "V" shape on the tread (Ground smoothness)
+chevron_angle = 35; 
+
+// Controls the "Lean" of the soft (Torque Stiffness)
+// 15-20 degrees is usually enough. Too high and it gets too stiff vertically.
+truss_angle = 55; 
+
+
+module zmirror(){
+    children();
+    mirror([0,0,1])
+	children();
+}
+
 // 2. The D-Shaft Cutout (SUBTRACT)
 module DShaft() {
     color("silver")
@@ -42,23 +69,28 @@ module DShaft() {
 }
 
 // Motor block
-color("silver")
+*color("silver")
 translate([0,0,-24/2 - shaft_length/2])
 cube([10,12,24], center=true);
 
 // Hard press-fit center
-
-
-color("FireBrick")
-difference() {
-    intersection() {
-        cylinder(h=shaft_length, r=8, center=true, $fn=6);
-        union() {
-            cylinder(h=shaft_length/2, r1=8-1, r2=8 + 1, $fn=6);
-            rotate([180,0,0])
-            translate([0,0,overlap])
-            cylinder(h=shaft_length/2, r1=8-1, r2=8 + 1, $fn=6);
+module PressFit_00() {
+    color("FireBrick")
+    difference() {
+        intersection() {
+            cylinder(h=shaft_length, r=press_fit_r, center=true, $fn=6);
+            zmirror() {
+                cylinder(h=shaft_length/2, r1=press_fit_r-1, r2=press_fit_r + 1, $fn=6);
+            }
         }
+        DShaft();
     }
-    DShaft();
+}
+
+PressFit_00();
+
+difference() {
+cylinder(h=shaft_length, r=squish_r, center=true);
+cylinder(h=shaft_length+overlap*2, r=press_fit_r-1, center=true);
+PressFit_00();
 }

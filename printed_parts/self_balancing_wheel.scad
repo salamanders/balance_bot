@@ -6,26 +6,26 @@
 
 /* [Dimensions] */
 // The total width of the tire across the tread
-tire_width = 25;
+tire_width = 8;
 
-// Radius of the motor shaft hole
+// Radius of the area around the D shaft (with extra)
 axle_radius = 4; 
 
 // Outer radius of the rigid hub zone
-hub_outer_radius = 16; 
+hub_outer_radius = 7; 
 
 // Outer radius of the compliant soft zone
-soft_outer_radius = 38;
+soft_outer_radius = 24;
 
 // Final outer radius of the tire (the tread surface)
-tire_outer_radius = 48;  
+tire_outer_radius = 30;  
 
 
 /* [Tread Configuration] */
 tread_extension = 1.0; // How far the vanes poke out (1.0 to 1.5mm is the sweet spot)
 
 nozzle_diameter = 0.4;
-min_wall_thickness = nozzle_diameter * 3;
+min_wall_thickness = nozzle_diameter * 2;
 
 
 /* [Vane Configuration] */
@@ -57,7 +57,7 @@ fit_tolerance = 0.2;
 
 /* [Rendering] */
 // Higher makes smoother circles. Use roughly 2x diameter for smooth prints.
-$fn = tire_outer_radius*4; // *4 for final)
+$fn = tire_outer_radius*1; // *4 for final)
 
 // --- Helper Modules ---
 module ring(height, r_outer, r_inner) {
@@ -68,6 +68,7 @@ module ring(height, r_outer, r_inner) {
 }
 
 
+/*
 // ==============================================
 // Generates the geometry for the interlocking teeth.
 // We call this twice: once to ADD to the hub, once to SUBTRACT from the cushion.
@@ -94,6 +95,8 @@ module interlock_teeth() {
         }
     }
 }
+*/
+
 
 // --- ZONE 1: THE HUB (Red) ---
 // Intended Slicer Settings: 100% Solid Infill, high wall count.
@@ -103,7 +106,17 @@ module Zone1_Hub() {
     union() {
         translate([0,0,0.02/2])
         ring(height=tire_width+0.02, r_outer=hub_outer_radius, r_inner=axle_radius);
-            
+        
+        translate([0,0,0.02/2])
+        ring(height=tire_width, r_outer=hub_outer_radius, r_inner=axle_radius);
+        for (i = [0:60:360]) {
+            difference() {
+                rotate([0,0,i])
+                cube([(hub_outer_radius+5)*2, 4, tire_width], center=true);
+                cylinder(h=tire_width+0.02, r=axle_radius, center=true);
+            }
+        }
+        
         difference() {
             cylinder(h=tire_width+0.02, r=hub_outer_radius, center=true);
         
@@ -122,9 +135,10 @@ module Zone1_Hub() {
             }
         }
             
-        interlock_teeth();
+        //interlock_teeth();
     }
 }
+
 
 // --- ZONE 2: COMPLIANT softS (Blue) ---
 // Intended Slicer Settings: ~10% Gyroid Infill. 0 Top/Bottom Layers.
@@ -137,7 +151,7 @@ module Zone2_softs() {
         translate([0,0,0.01/2])
         ring(height=tire_width+0.01, r_outer=soft_outer_radius, r_inner=hub_outer_radius);
         scale([1,1,2])
-        interlock_teeth();
+        Zone1_Hub();
     }
 }
 
@@ -273,10 +287,6 @@ color("brown")
 union() {
     Zone4_Outer();
 }
-
-
-
-
 
 
 
