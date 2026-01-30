@@ -1,8 +1,10 @@
+import sys
 import time
 import logging
 from enum import Enum, auto
 
 from .config import (
+    CONFIG_FILE,
     RobotConfig,
     PIDParams,
     temp_pid_overrides,
@@ -10,6 +12,7 @@ from .config import (
     TUNING_HEURISTICS,
 )
 from .robot_hardware import RobotHardware, IMUReading
+from .wiring_check import WiringCheck
 from .pid import PIDController
 from .leds import LedController
 from .tuner import ContinuousTuner
@@ -38,12 +41,20 @@ class RobotController:
     def __init__(self):
         setup_logging()
 
+        self.force_tune = "--tune" in sys.argv
+        self.has_saved_config = CONFIG_FILE.exists()
+        force_calib = check_force_calibration_flag()
+
         # Check force calibration before loading config
-        if check_force_calibration_flag():
+        if force_calib:
             logger.info("Forcing calibration: Using default configuration.")
             self.config = RobotConfig(pid=PIDParams())
         else:
             self.config = RobotConfig.load()
+            if self.has_saved_config:
+                logger.info(">>> Config Found. Starting in PRODUCTION MODE.")
+            else:
+                logger.info(">>> No Config Found. Starting in FIRST RUN MODE.")
 
         self.hw = RobotHardware(
             motor_l=self.config.motor_l,
@@ -134,6 +145,12 @@ class RobotController:
             self.led.update()
             time.sleep(self.config.loop_time)
 
+        # Decide next state based on config availability
+        if self.has_saved_config and not check_force_calibration_flag():
+            if self.force_tune:
+                return RobotState.TUNE
+            return RobotState.BALANCE
+
         return RobotState.CALIBRATE
 
     def run_calibrate(self) -> RobotState:
@@ -157,7 +174,11 @@ class RobotController:
             self.led.update()
             time.sleep(self.config.loop_time)
 
-        return RobotState.TUNE
+        if self.force_tune:
+            return RobotState.TUNE
+
+        # Default to BALANCE using conservative defaults if not forcing tune
+        return RobotState.BALANCE
 
     def run_tune(self) -> RobotState:
         """
@@ -331,6 +352,13 @@ class RobotController:
 
 def main() -> None:
     """Entry point for the robot control application."""
+    if "--check-wiring" in sys.argv:
+        try:
+            WiringCheck().run()
+        except KeyboardInterrupt:
+            pass
+        return
+
     bot = RobotController()
     bot.init()
     bot.run()
