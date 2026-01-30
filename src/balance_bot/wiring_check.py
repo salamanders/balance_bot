@@ -68,7 +68,7 @@ class WiringCheck:
 
     def check_motor(self, side: str):
         print(f"\n>>> Checking {side.upper()} Motor...")
-        print("Spinning FORWARD (positive speed) for 2 seconds...")
+        print("Spinning with POSITIVE speed (+30) for 2 seconds...")
 
         if side == "left":
             self.hw.set_motors(30, 0)
@@ -78,7 +78,8 @@ class WiringCheck:
         time.sleep(2)
         self.hw.stop()
 
-        print(f"\nDid the {side.upper()} motor spin FORWARD? (Wheel top moves forward)")
+        print(f"\nDid the {side.upper()} motor spin FORWARD?")
+        print("Definition of FORWARD: The TOP of the wheel moves towards the FRONT of the robot.")
         print("y: Yes, it spun forward (Correct)")
         print("n: No, it spun BACKWARD (Reverse Needed)")
         print("o: No, the OTHER motor spun (Swap Needed)")
@@ -103,7 +104,9 @@ class WiringCheck:
                     self.config.motor_l,
                 )
                 self.reload_hw()
-                print("Channels swapped. Please re-test.")
+                print("Channels swapped.")
+                print("!!! IMPORTANT: You MUST re-check the direction for BOTH motors now. !!!")
+                print("Select option 1 and 2 again to verify.")
             case _:
                 print("Invalid input.")
 
