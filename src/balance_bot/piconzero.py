@@ -31,14 +31,8 @@ class PiconZero:
         :param bus_number: I2C bus number (usually 1 for modern Pi, 0 for old).
         """
         self.bus: smbus.SMBus | None = None
-        try:
-            self.bus = smbus.SMBus(bus_number)
-            logger.info(f"PiconZero initialized on bus {bus_number}")
-        except (FileNotFoundError, PermissionError, OSError):
-            logger.warning(
-                f"Could not open I2C bus {bus_number}. Hardware functionality disabled."
-            )
-            self.bus = None
+        self.bus = smbus.SMBus(bus_number)
+        logger.info(f"PiconZero initialized on bus {bus_number}")
 
     def _write_byte(self, reg: int, value: int) -> None:
         """
