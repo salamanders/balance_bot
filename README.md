@@ -1,18 +1,64 @@
 # balance_bot
 
-Wiring Check:
+## Getting Started (First Time Setup)
 
-* MPU-6050: VCC to 3.3V, GND to GND, SDA to SDA, SCL to SCL.
-* Motors: Plugged into Motor A and Motor B on the Picon Zero.
+Follow these steps to get your robot up and running from a fresh Raspberry Pi installation.
 
-Orientation: This code assumes the MPU is mounted such that tilting forward/back rotates the X-axis gyroscope. If your robot acts crazy immediately, change data['gx'] to data['gy'] in the get_pitch method.
+### 1. Clone the Repository
+```bash
+git clone https://github.com/your-org/balance-bot.git
+cd balance-bot
+```
 
-Bootup: 
+### 2. System Setup
+Run the setup script to enable I2C and install necessary system libraries (like the Picon Zero driver).
+```bash
+chmod +x setup.sh
+sudo ./setup.sh
+```
 
-1. Run python3 balance_bot.py
-2. Hold the robot perfectly upright and still. The console will say [STEP 1] HOLD VERTICAL. Wait 1 second.
-3. The console will say [STEP 2] LETTING IT WOBBLE. Gently support it with your hands (don't grip it tight, just cage it). It will twitch back and forth.
-4. The console will print Tuned! Kp: ... and it will take over. Let go!
+### 3. Install `uv`
+This project uses `uv` for Python dependency management.
+```bash
+curl -LsSf https://astral.sh/uv/install.sh | sh
+source $HOME/.cargo/env
+```
+
+### 4. Install Dependencies
+Sync the project dependencies.
+```bash
+uv sync
+```
+
+### 5. Verify Hardware (Software Check)
+Run the interactive wiring check to verify motor direction and gyro orientation.
+```bash
+uv run balance-bot --check-wiring
+```
+Follow the on-screen instructions.
+
+### 6. Run the Robot
+Start the balancing software.
+```bash
+uv run balance-bot
+```
+
+---
+
+## Physical Wiring Check
+*Note: This section describes the physical connections required before running the software.*
+
+* **MPU-6050**: VCC to 3.3V, GND to GND, SDA to SDA, SCL to SCL.
+* **Motors**: Plugged into Motor A and Motor B on the Picon Zero.
+
+**Orientation**: This code assumes the MPU is mounted such that tilting forward/back rotates the X-axis gyroscope. If your robot acts crazy immediately, change data['gx'] to data['gy'] in the get_pitch method.
+
+## Bootup Process
+
+1. Run `uv run balance-bot`
+2. Hold the robot perfectly upright and still. The console will say `[STEP 1] HOLD VERTICAL`. Wait 1 second.
+3. The console will say `[STEP 2] LETTING IT WOBBLE`. Gently support it with your hands (don't grip it tight, just cage it). It will twitch back and forth.
+4. The console will print `Tuned! Kp: ...` and it will take over. Let go!
 
 ## Codebase Assumptions
 
