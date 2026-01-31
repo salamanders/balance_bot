@@ -24,6 +24,7 @@ from .utils import (
     ComplementaryFilter,
     check_force_calibration_flag,
 )
+from .diagnostics import run_diagnostics
 
 logger = logging.getLogger(__name__)
 
@@ -352,6 +353,10 @@ class RobotController:
 
 def main() -> None:
     """Entry point for the robot control application."""
+    if "--diagnose" in sys.argv:
+        run_diagnostics()
+        return
+
     if "--check-wiring" in sys.argv:
         try:
             WiringCheck().run()
