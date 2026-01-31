@@ -15,6 +15,7 @@ class WiringCheck:
             invert_r=self.config.motor_r_invert,
             gyro_axis=self.config.gyro_pitch_axis,
             gyro_invert=self.config.gyro_pitch_invert,
+            i2c_bus=self.config.i2c_bus,
         )
         self.hw.init()
         print("\n=== Wiring Check & Calibration Tool ===")
@@ -35,8 +36,11 @@ class WiringCheck:
             print(
                 f"3. Check Gyro Orientation (Axis: {self.config.gyro_pitch_axis}, Inv: {self.config.gyro_pitch_invert})"
             )
-            print("4. Save & Exit")
-            print("5. Exit without Saving")
+            print(
+                f"4. Check I2C Bus (Current: {self.config.i2c_bus})"
+            )
+            print("5. Save & Exit")
+            print("6. Exit without Saving")
 
             choice = input("Select option: ").strip()
 
@@ -48,12 +52,14 @@ class WiringCheck:
                 case "3":
                     self.check_gyro()
                 case "4":
+                    self.check_i2c_bus()
+                case "5":
                     self.config.save()
                     self.cleanup()
                     print("\nWiring Check Complete.")
                     print("You can now place the robot on the floor and run the main program.")
                     sys.exit(0)
-                case "5":
+                case "6":
                     self.cleanup()
                     sys.exit(0)
                 case _:
@@ -68,6 +74,7 @@ class WiringCheck:
             invert_r=self.config.motor_r_invert,
             gyro_axis=self.config.gyro_pitch_axis,
             gyro_invert=self.config.gyro_pitch_invert,
+            i2c_bus=self.config.i2c_bus,
         )
         self.hw.init()
 
@@ -155,6 +162,33 @@ class WiringCheck:
                     self.config.gyro_pitch_axis = "x"
                 self.reload_hw()
                 print(f"Axis changed to {self.config.gyro_pitch_axis}. Please re-test.")
+
+    def check_i2c_bus(self):
+        print(f"\n>>> Checking I2C Bus (Current: {self.config.i2c_bus})")
+        print("If you are using the Picon Zero, you might need to use Software I2C (Bus 3).")
+        print("Enter new Bus Number (e.g. 1 or 3), or press Enter to keep current.")
+
+        ans = input("Bus Number: ").strip()
+        if ans:
+            try:
+                new_bus = int(ans)
+                self.config.i2c_bus = new_bus
+                print(f"-> Switching to Bus {new_bus}...")
+                self.reload_hw()
+
+                # Test read
+                print("Attempting to read from sensor...")
+                try:
+                    p = self.get_pitch_snapshot()
+                    print(f"SUCCESS: Read pitch {p:.2f} from Bus {new_bus}.")
+                except Exception as e:
+                    print(f"FAILURE: Could not read from Bus {new_bus}: {e}")
+                    print("Reverting might be needed if this persists.")
+
+            except ValueError:
+                print("Invalid number.")
+        else:
+            print("No change.")
 
     def get_pitch_snapshot(self) -> float:
         # Average a few readings

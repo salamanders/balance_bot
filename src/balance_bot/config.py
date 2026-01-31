@@ -116,6 +116,7 @@ class RobotConfig:
     motor_r_invert: bool = False
     gyro_pitch_axis: str = "x"
     gyro_pitch_invert: bool = False
+    i2c_bus: int = 1
     loop_time: float = 0.01  # 10ms
 
     # Operational Parameters
