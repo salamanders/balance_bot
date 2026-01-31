@@ -1,6 +1,33 @@
+import os
 import subprocess
 import importlib
 from pathlib import Path
+
+def get_i2c_failure_report(bus_id: int, address: int, device_name: str) -> str:
+    """
+    Generate a pessimistic report about why a device is failing.
+    """
+    # Check if bus exists
+    path = Path(f"/dev/i2c-{bus_id}")
+    if not path.exists():
+        return f"CRITICAL FAILURE: I2C Bus {bus_id} ({path}) does not exist. The kernel driver is not loaded. Enable I2C in raspi-config or /boot/config.txt."
+
+    # Check permissions
+    if not os.access(path, os.R_OK | os.W_OK):
+        return f"CRITICAL FAILURE: Permission denied accessing {path}. User '{os.environ.get('USER')}' cannot read/write. Run: sudo usermod -aG i2c $USER"
+
+    # Check connectivity with i2cdetect
+    try:
+        result = subprocess.run(["i2cdetect", "-y", str(bus_id)], capture_output=True, text=True)
+        hex_addr = f"{address:02x}"
+        if hex_addr in result.stdout:
+            return f"CONFUSION: Device {device_name} (0x{hex_addr}) IS detected on Bus {bus_id} by i2cdetect, but Python driver failed. Check for library version mismatch or intermittent wiring connection."
+        else:
+             return f"HARDWARE FAILURE: Device {device_name} (0x{hex_addr}) is NOT responding on Bus {bus_id}. Wiring is likely bad, power is disconnected, or the device is fried. Try swapping wires or checking solder joints."
+    except FileNotFoundError:
+        return "DEPENDENCY FAILURE: 'i2cdetect' is missing. Install i2c-tools."
+    except Exception as e:
+        return f"UNKNOWN FAILURE: Error running diagnostics: {e}"
 
 def check_system_i2c_config():
     print("\nChecking System I2C Config...")
