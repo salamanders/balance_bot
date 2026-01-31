@@ -70,6 +70,7 @@ class RobotHardware:
         invert_r: bool = False,
         gyro_axis: str = GYRO_AXIS_X,
         gyro_invert: bool = False,
+        i2c_bus: int = 1,
     ):
         """
         Initialize the robot hardware abstraction.
@@ -79,6 +80,7 @@ class RobotHardware:
         :param invert_r: Whether to invert right motor.
         :param gyro_axis: Axis to use for pitch ('x' or 'y').
         :param gyro_invert: Whether to invert gyro reading.
+        :param i2c_bus: I2C bus number for MPU6050.
         """
         self.motor_l = motor_l
         self.motor_r = motor_r
@@ -86,6 +88,7 @@ class RobotHardware:
         self.invert_r = invert_r
         self.gyro_axis = gyro_axis
         self.gyro_invert = gyro_invert
+        self.i2c_bus = i2c_bus
 
         self.pz: MotorDriver
         self.sensor: IMUDriver
@@ -103,8 +106,8 @@ class RobotHardware:
             from mpu6050 import mpu6050
 
             self.pz = PiconZero()
-            self.sensor = MPU6050Adapter(mpu6050(0x68))
-            logger.info("Hardware initialized.")
+            self.sensor = MPU6050Adapter(mpu6050(0x68, bus=self.i2c_bus))
+            logger.info(f"Hardware initialized. MPU6050 on bus {self.i2c_bus}.")
         except (ImportError, OSError):
             logger.warning("Hardware not found. Falling back to Mock Mode.")
             logger.warning("Run 'uv run balance-bot --diagnose' to troubleshoot.")
