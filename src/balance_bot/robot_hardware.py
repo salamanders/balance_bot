@@ -107,6 +107,7 @@ class RobotHardware:
             logger.info("Hardware initialized.")
         except (ImportError, OSError):
             logger.warning("Hardware not found. Falling back to Mock Mode.")
+            logger.warning("Run 'uv run balance-bot --diagnose' to troubleshoot.")
             self._init_mock_hardware()
 
     def _init_mock_hardware(self) -> None:
