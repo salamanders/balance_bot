@@ -12,6 +12,15 @@ class TuningAdjustment(NamedTuple):
 
 
 class ContinuousTuner:
+    """
+    Background process that monitors control performance and suggests PID tweaks.
+
+    Analyses a buffer of recent error history to detect:
+     1. High Frequency Oscillation -> Reduce Kp, Increase Kd.
+     2. Stable Upright Behavior -> Gently Increase Kp.
+     3. Persistent Leaning -> Increase Ki.
+    """
+
     def __init__(self, config: TunerConfig = TunerConfig(), buffer_size: int = 100):
         """
         Initialize the ContinuousTuner.
@@ -26,8 +35,9 @@ class ContinuousTuner:
     def update(self, error: float) -> TuningAdjustment:
         """
         Add a new error sample and return PID nudges.
-        :param error: Current pitch error (Target - Pitch)
-        :return: TuningAdjustment(kp, ki, kd)
+
+        :param error: Current pitch error (Target - Pitch).
+        :return: TuningAdjustment(kp, ki, kd) with additive modifiers.
         """
         self.errors.append(error)
         if len(self.errors) > self.buffer_size:
@@ -86,6 +96,7 @@ class ContinuousTuner:
         return TuningAdjustment(kp_nudge, ki_nudge, kd_nudge)
 
     def _count_zero_crossings(self) -> int:
+        """Count how many times the signal crosses zero in the buffer."""
         crossings = 0
         for e1, e2 in pairwise(self.errors):
             if (e1 > 0 and e2 <= 0) or (e1 < 0 and e2 >= 0):

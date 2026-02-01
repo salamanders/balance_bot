@@ -16,8 +16,13 @@ MOTOR_MAX_OUTPUT = 100
 
 @dataclass(frozen=True)
 class IMUReading:
-    """Immutable data structure for converted IMU readings."""
+    """
+    Immutable data structure for converted IMU readings.
 
+    :param pitch_angle: Calculated pitch angle in degrees (Zero = Upright).
+    :param pitch_rate: Angular velocity around pitch axis in deg/s.
+    :param yaw_rate: Angular velocity around yaw (vertical) axis in deg/s.
+    """
     pitch_angle: float
     pitch_rate: float
     yaw_rate: float
@@ -25,24 +30,58 @@ class IMUReading:
 
 @runtime_checkable
 class MotorDriver(Protocol):
-    """Protocol for motor driver implementations."""
+    """
+    Protocol for motor driver implementations.
+    Allows swapping between real hardware (PiconZero) and Mocks.
+    """
 
-    def init(self) -> None: ...
-    def cleanup(self) -> None: ...
-    def stop(self) -> None: ...
-    def set_motor(self, motor: int, value: int) -> None: ...
+    def init(self) -> None:
+        """Initialize the motor driver hardware."""
+        ...
+
+    def cleanup(self) -> None:
+        """Release hardware resources."""
+        ...
+
+    def stop(self) -> None:
+        """Stop all motors immediately."""
+        ...
+
+    def set_motor(self, motor: int, value: int) -> None:
+        """
+        Set speed for a specific motor.
+        :param motor: Motor channel index (0 or 1).
+        :param value: Speed (-100 to 100).
+        """
+        ...
 
 
 @runtime_checkable
 class IMUDriver(Protocol):
-    """Protocol for IMU driver implementations."""
+    """
+    Protocol for IMU driver implementations.
+    Abstracts specific sensor libraries (e.g. mpu6050).
+    """
 
-    def get_accel_data(self) -> Vector3: ...
-    def get_gyro_data(self) -> Vector3: ...
+    def get_accel_data(self) -> Vector3:
+        """
+        Get raw accelerometer data.
+        :return: Dictionary with x, y, z keys.
+        """
+        ...
+
+    def get_gyro_data(self) -> Vector3:
+        """
+        Get raw gyroscope data.
+        :return: Dictionary with x, y, z keys.
+        """
+        ...
 
 
 class MPU6050Adapter:
-    """Adapter for the mpu6050 library class."""
+    """
+    Adapter for the mpu6050 library class to match IMUDriver protocol.
+    """
 
     def __init__(self, sensor_instance: Any):
         """
@@ -61,7 +100,15 @@ class MPU6050Adapter:
 
 
 class RobotHardware:
-    """Abstraction layer for robot hardware (Motors and IMU)."""
+    """
+    Hardware Abstraction Layer (HAL) for the Robot.
+
+    Responsibilities:
+     - Initialize Motor and IMU drivers (Real or Mock).
+     - Abstract away I2C bus management.
+     - Remap sensor axes (X/Y/Z) to logical axes (Pitch/Vertical/Forward).
+     - Convert raw sensor data into useful engineering units (Degrees, Deg/s).
+    """
 
     def __init__(
         self,
@@ -79,17 +126,18 @@ class RobotHardware:
     ):
         """
         Initialize the robot hardware abstraction.
-        :param motor_l: Left motor channel.
-        :param motor_r: Right motor channel.
-        :param invert_l: Whether to invert left motor.
-        :param invert_r: Whether to invert right motor.
-        :param gyro_axis: Axis to use for pitch ('x', 'y', 'z').
-        :param gyro_invert: Whether to invert gyro reading.
+
+        :param motor_l: Left motor channel index.
+        :param motor_r: Right motor channel index.
+        :param invert_l: Whether to invert left motor direction.
+        :param invert_r: Whether to invert right motor direction.
+        :param gyro_axis: Axis used for pitch rotation ('x', 'y', 'z').
+        :param gyro_invert: Whether to invert gyro reading sign.
         :param accel_vertical_axis: Axis corresponding to gravity ('x', 'y', 'z').
         :param accel_vertical_invert: Invert vertical axis sign.
-        :param accel_forward_axis: Axis corresponding to forward direction ('x', 'y', 'z').
+        :param accel_forward_axis: Axis corresponding to forward motion ('x', 'y', 'z').
         :param accel_forward_invert: Invert forward axis sign.
-        :param i2c_bus: I2C bus number for MPU6050.
+        :param i2c_bus: I2C bus number for IMU (default 1).
         """
         self.motor_l = motor_l
         self.motor_r = motor_r
@@ -109,7 +157,18 @@ class RobotHardware:
         self._init_hardware()
 
     def _init_hardware(self) -> None:
-        """Initialize hardware components or mocks."""
+        """
+        Initialize hardware components.
+
+        Strategy:
+        1. Check MOCK_HARDWARE env var.
+        2. Try importing hardware libraries.
+        3. Try initializing PiconZero (Motors).
+        4. Try initializing MPU6050 (IMU).
+
+        If any step fails, log a critical error, generate a diagnostic report,
+        and fall back to Mock Hardware to prevent crash loop.
+        """
         if os.environ.get("MOCK_HARDWARE"):
             self._init_mock_hardware()
             return
@@ -175,6 +234,14 @@ class RobotHardware:
     def read_imu_converted(self) -> IMUReading:
         """
         Read IMU and calculate pitch/rates based on config.
+
+        Process:
+        1. Read raw Accel/Gyro.
+        2. Map Raw Axes -> Logical Axes (Forward, Vertical).
+        3. Apply Inversions.
+        4. Calculate Angle via atan2(forward, vertical).
+        5. Return IMUReading.
+
         :return: IMUReading object containing pitch angle and rates.
         """
         accel, gyro = self.read_imu_raw()

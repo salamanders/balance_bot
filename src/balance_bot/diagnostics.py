@@ -5,7 +5,16 @@ from pathlib import Path
 
 def get_i2c_failure_report(bus_id: int, address: int, device_name: str) -> str:
     """
-    Generate a pessimistic report about why a device is failing.
+    Generate a detailed diagnostic report for a failed I2C device.
+    Checks:
+     1. Bus existence (/dev/i2c-*).
+     2. File permissions (User access).
+     3. Connectivity (i2cdetect).
+
+    :param bus_id: I2C Bus ID.
+    :param address: I2C Device Address (7-bit).
+    :param device_name: Human readable name.
+    :return: Diagnostic string.
     """
     # Check if bus exists
     path = Path(f"/dev/i2c-{bus_id}")
@@ -30,6 +39,7 @@ def get_i2c_failure_report(bus_id: int, address: int, device_name: str) -> str:
         return f"UNKNOWN FAILURE: Error running diagnostics: {e}"
 
 def check_system_i2c_config():
+    """Verify /boot/config.txt for Software I2C overlays."""
     print("\nChecking System I2C Config...")
     config_paths = [Path("/boot/firmware/config.txt"), Path("/boot/config.txt")]
     found_overlay = False
@@ -57,6 +67,7 @@ def check_system_i2c_config():
         print("      If PiconZero blocks the I2C pins, you may need to enable Software I2C.")
 
 def check_i2c_tools():
+    """Scan I2C buses using i2cdetect."""
     print("\nChecking I2C Devices (i2cdetect)...")
 
     for bus_id in [1, 3]:
@@ -85,6 +96,7 @@ def check_i2c_tools():
             print(f"ERROR running i2cdetect on Bus {bus_id}: {e}")
 
 def check_smbus():
+    """Check if Python SMBus library can open the bus."""
     print("\nChecking SMBus Access...")
     try:
         import smbus2
@@ -102,6 +114,7 @@ def check_smbus():
          print("FAILURE: 'smbus2' package not installed.")
 
 def check_imports():
+    """Check if required Python packages are installed."""
     print("\nChecking Python Imports...")
 
     modules = ["smbus2", "mpu6050"]
@@ -121,6 +134,10 @@ def check_imports():
          print(f"FAILURE: Could not import internal 'piconzero': {e}")
 
 def run_diagnostics():
+    """
+    Main entry point for diagnostics.
+    Runs a suite of checks to identify hardware/software issues.
+    """
     print("=== Hardware Diagnostics ===")
     check_imports()
     check_system_i2c_config()
