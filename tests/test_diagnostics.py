@@ -1,4 +1,3 @@
-import pytest
 from unittest.mock import patch, MagicMock
 from balance_bot.diagnostics import get_i2c_failure_report
 

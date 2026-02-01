@@ -71,6 +71,10 @@ class RobotHardware:
         invert_r: bool = False,
         gyro_axis: str = GYRO_AXIS_X,
         gyro_invert: bool = False,
+        accel_vertical_axis: str = "z",
+        accel_vertical_invert: bool = False,
+        accel_forward_axis: str = "y",
+        accel_forward_invert: bool = False,
         i2c_bus: int = 1,
     ):
         """
@@ -79,8 +83,12 @@ class RobotHardware:
         :param motor_r: Right motor channel.
         :param invert_l: Whether to invert left motor.
         :param invert_r: Whether to invert right motor.
-        :param gyro_axis: Axis to use for pitch ('x' or 'y').
+        :param gyro_axis: Axis to use for pitch ('x', 'y', 'z').
         :param gyro_invert: Whether to invert gyro reading.
+        :param accel_vertical_axis: Axis corresponding to gravity ('x', 'y', 'z').
+        :param accel_vertical_invert: Invert vertical axis sign.
+        :param accel_forward_axis: Axis corresponding to forward direction ('x', 'y', 'z').
+        :param accel_forward_invert: Invert forward axis sign.
         :param i2c_bus: I2C bus number for MPU6050.
         """
         self.motor_l = motor_l
@@ -89,6 +97,10 @@ class RobotHardware:
         self.invert_r = invert_r
         self.gyro_axis = gyro_axis
         self.gyro_invert = gyro_invert
+        self.accel_vertical_axis = accel_vertical_axis
+        self.accel_vertical_invert = accel_vertical_invert
+        self.accel_forward_axis = accel_forward_axis
+        self.accel_forward_invert = accel_forward_invert
         self.i2c_bus = i2c_bus
 
         self.pz: MotorDriver
@@ -167,26 +179,29 @@ class RobotHardware:
         """
         accel, gyro = self.read_imu_raw()
 
-        if self.gyro_axis == GYRO_AXIS_Y:
-            # Pitch around Y axis
-            accel_forward = accel["x"]
-            accel_vertical = accel["z"]
-            raw_gyro_rate = gyro["y"]
-        else:
-            # Default: Pitch around X axis (Y is forward)
-            accel_forward = accel["y"]
-            accel_vertical = accel["z"]
-            raw_gyro_rate = gyro["x"]
+        # Get raw values based on config
+        accel_forward = accel[self.accel_forward_axis]
+        accel_vertical = accel[self.accel_vertical_axis]
+        gyro_rate = gyro[self.gyro_axis]
+
+        # Apply inversions
+        if self.accel_forward_invert:
+            accel_forward = -accel_forward
+        if self.accel_vertical_invert:
+            accel_vertical = -accel_vertical
 
         # Calculate Accelerometer Angle
+        # calculate_pitch(y, z) assumes y is forward, z is vertical.
         acc_angle = calculate_pitch(accel_forward, accel_vertical)
 
-        gyro_rate = raw_gyro_rate
-        yaw_rate = gyro["z"]
-
+        # Apply Gyro Inversion
         if self.gyro_invert:
-            acc_angle = -acc_angle
             gyro_rate = -gyro_rate
+
+        # Yaw rate - For now, assume Yaw is rotation around vertical axis
+        yaw_rate = gyro[self.accel_vertical_axis]
+        if self.accel_vertical_invert:
+            yaw_rate = -yaw_rate
 
         return IMUReading(
             pitch_angle=acc_angle, pitch_rate=gyro_rate, yaw_rate=yaw_rate

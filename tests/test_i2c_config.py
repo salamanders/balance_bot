@@ -1,6 +1,5 @@
 import os
 import sys
-import json
 from unittest.mock import patch, MagicMock
 
 # Create mocks for the dependencies
