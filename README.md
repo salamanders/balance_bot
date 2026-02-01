@@ -1,5 +1,54 @@
 # balance_bot
 
+## References
+
+### Root Directory
+* [.gitignore](.gitignore): Git configuration specifying which files to ignore.
+* [.python-version](.python-version): Specifies the Python version used by the project/tools.
+* [AGENTS.md](AGENTS.md): Instructions/Context for AI agents working on this codebase.
+* [AUTO_RUN.md](AUTO_RUN.md): Instructions for setting up the robot to run automatically on boot via systemd.
+* [ITERATE.md](ITERATE.md): Guidelines and prompts for AI-driven code refactoring and maintenance.
+* [LICENSE](LICENSE): Project license file.
+* [Makefile](Makefile): Shortcut commands for installation, linting, formatting, and running.
+* [README.md](README.md): The main entry point documentation.
+* [environment.sh](environment.sh): Script to set up the development environment (system dependencies, uv).
+* [piconz.sh](piconz.sh): Script to download official Picon Zero software (Legacy/Redundant as `src/balance_bot/piconzero.py` is used).
+* [pid_config.json](pid_config.json): Persisted storage for the tuned PID parameters.
+* [pyproject.toml](pyproject.toml): Python project configuration, dependencies, and tool settings.
+* [setup.sh](setup.sh): Initial system setup script (I2C enablement, system libraries).
+* [uv.lock](uv.lock): Dependency lock file to ensure reproducible installs.
+
+### Source Code (`src/balance_bot`)
+* [src/balance_bot/__init__.py](src/balance_bot/__init__.py): Package initialization.
+* [src/balance_bot/battery.py](src/balance_bot/battery.py): Logic for monitoring battery voltage and estimating charge.
+* [src/balance_bot/config.py](src/balance_bot/config.py): Centralized configuration (constants, dataclasses) for the robot.
+* [src/balance_bot/diagnostics.py](src/balance_bot/diagnostics.py): Tools for checking system health (I2C, imports).
+* [src/balance_bot/leds.py](src/balance_bot/leds.py): Controls the Raspberry Pi status LEDs for feedback.
+* [src/balance_bot/main.py](src/balance_bot/main.py): Main application entry point and state machine controller.
+* [src/balance_bot/mocks.py](src/balance_bot/mocks.py): Mock hardware implementations used when `MOCK_HARDWARE` env var is set.
+* [src/balance_bot/piconzero.py](src/balance_bot/piconzero.py): Custom driver for the Picon Zero Motor HAT (modernized version).
+* [src/balance_bot/pid.py](src/balance_bot/pid.py): PID controller implementation for balance logic.
+* [src/balance_bot/robot_hardware.py](src/balance_bot/robot_hardware.py): Hardware Abstraction Layer (HAL) managing sensors and motors.
+* [src/balance_bot/tuner.py](src/balance_bot/tuner.py): Automatic PID tuning logic (Ziegler-Nichols method).
+* [src/balance_bot/utils.py](src/balance_bot/utils.py): Shared utility functions (math, timing, filtering).
+* [src/balance_bot/wiring_check.py](src/balance_bot/wiring_check.py): Interactive tool for verifying motor/sensor wiring and orientation.
+
+### Tests (`tests/`)
+* [tests/test_battery.py](tests/test_battery.py): Unit tests for battery estimation logic.
+* [tests/test_config_migration.py](tests/test_config_migration.py): Tests for configuration loading and migration.
+* [tests/test_diagnostics.py](tests/test_diagnostics.py): Tests for diagnostic functions.
+* [tests/test_i2c_config.py](tests/test_i2c_config.py): Tests for I2C bus configuration logic.
+* [tests/test_imu_logic.py](tests/test_imu_logic.py): Tests for IMU math and pitch calculation.
+* [tests/test_tuner.py](tests/test_tuner.py): Tests for the PID auto-tuning logic.
+* [tests/test_utils.py](tests/test_utils.py): Unit tests for helper functions (clamp, filters, etc.).
+
+### Printed Parts (`printed_parts/`)
+* [printed_parts/dcmotor.scad](printed_parts/dcmotor.scad): OpenSCAD source file for motor mount.
+* [printed_parts/self_balancing_wheel.3mf](printed_parts/self_balancing_wheel.3mf): 3D model project file (3MF) for the wheel.
+* [printed_parts/self_balancing_wheel_A_0.15mm_FLEX_MK3S_1h22m.gcode](printed_parts/self_balancing_wheel_A_0.15mm_FLEX_MK3S_1h22m.gcode): G-code for printing Wheel Part A.
+* [printed_parts/self_balancing_wheel_B_0.15mm_FLEX_MK3S_1h22m.gcode](printed_parts/self_balancing_wheel_B_0.15mm_FLEX_MK3S_1h22m.gcode): G-code for printing Wheel Part B.
+* [printed_parts/self_balancing_wheel_proj.3mf](printed_parts/self_balancing_wheel_proj.3mf): Alternative/Project 3MF file for the wheel.
+
 ## Getting Started (First Time Setup)
 
 Follow these steps to get your robot up and running from a fresh Raspberry Pi installation.
