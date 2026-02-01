@@ -93,7 +93,7 @@ class Agent:
 
         # 2. Calibration
         if self.first_run or check_force_calibration_flag():
-            self.run_auto_calibrate()
+            self._perform_discovery()
 
         # 3. Main Loop
         logger.info(f"-> Starting Control Loop. Aggression: {self.tuner.get_current_scale():.2f}")
@@ -218,42 +218,108 @@ class Agent:
             if self.config_dirty:
                 self.config.save()
 
-    def run_auto_calibrate(self) -> None:
+    def _perform_discovery(self) -> None:
+        logger.info(">>> STARTING AUTONOMOUS DISCOVERY <<<")
+
+        # 1. Measure Back Limit
+        logger.info("-> Measuring Back Limit...")
+        back_angle = self._measure_stable_angle()
+        logger.info(f"-> Back Angle: {back_angle:.2f}")
+
+        # 2. The Flop
+        self._drive_until_tip(direction=-1.0)
+
+        # 3. Measure Front Limit
+        logger.info("-> Measuring Front Limit...")
+        front_angle = self._measure_stable_angle()
+        logger.info(f"-> Front Angle: {front_angle:.2f}")
+
+        # 4. Bootstrap
+        midpoint = (back_angle + front_angle) / 2
+        logger.info(f"-> Calculated Midpoint: {midpoint:.2f}")
+
+        self.config.pid.target_angle = midpoint
+        self.config.pid.kp = 3.0
+        self.config_dirty = True
+        self.first_run = False
+
+        # 5. The Kick-Up
+        self._perform_rocking_maneuver(midpoint)
+
+    def _perform_rocking_maneuver(self, target_angle: float) -> None:
         """
-        Interactive calibration sequence.
+        Rock back and then throw forward to catch balance.
         """
-        self.led.signal_setup()
-        logger.info(">>> AUTO CALIBRATION SEQUENCE <<<")
-        print("\n" + "=" * 40)
-        print("STEP 1: Place robot resting on FRONT training wheels (leaning forward).")
-        print("Ensure it is stable.")
-        input("Press ENTER when ready...")
+        logger.info("-> Kick-Up: Rocking Back...")
 
-        logger.info("Measuring...")
-        min_angle = self._wait_for_stable_pitch()
-        logger.info(f"-> Measured Front Angle: {min_angle:.2f}")
-
-        print("\nSTEP 2: Place robot resting on BACK training wheels (leaning backward).")
-        print("Ensure it is stable.")
-        input("Press ENTER when ready...")
-
-        logger.info("Measuring...")
-        max_angle = self._wait_for_stable_pitch()
-        logger.info(f"-> Measured Back Angle: {max_angle:.2f}")
-
-        target = (min_angle + max_angle) / 2
-        self.config.pid.target_angle = target
-        self.config.save()
-
-        logger.info(f"-> Calibration Complete. Target Angle: {target:.2f}")
-        print("=" * 40 + "\n")
-
-    def _wait_for_stable_pitch(self, duration: float = 2.0) -> float:
-        """Run the filter loop for a duration to let the pitch settle."""
-        end_time = time.monotonic() + duration
-        last_pitch = 0.0
+        # Phase 1: Rock Back (200ms)
+        end_time = time.monotonic() + 0.2
         while time.monotonic() < end_time:
-            telemetry = self.core.update(MotionRequest(), TuningParams(0,0,0,0), self.config.loop_time)
-            last_pitch = telemetry.pitch_angle
+            self.core.update(MotionRequest(), TuningParams(0, 0, 0, 0), self.config.loop_time)
+            # Slam backward
+            self.core.hw.set_motors(-100, -100)
             time.sleep(self.config.loop_time)
-        return last_pitch
+
+        logger.info("-> Kick-Up: Throwing Forward...")
+
+        # Phase 2: Throw Forward until upright
+        # Timeout after 2.0s to prevent runaway
+        end_time = time.monotonic() + 2.0
+        while time.monotonic() < end_time:
+            telemetry = self.core.update(MotionRequest(), TuningParams(0, 0, 0, 0), self.config.loop_time)
+            # Throw forward
+            self.core.hw.set_motors(100, 100)
+
+            error = abs(telemetry.pitch_angle - target_angle)
+            if error < 5.0:
+                logger.info(f"-> Catch! Error: {error:.2f}")
+                break
+
+            time.sleep(self.config.loop_time)
+
+        # Do not stop motors here; we exit directly into the main loop
+        # which will pick up control immediately.
+
+    def _measure_stable_angle(self, duration: float = 1.0) -> float:
+        """Measure average pitch over a duration."""
+        end_time = time.monotonic() + duration
+        pitch_sum = 0.0
+        count = 0
+        while time.monotonic() < end_time:
+            telemetry = self.core.update(MotionRequest(), TuningParams(0, 0, 0, 0), self.config.loop_time)
+            pitch_sum += telemetry.pitch_angle
+            count += 1
+            time.sleep(self.config.loop_time)
+        return pitch_sum / max(1, count)
+
+    def _drive_until_tip(self, direction: float = -1.0) -> None:
+        """
+        Ramp motors in direction until pitch changes significantly.
+        Assumes Kp=0 (No Reflex).
+        """
+        logger.info(f"-> Flop: Ramping {'Backward' if direction < 0 else 'Forward'}...")
+
+        start_angle = self.core.pitch
+        ramp_speed = 0.0
+        increment = 1.0  # Ramp speed increment per tick
+
+        # Safety timeout
+        start_time = time.monotonic()
+        while time.monotonic() - start_time < 5.0:
+            # 1. Update Core (Keep filter alive)
+            telemetry = self.core.update(MotionRequest(), TuningParams(0, 0, 0, 0), self.config.loop_time)
+
+            # 2. Ramp Motors manually (Override Core)
+            ramp_speed += (direction * increment)
+            self.core.hw.set_motors(ramp_speed, ramp_speed)
+
+            # 3. Check for tip
+            if abs(telemetry.pitch_angle - start_angle) > 10.0:
+                logger.info(f"-> Tipped! Angle delta: {abs(telemetry.pitch_angle - start_angle):.1f}")
+                break
+
+            time.sleep(self.config.loop_time)
+
+        self.core.hw.stop()
+        # Wait for settle
+        time.sleep(1.0)
