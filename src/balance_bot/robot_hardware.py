@@ -4,6 +4,7 @@ from typing import Protocol, runtime_checkable, Any
 from dataclasses import dataclass
 
 from .utils import clamp, calculate_pitch, Vector3
+from .diagnostics import get_i2c_failure_report
 
 logger = logging.getLogger(__name__)
 
@@ -70,6 +71,11 @@ class RobotHardware:
         invert_r: bool = False,
         gyro_axis: str = GYRO_AXIS_X,
         gyro_invert: bool = False,
+        accel_vertical_axis: str = "z",
+        accel_vertical_invert: bool = False,
+        accel_forward_axis: str = "y",
+        accel_forward_invert: bool = False,
+        i2c_bus: int = 1,
     ):
         """
         Initialize the robot hardware abstraction.
@@ -77,8 +83,13 @@ class RobotHardware:
         :param motor_r: Right motor channel.
         :param invert_l: Whether to invert left motor.
         :param invert_r: Whether to invert right motor.
-        :param gyro_axis: Axis to use for pitch ('x' or 'y').
+        :param gyro_axis: Axis to use for pitch ('x', 'y', 'z').
         :param gyro_invert: Whether to invert gyro reading.
+        :param accel_vertical_axis: Axis corresponding to gravity ('x', 'y', 'z').
+        :param accel_vertical_invert: Invert vertical axis sign.
+        :param accel_forward_axis: Axis corresponding to forward direction ('x', 'y', 'z').
+        :param accel_forward_invert: Invert forward axis sign.
+        :param i2c_bus: I2C bus number for MPU6050.
         """
         self.motor_l = motor_l
         self.motor_r = motor_r
@@ -86,6 +97,11 @@ class RobotHardware:
         self.invert_r = invert_r
         self.gyro_axis = gyro_axis
         self.gyro_invert = gyro_invert
+        self.accel_vertical_axis = accel_vertical_axis
+        self.accel_vertical_invert = accel_vertical_invert
+        self.accel_forward_axis = accel_forward_axis
+        self.accel_forward_invert = accel_forward_invert
+        self.i2c_bus = i2c_bus
 
         self.pz: MotorDriver
         self.sensor: IMUDriver
@@ -98,16 +114,43 @@ class RobotHardware:
             self._init_mock_hardware()
             return
 
+        # 1. Attempt Imports
         try:
             from .piconzero import PiconZero
             from mpu6050 import mpu6050
-
-            self.pz = PiconZero()
-            self.sensor = MPU6050Adapter(mpu6050(0x68))
-            logger.info("Hardware initialized.")
-        except (ImportError, OSError):
-            logger.warning("Hardware not found. Falling back to Mock Mode.")
+        except ImportError as e:
+            logger.error(f"CRITICAL: Required libraries not found: {e}")
+            logger.error("Try running 'uv sync' or check your virtual environment.")
             self._init_mock_hardware()
+            return
+
+        # 2. Attempt PiconZero (Bus 1 assumed for HAT)
+        try:
+            # PiconZero defaults to Bus 1. We assume the HAT is on Bus 1.
+            self.pz = PiconZero()
+        except (OSError, PermissionError, FileNotFoundError) as e:
+            logger.error(f"CRITICAL: PiconZero Init Failed: {e}")
+
+            # Generate pessimistic report for PiconZero (0x22 on Bus 1)
+            report = get_i2c_failure_report(1, 0x22, "PiconZero")
+            logger.error(report)
+
+            self._init_mock_hardware()
+            return
+
+        # 3. Attempt MPU6050
+        try:
+            self.sensor = MPU6050Adapter(mpu6050(0x68, bus=self.i2c_bus))
+            logger.info(f"Hardware initialized. MPU6050 on bus {self.i2c_bus}.")
+        except OSError as e:
+            logger.error(f"CRITICAL: MPU6050 Init Failed on Bus {self.i2c_bus}: {e}")
+
+            # Generate pessimistic report for MPU6050 (0x68 on configured bus)
+            report = get_i2c_failure_report(self.i2c_bus, 0x68, "MPU6050")
+            logger.error(report)
+
+            self._init_mock_hardware()
+            return
 
     def _init_mock_hardware(self) -> None:
         """Initialize mock hardware components."""
@@ -136,26 +179,29 @@ class RobotHardware:
         """
         accel, gyro = self.read_imu_raw()
 
-        if self.gyro_axis == GYRO_AXIS_Y:
-            # Pitch around Y axis
-            accel_forward = accel["x"]
-            accel_vertical = accel["z"]
-            raw_gyro_rate = gyro["y"]
-        else:
-            # Default: Pitch around X axis (Y is forward)
-            accel_forward = accel["y"]
-            accel_vertical = accel["z"]
-            raw_gyro_rate = gyro["x"]
+        # Get raw values based on config
+        accel_forward = accel[self.accel_forward_axis]
+        accel_vertical = accel[self.accel_vertical_axis]
+        gyro_rate = gyro[self.gyro_axis]
+
+        # Apply inversions
+        if self.accel_forward_invert:
+            accel_forward = -accel_forward
+        if self.accel_vertical_invert:
+            accel_vertical = -accel_vertical
 
         # Calculate Accelerometer Angle
+        # calculate_pitch(y, z) assumes y is forward, z is vertical.
         acc_angle = calculate_pitch(accel_forward, accel_vertical)
 
-        gyro_rate = raw_gyro_rate
-        yaw_rate = gyro["z"]
-
+        # Apply Gyro Inversion
         if self.gyro_invert:
-            acc_angle = -acc_angle
             gyro_rate = -gyro_rate
+
+        # Yaw rate - For now, assume Yaw is rotation around vertical axis
+        yaw_rate = gyro[self.accel_vertical_axis]
+        if self.accel_vertical_invert:
+            yaw_rate = -yaw_rate
 
         return IMUReading(
             pitch_angle=acc_angle, pitch_rate=gyro_rate, yaw_rate=yaw_rate

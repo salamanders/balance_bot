@@ -1,8 +1,10 @@
+import sys
 import time
 import logging
 from enum import Enum, auto
 
 from .config import (
+    CONFIG_FILE,
     RobotConfig,
     PIDParams,
     temp_pid_overrides,
@@ -10,6 +12,7 @@ from .config import (
     TUNING_HEURISTICS,
 )
 from .robot_hardware import RobotHardware, IMUReading
+from .wiring_check import WiringCheck
 from .pid import PIDController
 from .leds import LedController
 from .tuner import ContinuousTuner
@@ -21,6 +24,7 @@ from .utils import (
     ComplementaryFilter,
     check_force_calibration_flag,
 )
+from .diagnostics import run_diagnostics
 
 logger = logging.getLogger(__name__)
 
@@ -38,12 +42,20 @@ class RobotController:
     def __init__(self):
         setup_logging()
 
+        self.force_tune = "--tune" in sys.argv
+        self.has_saved_config = CONFIG_FILE.exists()
+        force_calib = check_force_calibration_flag()
+
         # Check force calibration before loading config
-        if check_force_calibration_flag():
+        if force_calib:
             logger.info("Forcing calibration: Using default configuration.")
             self.config = RobotConfig(pid=PIDParams())
         else:
             self.config = RobotConfig.load()
+            if self.has_saved_config:
+                logger.info(">>> Config Found. Starting in PRODUCTION MODE.")
+            else:
+                logger.info(">>> No Config Found. Starting in FIRST RUN MODE.")
 
         self.hw = RobotHardware(
             motor_l=self.config.motor_l,
@@ -52,6 +64,11 @@ class RobotController:
             invert_r=self.config.motor_r_invert,
             gyro_axis=self.config.gyro_pitch_axis,
             gyro_invert=self.config.gyro_pitch_invert,
+            accel_vertical_axis=self.config.accel_vertical_axis,
+            accel_vertical_invert=self.config.accel_vertical_invert,
+            accel_forward_axis=self.config.accel_forward_axis,
+            accel_forward_invert=self.config.accel_forward_invert,
+            i2c_bus=self.config.i2c_bus,
         )
         self.led = LedController(self.config.led)
         self.pid = PIDController(self.config.pid)
@@ -128,10 +145,17 @@ class RobotController:
         self.led.signal_setup()
         start_wait = time.monotonic()
 
-        # Simple wait loop
+        # Simple wait loop with filter warmup
         while time.monotonic() - start_wait < SYSTEM_TIMING.setup_wait:
+            self.get_pitch(self.config.loop_time)
             self.led.update()
             time.sleep(self.config.loop_time)
+
+        # Decide next state based on config availability
+        if self.has_saved_config and not check_force_calibration_flag():
+            if self.force_tune:
+                return RobotState.TUNE
+            return RobotState.BALANCE
 
         return RobotState.CALIBRATE
 
@@ -156,7 +180,11 @@ class RobotController:
             self.led.update()
             time.sleep(self.config.loop_time)
 
-        return RobotState.TUNE
+        if self.force_tune:
+            return RobotState.TUNE
+
+        # Default to BALANCE using conservative defaults if not forcing tune
+        return RobotState.BALANCE
 
     def run_tune(self) -> RobotState:
         """
@@ -179,7 +207,7 @@ class RobotController:
                 self.get_pitch(self.config.loop_time)
                 self.led.update()
 
-                error = self.config.pid.target_angle - self.pitch
+                error = self.pitch - self.config.pid.target_angle
 
                 # Tune Logic: Increment Kp until vibration
                 self.config.pid.kp += TUNING_HEURISTICS.kp_increment
@@ -232,7 +260,7 @@ class RobotController:
             reading = self.get_pitch(self.config.loop_time)
             self.led.update()
 
-            error = self.config.pid.target_angle - self.pitch
+            error = self.pitch - self.config.pid.target_angle
 
             # Fall detection
             if abs(error) > self.config.fall_angle_limit:
@@ -317,7 +345,7 @@ class RobotController:
             self.get_pitch(self.config.loop_time)
             self.led.update()
 
-            error = self.config.pid.target_angle - self.pitch
+            error = self.pitch - self.config.pid.target_angle
             if abs(error) < self.config.control.upright_threshold:
                 logger.info(f"-> Upright detected! (Pitch: {self.pitch:.2f})")
                 self.led.countdown()
@@ -330,6 +358,17 @@ class RobotController:
 
 def main() -> None:
     """Entry point for the robot control application."""
+    if "--diagnose" in sys.argv:
+        run_diagnostics()
+        return
+
+    if "--check-wiring" in sys.argv:
+        try:
+            WiringCheck().run()
+        except KeyboardInterrupt:
+            pass
+        return
+
     bot = RobotController()
     bot.init()
     bot.run()

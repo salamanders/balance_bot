@@ -15,10 +15,18 @@ class WiringCheck:
             invert_r=self.config.motor_r_invert,
             gyro_axis=self.config.gyro_pitch_axis,
             gyro_invert=self.config.gyro_pitch_invert,
+            accel_vertical_axis=self.config.accel_vertical_axis,
+            accel_vertical_invert=self.config.accel_vertical_invert,
+            accel_forward_axis=self.config.accel_forward_axis,
+            accel_forward_invert=self.config.accel_forward_invert,
+            i2c_bus=self.config.i2c_bus,
         )
         self.hw.init()
         print("\n=== Wiring Check & Calibration Tool ===")
-        print("Note: Ensure the robot is on a stand or wheels are free to spin.")
+        print("!!! IMPORTANT !!!")
+        print("Ensure the robot is on a STAND or wheels are lifted off the ground.")
+        print("The motors WILL spin during testing.")
+        print("!!! IMPORTANT !!!")
 
     def run(self):
         while True:
@@ -30,10 +38,13 @@ class WiringCheck:
                 f"2. Check RIGHT Motor (Current: Ch {self.config.motor_r}, Inv: {self.config.motor_r_invert})"
             )
             print(
-                f"3. Check Gyro Orientation (Axis: {self.config.gyro_pitch_axis}, Inv: {self.config.gyro_pitch_invert})"
+                "3. Check Gyro Orientation (Auto-Detect Wizard)"
             )
-            print("4. Save & Exit")
-            print("5. Exit without Saving")
+            print(
+                f"4. Check I2C Bus (Current: {self.config.i2c_bus})"
+            )
+            print("5. Save & Exit")
+            print("6. Exit without Saving")
 
             choice = input("Select option: ").strip()
 
@@ -45,10 +56,14 @@ class WiringCheck:
                 case "3":
                     self.check_gyro()
                 case "4":
+                    self.check_i2c_bus()
+                case "5":
                     self.config.save()
                     self.cleanup()
+                    print("\nWiring Check Complete.")
+                    print("You can now place the robot on the floor and run the main program.")
                     sys.exit(0)
-                case "5":
+                case "6":
                     self.cleanup()
                     sys.exit(0)
                 case _:
@@ -63,12 +78,17 @@ class WiringCheck:
             invert_r=self.config.motor_r_invert,
             gyro_axis=self.config.gyro_pitch_axis,
             gyro_invert=self.config.gyro_pitch_invert,
+            accel_vertical_axis=self.config.accel_vertical_axis,
+            accel_vertical_invert=self.config.accel_vertical_invert,
+            accel_forward_axis=self.config.accel_forward_axis,
+            accel_forward_invert=self.config.accel_forward_invert,
+            i2c_bus=self.config.i2c_bus,
         )
         self.hw.init()
 
     def check_motor(self, side: str):
         print(f"\n>>> Checking {side.upper()} Motor...")
-        print("Spinning FORWARD (positive speed) for 2 seconds...")
+        print("Spinning with POSITIVE speed (+30) for 2 seconds...")
 
         if side == "left":
             self.hw.set_motors(30, 0)
@@ -78,7 +98,8 @@ class WiringCheck:
         time.sleep(2)
         self.hw.stop()
 
-        print(f"\nDid the {side.upper()} motor spin FORWARD? (Wheel top moves forward)")
+        print(f"\nDid the {side.upper()} motor spin FORWARD?")
+        print("Definition of FORWARD: The TOP of the wheel moves towards the FRONT of the robot.")
         print("y: Yes, it spun forward (Correct)")
         print("n: No, it spun BACKWARD (Reverse Needed)")
         print("o: No, the OTHER motor spun (Swap Needed)")
@@ -103,50 +124,168 @@ class WiringCheck:
                     self.config.motor_l,
                 )
                 self.reload_hw()
-                print("Channels swapped. Please re-test.")
+                print("Channels swapped.")
+                print("!!! IMPORTANT: You MUST re-check the direction for BOTH motors now. !!!")
+                print("Select option 1 and 2 again to verify.")
             case _:
                 print("Invalid input.")
 
     def check_gyro(self):
         print("\n>>> Checking Gyro Orientation...")
-        print("Hold the robot upright (approx vertical). Press Enter when ready.")
-        input()
+        print("This wizard will automatically detect your sensor mounting.")
+        print("It supports any mounting orientation (Standard, Sideways, Upside-Down).")
 
-        # Read baseline
+        # --- Step 1: Upright ---
+        print("\n[STEP 1] Hold the robot UPRIGHT (balanced vertical).")
+        print("Keep it as still as possible.")
+        input("Press Enter when ready...")
+
+        print("Reading accelerometer for gravity vector...")
+        accel_sum = {"x": 0.0, "y": 0.0, "z": 0.0}
+        samples = 40
+        for _ in range(samples):
+            a, _ = self.hw.read_imu_raw()
+            for k in accel_sum:
+                accel_sum[k] += a[k]
+            time.sleep(0.02)
+
+        accel_upright = {k: v / samples for k, v in accel_sum.items()}
+        print(
+            f"Upright Accel: x={accel_upright['x']:.2f}, y={accel_upright['y']:.2f}, z={accel_upright['z']:.2f}"
+        )
+
+        # Detect Vertical Axis
+        abs_accel = {k: abs(v) for k, v in accel_upright.items()}
+        vert_axis = max(abs_accel, key=abs_accel.get)
+        vert_val = accel_upright[vert_axis]
+        vert_invert = vert_val < 0
+
+        print(f"-> Detected Vertical Axis: {vert_axis.upper()} (Invert: {vert_invert})")
+
+        # --- Step 2: Tilt Forward ---
+        print("\n[STEP 2] Prepare to tilt the robot FORWARD (Nose Down) approx 30-45 deg.")
+        print("When you press Enter, I will record for 3 seconds.")
+        print("During that time, TILT IT FORWARD AND HOLD IT THERE.")
+        input("Press Enter to start recording...")
+
+        print("Recording... TILT NOW!")
+
+        gyro_sum = {"x": 0.0, "y": 0.0, "z": 0.0}
+        # Buffer to store last few accel readings for 'held' position
+        accel_history = []
+
+        # Record for 3 seconds
+        end_time = time.time() + 3.0
+        sample_count = 0
+
+        while time.time() < end_time:
+            a, g = self.hw.read_imu_raw()
+
+            # Integrate gyro rate (simple sum is proportional to mean)
+            for k in gyro_sum:
+                gyro_sum[k] += g[k]
+
+            accel_history.append(a)
+            if len(accel_history) > 20: # Keep last ~20 samples (approx 0.5s)
+                accel_history.pop(0)
+
+            sample_count += 1
+            time.sleep(0.02)
+
+        # Analyze Gyro (Pitch Axis)
+        # We use the mean rate to determine axis and direction
+        gyro_avg = {k: v / sample_count for k, v in gyro_sum.items()}
+        abs_gyro = {k: abs(v) for k, v in gyro_avg.items()}
+        gyro_axis = max(abs_gyro, key=abs_gyro.get)
+        gyro_val = gyro_avg[gyro_axis]
+
+        # Forward Tilt -> Positive Pitch Change.
+        # Rate should be Positive. If Negative, Invert.
+        gyro_invert = gyro_val < 0
+
+        # Analyze Accel (Forward Axis)
+        # Use average of the last captured samples (held position)
+        accel_tilt_sum = {"x": 0.0, "y": 0.0, "z": 0.0}
+        for sample in accel_history:
+            for k in sample:
+                accel_tilt_sum[k] += sample[k]
+
+        accel_tilted = {k: v / len(accel_history) for k, v in accel_tilt_sum.items()}
+
+        print(f"Tilted Accel (End): x={accel_tilted['x']:.2f}, y={accel_tilted['y']:.2f}, z={accel_tilted['z']:.2f}")
+
+        # Detect Forward Axis
+        # Exclude Vertical Axis
+        other_axes = [ax for ax in ["x", "y", "z"] if ax != vert_axis]
+        tilted_others = {k: accel_tilted[k] for k in other_axes}
+        tilted_abs = {k: abs(v) for k, v in tilted_others.items()}
+
+        fwd_axis = max(tilted_abs, key=tilted_abs.get)
+        fwd_val = tilted_others[fwd_axis]
+
+        # Detect Forward Invert
+        # Nose Down -> Positive Pitch.
+        # Pitch = atan2(Fwd, Vert).
+        # If Vert (Adjusted) is +1g, Fwd must be Positive to give Positive Pitch.
+        # So if fwd_val is Negative, Invert.
+        fwd_invert = fwd_val < 0
+
+        print(f"-> Detected Forward Axis: {fwd_axis.upper()} (Invert: {fwd_invert})")
+        print(f"-> Detected Gyro Axis:    {gyro_axis.upper()} (Invert: {gyro_invert})")
+
+        print("\nApplying configuration...")
+        self.config.accel_vertical_axis = vert_axis
+        self.config.accel_vertical_invert = vert_invert
+        self.config.accel_forward_axis = fwd_axis
+        self.config.accel_forward_invert = fwd_invert
+        self.config.gyro_pitch_axis = gyro_axis
+        self.config.gyro_pitch_invert = gyro_invert
+
+        self.reload_hw()
+
+        # --- Verification ---
+        print("\n[VERIFICATION]")
+        print("1. Hold Upright. Pitch should be close to 0.")
+        time.sleep(1)
         p = self.get_pitch_snapshot()
-        print(f"Baseline Pitch: {p:.2f}")
+        print(f"   Current Pitch: {p:.2f}")
 
-        print("\nNow tilt the robot FORWARD (approx 20-30 degrees).")
-        print("Hold it there and press Enter.")
-        input()
-
+        print("2. Tilt Forward. Pitch should be POSITIVE.")
+        input("   Press Enter when holding Forward...")
         p_tilt = self.get_pitch_snapshot()
-        print(f"Tilted Pitch: {p_tilt:.2f}")
+        print(f"   Tilted Pitch: {p_tilt:.2f}")
 
-        diff = p_tilt - p
-        print(f"Change: {diff:.2f}")
-
-        if diff > 10:
-            print("-> Logic matches: Forward tilt = Positive pitch change.")
-            print("Seems CORRECT.")
-        elif diff < -10:
-            print("-> Forward tilt caused NEGATIVE pitch change.")
-            print("Need to INVERT pitch.")
-            ans = input("Apply Inversion? (y/n): ").strip().lower()
-            if ans == "y":
-                self.config.gyro_pitch_invert = not self.config.gyro_pitch_invert
-                self.reload_hw()
+        if p_tilt > 10:
+            print("   SUCCESS! Pitch increased positively.")
         else:
-            print("-> Change was too small or axis is wrong.")
-            print(f"Current Axis: {self.config.gyro_pitch_axis}")
-            ans = input("Try swapping Pitch Axis (X <-> Y)? (y/n): ").strip().lower()
-            if ans == "y":
-                if self.config.gyro_pitch_axis == "x":
-                    self.config.gyro_pitch_axis = "y"
-                else:
-                    self.config.gyro_pitch_axis = "x"
+            print("   WARNING: Pitch did not increase positively. Calibration might be wrong.")
+
+    def check_i2c_bus(self):
+        print(f"\n>>> Checking I2C Bus (Current: {self.config.i2c_bus})")
+        print("If you are using the Picon Zero, you might need to use Software I2C (Bus 3).")
+        print("Enter new Bus Number (e.g. 1 or 3), or press Enter to keep current.")
+
+        ans = input("Bus Number: ").strip()
+        if ans:
+            try:
+                new_bus = int(ans)
+                self.config.i2c_bus = new_bus
+                print(f"-> Switching to Bus {new_bus}...")
                 self.reload_hw()
-                print(f"Axis changed to {self.config.gyro_pitch_axis}. Please re-test.")
+
+                # Test read
+                print("Attempting to read from sensor...")
+                try:
+                    p = self.get_pitch_snapshot()
+                    print(f"SUCCESS: Read pitch {p:.2f} from Bus {new_bus}.")
+                except Exception as e:
+                    print(f"FAILURE: Could not read from Bus {new_bus}: {e}")
+                    print("Reverting might be needed if this persists.")
+
+            except ValueError:
+                print("Invalid number.")
+        else:
+            print("No change.")
 
     def get_pitch_snapshot(self) -> float:
         # Average a few readings

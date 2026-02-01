@@ -11,36 +11,9 @@ CONFIG_FILE = Path("pid_config.json")
 
 @dataclass
 class PIDParams:
-    """
-    Configuration for the Proportional-Integral-Derivative (PID) controller.
-
-    This class holds the tuning parameters used to maintain the robot's balance.
-    """
-
-    kp: float = 5.0
-    """
-    Proportional Gain.
-    UOM: Dimensionless (Motor Output / Error).
-    Purpose: Determines the reaction magnitude proportional to the current error.
-    Impact: Higher values increase responsiveness but can cause high-frequency oscillations. Lower values feel sluggish.
-    """
-
+    kp: float = 25.0
     ki: float = 0.0
-    """
-    Integral Gain.
-    UOM: Dimensionless (Motor Output / (Error * Time)).
-    Purpose: Corrects steady-state error by accumulating past errors over time.
-    Impact: Higher values correct drift faster but can cause instability (windup) and low-frequency oscillations.
-    """
-
-    kd: float = 0.0
-    """
-    Derivative Gain.
-    UOM: Dimensionless (Motor Output / (Error / Time)).
-    Purpose: Dampens the system by reacting to the rate of change of the error.
-    Impact: Higher values reduce overshoot and dampen oscillations but can amplify noise.
-    """
-
+    kd: float = 0.5
     target_angle: float = 0.0
     """
     The target pitch angle for balancing.
@@ -412,14 +385,12 @@ class RobotConfig:
     """Axis of the Gyro to use for pitch measurement ('x' or 'y')."""
 
     gyro_pitch_invert: bool = False
-    """True to invert the pitch angle measurement."""
-
-    loop_time: float = 0.01
-    """
-    Target time for a single control loop iteration.
-    UOM: Seconds.
-    Default: 0.01s (10ms) -> 100Hz.
-    """
+    accel_vertical_axis: str = "z"
+    accel_vertical_invert: bool = False
+    accel_forward_axis: str = "y"
+    accel_forward_invert: bool = False
+    i2c_bus: int = 1
+    loop_time: float = 0.01  # 10ms
 
     # Operational Parameters
     fall_angle_limit: float = 45.0
