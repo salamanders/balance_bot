@@ -62,6 +62,9 @@ class RobotController:
             self.config.pid.ki = 0.0
             self.config.pid.kd = 0.0
 
+        self.battery = BatteryEstimator(self.config.battery)
+        self.battery_logger = LogThrottler(SYSTEM_TIMING.battery_log_interval)
+
         self.hw = RobotHardware(
             motor_l=self.config.motor_l,
             motor_r=self.config.motor_r,
@@ -74,13 +77,13 @@ class RobotController:
             accel_forward_axis=self.config.accel_forward_axis,
             accel_forward_invert=self.config.accel_forward_invert,
             i2c_bus=self.config.i2c_bus,
+            battery_estimator=self.battery,
         )
         self.led = LedController(self.config.led)
         self.pid = PIDController(self.config.pid)
         self.tuner = ContinuousTuner(self.config.tuner)
+        self.tuner.reset_aggression(self.first_run or self.force_tune)
         self.balance_finder = BalancePointFinder(self.config.tuner)
-        self.battery = BatteryEstimator(self.config.battery)
-        self.battery_logger = LogThrottler(SYSTEM_TIMING.battery_log_interval)
         self.filter = ComplementaryFilter(self.config.complementary_alpha)
 
         self.running = True
@@ -128,16 +131,15 @@ class RobotController:
             self.run_auto_calibrate()
 
         # 3. Initialize Loop
-        tuning_aggression = 5.0 if self.first_run else 1.0
-        if self.force_tune:
-            tuning_aggression = 5.0
-
-        logger.info(f"-> Starting Control Loop. Aggression: {tuning_aggression:.2f}")
+        logger.info(f"-> Starting Control Loop. Aggression: {self.tuner.get_current_scale():.2f}")
         self.led.signal_ready()
 
         rate = RateLimiter(1.0 / self.config.loop_time)
         self.pid.reset()
-        was_crashed = True  # Assume crashed/resting at start to trigger checks
+
+        # State Management
+        was_crashed = True  # Assume crashed/resting at start
+        recovery_setpoint: float | None = None  # None means Normal Balancing
 
         try:
             while self.running:
@@ -145,41 +147,57 @@ class RobotController:
                 reading = self.get_pitch(self.config.loop_time)
                 self.led.update()
 
-                # --- CRASH SAFETY ---
+                # --- CRASH SAFETY & STATE TRANSITIONS ---
                 if abs(self.pitch) > CRASH_ANGLE:
                     if not was_crashed:
                         logger.warning("!!! CRASH DETECTED !!!")
                     self.hw.stop()
                     was_crashed = True
+                    recovery_setpoint = None  # Abort any recovery
                     rate.sleep()
                     continue
 
-                # --- RECOVERY / SOFT START ---
                 if was_crashed:
+                    # Check if we are eligible for recovery
                     # If Kp is low (learning), we skip soft start and let the tuner ramp it up.
                     # If Kp is normal, and we are leaning > 5 deg, we use soft start.
                     if self.config.pid.kp >= 1.0 and abs(self.pitch) > 5.0:
-                        logger.info(
-                            "-> Restored from crash. Attempting Soft Recovery..."
-                        )
-                        if not self.recover_from_rest():
-                            was_crashed = True
-                            continue  # Recovery failed/aborted
+                         logger.info("-> Attempting Soft Recovery...")
+                         recovery_setpoint = self.pitch  # Start from current angle
+                    else:
+                        logger.info("-> Active Balancing Started (Immediate).")
 
                     was_crashed = False
                     self.pid.reset()
-                    logger.info("-> Active Balancing Started.")
+
+                # --- TARGET GENERATION ---
+                target_angle = self.config.pid.target_angle
+
+                # Apply Soft Recovery Ramp
+                if recovery_setpoint is not None:
+                    # Move setpoint towards 0 (or target_angle?)
+                    # recover_from_rest logic moved setpoint towards 0.
+                    # Assuming target_angle is near 0.
+
+                    if recovery_setpoint > 0:
+                        recovery_setpoint -= STARTUP_RAMP_SPEED
+                        if recovery_setpoint < 0:
+                            recovery_setpoint = 0
+                    else:
+                        recovery_setpoint += STARTUP_RAMP_SPEED
+                        if recovery_setpoint > 0:
+                            recovery_setpoint = 0
+
+                    target_angle = recovery_setpoint
+
+                    # Check for Completion
+                    if abs(recovery_setpoint) < 0.1 and abs(self.pitch) < 5.0:
+                        logger.info("-> Recovery Complete.")
+                        recovery_setpoint = None
 
                 # --- CONTROL STEP ---
-                error = self.pitch - self.config.pid.target_angle
-
-                self._step_balance(
-                    reading, error, self.config.loop_time, tuning_aggression
-                )
-
-                # Decay Aggression
-                if tuning_aggression > 0.1:
-                    tuning_aggression *= 0.9995
+                error = self.pitch - target_angle
+                self._step_balance(reading, error, self.config.loop_time)
 
                 rate.sleep()
 
@@ -239,79 +257,11 @@ class RobotController:
             time.sleep(self.config.loop_time)
         return self.pitch
 
-    def recover_from_rest(self) -> bool:
-        """
-        Attempt to gently stand up from a resting position.
-        Uses a moving setpoint to lift the robot.
-        """
-        logger.info("-> Attempting Soft Recovery...")
-
-        # Update pitch to get current angle
-        self.get_pitch(self.config.loop_time)
-        start_pitch = self.pitch
-
-        # If we are already upright enough, return True
-        if abs(start_pitch) < 5.0:
-            return True
-
-        current_setpoint = start_pitch
-        rate = RateLimiter(1.0 / self.config.loop_time)
-
-        # Use a context manager to temporarily override target_angle
-        # We manually update target_angle inside the loop, but this ensures restore
-        original_target = self.config.pid.target_angle
-
-        try:
-            while self.running:
-                reading = self.get_pitch(self.config.loop_time)
-                self.led.update()
-
-                # Move setpoint towards 0
-                if current_setpoint > 0:
-                    current_setpoint -= STARTUP_RAMP_SPEED
-                    if current_setpoint < 0:
-                        current_setpoint = 0
-                else:
-                    current_setpoint += STARTUP_RAMP_SPEED
-                    if current_setpoint > 0:
-                        current_setpoint = 0
-
-                self.config.pid.target_angle = current_setpoint
-                error = self.pitch - self.config.pid.target_angle
-
-                # Safety Check
-                if abs(self.pitch) > CRASH_ANGLE:
-                    logger.error("-> Crash during recovery!")
-                    self.hw.stop()
-                    return False
-
-                # PID Update
-                output = self.pid.update(
-                    error, self.config.loop_time, measurement_rate=reading.pitch_rate
-                )
-                self.hw.set_motors(output, output)
-
-                # Exit condition: Setpoint reached 0 AND Pitch is near 0
-                if abs(current_setpoint) < 0.1 and abs(self.pitch) < 5.0:
-                    logger.info("-> Recovery Complete.")
-                    return True
-
-                rate.sleep()
-
-        except Exception as e:
-            logger.error(f"Recovery Error: {e}")
-        finally:
-            self.config.pid.target_angle = original_target
-            self.hw.stop()
-
-        return False
-
     def _step_balance(
         self,
         reading: IMUReading,
         error: float,
         loop_delta_time: float,
-        tuning_scale: float = 1.0,
     ) -> None:
         """
         Execute one step of the balancing control loop.
@@ -327,7 +277,7 @@ class RobotController:
         )
 
         # Continuous Tuning
-        adj = self.tuner.update(error, scale=tuning_scale)
+        adj = self.tuner.update(error)
         if adj.kp != 0 or adj.ki != 0 or adj.kd != 0:
             self.config.pid.kp = max(0.1, self.config.pid.kp + adj.kp)
             self.config.pid.ki = max(0.0, self.config.pid.ki + adj.ki)
@@ -353,13 +303,16 @@ class RobotController:
             )
 
         # Drive
-        final_drive = output / comp_factor
+        # Note: Battery compensation is now handled in hw.set_motors
         self.hw.set_motors(
-            final_drive + turn_correction, final_drive - turn_correction
+            output + turn_correction, output - turn_correction
         )
 
         # Balance Point Calibration
         if abs(self.pitch) < BALANCING_THRESHOLD:
+            # Calculate effective drive for balance finder (approximation of what HW does)
+            # We use the raw output scaled by battery factor because that represents the "effort"
+            final_drive = output / comp_factor
             bal_adj = self.balance_finder.update(final_drive, reading.pitch_rate)
             if bal_adj != 0:
                 new_target = self.config.pid.target_angle + bal_adj

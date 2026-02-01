@@ -31,13 +31,24 @@ class ContinuousTuner:
         self.buffer_size = buffer_size
         self.errors: list[float] = []
         self.cooldown_timer = 0
+        self.current_scale = self.config.start_aggression_normal
 
-    def update(self, error: float, scale: float = 1.0) -> TuningAdjustment:
+    def reset_aggression(self, first_run: bool) -> None:
+        """Reset the tuning aggression scale based on run mode."""
+        if first_run:
+            self.current_scale = self.config.start_aggression_first_run
+        else:
+            self.current_scale = self.config.start_aggression_normal
+
+    def get_current_scale(self) -> float:
+        """Return the current aggression scale."""
+        return self.current_scale
+
+    def update(self, error: float) -> TuningAdjustment:
         """
         Add a new error sample and return PID nudges.
 
         :param error: Current pitch error (Target - Pitch).
-        :param scale: Multiplier for the tuning adjustment (aggressiveness).
         :return: TuningAdjustment(kp, ki, kd) with additive modifiers.
         """
         # Safety: If falling/crashed, do not tune and reset history.
@@ -79,8 +90,8 @@ class ContinuousTuner:
         # 1. OSCILLATION (High Frequency)
         # If crossing zero frequently (>15% of samples), Kp is likely too high.
         if zero_crossings > (self.buffer_size * self.config.oscillation_threshold):
-            kp_nudge = self.config.kp_oscillation_penalty * scale
-            kd_nudge = self.config.kd_oscillation_boost * scale  # More damping might help
+            kp_nudge = self.config.kp_oscillation_penalty * self.current_scale
+            kd_nudge = self.config.kd_oscillation_boost * self.current_scale  # More damping might help
             tuned = True
 
         # 2. STABILITY (Improving over time)
@@ -89,17 +100,21 @@ class ContinuousTuner:
             stdev_err < self.config.stability_std_dev
             and abs(mean_err) < self.config.stability_mean_err
         ):
-            kp_nudge = self.config.kp_stability_boost * scale
+            kp_nudge = self.config.kp_stability_boost * self.current_scale
             tuned = True
 
         # 3. STEADY STATE ERROR
         # If consistently leaning, Ki is too low.
         if abs(mean_err) > self.config.steady_error_threshold:
-            ki_nudge = self.config.ki_boost * scale
+            ki_nudge = self.config.ki_boost * self.current_scale
             tuned = True
 
         if tuned:
             self.cooldown_timer = self.config.cooldown_reset
+
+        # Decay Aggression
+        if self.current_scale > self.config.min_aggression:
+            self.current_scale *= self.config.aggression_decay
 
         return TuningAdjustment(kp_nudge, ki_nudge, kd_nudge)
 
