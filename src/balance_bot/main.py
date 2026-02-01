@@ -9,12 +9,13 @@ from .config import (
     SYSTEM_TIMING,
     STARTUP_RAMP_SPEED,
     CRASH_ANGLE,
+    BALANCING_THRESHOLD,
 )
 from .robot_hardware import RobotHardware, IMUReading
 from .wiring_check import WiringCheck
 from .pid import PIDController
 from .leds import LedController
-from .tuner import ContinuousTuner
+from .tuner import ContinuousTuner, BalancePointFinder
 from .battery import BatteryEstimator
 from .utils import (
     RateLimiter,
@@ -77,6 +78,7 @@ class RobotController:
         self.led = LedController(self.config.led)
         self.pid = PIDController(self.config.pid)
         self.tuner = ContinuousTuner(self.config.tuner)
+        self.balance_finder = BalancePointFinder(self.config.tuner)
         self.battery = BatteryEstimator(self.config.battery)
         self.battery_logger = LogThrottler(SYSTEM_TIMING.battery_log_interval)
         self.filter = ComplementaryFilter(self.config.complementary_alpha)
@@ -355,6 +357,24 @@ class RobotController:
         self.hw.set_motors(
             final_drive + turn_correction, final_drive - turn_correction
         )
+
+        # Balance Point Calibration
+        if abs(self.pitch) < BALANCING_THRESHOLD:
+            bal_adj = self.balance_finder.update(final_drive, reading.pitch_rate)
+            if bal_adj != 0:
+                new_target = self.config.pid.target_angle + bal_adj
+                limit = self.config.tuner.balance_max_deviation
+                # Check absolute limit
+                if -limit <= new_target <= limit:
+                    self.config.pid.target_angle = new_target
+                    self.config_dirty = True
+                    logger.info(
+                        f"-> Balance Corrected: Target={new_target:.2f} (Adj: {bal_adj})"
+                    )
+                else:
+                    logger.warning(
+                        f"-> Balance Correction Ignored: Target {new_target:.2f} exceeds limit {limit}"
+                    )
 
         # Periodic Save
         if self.config_dirty and (

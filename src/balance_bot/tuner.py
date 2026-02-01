@@ -110,3 +110,65 @@ class ContinuousTuner:
             if (e1 > 0 and e2 <= 0) or (e1 < 0 and e2 >= 0):
                 crossings += 1
         return crossings
+
+
+class BalancePointFinder:
+    """
+    Background process that adjusts the target angle (balance point)
+    based on the average motor output required to stay stationary.
+    """
+
+    def __init__(self, config: TunerConfig):
+        self.config = config
+        self.motor_history: list[float] = []
+        self.cooldown_timer = 0
+
+    def update(self, motor_output: float, pitch_rate: float) -> float:
+        """
+        Record motor output and suggest target angle adjustment.
+
+        :param motor_output: Current average motor command.
+        :param pitch_rate: Current pitch rate (deg/s) to check for stability.
+        :return: Angle adjustment (additive) to apply to target_angle.
+        """
+        # 1. Decrement cooldown
+        if self.cooldown_timer > 0:
+            self.cooldown_timer -= 1
+            return 0.0
+
+        # 2. Check stability (don't learn if wobbling)
+        # We only accumulate samples when the robot is relatively stable.
+        if abs(pitch_rate) > self.config.balance_pitch_rate_threshold:
+            return 0.0
+
+        # 3. Add to history
+        self.motor_history.append(motor_output)
+
+        # 4. Check buffer size (wait until we have enough samples)
+        if len(self.motor_history) < self.config.balance_check_interval:
+            return 0.0
+
+        # 5. Analyze
+        avg_output = statistics.mean(self.motor_history)
+        self.motor_history.clear()  # Reset buffer after analysis
+
+        adjustment = 0.0
+
+        # Logic Rule from midpoint.md:
+        # If Average Motor Output > Threshold (Positive/Forward) -> Decrease Target Angle (Lean Back)
+        if avg_output > self.config.balance_motor_threshold:
+            adjustment = -self.config.balance_learning_rate
+
+        # If Average Motor Output < -Threshold (Negative/Backward) -> Increase Target Angle (Lean Forward)
+        elif avg_output < -self.config.balance_motor_threshold:
+            adjustment = self.config.balance_learning_rate
+
+        # If we made an adjustment, set cooldown (optional, but good practice)
+        # Note: clearing the buffer already creates a delay equal to balance_check_interval samples.
+        # But we might want an extra pause?
+        # The logic below relies on the buffer filling up again, so no explicit cooldown needed unless we want longer.
+        # But let's verify if `balance_check_interval` is enough. 5 seconds is a long time.
+        # midpoint.md says "Updates should happen perhaps once every 5-10 seconds".
+        # So relying on buffer refill is consistent with that.
+
+        return adjustment
