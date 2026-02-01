@@ -5,6 +5,12 @@ from dataclasses import dataclass
 
 from .utils import clamp, calculate_pitch, Vector3
 from .diagnostics import get_i2c_failure_report
+from .config import (
+    BALANCING_THRESHOLD,
+    REST_ANGLE_MIN,
+    REST_ANGLE_MAX,
+    CRASH_ANGLE,
+)
 
 logger = logging.getLogger(__name__)
 
@@ -299,3 +305,24 @@ class RobotHardware:
     def cleanup(self) -> None:
         """Cleanup hardware resources."""
         self.pz.cleanup()
+
+    def get_posture_state(self) -> str:
+        """
+        Determine the robot's current posture state based on pitch.
+        States:
+         - BALANCED: Upright within operating range.
+         - RESTING: Leaning on struts/training wheels.
+         - CRASHED: Fallen completely over (hard stop required).
+         - FALLING: In transition (optional).
+        """
+        reading = self.read_imu_converted()
+        pitch = abs(reading.pitch_angle)
+
+        if pitch < BALANCING_THRESHOLD:
+            return "BALANCED"
+        elif REST_ANGLE_MIN < pitch < REST_ANGLE_MAX:
+            return "RESTING"
+        elif pitch > CRASH_ANGLE:
+            return "CRASHED"
+        else:
+            return "FALLING"
