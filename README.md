@@ -99,7 +99,17 @@ uv run balance-bot
 * **MPU-6050**: VCC to 3.3V, GND to GND, SDA to SDA, SCL to SCL.
 * **Motors**: Plugged into Motor A and Motor B on the Picon Zero.
 
-**Orientation**: This code assumes the MPU is mounted such that tilting forward/back rotates the X-axis gyroscope. If your robot acts crazy immediately, change data['gx'] to data['gy'] in the get_pitch method.
+If you have a Picon Zero hat - it gets in the way!  But fear not, you can use add a "bus 3" that uses some of the reachable GPIO pins.
+
+`sudo nano /boot/firmware/config.txt`
+
+Scroll to the bottom and add this exact line:
+
+```txt
+dtoverlay=i2c-gpio,bus=3,i2c_gpio_sda=17,i2c_gpio_scl=27
+```
+
+**Orientation**: This code assumes the MPU is mounted such that tilting forward/back rotates the X-axis gyroscope. The check-wiring will confirm this.
 
 ## Bootup Process
 
