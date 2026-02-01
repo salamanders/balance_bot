@@ -45,4 +45,4 @@ def test_device_not_detected(mock_run, mock_access, mock_exists):
     mock_run.return_value = mock_proc
 
     report = get_i2c_failure_report(1, 0x22, "TestDevice")
-    assert "HARDWARE FAILURE: Device TestDevice (0x22) is NOT responding" in report
+    assert "Hardware not found or failed.  You may be using a different bus, try 'Check I2C Bus'.  Also check wire connections." in report
