@@ -7,9 +7,10 @@ from .config import (
     CONFIG_FILE,
     RobotConfig,
     PIDParams,
-    temp_pid_overrides,
     SYSTEM_TIMING,
     TUNING_HEURISTICS,
+    REST_WAIT_TIME,
+    STARTUP_RAMP_SPEED,
 )
 from .robot_hardware import RobotHardware, IMUReading
 from .wiring_check import WiringCheck
@@ -207,54 +208,162 @@ class RobotController:
         # Default to BALANCE using conservative defaults if not forcing tune
         return RobotState.BALANCE
 
+    def recover_from_rest(self) -> bool:
+        """
+        Attempt to gently stand up from a resting position.
+        Uses a moving setpoint to lift the robot.
+        """
+        logger.info("-> Attempting Soft Recovery...")
+
+        # Update pitch to get current angle
+        self.get_pitch(self.config.loop_time)
+        start_pitch = self.pitch
+
+        # If we are already upright enough, return True
+        if abs(start_pitch) < 5.0:
+            return True
+
+        current_setpoint = start_pitch
+        rate = RateLimiter(1.0 / self.config.loop_time)
+
+        # Use a context manager to temporarily override target_angle
+        # We manually update target_angle inside the loop, but this ensures restore
+        original_target = self.config.pid.target_angle
+
+        try:
+            while self.running:
+                reading = self.get_pitch(self.config.loop_time)
+                self.led.update()
+
+                # Move setpoint towards 0
+                if current_setpoint > 0:
+                    current_setpoint -= STARTUP_RAMP_SPEED
+                    if current_setpoint < 0:
+                        current_setpoint = 0
+                else:
+                    current_setpoint += STARTUP_RAMP_SPEED
+                    if current_setpoint > 0:
+                        current_setpoint = 0
+
+                self.config.pid.target_angle = current_setpoint
+                error = self.pitch - self.config.pid.target_angle
+
+                # Safety Check
+                if abs(self.pitch) > 60.0:
+                    logger.error("-> Crash during recovery!")
+                    self.hw.stop()
+                    return False
+
+                # PID Update
+                output = self.pid.update(
+                    error, self.config.loop_time, measurement_rate=reading.pitch_rate
+                )
+                self.hw.set_motors(output, output)
+
+                # Exit condition: Setpoint reached 0 AND Pitch is near 0
+                if abs(current_setpoint) < 0.1 and abs(self.pitch) < 5.0:
+                    logger.info("-> Recovery Complete.")
+                    return True
+
+                rate.sleep()
+
+        except Exception as e:
+            logger.error(f"Recovery Error: {e}")
+        finally:
+            self.config.pid.target_angle = original_target
+            self.hw.stop()
+
+        return False
+
     def run_tune(self) -> RobotState:
         """
         State: TUNE.
-        Auto-tuning using Ziegler-Nichols heuristic:
-        1. Increase Kp until oscillation detected.
-        2. Compute critical gain/period.
-        3. Back off Kp and calculate Ki, Kd.
-
-        Transitions:
-         - To BALANCE on success.
-         - To EXIT on failure or interrupt.
+        Auto-tuning with self-righting capability.
+        Cycle: Check Posture -> Recover (if needed) -> Tune -> Fall -> Repeat.
         """
-        logger.info("-> Auto-Tuning...")
+        logger.info("-> Auto-Tuning with Recovery...")
         self.led.signal_tuning()
 
         rate = RateLimiter(1.0 / self.config.loop_time)
-
-        # Ensure we start fresh
         self.pid.reset()
+        self.vibration_counter = 0
+
+        # Save original Ki/Kd to restore if we abort
+        original_ki = self.config.pid.ki
+        original_kd = self.config.pid.kd
+
+        # Zero Ki/Kd for the tuning process
+        self.config.pid.ki = 0.0
+        self.config.pid.kd = 0.0
 
         found_tune = False
 
-        # Temporarily zero I and D for tuning loop using context manager
-        with temp_pid_overrides(self.config.pid, ki=0.0, kd=0.0):
+        try:
             while self.running:
-                self.get_pitch(self.config.loop_time)
-                self.led.update()
+                # 1. Check Posture
+                state = self.hw.get_posture_state()
 
-                error = self.pitch - self.config.pid.target_angle
+                if state == "CRASHED":
+                    logger.error("-> CRASH DETECTED. Halting.")
+                    return RobotState.EXIT
 
-                # Tune Logic: Increment Kp until vibration
-                self.config.pid.kp += TUNING_HEURISTICS.kp_increment
+                elif state == "RESTING":
+                    logger.info(f"-> Resting. Waiting {REST_WAIT_TIME}s...")
+                    self.hw.stop()
 
-                # Vibration detection
-                if (error > 0 and self.pid.last_error < 0) or (
-                    error < 0 and self.pid.last_error > 0
-                ):
-                    self.vibration_counter += 1
+                    # Wait loop
+                    end_wait = time.monotonic() + REST_WAIT_TIME
+                    while time.monotonic() < end_wait and self.running:
+                        self.led.update()
+                        time.sleep(0.1)
 
-                if self.vibration_counter > self.config.vibration_threshold:
-                    found_tune = True
-                    break
+                    if not self.running:
+                        break
 
-                output = self.pid.update(error, self.config.loop_time)
-                # Simple P loop for tuning, no turn correction
-                self.hw.set_motors(output, output)
+                    logger.info("-> Attempting to stand up...")
+                    if self.recover_from_rest():
+                        # Reset PID state after recovery and continue tuning
+                        self.pid.reset()
+                        continue
+                    else:
+                        logger.warning("-> Recovery Failed. Retrying...")
+                        continue
 
-                rate.sleep()
+                elif state == "FALLING":
+                    self.hw.stop()
+                    rate.sleep()
+                    continue
+
+                elif state == "BALANCED":
+                    # --- Tuning Logic ---
+                    self.get_pitch(self.config.loop_time)
+                    self.led.update()
+
+                    error = self.pitch - self.config.pid.target_angle
+
+                    # Increment Kp
+                    self.config.pid.kp += TUNING_HEURISTICS.kp_increment
+
+                    # Vibration detection
+                    if (error > 0 and self.pid.last_error < 0) or (
+                        error < 0 and self.pid.last_error > 0
+                    ):
+                        self.vibration_counter += 1
+
+                    if self.vibration_counter > self.config.vibration_threshold:
+                        found_tune = True
+                        break
+
+                    output = self.pid.update(error, self.config.loop_time)
+                    self.hw.set_motors(output, output)
+
+                    rate.sleep()
+
+        finally:
+            if not found_tune:
+                # Restore originals if failed/aborted
+                self.config.pid.ki = original_ki
+                self.config.pid.kd = original_kd
 
         if found_tune:
             # Re-apply calculations based on the Kp we reached
@@ -381,7 +490,7 @@ class RobotController:
     def run_recover(self) -> RobotState:
         """
         State: RECOVER.
-        Motors disabled. Loops until robot is placed upright again.
+        Motors disabled. Loops until robot is placed upright again OR self-rights.
 
         Transitions:
          - To BALANCE if upright for duration (countdown).
@@ -395,6 +504,21 @@ class RobotController:
             self.get_pitch(self.config.loop_time)
             self.led.update()
 
+            # Check if we can self-right
+            state = self.hw.get_posture_state()
+            if state == "RESTING":
+                logger.info(f"-> Resting in Recovery. Waiting {REST_WAIT_TIME}s...")
+                # Brief wait before attempting
+                end_wait = time.monotonic() + REST_WAIT_TIME
+                while time.monotonic() < end_wait and self.running:
+                    self.led.update()
+                    time.sleep(0.1)
+
+                if self.recover_from_rest():
+                    self.led.countdown()
+                    return RobotState.BALANCE
+
+            # Check if user picked it up manually
             error = self.pitch - self.config.pid.target_angle
             if abs(error) < self.config.control.upright_threshold:
                 logger.info(f"-> Upright detected! (Pitch: {self.pitch:.2f})")

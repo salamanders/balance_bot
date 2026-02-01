@@ -2,7 +2,7 @@ import statistics
 from itertools import pairwise
 from typing import NamedTuple
 
-from .config import TunerConfig
+from .config import TunerConfig, BALANCING_THRESHOLD
 
 
 class TuningAdjustment(NamedTuple):
@@ -39,6 +39,11 @@ class ContinuousTuner:
         :param error: Current pitch error (Target - Pitch).
         :return: TuningAdjustment(kp, ki, kd) with additive modifiers.
         """
+        # Safety: If falling/crashed, do not tune and reset history.
+        if abs(error) > BALANCING_THRESHOLD:
+            self.errors.clear()
+            return TuningAdjustment(0.0, 0.0, 0.0)
+
         self.errors.append(error)
         if len(self.errors) > self.buffer_size:
             self.errors.pop(0)

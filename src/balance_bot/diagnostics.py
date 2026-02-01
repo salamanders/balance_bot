@@ -32,7 +32,7 @@ def get_i2c_failure_report(bus_id: int, address: int, device_name: str) -> str:
         if hex_addr in result.stdout:
             return f"CONFUSION: Device {device_name} (0x{hex_addr}) IS detected on Bus {bus_id} by i2cdetect, but Python driver failed. Check for library version mismatch or intermittent wiring connection."
         else:
-             return f"Hardware not found or failed.  You may be using a different bus, try 'Check I2C Bus'.  Also check wire connections."
+             return "Hardware not found or failed.  You may be using a different bus, try 'Check I2C Bus'.  Also check wire connections."
     except FileNotFoundError:
         return "DEPENDENCY FAILURE: 'i2cdetect' is missing. Install i2c-tools."
     except Exception as e:
