@@ -12,7 +12,6 @@
 * [Makefile](Makefile): Shortcut commands for installation, linting, formatting, and running.
 * [README.md](README.md): The main entry point documentation.
 * [environment.sh](environment.sh): Script to set up the development environment (system dependencies, uv).
-* [piconz.sh](piconz.sh): Script to download official Picon Zero software (Legacy/Redundant as `src/balance_bot/piconzero.py` is used).
 * [pid_config.json](pid_config.json): Persisted storage for the tuned PID parameters.
 * [pyproject.toml](pyproject.toml): Python project configuration, dependencies, and tool settings.
 * [setup.sh](setup.sh): Initial system setup script (I2C enablement, system libraries).
@@ -26,7 +25,7 @@
 * [src/balance_bot/leds.py](src/balance_bot/leds.py): Controls the Raspberry Pi status LEDs for feedback.
 * [src/balance_bot/main.py](src/balance_bot/main.py): Main application entry point and state machine controller.
 * [src/balance_bot/mocks.py](src/balance_bot/mocks.py): Mock hardware implementations used when `MOCK_HARDWARE` env var is set.
-* [src/balance_bot/piconzero.py](src/balance_bot/piconzero.py): Custom driver for the Picon Zero Motor HAT (modernized version).
+* [src/balance_bot/piconzero.py](src/balance_bot/piconzero.py): Authoritative driver for the Picon Zero Motor HAT (modernized version of the 4tronix driver).
 * [src/balance_bot/pid.py](src/balance_bot/pid.py): PID controller implementation for balance logic.
 * [src/balance_bot/robot_hardware.py](src/balance_bot/robot_hardware.py): Hardware Abstraction Layer (HAL) managing sensors and motors.
 * [src/balance_bot/tuner.py](src/balance_bot/tuner.py): Automatic PID tuning logic (Ziegler-Nichols method).
@@ -60,7 +59,7 @@ cd balance-bot
 ```
 
 ### 2. System Setup
-Run the setup script to enable I2C and install necessary system libraries (like the Picon Zero driver).
+Run the setup script to enable I2C and install necessary system libraries.
 ```bash
 chmod +x setup.sh
 sudo ./setup.sh

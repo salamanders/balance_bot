@@ -22,6 +22,12 @@ REG_RESET = 20
 class PiconZero:
     """
     Driver for 4tronix Picon Zero board.
+
+    This is a modernized version of the original 4tronix driver, adapted for
+    modern Python (3.10+) with type hints, logging, and integrated into
+    the balance_bot project structure. This file is the authoritative
+    driver for this project; the legacy `piconz.sh` download is not used.
+
     Handles I2C communication for motors, inputs, and outputs.
     """
 
