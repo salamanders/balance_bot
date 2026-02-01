@@ -16,7 +16,6 @@ CRASH_ANGLE = 60.0              # If we pass this, something is wrong. HARD STOP
 
 # Startup / Recovery
 STARTUP_RAMP_SPEED = 0.5        # Degrees per loop cycle to adjust setpoint during startup
-REST_WAIT_TIME = 2.0            # Seconds to wait on strut before trying to stand up
 
 
 @dataclass
@@ -236,24 +235,7 @@ class SystemTiming:
     battery_log_interval: float = 5.0
 
 
-@dataclass(frozen=True)
-class TuningHeuristics:
-    """
-    Constants for the 'run_tune' (initial Ziegler-Nichols) phase.
-
-    :param kp_increment: Step size for Kp ramp-up.
-    :param kp_reduction: Factor to back-off Kp after oscillation found (0.6 = 60%).
-    :param kd_ratio: Ratio to set Kd relative to final Kp.
-    :param ki_ratio: Ratio to set Ki relative to final Kp.
-    """
-    kp_increment: float = 0.05
-    kp_reduction: float = 0.6
-    kd_ratio: float = 0.05
-    ki_ratio: float = 0.005
-
-
 SYSTEM_TIMING = SystemTiming()
-TUNING_HEURISTICS = TuningHeuristics()
 
 
 @contextmanager
