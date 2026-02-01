@@ -161,6 +161,13 @@ class TunerConfig:
     steady_error_threshold: float = 3.0
     ki_boost: float = 0.005
 
+    # Balance Point Finder
+    balance_check_interval: int = 500           # Check every 5 seconds @ 100Hz
+    balance_learning_rate: float = 0.05         # Adjustment per check (degrees)
+    balance_max_deviation: float = 10.0         # Max deviation from 0 (degrees)
+    balance_motor_threshold: float = 5.0        # Min average motor output to trigger
+    balance_pitch_rate_threshold: float = 10.0  # Max pitch rate for stability (deg/s)
+
 
 @dataclass(frozen=True)
 class LedConfig:
