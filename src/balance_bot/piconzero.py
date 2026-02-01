@@ -25,10 +25,7 @@ class PiconZero:
 
     This is a modernized version of the original 4tronix driver, adapted for
     modern Python (3.10+) with type hints, logging, and integrated into
-    the balance_bot project structure. This file is the authoritative
-    driver for this project; the legacy `piconz.sh` download is not used.
-
-    Handles I2C communication for motors, inputs, and outputs.
+    the balance_bot project structure.
     """
 
     def __init__(self, bus_number: int = 1):
@@ -41,11 +38,7 @@ class PiconZero:
         logger.info(f"PiconZero initialized on bus {bus_number}")
 
     def _write_byte(self, reg: int, value: int) -> None:
-        """
-        Write a byte to a register with retries.
-        :param reg: Register address.
-        :param value: Byte value to write.
-        """
+        """Low-level I2C byte write with retries."""
         if self.bus is None:
             return
         for _ in range(RETRIES):
@@ -57,11 +50,7 @@ class PiconZero:
         logger.error(f"Failed to write byte to register {reg}")
 
     def _write_block(self, reg: int, data: list[int]) -> None:
-        """
-        Write a block of data with retries.
-        :param reg: Register address.
-        :param data: List of bytes to write.
-        """
+        """Low-level I2C block write with retries."""
         if self.bus is None:
             return
         for _ in range(RETRIES):
@@ -73,11 +62,7 @@ class PiconZero:
         logger.error(f"Failed to write block to register {reg}")
 
     def _read_word(self, reg: int) -> int:
-        """
-        Read a word from a register with retries.
-        :param reg: Register address.
-        :return: Word value read.
-        """
+        """Low-level I2C word read with retries."""
         if self.bus is None:
             return 0
         for _ in range(RETRIES):
@@ -100,9 +85,7 @@ class PiconZero:
         """
         Set motor speed.
         :param motor: Motor index (0 or 1).
-        :param value: Speed -100 to 100. (Internally maps to -128 to 127, roughly)
-                      Actually original code expected -128 to 127.
-                      We will stick to the input range expected by the register.
+        :param value: Speed -100 to 100.
         """
         if motor not in (0, 1):
             return
@@ -130,7 +113,7 @@ class PiconZero:
 
     def spin_left(self, speed: int) -> None:
         """
-        Spin robot left.
+        Spin robot left (Tank turn).
         :param speed: Speed value.
         """
         self.set_motor(0, -speed)
@@ -138,7 +121,7 @@ class PiconZero:
 
     def spin_right(self, speed: int) -> None:
         """
-        Spin robot right.
+        Spin robot right (Tank turn).
         :param speed: Speed value.
         """
         self.set_motor(0, speed)

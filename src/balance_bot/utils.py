@@ -11,7 +11,7 @@ FORCE_CALIB_FILE = Path("force_calibration.txt")
 
 
 class Vector3(TypedDict):
-    """Type definition for a 3D vector."""
+    """Type definition for a 3D vector (x, y, z)."""
 
     x: float
     y: float
@@ -20,14 +20,18 @@ class Vector3(TypedDict):
 
 class ComplementaryFilter:
     """
-    A simple Complementary Filter for sensor fusion.
-    Combines a noisy but fast signal (Gyro) with a stable but slow signal (Accel).
+    Sensor Fusion Algorithm.
+    Combines Gyro (Fast, Drifts) and Accelerometer (Slow, Noisy, Stable) data.
+
+    Formula:
+        Angle = alpha * (Angle + GyroRate * dt) + (1 - alpha) * AccelAngle
     """
 
     def __init__(self, alpha: float):
         """
         Initialize the filter.
-        :param alpha: Filter coefficient (0.0 to 1.0). Higher means trust gyro more.
+        :param alpha: Trust factor for Gyro (0.0 to 1.0).
+                      Example: 0.98 means 98% Gyro, 2% Accel.
         """
         self.alpha = alpha
         self.angle = 0.0
@@ -35,8 +39,8 @@ class ComplementaryFilter:
     def update(self, new_angle: float, rate: float, loop_delta_time: float) -> float:
         """
         Update the filter state.
-        :param new_angle: The new absolute angle measurement (e.g., from Accelerometer).
-        :param rate: The rate of change (e.g., from Gyroscope).
+        :param new_angle: The absolute angle from Accelerometer.
+        :param rate: The angular rate from Gyroscope.
         :param loop_delta_time: Time delta in seconds.
         :return: The filtered angle.
         """
@@ -47,7 +51,10 @@ class ComplementaryFilter:
 
 
 class RateLimiter:
-    """Helper to maintain a consistent loop frequency."""
+    """
+    Loop Frequency Regulator.
+    Ensures the control loop runs at a consistent predictable speed (e.g. 100Hz).
+    """
 
     def __init__(self, frequency: float):
         """
@@ -58,32 +65,35 @@ class RateLimiter:
         self.next_time = time.monotonic()
 
     def sleep(self) -> None:
-        """Sleep for the remainder of the period."""
+        """
+        Sleep for the remainder of the current period.
+        """
         self.next_time += self.period
         sleep_time = self.next_time - time.monotonic()
         if sleep_time > 0:
             time.sleep(sleep_time)
 
     def reset(self) -> None:
-        """Reset the internal timer to current time."""
+        """Reset the internal timer to current time (e.g., after a pause)."""
         self.next_time = time.monotonic()
 
 
 class LogThrottler:
-    """Helper to throttle log messages."""
+    """
+    Prevents log flooding by enforcing a minimum interval between logs.
+    """
 
     def __init__(self, interval_sec: float):
         """
-        Initialize the log throttler.
-        :param interval_sec: Minimum interval between logs in seconds.
+        :param interval_sec: Minimum seconds between logs.
         """
         self.interval = interval_sec
         self.last_log_time = 0.0
 
     def should_log(self) -> bool:
         """
-        Check if it's time to log.
-        :return: True if enough time has passed since the last log.
+        Check if we are allowed to log now.
+        :return: True if enough time has passed.
         """
         now = time.monotonic()
         if now - self.last_log_time > self.interval:
@@ -94,10 +104,10 @@ class LogThrottler:
 
 def clamp(value: float, min_val: float, max_val: float) -> float:
     """
-    Clamp a value between a minimum and maximum.
+    Restrict a value to be within a specific range.
     :param value: Input value.
-    :param min_val: Minimum allowed value.
-    :param max_val: Maximum allowed value.
+    :param min_val: Floor.
+    :param max_val: Ceiling.
     :return: Clamped value.
     """
     return max(min(value, max_val), min_val)
@@ -105,20 +115,19 @@ def clamp(value: float, min_val: float, max_val: float) -> float:
 
 def calculate_pitch(accel_y: float, accel_z: float) -> float:
     """
-    Calculate pitch angle in degrees from accelerometer data.
-    Assumes Y is forward/backward axis and Z is vertical.
-    Returns value in degrees.
-    :param accel_y: Y-axis acceleration.
-    :param accel_z: Z-axis acceleration.
-    :return: Pitch angle in degrees.
+    Calculate pitch angle from accelerometer vectors using atan2.
+
+    :param accel_y: Acceleration along the forward axis.
+    :param accel_z: Acceleration along the vertical axis.
+    :return: Angle in degrees.
     """
     return math.degrees(math.atan2(accel_y, accel_z))
 
 
 def setup_logging(level: int = logging.INFO) -> None:
     """
-    Configure logging for the application.
-    :param level: Logging level.
+    Configure standard logging format.
+    :param level: Logging verbosity (default INFO).
     """
     logging.basicConfig(
         level=level,
@@ -129,8 +138,12 @@ def setup_logging(level: int = logging.INFO) -> None:
 
 def check_force_calibration_flag() -> bool:
     """
-    Check if force calibration is requested via file or command line argument.
-    :return: True if force calibration is requested.
+    Check for external triggers to force a calibration run.
+    Triggers:
+     1. Existence of 'force_calibration.txt'.
+     2. '--force-calibration' command line arg.
+
+    :return: True if calibration is requested.
     """
     if FORCE_CALIB_FILE.exists():
         logger.info(f"Force calibration file found: {FORCE_CALIB_FILE}")

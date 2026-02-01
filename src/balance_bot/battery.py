@@ -3,10 +3,21 @@ from .utils import clamp
 
 
 class BatteryEstimator:
+    """
+    Estimates battery health based on motor responsiveness.
+
+    Concept:
+        As battery voltage drops, motors produce less torque for the same PWM command.
+        Responsiveness = AngularAcceleration / PWM.
+
+        We compare current responsiveness against a baseline (established at startup).
+        If responsiveness drops, we increase the 'compensation factor' to boost PWM.
+    """
+
     def __init__(self, config: BatteryConfig = BatteryConfig()):
         """
-        Estimates battery voltage drop by comparing expected vs actual responsiveness.
-        :param config: Configuration object for battery estimation.
+        Initialize the estimator.
+        :param config: Tuning limits and smoothing factors.
         """
         self.config = config
 
@@ -15,25 +26,26 @@ class BatteryEstimator:
         self.current_responsiveness = 0.0
 
         # Factor to scale motor output (1.0 = Full Battery, < 1.0 = Low Battery)
-        # We actually use this to BOOST output: Final = Command / Factor
+        # Usage: FinalOutput = PIDOutput / CompensationFactor
+        # Example: If factor is 0.8 (20% drop), we divide by 0.8 (multiply by 1.25).
         self.compensation_factor = 1.0
 
     def update(self, pwm: float, angular_accel: float, loop_delta_time: float) -> float:
         """
-        Update the estimator with new data.
+        Update the estimator with new physical data.
 
-        :param pwm: The commanded PWM (before compensation)
-        :param angular_accel: Measured angular acceleration (deg/s^2)
-        :param loop_delta_time: Time step
-        :return: Current compensation factor
+        :param pwm: The commanded PWM sent to motors (before compensation).
+        :param angular_accel: Measured angular acceleration (deg/s^2).
+        :param loop_delta_time: Time step.
+        :return: Current compensation factor (0.0 to 1.0ish).
         """
         if abs(pwm) < self.config.min_pwm:
             return self.compensation_factor
 
-        # Responsiveness = Acceleration / PWM
+        # Calculate raw responsiveness sample
         raw_responsiveness = abs(angular_accel) / abs(pwm)
 
-        # 1. ESTABLISH BASELINE
+        # 1. ESTABLISH BASELINE (First N samples)
         if self.samples_collected < self.config.baseline_samples:
             # Accumulate average
             self.baseline_responsiveness = (
@@ -45,20 +57,20 @@ class BatteryEstimator:
             return 1.0
 
         # 2. RUNNING ESTIMATION
-        # Smooth the current reading
+        # Smooth the current reading (EMA)
         self.current_responsiveness = (
             self.config.ema_alpha * raw_responsiveness
             + (1 - self.config.ema_alpha) * self.current_responsiveness
         )
 
-        # Calculate Ratio
+        # Calculate Ratio (Current / Baseline)
         if self.baseline_responsiveness > 0:
             ratio = self.current_responsiveness / self.baseline_responsiveness
         else:
             ratio = 1.0
 
-        # Update Factor (smoothly)
-        # Factor should track the ratio.
+        # 3. CALCULATE COMPENSATION FACTOR
+        # If ratio < 1.0, battery is weak.
         target_factor = clamp(
             ratio, self.config.min_compensation, self.config.max_compensation
         )

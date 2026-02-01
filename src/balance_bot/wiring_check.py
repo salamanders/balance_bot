@@ -5,6 +5,10 @@ from .robot_hardware import RobotHardware
 
 
 class WiringCheck:
+    """
+    Interactive Tool for verifying robot wiring and sensor orientation.
+    """
+
     def __init__(self):
         self.config = RobotConfig.load()
         # Initialize hardware using current config
@@ -29,6 +33,7 @@ class WiringCheck:
         print("!!! IMPORTANT !!!")
 
     def run(self):
+        """Main Menu Loop."""
         while True:
             print("\n--- Main Menu ---")
             print(
@@ -70,6 +75,7 @@ class WiringCheck:
                     print("Invalid option.")
 
     def reload_hw(self):
+        """Reload hardware with updated config."""
         self.hw.stop()
         self.hw = RobotHardware(
             motor_l=self.config.motor_l,
@@ -87,6 +93,7 @@ class WiringCheck:
         self.hw.init()
 
     def check_motor(self, side: str):
+        """Interactive Motor Check."""
         print(f"\n>>> Checking {side.upper()} Motor...")
         print("Spinning with POSITIVE speed (+30) for 2 seconds...")
 
@@ -131,6 +138,7 @@ class WiringCheck:
                 print("Invalid input.")
 
     def check_gyro(self):
+        """Interactive Gyro/Accel Auto-Detection."""
         print("\n>>> Checking Gyro Orientation...")
         print("This wizard will automatically detect your sensor mounting.")
         print("It supports any mounting orientation (Standard, Sideways, Upside-Down).")
@@ -261,6 +269,7 @@ class WiringCheck:
             print("   WARNING: Pitch did not increase positively. Calibration might be wrong.")
 
     def check_i2c_bus(self):
+        """Interactive I2C Bus Switcher."""
         print(f"\n>>> Checking I2C Bus (Current: {self.config.i2c_bus})")
         print("If you are using the Picon Zero, you might need to use Software I2C (Bus 3).")
         print("Enter new Bus Number (e.g. 1 or 3), or press Enter to keep current.")
@@ -288,7 +297,7 @@ class WiringCheck:
             print("No change.")
 
     def get_pitch_snapshot(self) -> float:
-        # Average a few readings
+        """Helper to get a stable average pitch."""
         p_sum = 0.0
         samples = 10
         for _ in range(samples):
@@ -300,6 +309,7 @@ class WiringCheck:
         return p_sum / samples
 
     def cleanup(self):
+        """Release hardware."""
         self.hw.stop()
         self.hw.cleanup()
 
