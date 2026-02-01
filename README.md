@@ -146,10 +146,22 @@ dtoverlay=i2c-gpio,bus=3,i2c_gpio_sda=17,i2c_gpio_scl=27
 
 ## Bootup Process
 
-1. Run `uv run balance-bot`
-2. Hold the robot perfectly upright and still. The console will say `[STEP 1] HOLD VERTICAL`. Wait 1 second.
-3. The console will say `[STEP 2] LETTING IT WOBBLE`. Gently support it with your hands (don't grip it tight, just cage it). It will twitch back and forth.
-4. The console will print `Tuned! Kp: ...` and it will take over. Let go!
+1. **Place the robot on its back training wheel.**
+2. Run `uv run balance-bot`.
+
+### First Run (Calibration)
+If this is the first time running (or no config exists):
+1. The robot will perform a **Self-Calibration Sequence** ("The Flop").
+   - It will flop forward, then backward to measure its physical limits.
+   - It will calculate the mechanical balance point.
+2. Once calibrated, it will perform a **Kick-Up** maneuver to stand up and balance.
+
+### Normal Run
+1. The robot will detect it is resting on the back wheel.
+2. It will perform a **Kick-Up** maneuver using the saved configuration.
+3. It will begin balancing.
+
+*Note: You can also start the robot holding it upright, and it will balance immediately.*
 
 ## Codebase Assumptions
 
