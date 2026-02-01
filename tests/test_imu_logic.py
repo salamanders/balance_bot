@@ -45,8 +45,8 @@ def test_imu_processing_tilted(monkeypatch):
 
 def test_imu_processing_axis_y(monkeypatch):
     monkeypatch.setenv("MOCK_HARDWARE", "1")
-    # Axis Y means we use X accel and Y gyro
-    hw = RobotHardware(0, 1, gyro_axis="y")
+    # Axis Y means we use X accel and Y gyro. In new API, we must specify accel_forward_axis.
+    hw = RobotHardware(0, 1, gyro_axis="y", accel_forward_axis="x")
     hw.sensor = MagicMock()
 
     # Simulate tilt on X axis (which is now pitch)
@@ -61,7 +61,8 @@ def test_imu_processing_axis_y(monkeypatch):
 
 def test_imu_processing_invert(monkeypatch):
     monkeypatch.setenv("MOCK_HARDWARE", "1")
-    hw = RobotHardware(0, 1, gyro_invert=True)
+    # Invert both pitch angle and gyro rate
+    hw = RobotHardware(0, 1, gyro_invert=True, accel_forward_invert=True)
     hw.sensor = MagicMock()
 
     val = 9.8 * 0.707
@@ -70,5 +71,29 @@ def test_imu_processing_invert(monkeypatch):
 
     reading = hw.read_imu_converted()
 
+    # If forward axis is inverted, +val becomes -val.
+    # atan2(-val, val) -> -45 deg.
     assert math.isclose(reading.pitch_angle, -45.0, abs_tol=0.1)
     assert math.isclose(reading.pitch_rate, -10.0)
+
+def test_imu_processing_sideways(monkeypatch):
+    """Test sideways mounting configuration (Vertical X, Forward Y, Gyro Z)"""
+    monkeypatch.setenv("MOCK_HARDWARE", "1")
+    hw = RobotHardware(
+        0, 1,
+        accel_vertical_axis="x",
+        accel_forward_axis="y",
+        gyro_axis="z"
+    )
+    hw.sensor = MagicMock()
+
+    # Simulate 45 deg tilt.
+    # Vertical (X) decreases to cos(45). Forward (Y) increases to sin(45).
+    val = 9.8 * 0.707
+    hw.sensor.get_accel_data.return_value = {"x": val, "y": val, "z": 0.0}
+    hw.sensor.get_gyro_data.return_value = {"x": 0.0, "y": 0.0, "z": 5.0}
+
+    reading = hw.read_imu_converted()
+
+    assert math.isclose(reading.pitch_angle, 45.0, abs_tol=0.1)
+    assert math.isclose(reading.pitch_rate, 5.0)

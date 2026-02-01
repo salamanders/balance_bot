@@ -64,6 +64,10 @@ class RobotController:
             invert_r=self.config.motor_r_invert,
             gyro_axis=self.config.gyro_pitch_axis,
             gyro_invert=self.config.gyro_pitch_invert,
+            accel_vertical_axis=self.config.accel_vertical_axis,
+            accel_vertical_invert=self.config.accel_vertical_invert,
+            accel_forward_axis=self.config.accel_forward_axis,
+            accel_forward_invert=self.config.accel_forward_invert,
             i2c_bus=self.config.i2c_bus,
         )
         self.led = LedController(self.config.led)

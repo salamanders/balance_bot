@@ -116,6 +116,10 @@ class RobotConfig:
     motor_r_invert: bool = False
     gyro_pitch_axis: str = "x"
     gyro_pitch_invert: bool = False
+    accel_vertical_axis: str = "z"
+    accel_vertical_invert: bool = False
+    accel_forward_axis: str = "y"
+    accel_forward_invert: bool = False
     i2c_bus: int = 1
     loop_time: float = 0.01  # 10ms
 
