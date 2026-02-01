@@ -1,4 +1,3 @@
-import pytest
 from balance_bot.tuner import BalancePointFinder
 from balance_bot.config import TunerConfig
 

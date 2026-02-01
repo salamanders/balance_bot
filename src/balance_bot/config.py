@@ -161,6 +161,12 @@ class TunerConfig:
     steady_error_threshold: float = 3.0
     ki_boost: float = 0.005
 
+    # Tuning Aggression Decay
+    start_aggression_first_run: float = 5.0
+    start_aggression_normal: float = 1.0
+    aggression_decay: float = 0.9995
+    min_aggression: float = 0.1
+
     # Balance Point Finder
     balance_check_interval: int = 500           # Check every 5 seconds @ 100Hz
     balance_learning_rate: float = 0.05         # Adjustment per check (degrees)
@@ -350,7 +356,6 @@ class RobotConfig:
             try:
                 text = CONFIG_FILE.read_text()
                 data = json.loads(text)
-                data = cls._migrate_legacy_data(data)
 
                 # 1. Handle PID
                 pid_data = data.pop("pid", {})
@@ -402,33 +407,6 @@ class RobotConfig:
             control=control_config,
             **config_kwargs,
         )
-
-    @staticmethod
-    def _migrate_legacy_data(data: dict[str, Any]) -> dict[str, Any]:
-        """Convert flat legacy format to nested format if needed."""
-        if "pid" in data:
-            return data
-
-        # Legacy Flat Format -> Nested
-        new_data = data.copy()
-
-        legacy_map = {
-            "pid_kp": "kp",
-            "pid_ki": "ki",
-            "pid_kd": "kd",
-            "target_angle": "target_angle",
-        }
-
-        pid_data = {
-            new_key: new_data.pop(old_key)
-            for old_key, new_key in legacy_map.items()
-            if old_key in new_data
-        }
-
-        if pid_data:
-            new_data["pid"] = pid_data
-
-        return new_data
 
     def save(self) -> None:
         """Serialize and save the current configuration to disk."""

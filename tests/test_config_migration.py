@@ -36,28 +36,6 @@ NESTED_JSON = """
 }
 """
 
-def test_load_legacy_config(tmp_path, monkeypatch):
-    config_file = tmp_path / "pid_config.json"
-    config_file.write_text(LEGACY_JSON)
-
-    # Mock CONFIG_FILE path in config module
-    # Since we can't easily change the constant in the module, we can mock open?
-    # Or simpler, we can change working directory?
-    # Let's try mocking os.path.exists and open.
-    # Actually, simpler is to just parse the logic, but we want to test the load method.
-
-    # Let's change the working directory to tmp_path
-    monkeypatch.chdir(tmp_path)
-
-    config = RobotConfig.load()
-
-    assert config.pid.kp == 12.5
-    assert config.pid.ki == 0.1
-    assert config.pid.kd == 0.5
-    assert config.pid.target_angle == -2.0
-    assert config.motor_r_invert is True
-    assert config.pid.integral_limit == 20.0 # Default value
-
 def test_load_nested_config(tmp_path, monkeypatch):
     config_file = tmp_path / "pid_config.json"
     config_file.write_text(NESTED_JSON)
