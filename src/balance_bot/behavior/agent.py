@@ -73,7 +73,6 @@ class Agent:
 
     def init(self) -> None:
         """Initialize hardware and signal readiness."""
-        logger.info(">>> ROBOT ALIVE. Hold vertical for STEP 1.")
         # Core init happens in __init__ currently, but we can verify here?
         pass
 
@@ -91,7 +90,7 @@ class Agent:
             self.led.update()
             time.sleep(self.config.loop_time)
 
-        # 2. Calibration
+        # 2. Calibration / Startup
         if self.first_run or check_force_calibration_flag():
             try:
                 self._perform_discovery()
@@ -99,6 +98,18 @@ class Agent:
                 logger.error(f"Discovery Failed: {e}")
                 self.core.cleanup()
                 return
+        else:
+            # Normal Startup: Check if we need to Kick Up
+            # If we are resting on the back wheel (Negative Pitch), kick up.
+            if self.core.pitch < -10.0:
+                logger.info(">>> Resting on Back Wheel. Initiating Kick-Up.")
+                try:
+                    # Start with a safe power (30.0)
+                    self._incremental_kickup(self.config.pid.target_angle, start_power=30.0)
+                except Exception as e:
+                    logger.error(f"Kick-Up Failed: {e}")
+                    self.core.cleanup()
+                    return
 
         # 3. Main Loop
         logger.info(f"-> Starting Control Loop. Aggression: {self.tuner.get_current_scale():.2f}")
