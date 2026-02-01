@@ -3,10 +3,9 @@ import logging
 from typing import Protocol, runtime_checkable, Any
 from dataclasses import dataclass
 
-from .utils import clamp, calculate_pitch, Vector3
-from .diagnostics import get_i2c_failure_report
-from .battery import BatteryEstimator
-from .config import (
+from ..utils import clamp, calculate_pitch, Vector3
+from ..diagnostics import get_i2c_failure_report
+from ..config import (
     BALANCING_THRESHOLD,
     REST_ANGLE_MIN,
     REST_ANGLE_MAX,
@@ -130,7 +129,6 @@ class RobotHardware:
         accel_forward_axis: str = "y",
         accel_forward_invert: bool = False,
         i2c_bus: int = 1,
-        battery_estimator: BatteryEstimator | None = None,
     ):
         """
         Initialize the robot hardware abstraction.
@@ -146,7 +144,6 @@ class RobotHardware:
         :param accel_forward_axis: Axis corresponding to forward motion ('x', 'y', 'z').
         :param accel_forward_invert: Invert forward axis sign.
         :param i2c_bus: I2C bus number for IMU (default 1).
-        :param battery_estimator: Optional battery estimator for voltage compensation.
         """
         self.motor_l = motor_l
         self.motor_r = motor_r
@@ -159,7 +156,6 @@ class RobotHardware:
         self.accel_forward_axis = accel_forward_axis
         self.accel_forward_invert = accel_forward_invert
         self.i2c_bus = i2c_bus
-        self.battery_estimator = battery_estimator
 
         self.pz: MotorDriver
         self.sensor: IMUDriver
@@ -290,14 +286,6 @@ class RobotHardware:
         :param left: Speed -100 to 100
         :param right: Speed -100 to 100
         """
-        # Apply Battery Compensation if available
-        if self.battery_estimator:
-            comp_factor = self.battery_estimator.compensation_factor
-            # Avoid divide by zero, though factor is clamped > 0.1
-            if comp_factor > 0:
-                left /= comp_factor
-                right /= comp_factor
-
         if self.invert_l:
             left = -left
         if self.invert_r:

@@ -2,7 +2,7 @@ import statistics
 from itertools import pairwise
 from typing import NamedTuple
 
-from .config import TunerConfig, CRASH_ANGLE
+from ..config import TunerConfig, CRASH_ANGLE
 
 
 class TuningAdjustment(NamedTuple):

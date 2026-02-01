@@ -1,5 +1,5 @@
-from .config import BatteryConfig
-from .utils import clamp
+from ..config import BatteryConfig
+from ..utils import clamp
 
 
 class BatteryEstimator:

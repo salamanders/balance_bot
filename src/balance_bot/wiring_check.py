@@ -1,7 +1,7 @@
 import time
 import sys
 from .config import RobotConfig
-from .robot_hardware import RobotHardware
+from .hardware.robot_hardware import RobotHardware
 
 
 class WiringCheck:

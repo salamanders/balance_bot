@@ -1,5 +1,5 @@
-from .config import PIDParams
-from .utils import clamp
+from ..config import PIDParams
+from ..utils import clamp
 
 
 class PIDController:

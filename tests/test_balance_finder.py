@@ -1,4 +1,4 @@
-from balance_bot.tuner import BalancePointFinder
+from balance_bot.adaptation.tuner import BalancePointFinder
 from balance_bot.config import TunerConfig
 
 def test_balance_finder_no_adjustment():

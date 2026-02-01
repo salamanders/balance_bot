@@ -1,4 +1,4 @@
-from balance_bot.tuner import ContinuousTuner
+from balance_bot.adaptation.tuner import ContinuousTuner
 
 def test_oscillation_detection():
     # buffer_size=10 for faster testing

@@ -1,6 +1,6 @@
 import math
 from unittest.mock import MagicMock
-from balance_bot.robot_hardware import RobotHardware, IMUReading
+from balance_bot.hardware.robot_hardware import RobotHardware, IMUReading
 
 # We need to mock the imports inside RobotHardware
 # But RobotHardware mocks them if ImportError.
