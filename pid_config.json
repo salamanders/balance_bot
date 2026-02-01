@@ -1,8 +1,67 @@
 {
     "pid": {
-        "kp": 3.899999999999997,
-        "ki": 0.019499999999999986,
-        "kd": 0.19499999999999984,
-        "target_angle": 0.0
-    }
+        "kp": 12.755488066882908,
+        "ki": 0.0,
+        "kd": 0.0,
+        "target_angle": 0.0,
+        "integral_limit": 20.0
+    },
+    "battery": {
+        "ema_alpha": 0.05,
+        "factor_smoothing": 0.01,
+        "min_compensation": 0.5,
+        "max_compensation": 1.2,
+        "min_pwm": 20.0,
+        "baseline_samples": 100
+    },
+    "tuner": {
+        "cooldown_reset": 50,
+        "oscillation_threshold": 0.15,
+        "kp_oscillation_penalty": -0.1,
+        "kd_oscillation_boost": 0.05,
+        "stability_std_dev": 1.0,
+        "stability_mean_err": 1.0,
+        "kp_stability_boost": 0.02,
+        "steady_error_threshold": 3.0,
+        "ki_boost": 0.005,
+        "start_aggression_first_run": 5.0,
+        "start_aggression_normal": 1.0,
+        "aggression_decay": 0.9995,
+        "min_aggression": 0.1,
+        "balance_check_interval": 500,
+        "balance_learning_rate": 0.05,
+        "balance_max_deviation": 10.0,
+        "balance_motor_threshold": 5.0,
+        "balance_pitch_rate_threshold": 10.0
+    },
+    "led": {
+        "setup_blink_interval": 0.05,
+        "tuning_blink_interval": 0.25,
+        "countdown_blink_count_3": 3,
+        "countdown_blink_count_2": 2,
+        "countdown_blink_count_1": 1,
+        "countdown_blink_on_time": 0.2,
+        "countdown_blink_off_time": 0.2,
+        "countdown_pause_time": 0.5
+    },
+    "control": {
+        "yaw_correction_factor": 0.5,
+        "upright_threshold": 5.0,
+        "low_battery_log_threshold": 0.95
+    },
+    "motor_l": 0,
+    "motor_r": 1,
+    "motor_l_invert": false,
+    "motor_r_invert": false,
+    "gyro_pitch_axis": "x",
+    "gyro_pitch_invert": false,
+    "accel_vertical_axis": "z",
+    "accel_vertical_invert": false,
+    "accel_forward_axis": "y",
+    "accel_forward_invert": false,
+    "i2c_bus": 1,
+    "loop_time": 0.01,
+    "fall_angle_limit": 45.0,
+    "complementary_alpha": 0.98,
+    "vibration_threshold": 10
 }

@@ -2,7 +2,7 @@ import time
 import logging
 from pathlib import Path
 
-from .config import LedConfig
+from ..config import LedConfig
 
 logger = logging.getLogger(__name__)
 

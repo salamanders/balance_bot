@@ -128,7 +128,7 @@ def check_imports():
 
     # Check internal piconzero
     try:
-        from .piconzero import PiconZero  # noqa: F401
+        from .hardware.piconzero import PiconZero  # noqa: F401
         print("SUCCESS: Internal 'piconzero' module import working.")
     except ImportError as e:
          print(f"FAILURE: Could not import internal 'piconzero': {e}")

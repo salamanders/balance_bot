@@ -1,4 +1,4 @@
-from balance_bot.battery import BatteryEstimator
+from balance_bot.adaptation.battery import BatteryEstimator
 from balance_bot.config import BatteryConfig
 
 def test_battery_estimator_baseline():
