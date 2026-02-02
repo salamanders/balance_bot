@@ -100,9 +100,9 @@ class Agent:
                 return
         else:
             # Normal Startup: Check if we need to Kick Up
-            # If we are resting on the back wheel (Negative Pitch), kick up.
-            if self.core.pitch < -10.0:
-                logger.info(">>> Resting on Back Wheel. Initiating Kick-Up.")
+            # If we are resting on either wheel (Pitch > 10 or < -10), kick up.
+            if abs(self.core.pitch) > 10.0:
+                logger.info(f">>> Resting on Wheel (Pitch={self.core.pitch:.1f}). Initiating Kick-Up.")
                 try:
                     # Start with a safe power (30.0)
                     self._incremental_kickup(self.config.pid.target_angle, start_power=30.0)
@@ -237,27 +237,64 @@ class Agent:
     def _perform_discovery(self) -> None:
         logger.info(">>> STARTING AUTONOMOUS DISCOVERY <<<")
 
-        # 1. Measure Back Limit (Assumes starting position)
-        logger.info("-> Measuring Back Limit...")
         self._wait_for_settle()
-        back_angle = self._measure_stable_angle()
-        logger.info(f"-> Back Angle: {back_angle:.2f}")
+        start_pitch = self.core.pitch
 
-        # 2. Incremental Flop (Back -> Front)
-        logger.info("-> Finding Forward Flop Power...")
-        flop_power_fwd = self._incremental_flop(target_side="front")
-        logger.info(f"-> Forward Flop Power: {flop_power_fwd:.1f}")
+        back_angle = 0.0
+        front_angle = 0.0
+        kickup_power_est = 30.0
 
-        # 3. Measure Front Limit
-        logger.info("-> Measuring Front Limit...")
-        self._wait_for_settle()
-        front_angle = self._measure_stable_angle()
-        logger.info(f"-> Front Angle: {front_angle:.2f}")
+        if start_pitch < -5.0:
+            # --- STARTED ON BACK (Original Sequence) ---
+            logger.info("-> Detected BACK Start.")
 
-        # 4. Return to Start (Front -> Back)
-        logger.info("-> Returning to Start (Back Limit)...")
-        self._incremental_flop(target_side="back")
-        self._wait_for_settle()
+            # 1. Measure Back
+            logger.info("-> Measuring Back Limit...")
+            back_angle = self._measure_stable_angle()
+            logger.info(f"-> Back Angle: {back_angle:.2f}")
+
+            # 2. Flop to Front
+            logger.info("-> Flop to Front...")
+            kickup_power_est = self._incremental_flop(target_side="front") # Against gravity (Back->Front needs neg drive/kickup logic)
+
+            # 3. Measure Front
+            logger.info("-> Measuring Front Limit...")
+            self._wait_for_settle()
+            front_angle = self._measure_stable_angle()
+            logger.info(f"-> Front Angle: {front_angle:.2f}")
+
+            # 4. Return to Back
+            logger.info("-> Return to Start (Back)...")
+            self._incremental_flop(target_side="back")
+            self._wait_for_settle()
+
+        elif start_pitch > 5.0:
+            # --- STARTED ON FRONT (Reverse Sequence) ---
+            logger.info("-> Detected FRONT Start.")
+
+            # 1. Measure Front
+            logger.info("-> Measuring Front Limit...")
+            front_angle = self._measure_stable_angle()
+            logger.info(f"-> Front Angle: {front_angle:.2f}")
+
+            # 2. Flop to Back
+            logger.info("-> Flop to Back...")
+            kickup_power_est = self._incremental_flop(target_side="back") # Against gravity (Front->Back needs pos drive/kickup logic)
+
+            # 3. Measure Back
+            logger.info("-> Measuring Back Limit...")
+            self._wait_for_settle()
+            back_angle = self._measure_stable_angle()
+            logger.info(f"-> Back Angle: {back_angle:.2f}")
+
+            # 4. Return to Front
+            logger.info("-> Return to Start (Front)...")
+            self._incremental_flop(target_side="front")
+            self._wait_for_settle()
+
+        else:
+            logger.error(f"Cannot perform discovery: Robot is too upright (Pitch: {start_pitch:.1f})")
+            return
 
         # 5. Bootstrap
         midpoint = (back_angle + front_angle) / 2
@@ -272,9 +309,8 @@ class Agent:
         self.first_run = False
 
         # 6. Incremental Kick-Up
-        logger.info("-> Starting Kick-Up Sequence...")
-        # Use discovered flop power as baseline
-        self._incremental_kickup(target_angle=midpoint, start_power=flop_power_fwd)
+        logger.info(f"-> Starting Kick-Up Sequence using est power {kickup_power_est:.1f}...")
+        self._incremental_kickup(target_angle=midpoint, start_power=kickup_power_est)
 
     def _wait_for_settle(self, duration: float = 1.0, rate_threshold: float = 10.0) -> None:
         """Wait for the robot to settle (low pitch rate)."""
@@ -368,31 +404,58 @@ class Agent:
     def _incremental_kickup(self, target_angle: float, start_power: float) -> None:
         """
         Incrementally attempt to kick up to balance.
+        Supports starting from either Back (Negative Pitch) or Front (Positive Pitch).
         """
         power = start_power
         step = 5.0
         max_power = 100.0
 
-        logger.info(f"-> Starting Incremental Kick-Up. Target: {target_angle:.2f}")
+        # Detect direction based on current pitch
+        # If Pitch < 0 (Back): Drive NEGATIVE (Backward) to kick Front up.
+        # If Pitch > 0 (Front): Drive POSITIVE (Forward) to kick Back up.
+        start_pitch = self.core.pitch
+        kick_direction = -1.0 if start_pitch < 0 else 1.0
+
+        start_label = "BACK" if kick_direction < 0 else "FRONT"
+
+        logger.info(f"-> Starting Incremental Kick-Up from {start_label}. Target: {target_angle:.2f}")
 
         while power <= max_power:
             self._wait_for_settle()
 
-            # Verify we are at Back Limit (Negative Pitch)
-            if self.core.pitch > -10:
-                logger.warning("-> Not at Back Limit? Repositioning...")
-                # Drive gently to fall back
-                self.core.hw.set_motors(30, 30)
+            # Check if we are still at the starting limit
+            # If start Back (dir=-1): pitch must be < -10. If > -10, we are too upright/forward.
+            # If start Front (dir=1): pitch must be > 10. If < 10, we are too upright/back.
+            wrong_position = False
+            if kick_direction < 0 and self.core.pitch > -10:
+                wrong_position = True
+            elif kick_direction > 0 and self.core.pitch < 10:
+                wrong_position = True
+
+            if wrong_position:
+                logger.warning(f"-> Not at {start_label} Limit? Repositioning...")
+                # Drive OPPOSITE to kick_direction to fall back to start.
+                # If kick_dir = -1 (Need to go Neg), we are too Pos. Drive Pos to fall back. (fix = +1)
+                # If kick_dir = +1 (Need to go Pos), we are too Neg. Drive Neg to fall back. (fix = -1)
+                fix_power = 30.0 * (-kick_direction)
+
+                self.core.hw.set_motors(fix_power, fix_power)
                 self._sleep_with_update(0.5)
                 self.core.hw.stop()
                 self._wait_for_settle()
 
-            logger.info(f"-> Kick-Up Attempt: Power {power:.1f}")
+                # Re-evaluate direction just in case, though we stick to original plan
+                if (kick_direction < 0 and self.core.pitch > -10) or \
+                   (kick_direction > 0 and self.core.pitch < 10):
+                       logger.warning("-> Reposition failed or confused. Retrying loop.")
+                       continue
 
-            # 1. Lift (Drive Backward)
-            # Use negative power to lift front up
-            # Duration needs to be enough to swing up, but not loop
-            self.core.hw.set_motors(-power, -power)
+            logger.info(f"-> Kick-Up Attempt: Power {power:.1f} Direction {kick_direction}")
+
+            # 1. Lift
+            # Drive in the kick_direction
+            drive_val = power * kick_direction
+            self.core.hw.set_motors(drive_val, drive_val)
 
             self._sleep_with_update(0.25)
 
