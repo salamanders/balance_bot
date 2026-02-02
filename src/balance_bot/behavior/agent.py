@@ -248,56 +248,47 @@ class Agent:
         kickup_power_est = 30.0
 
         if start_pitch < -5.0:
-            # --- STARTED ON BACK (Original Sequence) ---
-            logger.info("-> Detected BACK Start.")
-
-            # 1. Measure Back
-            logger.info("-> Measuring Back Limit...")
-            back_angle = self._measure_stable_angle()
-            logger.info(f"-> Back Angle: {back_angle:.2f}")
-
-            # 2. Flop to Front
-            logger.info("-> Flop to Front...")
-            kickup_power_est = self._incremental_flop(target_side="front") # Against gravity (Back->Front needs neg drive/kickup logic)
-
-            # 3. Measure Front
-            logger.info("-> Measuring Front Limit...")
-            self._wait_for_settle()
-            front_angle = self._measure_stable_angle()
-            logger.info(f"-> Front Angle: {front_angle:.2f}")
-
-            # 4. Return to Back
-            logger.info("-> Return to Start (Back)...")
-            self._incremental_flop(target_side="back")
-            self._wait_for_settle()
-
+            start_side = "back"
+            other_side = "front"
         elif start_pitch > 5.0:
-            # --- STARTED ON FRONT (Reverse Sequence) ---
-            logger.info("-> Detected FRONT Start.")
-
-            # 1. Measure Front
-            logger.info("-> Measuring Front Limit...")
-            front_angle = self._measure_stable_angle()
-            logger.info(f"-> Front Angle: {front_angle:.2f}")
-
-            # 2. Flop to Back
-            logger.info("-> Flop to Back...")
-            kickup_power_est = self._incremental_flop(target_side="back") # Against gravity (Front->Back needs pos drive/kickup logic)
-
-            # 3. Measure Back
-            logger.info("-> Measuring Back Limit...")
-            self._wait_for_settle()
-            back_angle = self._measure_stable_angle()
-            logger.info(f"-> Back Angle: {back_angle:.2f}")
-
-            # 4. Return to Front
-            logger.info("-> Return to Start (Front)...")
-            self._incremental_flop(target_side="front")
-            self._wait_for_settle()
-
+            start_side = "front"
+            other_side = "back"
         else:
             logger.error(f"Cannot perform discovery: Robot is too upright (Pitch: {start_pitch:.1f})")
             return
+
+        logger.info(f"-> Detected {start_side.upper()} Start.")
+
+        # 1. Measure Start Limit
+        logger.info(f"-> Measuring {start_side.capitalize()} Limit...")
+        angle_1 = self._measure_stable_angle()
+        logger.info(f"-> {start_side.capitalize()} Angle: {angle_1:.2f}")
+
+        if start_side == "back":
+            back_angle = angle_1
+        else:
+            front_angle = angle_1
+
+        # 2. Flop to Other Side
+        logger.info(f"-> Flop to {other_side.capitalize()}...")
+        # Against gravity (Start->Other)
+        kickup_power_est = self._incremental_flop(target_side=other_side)
+
+        # 3. Measure Other Limit
+        logger.info(f"-> Measuring {other_side.capitalize()} Limit...")
+        self._wait_for_settle()
+        angle_2 = self._measure_stable_angle()
+        logger.info(f"-> {other_side.capitalize()} Angle: {angle_2:.2f}")
+
+        if other_side == "back":
+            back_angle = angle_2
+        else:
+            front_angle = angle_2
+
+        # 4. Return to Start
+        logger.info(f"-> Return to Start ({start_side.capitalize()})...")
+        self._incremental_flop(target_side=start_side)
+        self._wait_for_settle()
 
         # 5. Bootstrap
         midpoint = (back_angle + front_angle) / 2
@@ -310,7 +301,7 @@ class Agent:
         self.config.pid.kd = 0.2
 
         # Save discovered kick-up power
-        self.config.control.kickup_power = flop_power_fwd
+        self.config.control.kickup_power = kickup_power_est
 
         self.config_dirty = True
         self.first_run = False
