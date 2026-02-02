@@ -95,9 +95,9 @@ def check_i2c_tools():
         except Exception as e:
             print(f"ERROR running i2cdetect on Bus {bus_id}: {e}")
 
-def check_smbus():
-    """Check if Python SMBus library can open the bus."""
-    print("\nChecking SMBus Access...")
+def check_i2c_library():
+    """Check if Python smbus2 library can open the bus."""
+    print("\nChecking smbus2 Access...")
     try:
         import smbus2
         for bus_id in [1, 3]:
@@ -105,9 +105,9 @@ def check_smbus():
                 # Try to open the bus
                 bus = smbus2.SMBus(bus_id)
                 bus.close()
-                print(f"SUCCESS: SMBus({bus_id}) opened successfully.")
+                print(f"SUCCESS: smbus2.SMBus({bus_id}) opened successfully.")
             except Exception as e:
-                print(f"INFO: Could not open SMBus({bus_id}): {e}")
+                print(f"INFO: Could not open smbus2.SMBus({bus_id}): {e}")
                 if bus_id == 1:
                      print("Hint: Check permissions (e.g. 'sudo usermod -aG i2c $USER') and reboot.")
     except ImportError:
@@ -141,7 +141,7 @@ def run_diagnostics():
     print("=== Hardware Diagnostics ===")
     check_imports()
     check_system_i2c_config()
-    check_smbus()
+    check_i2c_library()
     check_i2c_tools()
     print("\nDiagnostics Complete.")
     print("========================")
