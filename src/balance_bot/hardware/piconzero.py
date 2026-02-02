@@ -1,6 +1,6 @@
 import time
 import logging
-import smbus2 as smbus
+import smbus2
 from .utils import clamp
 
 logger = logging.getLogger(__name__)
@@ -33,8 +33,8 @@ class PiconZero:
         Initialize the PiconZero driver.
         :param bus_number: I2C bus number (usually 1 for modern Pi, 0 for old).
         """
-        self.bus: smbus.SMBus | None = None
-        self.bus = smbus.SMBus(bus_number)
+        self.bus: smbus2.SMBus | None = None
+        self.bus = smbus2.SMBus(bus_number)
         logger.info(f"PiconZero initialized on bus {bus_number}")
 
     def _write_byte(self, reg: int, value: int) -> None:
