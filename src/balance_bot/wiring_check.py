@@ -2,6 +2,7 @@ import time
 import sys
 from .config import RobotConfig
 from .hardware.robot_hardware import RobotHardware
+from .enums import MotorSide, Axis
 
 
 class WiringCheck:
@@ -55,9 +56,9 @@ class WiringCheck:
 
             match choice:
                 case "1":
-                    self.check_motor("left")
+                    self.check_motor(MotorSide.LEFT)
                 case "2":
-                    self.check_motor("right")
+                    self.check_motor(MotorSide.RIGHT)
                 case "3":
                     self.check_gyro()
                 case "4":
@@ -92,12 +93,12 @@ class WiringCheck:
         )
         self.hw.init()
 
-    def check_motor(self, side: str):
+    def check_motor(self, side: MotorSide):
         """Interactive Motor Check."""
         print(f"\n>>> Checking {side.upper()} Motor...")
         print("Spinning with POSITIVE speed (+30) for 2 seconds...")
 
-        if side == "left":
+        if side == MotorSide.LEFT:
             self.hw.set_motors(30, 0)
         else:
             self.hw.set_motors(0, 30)
@@ -118,7 +119,7 @@ class WiringCheck:
                 print("Good.")
             case "n":
                 print(f"-> Marking {side.upper()} motor as INVERTED.")
-                if side == "left":
+                if side == MotorSide.LEFT:
                     self.config.motor_l_invert = not self.config.motor_l_invert
                 else:
                     self.config.motor_r_invert = not self.config.motor_r_invert
@@ -242,11 +243,11 @@ class WiringCheck:
         print(f"-> Detected Gyro Axis:    {gyro_axis.upper()} (Invert: {gyro_invert})")
 
         print("\nApplying configuration...")
-        self.config.accel_vertical_axis = vert_axis
+        self.config.accel_vertical_axis = Axis(vert_axis)
         self.config.accel_vertical_invert = vert_invert
-        self.config.accel_forward_axis = fwd_axis
+        self.config.accel_forward_axis = Axis(fwd_axis)
         self.config.accel_forward_invert = fwd_invert
-        self.config.gyro_pitch_axis = gyro_axis
+        self.config.gyro_pitch_axis = Axis(gyro_axis)
         self.config.gyro_pitch_invert = gyro_invert
 
         self.reload_hw()

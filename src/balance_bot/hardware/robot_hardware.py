@@ -11,11 +11,10 @@ from ..config import (
     REST_ANGLE_MAX,
     CRASH_ANGLE,
 )
+from ..enums import Axis
 
 logger = logging.getLogger(__name__)
 
-GYRO_AXIS_X = "x"
-GYRO_AXIS_Y = "y"
 MOTOR_MIN_OUTPUT = -100
 MOTOR_MAX_OUTPUT = 100
 
@@ -122,11 +121,11 @@ class RobotHardware:
         motor_r: int,
         invert_l: bool = False,
         invert_r: bool = False,
-        gyro_axis: str = GYRO_AXIS_X,
+        gyro_axis: Axis = Axis.X,
         gyro_invert: bool = False,
-        accel_vertical_axis: str = "z",
+        accel_vertical_axis: Axis = Axis.Z,
         accel_vertical_invert: bool = False,
-        accel_forward_axis: str = "y",
+        accel_forward_axis: Axis = Axis.Y,
         accel_forward_invert: bool = False,
         i2c_bus: int = 1,
     ):
@@ -137,11 +136,11 @@ class RobotHardware:
         :param motor_r: Right motor channel index.
         :param invert_l: Whether to invert left motor direction.
         :param invert_r: Whether to invert right motor direction.
-        :param gyro_axis: Axis used for pitch rotation ('x', 'y', 'z').
+        :param gyro_axis: Axis used for pitch rotation.
         :param gyro_invert: Whether to invert gyro reading sign.
-        :param accel_vertical_axis: Axis corresponding to gravity ('x', 'y', 'z').
+        :param accel_vertical_axis: Axis corresponding to gravity.
         :param accel_vertical_invert: Invert vertical axis sign.
-        :param accel_forward_axis: Axis corresponding to forward motion ('x', 'y', 'z').
+        :param accel_forward_axis: Axis corresponding to forward motion.
         :param accel_forward_invert: Invert forward axis sign.
         :param i2c_bus: I2C bus number for IMU (default 1).
         """
