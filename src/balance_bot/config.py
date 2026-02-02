@@ -1,7 +1,7 @@
 import json
 import logging
 from contextlib import contextmanager
-from dataclasses import dataclass, asdict
+from dataclasses import dataclass, asdict, field
 from pathlib import Path
 from typing import Any
 
@@ -204,7 +204,7 @@ class LedConfig:
     countdown_pause_time: float = 0.5
 
 
-@dataclass(frozen=True)
+@dataclass
 class ControlConfig:
     """
     General Control Logic Parameters.
@@ -222,10 +222,16 @@ class ControlConfig:
     :param low_battery_log_threshold: Threshold to log battery warnings.
         * UOM: Factor (Compensation Multiplier)
         * Purpose: Warn user when voltage drop is significant.
+    :param kickup_power: Power level used for kick-up maneuver.
+        * UOM: Motor Output Units (0-100)
+        * Purpose: Baseline power to stand up from resting.
+        * Limits: 20.0 to 100.0.
+        * Impact: Higher = stronger kick; Lower = gentle/fail.
     """
     yaw_correction_factor: float = 0.5
     upright_threshold: float = 5.0
     low_battery_log_threshold: float = 0.95
+    kickup_power: float = 30.0
 
 
 @dataclass(frozen=True)
@@ -314,7 +320,7 @@ class RobotConfig:
     battery: BatteryConfig = BatteryConfig()
     tuner: TunerConfig = TunerConfig()
     led: LedConfig = LedConfig()
-    control: ControlConfig = ControlConfig()
+    control: ControlConfig = field(default_factory=ControlConfig)
     motor_l: int = 0
     motor_r: int = 1
     motor_l_invert: bool = False
