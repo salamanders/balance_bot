@@ -104,8 +104,11 @@ class Agent:
             if self.core.pitch < -10.0:
                 logger.info(">>> Resting on Back Wheel. Initiating Kick-Up.")
                 try:
-                    # Start with a safe power (30.0)
-                    self._incremental_kickup(self.config.pid.target_angle, start_power=30.0)
+                    # Start with saved kickup power
+                    self._incremental_kickup(
+                        self.config.pid.target_angle,
+                        start_power=self.config.control.kickup_power
+                    )
                 except Exception as e:
                     logger.error(f"Kick-Up Failed: {e}")
                     self.core.cleanup()
@@ -265,9 +268,13 @@ class Agent:
 
         self.config.pid.target_angle = midpoint
         # Set conservative starting PID
-        self.config.pid.kp = 3.0
+        self.config.pid.kp = 10.0
         self.config.pid.ki = 0.0 # Keep I/D low initially
         self.config.pid.kd = 0.2
+
+        # Save discovered kick-up power
+        self.config.control.kickup_power = flop_power_fwd
+
         self.config_dirty = True
         self.first_run = False
 
