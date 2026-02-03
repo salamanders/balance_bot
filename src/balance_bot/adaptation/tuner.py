@@ -2,7 +2,7 @@ import statistics
 from itertools import pairwise
 from typing import NamedTuple
 
-from ..config import TunerConfig, CRASH_ANGLE
+from ..config import TunerConfig
 
 
 class TuningAdjustment(NamedTuple):
@@ -52,9 +52,9 @@ class ContinuousTuner:
         :return: TuningAdjustment(kp, ki, kd) with additive modifiers.
         """
         # Safety: If falling/crashed, do not tune and reset history.
-        # We use CRASH_ANGLE (60.0) to allow tuning while resting on training wheels (~30-40 deg)
+        # We use crash_angle (default 60.0) to allow tuning while resting on training wheels (~30-40 deg)
         # during the initial startup phase.
-        if abs(error) > CRASH_ANGLE:
+        if abs(error) > self.config.crash_angle:
             self.errors.clear()
             return TuningAdjustment(0.0, 0.0, 0.0)
 

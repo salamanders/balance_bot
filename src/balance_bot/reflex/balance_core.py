@@ -1,7 +1,7 @@
 from dataclasses import dataclass
 from typing import NamedTuple
 
-from ..config import RobotConfig, PIDParams, CRASH_ANGLE
+from ..config import RobotConfig, PIDParams
 from ..hardware.robot_hardware import RobotHardware
 from ..utils import ComplementaryFilter
 from .pid import PIDController
@@ -69,6 +69,7 @@ class BalanceCore:
             accel_forward_axis=config.accel_forward_axis,
             accel_forward_invert=config.accel_forward_invert,
             i2c_bus=config.i2c_bus,
+            crash_angle=config.crash_angle,
         )
         self.hw.init()
 
@@ -124,7 +125,7 @@ class BalanceCore:
         )
 
         # 5. Safety Cutoff
-        if abs(self.pitch) > CRASH_ANGLE:
+        if abs(self.pitch) > self.config.crash_angle:
             self.hw.stop()
             self.pid.reset()  # Reset integral windup on crash
             return BalanceTelemetry(

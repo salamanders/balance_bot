@@ -129,6 +129,9 @@ class Agent:
             while self.running:
                 self.ticks += 1
 
+                # Default Motion Request (Velocity 0)
+                motion_req = MotionRequest(velocity=0.0, turn_rate=0.0)
+
                 # --- PREPARE INPUTS (Adaptation Phase) ---
                 # Use data from the PREVIOUS frame to adjust parameters for THIS frame.
 
@@ -174,8 +177,13 @@ class Agent:
                             tune_kd = self.config.pid.kd
 
                     # 3. Balance Point Finding
-                    # Runs only when balanced
-                    if not last_telemetry.crashed and rec_target is None:
+                    # Runs only when balanced AND NOT MOVING
+                    if (
+                        not last_telemetry.crashed
+                        and rec_target is None
+                        and motion_req.velocity == 0.0
+                        and motion_req.turn_rate == 0.0
+                    ):
                         # Compensate motor output for battery to get "effort"
                         effort = last_telemetry.motor_output / self.battery.compensation_factor
                         bal_adj = self.balance_finder.update(effort, last_telemetry.pitch_rate)
@@ -217,8 +225,6 @@ class Agent:
                     kd=tune_kd,
                     target_angle_offset=target_offset
                 )
-
-                motion_req = MotionRequest(velocity=0.0, turn_rate=0.0)
 
                 last_telemetry = self.core.update(
                     motion_req,

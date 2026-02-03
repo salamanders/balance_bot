@@ -64,7 +64,7 @@ class BatteryEstimator:
         )
 
         # Calculate Ratio (Current / Baseline)
-        if self.baseline_responsiveness > 0:
+        if self.baseline_responsiveness > 1e-6:
             ratio = self.current_responsiveness / self.baseline_responsiveness
         else:
             ratio = 1.0
