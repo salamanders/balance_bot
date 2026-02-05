@@ -13,6 +13,14 @@ class WiringCheck:
     def __init__(self):
         self.config = RobotConfig.load()
         # Initialize hardware using current config
+        self.init_hw()
+        print("\n=== Wiring Check & Calibration Tool ===")
+        print("!!! IMPORTANT !!!")
+        print("Ensure the robot is on a STAND or wheels are lifted off the ground.")
+        print("The motors WILL spin during testing.")
+        print("!!! IMPORTANT !!!")
+
+    def init_hw(self):
         self.hw = RobotHardware(
             motor_l=self.config.motor_l,
             motor_r=self.config.motor_r,
@@ -20,6 +28,10 @@ class WiringCheck:
             invert_r=self.config.motor_r_invert,
             gyro_axis=self.config.gyro_pitch_axis,
             gyro_invert=self.config.gyro_pitch_invert,
+            gyro_yaw_axis=self.config.gyro_yaw_axis,
+            gyro_yaw_invert=self.config.gyro_yaw_invert,
+            gyro_roll_axis=self.config.gyro_roll_axis,
+            gyro_roll_invert=self.config.gyro_roll_invert,
             accel_vertical_axis=self.config.accel_vertical_axis,
             accel_vertical_invert=self.config.accel_vertical_invert,
             accel_forward_axis=self.config.accel_forward_axis,
@@ -27,11 +39,6 @@ class WiringCheck:
             i2c_bus=self.config.i2c_bus,
         )
         self.hw.init()
-        print("\n=== Wiring Check & Calibration Tool ===")
-        print("!!! IMPORTANT !!!")
-        print("Ensure the robot is on a STAND or wheels are lifted off the ground.")
-        print("The motors WILL spin during testing.")
-        print("!!! IMPORTANT !!!")
 
     def run(self):
         """Main Menu Loop."""
@@ -81,20 +88,7 @@ class WiringCheck:
     def reload_hw(self):
         """Reload hardware with updated config."""
         self.hw.stop()
-        self.hw = RobotHardware(
-            motor_l=self.config.motor_l,
-            motor_r=self.config.motor_r,
-            invert_l=self.config.motor_l_invert,
-            invert_r=self.config.motor_r_invert,
-            gyro_axis=self.config.gyro_pitch_axis,
-            gyro_invert=self.config.gyro_pitch_invert,
-            accel_vertical_axis=self.config.accel_vertical_axis,
-            accel_vertical_invert=self.config.accel_vertical_invert,
-            accel_forward_axis=self.config.accel_forward_axis,
-            accel_forward_invert=self.config.accel_forward_invert,
-            i2c_bus=self.config.i2c_bus,
-        )
-        self.hw.init()
+        self.init_hw()
 
     def check_motor(self, side: MotorSide):
         """Interactive Motor Check."""
@@ -145,14 +139,167 @@ class WiringCheck:
         """Interactive Gyro/Accel Auto-Detection."""
         print("\n>>> Checking Gyro Orientation...")
         print("This wizard will automatically detect your sensor mounting.")
-        print("It supports any mounting orientation (Standard, Sideways, Upside-Down).")
+        print("It supports any mounting orientation.")
 
-        # --- Step 1: Upright ---
-        print("\n[STEP 1] Hold the robot UPRIGHT (balanced vertical).")
-        print("Keep it as still as possible.")
-        input("Press Enter when ready...")
+        # --- Step 1: Rest on Back ---
+        print("\n[STEP 1] Place robot on floor, resting on BACK training wheel/strut.")
+        print("Wait for it to be still.")
+        input("Press Enter to Measure...")
 
-        print("Reading accelerometer for gravity vector...")
+        print("Reading accelerometer (Gravity)...")
+        accel_back = self.measure_avg_accel()
+        print(f"Back Accel: {accel_back}")
+
+        # --- Step 2: Rest on Front ---
+        print("\n[STEP 2] Prepare to tip robot forward to rest on FRONT training wheel.")
+        print("When you press Enter, I will record for 3 seconds.")
+        print("During this time, TIP THE ROBOT FORWARD.")
+        input("Press Enter to Start Recording...")
+
+        print("Recording...")
+        gyro_sum = {"x": 0.0, "y": 0.0, "z": 0.0}
+        accel_history = []
+        end_time = time.time() + 3.0
+
+        while time.time() < end_time:
+            a, g = self.hw.read_imu_raw()
+            for k in gyro_sum:
+                gyro_sum[k] += g[k]
+            accel_history.append(a)
+            time.sleep(0.01)
+
+        # Calculate Front Accel (avg of last 0.5s approx)
+        accel_front_sum = {"x": 0.0, "y": 0.0, "z": 0.0}
+        samples_front = accel_history[-50:] # Last 50 samples
+        for s in samples_front:
+            for k in s:
+                accel_front_sum[k] += s[k]
+        accel_front = {k: v / len(samples_front) for k, v in accel_front_sum.items()}
+        print(f"Front Accel: {accel_front}")
+
+        # --- Analysis 1: Pitch, Vertical, Forward ---
+        print("Analyzing Phase 1...")
+
+        # Vertical Axis: Dominant in Sum(Back, Front)
+        accel_sum_vec = {k: accel_back[k] + accel_front[k] for k in accel_back}
+        abs_sum = {k: abs(v) for k, v in accel_sum_vec.items()}
+        vert_axis = max(abs_sum, key=abs_sum.get)
+
+        # Forward Axis: Dominant in Diff(Front, Back)
+        accel_diff_vec = {k: accel_front[k] - accel_back[k] for k in accel_back}
+        abs_diff = {k: abs(v) for k, v in accel_diff_vec.items()}
+        # Exclude Vert Axis
+        abs_diff.pop(vert_axis)
+        fwd_axis = max(abs_diff, key=abs_diff.get)
+
+        # Pitch Axis (Gyro): Max Integral
+        abs_gyro = {k: abs(v) for k, v in gyro_sum.items()}
+        pitch_axis = max(abs_gyro, key=abs_gyro.get)
+
+        # Polarity Check
+        # Vertical: Upright = -1g. Sum should be Negative.
+        # If Sum > 0, Invert = True.
+        vert_invert = accel_sum_vec[vert_axis] > 0
+
+        # Forward: Front - Back.
+        # Back Y = +0.7, Front Y = -0.7 -> Diff = -1.4.
+        # So Diff should be Negative. If Diff > 0, Invert = True.
+        fwd_invert = accel_diff_vec[fwd_axis] > 0
+
+        # Pitch: Back -> Front = Positive Pitch Rate (Nose Down = Positive Pitch for Balancing?)
+        # Standard: Nose Down = Positive Pitch.
+        # So Gyro Integral should be Positive.
+        # If Integral < 0, Invert = True.
+        pitch_invert = gyro_sum[pitch_axis] < 0
+
+        print(f"-> Vertical: {vert_axis.upper()} (Inv: {vert_invert})")
+        print(f"-> Forward:  {fwd_axis.upper()} (Inv: {fwd_invert})")
+        print(f"-> Pitch:    {pitch_axis.upper()} (Inv: {pitch_invert})")
+
+        # Deduce Roll Axis
+        all_axes = {"x", "y", "z"}
+        roll_axis = list(all_axes - {vert_axis, fwd_axis})[0]
+        # Assume Gyro Roll Axis matches Accel Roll Axis (physical orthogonality)
+        # We will verify polarity later.
+
+        # Apply Partial Config
+        self.config.accel_vertical_axis = Axis(vert_axis)
+        self.config.accel_vertical_invert = vert_invert
+        self.config.accel_forward_axis = Axis(fwd_axis)
+        self.config.accel_forward_invert = fwd_invert
+        self.config.gyro_pitch_axis = Axis(pitch_axis)
+        self.config.gyro_pitch_invert = pitch_invert
+
+        # Pre-set Yaw/Roll axes to expected ones (Vertical/Roll)
+        # Yaw corresponds to Vertical Axis
+        yaw_axis = vert_axis
+        self.config.gyro_yaw_axis = Axis(yaw_axis)
+        self.config.gyro_roll_axis = Axis(roll_axis)
+
+        self.reload_hw()
+
+        # --- Step 3: Yaw (Turn Right) ---
+        print("\n[STEP 3] Place robot on floor (Front Rest).")
+        print("Prepare to ROTATE the robot 90 degrees RIGHT (Clockwise).")
+        input("Press Enter to Start Recording...")
+
+        print("Recording...")
+        yaw_sum = 0.0
+        end_time = time.time() + 2.0
+        while time.time() < end_time:
+            # Read converted to use current axis
+            reading = self.hw.read_imu_converted()
+            # We want to check the RAW value of the Yaw Axis to determine polarity
+            # But read_imu_converted already applies the 'gyro_yaw_invert' from config (currently False).
+            # So if we see Negative Rate, we need to flip the invert.
+            yaw_sum += reading.yaw_rate
+            time.sleep(0.01)
+
+        print(f"Yaw Sum: {yaw_sum:.2f}")
+        # Right Turn = Positive Rate.
+        yaw_invert = False
+        if yaw_sum < 0:
+            print("-> Detected Negative Rate. Inverting Yaw.")
+            yaw_invert = True
+        else:
+            print("-> Detected Positive Rate. Yaw Polarity Correct.")
+
+        self.config.gyro_yaw_invert = yaw_invert
+        self.reload_hw()
+
+        # --- Step 4: Roll (Tilt Right) ---
+        print("\n[STEP 4] Prepare to TILT the robot to the RIGHT.")
+        input("Press Enter to Start Recording...")
+
+        print("Recording...")
+        roll_sum = 0.0
+        end_time = time.time() + 2.0
+        while time.time() < end_time:
+            reading = self.hw.read_imu_converted()
+            roll_sum += reading.roll_rate
+            time.sleep(0.01)
+
+        print(f"Roll Sum: {roll_sum:.2f}")
+        # Right Tilt = Positive Rate?
+        # Standard: Roll Right = Positive.
+        roll_invert = False
+        if roll_sum < 0:
+             print("-> Detected Negative Rate. Inverting Roll.")
+             roll_invert = True
+        else:
+             print("-> Detected Positive Rate. Roll Polarity Correct.")
+
+        self.config.gyro_roll_invert = roll_invert
+        self.reload_hw()
+
+        print("\n[SUCCESS] All axes calibrated.")
+        print(f"Pitch: {self.config.gyro_pitch_axis.value} (Inv: {self.config.gyro_pitch_invert})")
+        print(f"Yaw:   {self.config.gyro_yaw_axis.value} (Inv: {self.config.gyro_yaw_invert})")
+        print(f"Roll:  {self.config.gyro_roll_axis.value} (Inv: {self.config.gyro_roll_invert})")
+
+        input("Press Enter to continue...")
+
+    def measure_avg_accel(self):
         accel_sum = {"x": 0.0, "y": 0.0, "z": 0.0}
         samples = 40
         for _ in range(samples):
@@ -160,117 +307,7 @@ class WiringCheck:
             for k in accel_sum:
                 accel_sum[k] += a[k]
             time.sleep(0.02)
-
-        accel_upright = {k: v / samples for k, v in accel_sum.items()}
-        print(
-            f"Upright Accel: x={accel_upright['x']:.2f}, y={accel_upright['y']:.2f}, z={accel_upright['z']:.2f}"
-        )
-
-        # Detect Vertical Axis
-        abs_accel = {k: abs(v) for k, v in accel_upright.items()}
-        vert_axis = max(abs_accel, key=abs_accel.get)
-        vert_val = accel_upright[vert_axis]
-        vert_invert = vert_val < 0
-
-        print(f"-> Detected Vertical Axis: {vert_axis.upper()} (Invert: {vert_invert})")
-
-        # --- Step 2: Tilt Forward ---
-        print("\n[STEP 2] Prepare to tilt the robot FORWARD (Nose Down) approx 30-45 deg.")
-        print("When you press Enter, I will record for 3 seconds.")
-        print("During that time, TILT IT FORWARD AND HOLD IT THERE.")
-        input("Press Enter to start recording...")
-
-        print("Recording... TILT NOW!")
-
-        gyro_sum = {"x": 0.0, "y": 0.0, "z": 0.0}
-        # Buffer to store last few accel readings for 'held' position
-        accel_history = []
-
-        # Record for 3 seconds
-        end_time = time.time() + 3.0
-        sample_count = 0
-
-        while time.time() < end_time:
-            a, g = self.hw.read_imu_raw()
-
-            # Integrate gyro rate (simple sum is proportional to mean)
-            for k in gyro_sum:
-                gyro_sum[k] += g[k]
-
-            accel_history.append(a)
-            if len(accel_history) > 20: # Keep last ~20 samples (approx 0.5s)
-                accel_history.pop(0)
-
-            sample_count += 1
-            time.sleep(0.02)
-
-        # Analyze Gyro (Pitch Axis)
-        # We use the mean rate to determine axis and direction
-        gyro_avg = {k: v / sample_count for k, v in gyro_sum.items()}
-        abs_gyro = {k: abs(v) for k, v in gyro_avg.items()}
-        gyro_axis = max(abs_gyro, key=abs_gyro.get)
-        gyro_val = gyro_avg[gyro_axis]
-
-        # Forward Tilt -> Positive Pitch Change.
-        # Rate should be Positive. If Negative, Invert.
-        gyro_invert = gyro_val < 0
-
-        # Analyze Accel (Forward Axis)
-        # Use average of the last captured samples (held position)
-        accel_tilt_sum = {"x": 0.0, "y": 0.0, "z": 0.0}
-        for sample in accel_history:
-            for k in sample:
-                accel_tilt_sum[k] += sample[k]
-
-        accel_tilted = {k: v / len(accel_history) for k, v in accel_tilt_sum.items()}
-
-        print(f"Tilted Accel (End): x={accel_tilted['x']:.2f}, y={accel_tilted['y']:.2f}, z={accel_tilted['z']:.2f}")
-
-        # Detect Forward Axis
-        # Exclude Vertical Axis
-        other_axes = [ax for ax in ["x", "y", "z"] if ax != vert_axis]
-        tilted_others = {k: accel_tilted[k] for k in other_axes}
-        tilted_abs = {k: abs(v) for k, v in tilted_others.items()}
-
-        fwd_axis = max(tilted_abs, key=tilted_abs.get)
-        fwd_val = tilted_others[fwd_axis]
-
-        # Detect Forward Invert
-        # Nose Down -> Positive Pitch.
-        # Pitch = atan2(Fwd, Vert).
-        # If Vert (Adjusted) is +1g, Fwd must be Positive to give Positive Pitch.
-        # So if fwd_val is Negative, Invert.
-        fwd_invert = fwd_val < 0
-
-        print(f"-> Detected Forward Axis: {fwd_axis.upper()} (Invert: {fwd_invert})")
-        print(f"-> Detected Gyro Axis:    {gyro_axis.upper()} (Invert: {gyro_invert})")
-
-        print("\nApplying configuration...")
-        self.config.accel_vertical_axis = Axis(vert_axis)
-        self.config.accel_vertical_invert = vert_invert
-        self.config.accel_forward_axis = Axis(fwd_axis)
-        self.config.accel_forward_invert = fwd_invert
-        self.config.gyro_pitch_axis = Axis(gyro_axis)
-        self.config.gyro_pitch_invert = gyro_invert
-
-        self.reload_hw()
-
-        # --- Verification ---
-        print("\n[VERIFICATION]")
-        print("1. Hold Upright. Pitch should be close to 0.")
-        input("   Press Enter when ready...")
-        p = self.get_pitch_snapshot()
-        print(f"   Current Pitch: {p:.2f}")
-
-        print("2. Tilt Forward. Pitch should be POSITIVE.")
-        input("   Press Enter when holding Forward...")
-        p_tilt = self.get_pitch_snapshot()
-        print(f"   Tilted Pitch: {p_tilt:.2f}")
-
-        if p_tilt > 10:
-            print("   SUCCESS! Pitch increased positively.")
-        else:
-            print("   WARNING: Pitch did not increase positively. Calibration might be wrong.")
+        return {k: v / samples for k, v in accel_sum.items()}
 
     def verify_movement(self):
         """Final verification sequence: Left, Right, Both."""
