@@ -80,6 +80,10 @@ class BalanceCore:
         # State
         self.pitch = 0.0
 
+    def set_i2c_retries(self, retries: int) -> None:
+        """Set the I2C retry count for the motor driver."""
+        self.hw.set_motor_retries(retries)
+
     def update(
         self,
         motion: MotionRequest,

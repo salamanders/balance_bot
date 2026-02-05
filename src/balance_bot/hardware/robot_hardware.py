@@ -51,6 +51,10 @@ class MotorDriver(Protocol):
         """Stop all motors immediately."""
         ...
 
+    def set_retries(self, retries: int) -> None:
+        """Set the number of I2C retries."""
+        ...
+
     def set_motor(self, motor: int, value: int) -> None:
         """
         Set speed for a specific motor.
@@ -288,6 +292,10 @@ class RobotHardware:
         return IMUReading(
             pitch_angle=acc_angle, pitch_rate=gyro_rate, yaw_rate=yaw_rate
         )
+
+    def set_motor_retries(self, retries: int) -> None:
+        """Set the I2C retry count for the motor driver."""
+        self.pz.set_retries(retries)
 
     def set_motors(self, left: float, right: float) -> None:
         """
