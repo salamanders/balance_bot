@@ -255,7 +255,7 @@ class WiringCheck:
         # --- Verification ---
         print("\n[VERIFICATION]")
         print("1. Hold Upright. Pitch should be close to 0.")
-        time.sleep(1)
+        input("   Press Enter when ready...")
         p = self.get_pitch_snapshot()
         print(f"   Current Pitch: {p:.2f}")
 
