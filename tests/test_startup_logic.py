@@ -1,7 +1,6 @@
 import unittest
-from unittest.mock import MagicMock, patch, PropertyMock
+from unittest.mock import MagicMock, patch
 import sys
-from pathlib import Path
 
 # Adjust path to import src
 sys.path.insert(0, "src")
