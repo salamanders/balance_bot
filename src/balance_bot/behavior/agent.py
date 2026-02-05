@@ -1,6 +1,9 @@
 import sys
 import time
 import logging
+import json
+import concurrent.futures
+from dataclasses import asdict
 
 from ..config import (
     CONFIG_FILE,
@@ -71,6 +74,7 @@ class Agent:
         self.config_dirty = False
         self.last_save_time = time.monotonic()
         self.ticks = 0
+        self.io_executor = concurrent.futures.ThreadPoolExecutor(max_workers=1)
 
     def init(self) -> None:
         """Initialize hardware and signal readiness."""
@@ -215,9 +219,17 @@ class Agent:
                 if self.ticks % 10 == 0:
                     self.led.update()
                     if self.config_dirty and (time.monotonic() - self.last_save_time > SYSTEM_TIMING.save_interval):
-                        self.config.save()
-                        self.last_save_time = time.monotonic()
-                        self.config_dirty = False
+                        # Asynchronous Configuration Save
+                        try:
+                            config_snapshot = asdict(self.config)
+                            # Serialize in main thread to ensure consistency
+                            json_str = json.dumps(config_snapshot, indent=4)
+                            self.io_executor.submit(self._save_config_worker, json_str)
+
+                            self.last_save_time = time.monotonic()
+                            self.config_dirty = False
+                        except Exception as e:
+                            logger.error(f"Failed to initiate async config save: {e}")
 
                 # --- TIER 1: REFLEX (Execution) ---
                 tuning_params = TuningParams(
@@ -243,6 +255,15 @@ class Agent:
             self.led.signal_off()
             if self.config_dirty:
                 self.config.save()
+            self.io_executor.shutdown(wait=True)
+
+    def _save_config_worker(self, json_content: str) -> None:
+        """Background worker to write config to disk."""
+        try:
+            CONFIG_FILE.write_text(json_content)
+            logger.info("Config saved (Async).")
+        except Exception as e:
+            logger.error(f"Error saving config asynchronously: {e}")
 
     def _perform_discovery(self) -> None:
         logger.info(">>> STARTING AUTONOMOUS DISCOVERY <<<")
