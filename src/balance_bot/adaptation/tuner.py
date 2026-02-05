@@ -32,6 +32,7 @@ class ContinuousTuner:
         self.errors: list[float] = []
         self.cooldown_timer = 0
         self.current_scale = self.config.start_aggression_normal
+        self.tick_counter = 0
 
     def reset_aggression(self, first_run: bool) -> None:
         """Reset the tuning aggression scale based on run mode."""
@@ -69,6 +70,11 @@ class ContinuousTuner:
 
         # Need full buffer to analyze
         if len(self.errors) < self.buffer_size:
+            return TuningAdjustment(0.0, 0.0, 0.0)
+
+        # Optimization: Downsample expensive statistical analysis
+        self.tick_counter += 1
+        if self.tick_counter % self.config.analysis_interval != 0:
             return TuningAdjustment(0.0, 0.0, 0.0)
 
         # Analyze History
