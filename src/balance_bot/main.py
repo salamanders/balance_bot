@@ -4,6 +4,7 @@ import importlib.metadata
 from dataclasses import asdict
 from .diagnostics import run_diagnostics
 from .wiring_check import WiringCheck
+from .movement_check import MovementCheck
 from .behavior.agent import Agent
 from .utils import setup_logging, get_captured_logs
 from .jules_client import JulesClient
@@ -22,6 +23,13 @@ def main() -> None:
         if "--check-wiring" in sys.argv:
             try:
                 WiringCheck().run()
+            except KeyboardInterrupt:
+                pass
+            return
+
+        if "--confirm-wiring" in sys.argv:
+            try:
+                MovementCheck().run()
             except KeyboardInterrupt:
                 pass
             return
