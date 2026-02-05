@@ -164,6 +164,7 @@ class TunerConfig:
     steady_error_threshold: float = 3.0
     ki_boost: float = 0.005
     crash_angle: float = 60.0
+    analysis_interval: int = 10  # Run analysis every N ticks
 
     # Tuning Aggression Decay
     start_aggression_first_run: float = 5.0
