@@ -49,8 +49,9 @@ class WiringCheck:
             print(
                 f"4. Check I2C Bus (Current: {self.config.i2c_bus})"
             )
-            print("5. Save & Exit")
-            print("6. Exit without Saving")
+            print("5. Final Verification Test (Left -> Right -> Both)")
+            print("6. Save & Exit")
+            print("7. Exit without Saving")
 
             choice = input("Select option: ").strip()
 
@@ -64,12 +65,14 @@ class WiringCheck:
                 case "4":
                     self.check_i2c_bus()
                 case "5":
+                    self.verify_movement()
+                case "6":
                     self.config.save()
                     self.cleanup()
                     print("\nWiring Check Complete.")
                     print("You can now place the robot on the floor and run the main program.")
                     sys.exit(0)
-                case "6":
+                case "7":
                     self.cleanup()
                     sys.exit(0)
                 case _:
@@ -268,6 +271,47 @@ class WiringCheck:
             print("   SUCCESS! Pitch increased positively.")
         else:
             print("   WARNING: Pitch did not increase positively. Calibration might be wrong.")
+
+    def verify_movement(self):
+        """Final verification sequence: Left, Right, Both."""
+        print("\n>>> FINAL VERIFICATION SEQUENCE <<<")
+        print("1. Left Motor Forward (1s)")
+        print("2. Right Motor Forward (1s)")
+        print("3. BOTH Motors Forward (1s) -> MUST MOVE STRAIGHT")
+        print("Ensure the robot has space to move!")
+        input("Press Enter to START...")
+
+        # Left
+        print("-> Left Motor...")
+        self.hw.set_motors(30, 0)
+        time.sleep(1.0)
+        self.hw.stop()
+        time.sleep(0.5)
+
+        # Right
+        print("-> Right Motor...")
+        self.hw.set_motors(0, 30)
+        time.sleep(1.0)
+        self.hw.stop()
+        time.sleep(0.5)
+
+        # Both
+        print("-> BOTH Motors...")
+        self.hw.set_motors(30, 30)
+        time.sleep(1.0)
+        self.hw.stop()
+
+        print("\nDid the robot move STRAIGHT FORWARD in the final step?")
+        print("y: Yes, it moved straight (Config is valid)")
+        print("n: No, it spun or moved backwards")
+
+        ans = input("Result (y/n): ").strip().lower()
+        if ans == 'y':
+            print("SUCCESS. You are ready to Save & Exit.")
+        else:
+            print("FAILURE. Please double check individual motors (Options 1 & 2).")
+            print("If it spun in place: One motor is inverted relative to the other.")
+            print("If it moved backward: Both motors are inverted.")
 
     def check_i2c_bus(self):
         """Interactive I2C Bus Switcher."""
