@@ -95,42 +95,47 @@ class PiconZero:
         safe_value = int(clamp(value, -127, 127))
         self._write_byte(motor, safe_value)
 
+    def set_motors(self, motor_0_val: int, motor_1_val: int) -> None:
+        """
+        Set speed for both motors simultaneously using a block write.
+        :param motor_0_val: Speed for Motor 0 (-100 to 100).
+        :param motor_1_val: Speed for Motor 1 (-100 to 100).
+        """
+        safe_val0 = int(clamp(motor_0_val, -127, 127))
+        safe_val1 = int(clamp(motor_1_val, -127, 127))
+        self._write_block(REG_MOTOR_A, [safe_val0, safe_val1])
+
     def forward(self, speed: int) -> None:
         """
         Drive both motors forward.
         :param speed: Speed value.
         """
-        self.set_motor(0, speed)
-        self.set_motor(1, speed)
+        self.set_motors(speed, speed)
 
     def reverse(self, speed: int) -> None:
         """
         Drive both motors in reverse.
         :param speed: Speed value.
         """
-        self.set_motor(0, -speed)
-        self.set_motor(1, -speed)
+        self.set_motors(-speed, -speed)
 
     def spin_left(self, speed: int) -> None:
         """
         Spin robot left (Tank turn).
         :param speed: Speed value.
         """
-        self.set_motor(0, -speed)
-        self.set_motor(1, speed)
+        self.set_motors(-speed, speed)
 
     def spin_right(self, speed: int) -> None:
         """
         Spin robot right (Tank turn).
         :param speed: Speed value.
         """
-        self.set_motor(0, speed)
-        self.set_motor(1, -speed)
+        self.set_motors(speed, -speed)
 
     def stop(self) -> None:
         """Stop all motors."""
-        self.set_motor(0, 0)
-        self.set_motor(1, 0)
+        self.set_motors(0, 0)
 
     def read_input(self, channel: int) -> int:
         """
