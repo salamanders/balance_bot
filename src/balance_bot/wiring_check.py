@@ -2,6 +2,7 @@ import time
 import sys
 from .config import RobotConfig
 from .hardware.robot_hardware import RobotHardware
+from .enums import MotorSide, Axis
 
 
 class WiringCheck:
@@ -48,27 +49,30 @@ class WiringCheck:
             print(
                 f"4. Check I2C Bus (Current: {self.config.i2c_bus})"
             )
-            print("5. Save & Exit")
-            print("6. Exit without Saving")
+            print("5. Final Verification Test (Left -> Right -> Both)")
+            print("6. Save & Exit")
+            print("7. Exit without Saving")
 
             choice = input("Select option: ").strip()
 
             match choice:
                 case "1":
-                    self.check_motor("left")
+                    self.check_motor(MotorSide.LEFT)
                 case "2":
-                    self.check_motor("right")
+                    self.check_motor(MotorSide.RIGHT)
                 case "3":
                     self.check_gyro()
                 case "4":
                     self.check_i2c_bus()
                 case "5":
+                    self.verify_movement()
+                case "6":
                     self.config.save()
                     self.cleanup()
                     print("\nWiring Check Complete.")
                     print("You can now place the robot on the floor and run the main program.")
                     sys.exit(0)
-                case "6":
+                case "7":
                     self.cleanup()
                     sys.exit(0)
                 case _:
@@ -92,12 +96,12 @@ class WiringCheck:
         )
         self.hw.init()
 
-    def check_motor(self, side: str):
+    def check_motor(self, side: MotorSide):
         """Interactive Motor Check."""
         print(f"\n>>> Checking {side.upper()} Motor...")
         print("Spinning with POSITIVE speed (+30) for 2 seconds...")
 
-        if side == "left":
+        if side == MotorSide.LEFT:
             self.hw.set_motors(30, 0)
         else:
             self.hw.set_motors(0, 30)
@@ -118,7 +122,7 @@ class WiringCheck:
                 print("Good.")
             case "n":
                 print(f"-> Marking {side.upper()} motor as INVERTED.")
-                if side == "left":
+                if side == MotorSide.LEFT:
                     self.config.motor_l_invert = not self.config.motor_l_invert
                 else:
                     self.config.motor_r_invert = not self.config.motor_r_invert
@@ -242,11 +246,11 @@ class WiringCheck:
         print(f"-> Detected Gyro Axis:    {gyro_axis.upper()} (Invert: {gyro_invert})")
 
         print("\nApplying configuration...")
-        self.config.accel_vertical_axis = vert_axis
+        self.config.accel_vertical_axis = Axis(vert_axis)
         self.config.accel_vertical_invert = vert_invert
-        self.config.accel_forward_axis = fwd_axis
+        self.config.accel_forward_axis = Axis(fwd_axis)
         self.config.accel_forward_invert = fwd_invert
-        self.config.gyro_pitch_axis = gyro_axis
+        self.config.gyro_pitch_axis = Axis(gyro_axis)
         self.config.gyro_pitch_invert = gyro_invert
 
         self.reload_hw()
@@ -254,7 +258,7 @@ class WiringCheck:
         # --- Verification ---
         print("\n[VERIFICATION]")
         print("1. Hold Upright. Pitch should be close to 0.")
-        time.sleep(1)
+        input("   Press Enter when ready...")
         p = self.get_pitch_snapshot()
         print(f"   Current Pitch: {p:.2f}")
 
@@ -267,6 +271,47 @@ class WiringCheck:
             print("   SUCCESS! Pitch increased positively.")
         else:
             print("   WARNING: Pitch did not increase positively. Calibration might be wrong.")
+
+    def verify_movement(self):
+        """Final verification sequence: Left, Right, Both."""
+        print("\n>>> FINAL VERIFICATION SEQUENCE <<<")
+        print("1. Left Motor Forward (1s)")
+        print("2. Right Motor Forward (1s)")
+        print("3. BOTH Motors Forward (1s) -> MUST MOVE STRAIGHT")
+        print("Ensure the robot has space to move!")
+        input("Press Enter to START...")
+
+        # Left
+        print("-> Left Motor...")
+        self.hw.set_motors(30, 0)
+        time.sleep(1.0)
+        self.hw.stop()
+        time.sleep(0.5)
+
+        # Right
+        print("-> Right Motor...")
+        self.hw.set_motors(0, 30)
+        time.sleep(1.0)
+        self.hw.stop()
+        time.sleep(0.5)
+
+        # Both
+        print("-> BOTH Motors...")
+        self.hw.set_motors(30, 30)
+        time.sleep(1.0)
+        self.hw.stop()
+
+        print("\nDid the robot move STRAIGHT FORWARD in the final step?")
+        print("y: Yes, it moved straight (Config is valid)")
+        print("n: No, it spun or moved backwards")
+
+        ans = input("Result (y/n): ").strip().lower()
+        if ans == 'y':
+            print("SUCCESS. You are ready to Save & Exit.")
+        else:
+            print("FAILURE. Please double check individual motors (Options 1 & 2).")
+            print("If it spun in place: One motor is inverted relative to the other.")
+            print("If it moved backward: Both motors are inverted.")
 
     def check_i2c_bus(self):
         """Interactive I2C Bus Switcher."""

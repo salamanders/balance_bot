@@ -1,6 +1,7 @@
 import math
 from unittest.mock import MagicMock
 from balance_bot.hardware.robot_hardware import RobotHardware, IMUReading
+from balance_bot.enums import Axis
 
 # We need to mock the imports inside RobotHardware
 # But RobotHardware mocks them if ImportError.
@@ -46,7 +47,7 @@ def test_imu_processing_tilted(monkeypatch):
 def test_imu_processing_axis_y(monkeypatch):
     monkeypatch.setenv("MOCK_HARDWARE", "1")
     # Axis Y means we use X accel and Y gyro. In new API, we must specify accel_forward_axis.
-    hw = RobotHardware(0, 1, gyro_axis="y", accel_forward_axis="x")
+    hw = RobotHardware(0, 1, gyro_axis=Axis.Y, accel_forward_axis=Axis.X)
     hw.sensor = MagicMock()
 
     # Simulate tilt on X axis (which is now pitch)
@@ -81,9 +82,9 @@ def test_imu_processing_sideways(monkeypatch):
     monkeypatch.setenv("MOCK_HARDWARE", "1")
     hw = RobotHardware(
         0, 1,
-        accel_vertical_axis="x",
-        accel_forward_axis="y",
-        gyro_axis="z"
+        accel_vertical_axis=Axis.X,
+        accel_forward_axis=Axis.Y,
+        gyro_axis=Axis.Z
     )
     hw.sensor = MagicMock()
 

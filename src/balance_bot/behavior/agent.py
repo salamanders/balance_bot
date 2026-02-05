@@ -14,6 +14,7 @@ from ..adaptation.recovery import RecoveryManager
 from ..adaptation.tuner import ContinuousTuner, BalancePointFinder
 from ..adaptation.battery import BatteryEstimator
 from .leds import LedController
+from ..enums import Orientation, Direction
 
 logger = logging.getLogger(__name__)
 
@@ -254,11 +255,11 @@ class Agent:
         kickup_power_est = 30.0
 
         if start_pitch < -5.0:
-            start_side = "back"
-            other_side = "front"
+            start_side = Orientation.BACK
+            other_side = Orientation.FRONT
         elif start_pitch > 5.0:
-            start_side = "front"
-            other_side = "back"
+            start_side = Orientation.FRONT
+            other_side = Orientation.BACK
         else:
             logger.error(f"Cannot perform discovery: Robot is too upright (Pitch: {start_pitch:.1f})")
             return
@@ -270,7 +271,7 @@ class Agent:
         angle_1 = self._measure_stable_angle()
         logger.info(f"-> {start_side.capitalize()} Angle: {angle_1:.2f}")
 
-        if start_side == "back":
+        if start_side == Orientation.BACK:
             back_angle = angle_1
         else:
             front_angle = angle_1
@@ -286,7 +287,7 @@ class Agent:
         angle_2 = self._measure_stable_angle()
         logger.info(f"-> {other_side.capitalize()} Angle: {angle_2:.2f}")
 
-        if other_side == "back":
+        if other_side == Orientation.BACK:
             back_angle = angle_2
         else:
             front_angle = angle_2
@@ -353,18 +354,18 @@ class Agent:
             self.core.update(MotionRequest(), TuningParams(0, 0, 0, 0), self.config.loop_time)
             time.sleep(self.config.loop_time)
 
-    def _incremental_flop(self, target_side: str) -> float:
+    def _incremental_flop(self, target_side: Orientation) -> float:
         """
         Incrementally apply power until the robot flops to the target side.
-        target_side: 'front' or 'back'.
+        target_side: Orientation.FRONT or Orientation.BACK.
         Returns the power level that caused the flop.
         """
-        if target_side == "front":
+        if target_side == Orientation.FRONT:
             # From Back to Front. Drive Negative (Backward).
-            direction = -1.0
+            direction = Direction.BACKWARD
         else:
             # From Front to Back. Drive Positive (Forward).
-            direction = 1.0
+            direction = Direction.FORWARD
 
         power = 30.0 # Start small
         step = 5.0
@@ -389,8 +390,8 @@ class Agent:
                 # Check if we crossed the vertical significantly
                 # Front target (Pos angle) means we passed > 10
                 # Back target (Neg angle) means we passed < -10
-                if (target_side == "front" and telem.pitch_angle > 10.0) or \
-                   (target_side == "back" and telem.pitch_angle < -10.0):
+                if (target_side == Orientation.FRONT and telem.pitch_angle > 10.0) or \
+                   (target_side == Orientation.BACK and telem.pitch_angle < -10.0):
                     success = True
                     break
                 time.sleep(self.config.loop_time)
@@ -418,9 +419,9 @@ class Agent:
         # If Pitch < 0 (Back): Drive NEGATIVE (Backward) to kick Front up.
         # If Pitch > 0 (Front): Drive POSITIVE (Forward) to kick Back up.
         start_pitch = self.core.pitch
-        kick_direction = -1.0 if start_pitch < 0 else 1.0
+        kick_direction = Direction.BACKWARD if start_pitch < 0 else Direction.FORWARD
 
-        start_label = "BACK" if kick_direction < 0 else "FRONT"
+        start_label = Orientation.BACK.upper() if kick_direction == Direction.BACKWARD else Orientation.FRONT.upper()
 
         logger.info(f"-> Starting Incremental Kick-Up from {start_label}. Target: {target_angle:.2f}")
 
@@ -431,9 +432,9 @@ class Agent:
             # If start Back (dir=-1): pitch must be < -10. If > -10, we are too upright/forward.
             # If start Front (dir=1): pitch must be > 10. If < 10, we are too upright/back.
             wrong_position = False
-            if kick_direction < 0 and self.core.pitch > -10:
+            if kick_direction == Direction.BACKWARD and self.core.pitch > -10:
                 wrong_position = True
-            elif kick_direction > 0 and self.core.pitch < 10:
+            elif kick_direction == Direction.FORWARD and self.core.pitch < 10:
                 wrong_position = True
 
             if wrong_position:
@@ -449,8 +450,8 @@ class Agent:
                 self._wait_for_settle()
 
                 # Re-evaluate direction just in case, though we stick to original plan
-                if (kick_direction < 0 and self.core.pitch > -10) or \
-                   (kick_direction > 0 and self.core.pitch < 10):
+                if (kick_direction == Direction.BACKWARD and self.core.pitch > -10) or \
+                   (kick_direction == Direction.FORWARD and self.core.pitch < 10):
                        logger.warning("-> Reposition failed or confused. Retrying loop.")
                        continue
 

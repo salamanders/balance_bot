@@ -5,6 +5,8 @@ from dataclasses import dataclass, asdict, field
 from pathlib import Path
 from typing import Any
 
+from .enums import Axis
+
 logger = logging.getLogger(__name__)
 CONFIG_FILE = Path("pid_config.json")
 
@@ -300,11 +302,11 @@ class RobotConfig:
     :param motor_r: Channel index for Right Motor.
     :param motor_l_invert: Boolean to invert Left Motor direction.
     :param motor_r_invert: Boolean to invert Right Motor direction.
-    :param gyro_pitch_axis: Axis ('x','y','z') used for pitch rate.
+    :param gyro_pitch_axis: Axis (Axis.X, Axis.Y, Axis.Z) used for pitch rate.
     :param gyro_pitch_invert: Boolean to invert gyro polarity.
-    :param accel_vertical_axis: Axis ('x','y','z') aligned with gravity.
+    :param accel_vertical_axis: Axis (Axis.X, Axis.Y, Axis.Z) aligned with gravity.
     :param accel_vertical_invert: Boolean to invert vertical axis.
-    :param accel_forward_axis: Axis ('x','y','z') aligned with forward motion.
+    :param accel_forward_axis: Axis (Axis.X, Axis.Y, Axis.Z) aligned with forward motion.
     :param accel_forward_invert: Boolean to invert forward axis.
     :param i2c_bus: I2C Bus ID (1 for HAT, 0/3/etc for others).
     :param loop_time: Target loop duration.
@@ -327,11 +329,11 @@ class RobotConfig:
     motor_r: int = 1
     motor_l_invert: bool = False
     motor_r_invert: bool = False
-    gyro_pitch_axis: str = "x"
+    gyro_pitch_axis: Axis = Axis.X
     gyro_pitch_invert: bool = False
-    accel_vertical_axis: str = "z"
+    accel_vertical_axis: Axis = Axis.Z
     accel_vertical_invert: bool = False
-    accel_forward_axis: str = "y"
+    accel_forward_axis: Axis = Axis.Y
     accel_forward_invert: bool = False
     i2c_bus: int = 1
     loop_time: float = 0.01  # 10ms

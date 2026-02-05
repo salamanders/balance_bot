@@ -102,7 +102,6 @@ sudo ./setup.sh
 This project uses `uv` for Python dependency management.
 ```bash
 curl -LsSf https://astral.sh/uv/install.sh | sh
-source $HOME/.cargo/env
 ```
 
 ### 4. Install Dependencies
@@ -118,7 +117,14 @@ uv run balance-bot --check-wiring
 ```
 Follow the on-screen instructions.
 
-### 6. Run the Robot
+### 6. Confirm Movement (Square Test)
+Before running the full balancing logic, verify that the robot can move correctly and the gyro axis is correct by running a simple square pattern.
+**Note:** Ensure the robot is resting on its back training wheel on the floor.
+```bash
+uv run balance-bot --confirm-wiring
+```
+
+### 7. Run the Robot
 Start the balancing software.
 ```bash
 uv run balance-bot
