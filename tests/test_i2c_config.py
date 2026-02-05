@@ -14,8 +14,8 @@ mock_pz_pkg.PiconZero = mock_pz_class
 sys.modules["balance_bot.hardware.piconzero"] = mock_pz_pkg
 
 # Now we can safely import RobotHardware
-from balance_bot.config import RobotConfig, PIDParams
-from balance_bot.hardware.robot_hardware import RobotHardware
+from balance_bot.config import RobotConfig, PIDParams  # noqa: E402
+from balance_bot.hardware.robot_hardware import RobotHardware  # noqa: E402
 
 def test_config_i2c_bus_default():
     """Test that i2c_bus defaults to 1."""

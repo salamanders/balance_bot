@@ -1,7 +1,7 @@
 import time
 import logging
 import smbus2
-from .utils import clamp
+from ..utils import clamp
 
 logger = logging.getLogger(__name__)
 

@@ -4,10 +4,30 @@ import math
 import logging
 from pathlib import Path
 from typing import TypedDict
+from collections import deque
 
 logger = logging.getLogger(__name__)
 
 FORCE_CALIB_FILE = Path("force_calibration.txt")
+_CAPTURE_HANDLER = None
+
+
+class LogCaptureHandler(logging.Handler):
+    """Handler that stores the last N log records in memory."""
+
+    def __init__(self, capacity: int = 50):
+        super().__init__()
+        self.buffer = deque(maxlen=capacity)
+        self.setFormatter(
+            logging.Formatter("%(asctime)s [%(levelname)s] %(message)s", datefmt="%H:%M:%S")
+        )
+
+    def emit(self, record):
+        try:
+            msg = self.format(record)
+            self.buffer.append(msg)
+        except Exception:
+            self.handleError(record)
 
 
 class Vector3(TypedDict):
@@ -129,11 +149,25 @@ def setup_logging(level: int = logging.INFO) -> None:
     Configure standard logging format.
     :param level: Logging verbosity (default INFO).
     """
+    global _CAPTURE_HANDLER
     logging.basicConfig(
         level=level,
         format="%(asctime)s [%(levelname)s] %(message)s",
         datefmt="%H:%M:%S",
     )
+
+    # Attach capture handler to root logger
+    root = logging.getLogger()
+    if _CAPTURE_HANDLER is None:
+        _CAPTURE_HANDLER = LogCaptureHandler()
+        root.addHandler(_CAPTURE_HANDLER)
+
+
+def get_captured_logs() -> str:
+    """Retrieve recent logs from the capture buffer."""
+    if _CAPTURE_HANDLER:
+        return "\n".join(_CAPTURE_HANDLER.buffer)
+    return "No logs captured."
 
 
 def check_force_calibration_flag() -> bool:
