@@ -1,7 +1,7 @@
 from dataclasses import dataclass
 from typing import NamedTuple
 
-from ..config import RobotConfig, PIDParams, CRASH_ANGLE
+from ..config import RobotConfig, PIDParams
 from ..hardware.robot_hardware import RobotHardware
 from ..utils import ComplementaryFilter
 from .pid import PIDController

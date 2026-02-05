@@ -13,6 +13,10 @@ class MockPiconZero:
         # Mock implementation, no-op or log if needed
         pass
 
+    def set_motors(self, motor_0_val: int, motor_1_val: int) -> None:
+        # Mock implementation, no-op or log if needed
+        pass
+
     def cleanup(self) -> None:
         print("[MockPiconZero] cleanup")
 

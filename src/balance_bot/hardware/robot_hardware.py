@@ -59,6 +59,14 @@ class MotorDriver(Protocol):
         """
         ...
 
+    def set_motors(self, motor_0_val: int, motor_1_val: int) -> None:
+        """
+        Set speed for both motors simultaneously using a block write.
+        :param motor_0_val: Speed for Motor 0 (-100 to 100).
+        :param motor_1_val: Speed for Motor 1 (-100 to 100).
+        """
+        ...
+
 
 @runtime_checkable
 class IMUDriver(Protocol):
@@ -296,8 +304,23 @@ class RobotHardware:
         left_val = int(clamp(left, MOTOR_MIN_OUTPUT, MOTOR_MAX_OUTPUT))
         right_val = int(clamp(right, MOTOR_MIN_OUTPUT, MOTOR_MAX_OUTPUT))
 
-        self.pz.set_motor(self.motor_l, left_val)
-        self.pz.set_motor(self.motor_r, right_val)
+        # Map logical Left/Right to Physical 0/1
+        val_0 = 0
+        val_1 = 0
+
+        # Assign Left Motor Value
+        if self.motor_l == 0:
+            val_0 = left_val
+        elif self.motor_l == 1:
+            val_1 = left_val
+
+        # Assign Right Motor Value
+        if self.motor_r == 0:
+            val_0 = right_val
+        elif self.motor_r == 1:
+            val_1 = right_val
+
+        self.pz.set_motors(val_0, val_1)
 
     def stop(self) -> None:
         """Stop all motors."""
