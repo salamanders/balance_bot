@@ -19,7 +19,7 @@ fi
 
 # 2. Install uv only if the 'uv' command is not found
 # We also check the default install location just in case it's installed but not in PATH
-if ! command -v uv >/dev/null 2>&1 && [ ! -f "$HOME/.cargo/bin/uv" ]; then
+if ! command -v uv >/dev/null 2>&1 && [ ! -f "$HOME/.cargo/bin/uv" ] && [ ! -f "$HOME/.local/bin/uv" ]; then
     echo "Installing uv..."
     curl -LsSf https://astral.sh/uv/install.sh | sh
 fi
@@ -27,6 +27,10 @@ fi
 # Ensure uv is in the PATH (needed if it was just installed or if shell doesn't have it loaded)
 if [ -f "$HOME/.cargo/env" ]; then
     source "$HOME/.cargo/env"
+fi
+
+if [ -d "$HOME/.local/bin" ]; then
+    export PATH="$HOME/.local/bin:$PATH"
 fi
 
 uv self update
