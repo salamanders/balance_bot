@@ -66,27 +66,67 @@ class MovementCheck:
             self.hw.cleanup()
 
     def drive_move(self, speed: float, duration: float, desc: str):
-        """Drive straight for a duration."""
+        """
+        Drive straight for a duration.
+        Monitors Accelerometer on the 'Forward' axis to confirm motion.
+        """
         print(f"-> {desc} (Speed {speed}) for {duration}s...")
         self.hw.set_motors(speed, speed)
-        time.sleep(duration)
+
+        # Monitor Accelerometer
+        fwd_axis = self.hw.accel_forward_axis
+        min_accel = float('inf')
+        max_accel = float('-inf')
+
+        start_time = time.monotonic()
+
+        while (time.monotonic() - start_time) < duration:
+            # Read Raw Data
+            accel, _ = self.hw.read_imu_raw()
+            val = accel[fwd_axis]
+
+            # Track peaks
+            if val < min_accel: min_accel = val
+            if val > max_accel: max_accel = val
+
+            time.sleep(0.01)
+
         self.hw.stop()
 
+        # Report
+        delta = max_accel - min_accel
+        print(f"   [CHECK] Forward Axis ({fwd_axis}) Range: [{min_accel:.2f}, {max_accel:.2f}] (Delta: {delta:.2f}g)")
+
+        # Simple heuristic check
+        if delta > 0.05:
+            print(f"   [PASS] Motion Detected on {fwd_axis}-axis.")
+        else:
+            print(f"   [WARN] Low motion detected ({delta:.2f}g). Motors unplugged or stall?")
+
     def turn_90(self, desc: str):
-        """Turn 90 degrees using Gyro integration."""
+        """
+        Turn 90 degrees using Gyro integration.
+        Monitors 'Off-Axis' gyros to ensure clean rotation.
+        """
         print(f"-> {desc} (Target 90 deg)...")
 
         # Turn Right: Left Motor +, Right Motor -
-        # Target Yaw Rate should be POSITIVE.
         turn_speed = 40
         self.hw.set_motors(turn_speed, -turn_speed)
 
         target_angle = 90.0
         current_angle = 0.0
 
-        last_time = time.monotonic()
+        # Identify Axes
+        # Note: RobotHardware.read_imu_converted() uses accel_vertical_axis for Yaw rate.
+        yaw_axis = self.hw.accel_vertical_axis
+        all_axes = ["x", "y", "z"]
+        off_axes = [a for a in all_axes if a != yaw_axis]
 
-        # Timeout safety
+        # Track peaks for off-axes
+        off_axis_peaks = {a: 0.0 for a in off_axes}
+
+        last_time = time.monotonic()
         start_time = time.monotonic()
         timeout = 5.0
 
@@ -99,23 +139,17 @@ class MovementCheck:
                 print("   [WARNING] Turn Timeout! Gyro might be unresponsive.")
                 break
 
+            # 1. Get Converted (for Yaw Integration)
             reading = self.hw.read_imu_converted()
-
-            # Integrate Yaw Rate
-            # We assume turning Right generates POSITIVE Yaw Rate.
-            # If wiring is inverted, this might be negative, so we take absolute to just finish the turn?
-            # User wants to VERIFY wiring. So if we turn right and rate is negative, that's a FAIL condition technically.
-            # But to make the test "work" locally for a square, let's just integrate.
-            # Ideally, we warn if rate is negative.
-
             rate = reading.yaw_rate
             current_angle += rate * dt
 
-            # Simple debug output every 10 deg
-            if int(current_angle) % 10 == 0:
-                 # sys.stdout.write(f"\r   Angle: {current_angle:.1f}")
-                 # sys.stdout.flush()
-                 pass
+            # 2. Get Raw (for Off-Axis Monitoring)
+            _, gyro = self.hw.read_imu_raw()
+            for axis in off_axes:
+                raw_rate = abs(gyro[axis])
+                if raw_rate > off_axis_peaks[axis]:
+                    off_axis_peaks[axis] = raw_rate
 
             time.sleep(0.01)
 
@@ -124,6 +158,13 @@ class MovementCheck:
 
         if current_angle < 0:
             print("   [WARNING] Measured Angle was NEGATIVE. Yaw Axis might be inverted!")
+
+        # Report Off-Axis Stats
+        print(f"   [CHECK] Primary Yaw ({yaw_axis}) Integrated: {current_angle:.1f} deg")
+        for axis in off_axes:
+            peak = off_axis_peaks[axis]
+            status = "Quiet" if peak < 20.0 else "NOISY"
+            print(f"   [CHECK] Off-Axis ({axis}) Peak Rate: {peak:.1f} deg/s ({status})")
 
 if __name__ == "__main__":
     MovementCheck().run()
