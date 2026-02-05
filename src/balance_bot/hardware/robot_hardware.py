@@ -26,10 +26,14 @@ class IMUReading:
     :param pitch_angle: Calculated pitch angle in degrees (Zero = Upright).
     :param pitch_rate: Angular velocity around pitch axis in deg/s.
     :param yaw_rate: Angular velocity around yaw (vertical) axis in deg/s.
+    :param roll_angle: Calculated roll angle in degrees.
+    :param roll_rate: Angular velocity around roll axis in deg/s.
     """
     pitch_angle: float
     pitch_rate: float
     yaw_rate: float
+    roll_angle: float
+    roll_rate: float
 
 
 @runtime_checkable
@@ -134,6 +138,10 @@ class RobotHardware:
         invert_r: bool = False,
         gyro_axis: Axis = Axis.X,
         gyro_invert: bool = False,
+        gyro_yaw_axis: Axis = Axis.Z,
+        gyro_yaw_invert: bool = False,
+        gyro_roll_axis: Axis = Axis.Y,
+        gyro_roll_invert: bool = False,
         accel_vertical_axis: Axis = Axis.Z,
         accel_vertical_invert: bool = False,
         accel_forward_axis: Axis = Axis.Y,
@@ -150,6 +158,10 @@ class RobotHardware:
         :param invert_r: Whether to invert right motor direction.
         :param gyro_axis: Axis used for pitch rotation.
         :param gyro_invert: Whether to invert gyro reading sign.
+        :param gyro_yaw_axis: Axis used for yaw rotation.
+        :param gyro_yaw_invert: Whether to invert yaw reading sign.
+        :param gyro_roll_axis: Axis used for roll rotation.
+        :param gyro_roll_invert: Whether to invert roll reading sign.
         :param accel_vertical_axis: Axis corresponding to gravity.
         :param accel_vertical_invert: Invert vertical axis sign.
         :param accel_forward_axis: Axis corresponding to forward motion.
@@ -163,12 +175,26 @@ class RobotHardware:
         self.invert_r = invert_r
         self.gyro_axis = gyro_axis
         self.gyro_invert = gyro_invert
+        self.gyro_yaw_axis = gyro_yaw_axis
+        self.gyro_yaw_invert = gyro_yaw_invert
+        self.gyro_roll_axis = gyro_roll_axis
+        self.gyro_roll_invert = gyro_roll_invert
         self.accel_vertical_axis = accel_vertical_axis
         self.accel_vertical_invert = accel_vertical_invert
         self.accel_forward_axis = accel_forward_axis
         self.accel_forward_invert = accel_forward_invert
         self.i2c_bus = i2c_bus
         self.crash_angle = crash_angle
+
+        # Deduce Accel Roll Axis (The one not used by Vertical or Forward)
+        axes = {Axis.X, Axis.Y, Axis.Z}
+        used = {accel_vertical_axis, accel_forward_axis}
+        remaining = axes - used
+        if remaining:
+            self.accel_roll_axis = list(remaining)[0]
+        else:
+            # Fallback / Collision
+            self.accel_roll_axis = Axis.X
 
         self.pz: MotorDriver
         self.sensor: IMUDriver
@@ -284,13 +310,27 @@ class RobotHardware:
         if self.gyro_invert:
             gyro_rate = -gyro_rate
 
-        # Yaw rate - For now, assume Yaw is rotation around vertical axis
-        yaw_rate = gyro[self.accel_vertical_axis]
-        if self.accel_vertical_invert:
+        # Yaw rate
+        yaw_rate = gyro[self.gyro_yaw_axis]
+        if self.gyro_yaw_invert:
             yaw_rate = -yaw_rate
 
+        # Roll rate
+        roll_rate = gyro[self.gyro_roll_axis]
+        if self.gyro_roll_invert:
+            roll_rate = -roll_rate
+
+        # Roll Angle (Approximate from Accel)
+        accel_roll = accel[self.accel_roll_axis]
+        # Calculate angle of side vector relative to vertical
+        roll_angle = calculate_pitch(accel_roll, accel_vertical)
+
         return IMUReading(
-            pitch_angle=acc_angle, pitch_rate=gyro_rate, yaw_rate=yaw_rate
+            pitch_angle=acc_angle,
+            pitch_rate=gyro_rate,
+            yaw_rate=yaw_rate,
+            roll_angle=roll_angle,
+            roll_rate=roll_rate
         )
 
     def set_motor_retries(self, retries: int) -> None:

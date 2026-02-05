@@ -331,6 +331,10 @@ class RobotConfig:
     motor_r_invert: bool = False
     gyro_pitch_axis: Axis = Axis.X
     gyro_pitch_invert: bool = False
+    gyro_yaw_axis: Axis = Axis.Z
+    gyro_yaw_invert: bool = False
+    gyro_roll_axis: Axis = Axis.Y
+    gyro_roll_invert: bool = False
     accel_vertical_axis: Axis = Axis.Z
     accel_vertical_invert: bool = False
     accel_forward_axis: Axis = Axis.Y
