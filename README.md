@@ -102,7 +102,6 @@ sudo ./setup.sh
 This project uses `uv` for Python dependency management.
 ```bash
 curl -LsSf https://astral.sh/uv/install.sh | sh
-source $HOME/.cargo/env
 ```
 
 ### 4. Install Dependencies
