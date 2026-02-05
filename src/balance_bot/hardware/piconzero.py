@@ -28,20 +28,26 @@ class PiconZero:
     the balance_bot project structure.
     """
 
-    def __init__(self, bus_number: int = 1):
+    def __init__(self, bus_number: int = 1, retries: int = RETRIES):
         """
         Initialize the PiconZero driver.
         :param bus_number: I2C bus number (usually 1 for modern Pi, 0 for old).
+        :param retries: Number of retries for I2C operations.
         """
         self.bus: smbus2.SMBus | None = None
         self.bus = smbus2.SMBus(bus_number)
-        logger.info(f"PiconZero initialized on bus {bus_number}")
+        self.retries = retries
+        logger.info(f"PiconZero initialized on bus {bus_number} with {retries} retries")
+
+    def set_retries(self, retries: int) -> None:
+        """Set the number of retries for I2C operations."""
+        self.retries = retries
 
     def _write_byte(self, reg: int, value: int) -> None:
         """Low-level I2C byte write with retries."""
         if self.bus is None:
             return
-        for _ in range(RETRIES):
+        for _ in range(self.retries):
             try:
                 self.bus.write_byte_data(I2C_ADDRESS, reg, value)
                 return
@@ -53,7 +59,7 @@ class PiconZero:
         """Low-level I2C block write with retries."""
         if self.bus is None:
             return
-        for _ in range(RETRIES):
+        for _ in range(self.retries):
             try:
                 self.bus.write_i2c_block_data(I2C_ADDRESS, reg, data)
                 return
@@ -65,7 +71,7 @@ class PiconZero:
         """Low-level I2C word read with retries."""
         if self.bus is None:
             return 0
-        for _ in range(RETRIES):
+        for _ in range(self.retries):
             try:
                 return self.bus.read_word_data(I2C_ADDRESS, reg)
             except Exception:

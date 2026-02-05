@@ -1,7 +1,7 @@
 from dataclasses import dataclass
 from typing import NamedTuple
 
-from ..config import RobotConfig, PIDParams, CRASH_ANGLE
+from ..config import RobotConfig, PIDParams
 from ..hardware.robot_hardware import RobotHardware
 from ..utils import ComplementaryFilter
 from .pid import PIDController
@@ -79,6 +79,10 @@ class BalanceCore:
 
         # State
         self.pitch = 0.0
+
+    def set_i2c_retries(self, retries: int) -> None:
+        """Set the I2C retry count for the motor driver."""
+        self.hw.set_motor_retries(retries)
 
     def update(
         self,

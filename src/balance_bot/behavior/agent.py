@@ -117,6 +117,11 @@ class Agent:
 
         # 3. Main Loop
         logger.info(f"-> Starting Control Loop. Aggression: {self.tuner.get_current_scale():.2f}")
+
+        # Optimize I2C retries for high-frequency loop (Fail Fast)
+        logger.info("-> Optimizing I2C Retries for Real-Time Loop (1 Retry)")
+        self.core.set_i2c_retries(1)
+
         self.led.signal_ready()
 
         rate = RateLimiter(1.0 / self.config.loop_time)

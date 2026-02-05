@@ -9,6 +9,9 @@ class MockPiconZero:
     def stop(self) -> None:
         print("[MockPiconZero] stop")
 
+    def set_retries(self, retries: int) -> None:
+        print(f"[MockPiconZero] set_retries: {retries}")
+
     def set_motor(self, motor: int, value: int) -> None:
         # Mock implementation, no-op or log if needed
         pass
