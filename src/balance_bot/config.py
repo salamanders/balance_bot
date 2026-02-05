@@ -14,7 +14,6 @@ CONFIG_FILE = Path("pid_config.json")
 BALANCING_THRESHOLD = 20.0      # Normal operating range (+/-)
 REST_ANGLE_MIN = 30.0           # Minimum angle to be considered "resting" on strut
 REST_ANGLE_MAX = 50.0           # Maximum angle for resting (strut height)
-CRASH_ANGLE = 60.0              # If we pass this, something is wrong. HARD STOP.
 
 # Startup / Recovery
 STARTUP_RAMP_SPEED = 0.5        # Degrees per loop cycle to adjust setpoint during startup
@@ -152,6 +151,8 @@ class TunerConfig:
         * Purpose: Increase I-term to correct lean.
         * Limits: 0.001 to 0.1.
         * Impact: Rate of I-term increase.
+    :param crash_angle: Angle at which to stop tuning and reset.
+        * UOM: Degrees
     """
     cooldown_reset: int = 50
     oscillation_threshold: float = 0.15
@@ -162,6 +163,7 @@ class TunerConfig:
     kp_stability_boost: float = 0.02
     steady_error_threshold: float = 3.0
     ki_boost: float = 0.005
+    crash_angle: float = 60.0
 
     # Tuning Aggression Decay
     start_aggression_first_run: float = 5.0
@@ -310,7 +312,7 @@ class RobotConfig:
     :param loop_time: Target loop duration.
         * UOM: Seconds
         * Default: 0.01 (100Hz)
-    :param fall_angle_limit: Angle at which robot gives up balancing.
+    :param crash_angle: Angle at which robot gives up balancing.
         * UOM: Degrees
         * Impact: Safety cutoff.
     :param complementary_alpha: Filter coefficient.
@@ -337,7 +339,7 @@ class RobotConfig:
     loop_time: float = 0.01  # 10ms
 
     # Operational Parameters
-    fall_angle_limit: float = 45.0
+    crash_angle: float = 60.0
     complementary_alpha: float = 0.98
     vibration_threshold: int = 10
 

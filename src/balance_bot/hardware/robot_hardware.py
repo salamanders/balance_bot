@@ -9,7 +9,6 @@ from ..config import (
     BALANCING_THRESHOLD,
     REST_ANGLE_MIN,
     REST_ANGLE_MAX,
-    CRASH_ANGLE,
 )
 from ..enums import Axis
 
@@ -128,6 +127,7 @@ class RobotHardware:
         accel_forward_axis: Axis = Axis.Y,
         accel_forward_invert: bool = False,
         i2c_bus: int = 1,
+        crash_angle: float = 60.0,
     ):
         """
         Initialize the robot hardware abstraction.
@@ -143,6 +143,7 @@ class RobotHardware:
         :param accel_forward_axis: Axis corresponding to forward motion.
         :param accel_forward_invert: Invert forward axis sign.
         :param i2c_bus: I2C bus number for IMU (default 1).
+        :param crash_angle: Angle to consider as CRASHED state.
         """
         self.motor_l = motor_l
         self.motor_r = motor_r
@@ -155,6 +156,7 @@ class RobotHardware:
         self.accel_forward_axis = accel_forward_axis
         self.accel_forward_invert = accel_forward_invert
         self.i2c_bus = i2c_bus
+        self.crash_angle = crash_angle
 
         self.pz: MotorDriver
         self.sensor: IMUDriver
@@ -321,7 +323,7 @@ class RobotHardware:
             return "BALANCED"
         elif REST_ANGLE_MIN < pitch < REST_ANGLE_MAX:
             return "RESTING"
-        elif pitch > CRASH_ANGLE:
+        elif pitch > self.crash_angle:
             return "CRASHED"
         else:
             return "FALLING"
