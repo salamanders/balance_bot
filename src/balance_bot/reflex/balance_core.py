@@ -68,7 +68,8 @@ class BalanceCore:
             accel_vertical_invert=config.accel_vertical_invert,
             accel_forward_axis=config.accel_forward_axis,
             accel_forward_invert=config.accel_forward_invert,
-            i2c_bus=config.i2c_bus,
+            motor_i2c_bus=config.motor_i2c_bus,
+            imu_i2c_bus=config.imu_i2c_bus,
             crash_angle=config.crash_angle,
         )
         self.hw.init()

@@ -309,7 +309,8 @@ class RobotConfig:
     :param accel_vertical_invert: Boolean to invert vertical axis.
     :param accel_forward_axis: Axis (Axis.X, Axis.Y, Axis.Z) aligned with forward motion.
     :param accel_forward_invert: Boolean to invert forward axis.
-    :param i2c_bus: I2C Bus ID (1 for HAT, 0/3/etc for others).
+    :param motor_i2c_bus: I2C Bus ID for Motor Driver (1 for HAT, 0/3/etc for others).
+    :param imu_i2c_bus: I2C Bus ID for IMU Sensor (1 for HAT, 0/3/etc for others).
     :param loop_time: Target loop duration.
         * UOM: Seconds
         * Default: 0.01 (100Hz)
@@ -340,7 +341,8 @@ class RobotConfig:
     accel_vertical_invert: bool = False
     accel_forward_axis: Axis = Axis.Y
     accel_forward_invert: bool = False
-    i2c_bus: int = 1
+    motor_i2c_bus: int = 1
+    imu_i2c_bus: int = 1
     loop_time: float = 0.01  # 10ms
 
     # Operational Parameters
@@ -404,6 +406,14 @@ class RobotConfig:
                     )
 
                 # 6. Handle Root Config
+                # Migration: Map legacy i2c_bus to new separated fields
+                if "i2c_bus" in data:
+                    legacy_bus = data["i2c_bus"]
+                    if "motor_i2c_bus" not in data:
+                        data["motor_i2c_bus"] = legacy_bus
+                    if "imu_i2c_bus" not in data:
+                        data["imu_i2c_bus"] = legacy_bus
+
                 config_kwargs = cls._filter_keys(RobotConfig, data)
 
                 logger.info(
