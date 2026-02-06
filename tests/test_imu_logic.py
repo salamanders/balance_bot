@@ -11,7 +11,7 @@ from balance_bot.enums import Axis
 # Let's force MOCK_HARDWARE env var.
 
 def test_imu_processing_default(monkeypatch):
-    monkeypatch.setenv("MOCK_HARDWARE", "1")
+    monkeypatch.setenv("ALLOW_MOCK_FALLBACK", "1")
 
     hw = RobotHardware(0, 1)
 
@@ -29,7 +29,7 @@ def test_imu_processing_default(monkeypatch):
     assert math.isclose(reading.pitch_rate, 0.0)
 
 def test_imu_processing_tilted(monkeypatch):
-    monkeypatch.setenv("MOCK_HARDWARE", "1")
+    monkeypatch.setenv("ALLOW_MOCK_FALLBACK", "1")
     hw = RobotHardware(0, 1)
     hw.sensor = MagicMock()
 
@@ -45,7 +45,7 @@ def test_imu_processing_tilted(monkeypatch):
     assert math.isclose(reading.pitch_rate, 10.0)
 
 def test_imu_processing_axis_y(monkeypatch):
-    monkeypatch.setenv("MOCK_HARDWARE", "1")
+    monkeypatch.setenv("ALLOW_MOCK_FALLBACK", "1")
     # Axis Y means we use X accel and Y gyro. In new API, we must specify accel_forward_axis.
     hw = RobotHardware(0, 1, gyro_axis=Axis.Y, accel_forward_axis=Axis.X)
     hw.sensor = MagicMock()
@@ -61,7 +61,7 @@ def test_imu_processing_axis_y(monkeypatch):
     assert math.isclose(reading.pitch_rate, 5.0) # Uses Y gyro
 
 def test_imu_processing_invert(monkeypatch):
-    monkeypatch.setenv("MOCK_HARDWARE", "1")
+    monkeypatch.setenv("ALLOW_MOCK_FALLBACK", "1")
     # Invert both pitch angle and gyro rate
     hw = RobotHardware(0, 1, gyro_invert=True, accel_forward_invert=True)
     hw.sensor = MagicMock()
@@ -79,7 +79,7 @@ def test_imu_processing_invert(monkeypatch):
 
 def test_imu_processing_sideways(monkeypatch):
     """Test sideways mounting configuration (Vertical X, Forward Y, Gyro Z)"""
-    monkeypatch.setenv("MOCK_HARDWARE", "1")
+    monkeypatch.setenv("ALLOW_MOCK_FALLBACK", "1")
     hw = RobotHardware(
         0, 1,
         accel_vertical_axis=Axis.X,

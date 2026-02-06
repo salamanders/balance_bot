@@ -209,54 +209,55 @@ class RobotHardware:
         Initialize hardware components.
 
         Strategy:
-        1. Check MOCK_HARDWARE env var.
-        2. Try importing hardware libraries.
-        3. Try initializing PiconZero (Motors).
-        4. Try initializing MPU6050 (IMU).
+        1. Try importing hardware libraries.
+        2. Try initializing PiconZero (Motors).
+        3. Try initializing MPU6050 (IMU).
 
-        If any step fails, log a critical error, generate a diagnostic report,
-        and fall back to Mock Hardware to prevent crash loop.
+        If any step fails:
+         - Check if ALLOW_MOCK_FALLBACK is set.
+         - If YES: Fall back to Mock Hardware.
+         - If NO: Log critical error and crash (raise Exception).
         """
-        if os.environ.get("MOCK_HARDWARE"):
-            self._init_mock_hardware()
-            return
-
-        # 1. Attempt Imports
         try:
-            from .piconzero import PiconZero
-            from mpu6050 import mpu6050
-        except ImportError as e:
-            logger.error(f"CRITICAL: Required libraries not found: {e}")
-            logger.error("Try running 'uv sync' or check your virtual environment.")
-            self._init_mock_hardware()
-            return
+            # 1. Attempt Imports
+            try:
+                from .piconzero import PiconZero
+                from mpu6050 import mpu6050
+            except ImportError as e:
+                logger.error(f"CRITICAL: Required libraries not found: {e}")
+                logger.error("Try running 'uv sync' or check your virtual environment.")
+                raise e
 
-        # 2. Attempt PiconZero
-        try:
-            self.pz = PiconZero(bus_number=self.motor_i2c_bus)
-        except (OSError, PermissionError, FileNotFoundError) as e:
-            logger.error(f"CRITICAL: PiconZero Init Failed on Bus {self.motor_i2c_bus}: {e}")
+            # 2. Attempt PiconZero
+            try:
+                self.pz = PiconZero(bus_number=self.motor_i2c_bus)
+            except (OSError, PermissionError, FileNotFoundError) as e:
+                logger.error(f"CRITICAL: PiconZero Init Failed on Bus {self.motor_i2c_bus}: {e}")
+                report = get_i2c_failure_report(self.motor_i2c_bus, 0x22, "PiconZero")
+                logger.error(report)
+                raise e
 
-            # Generate pessimistic report for PiconZero (0x22)
-            report = get_i2c_failure_report(self.motor_i2c_bus, 0x22, "PiconZero")
-            logger.error(report)
+            # 3. Attempt MPU6050
+            try:
+                self.sensor = MPU6050Adapter(mpu6050(0x68, bus=self.imu_i2c_bus))
+            except OSError as e:
+                logger.error(f"CRITICAL: MPU6050 Init Failed on Bus {self.imu_i2c_bus}: {e}")
+                report = get_i2c_failure_report(self.imu_i2c_bus, 0x68, "MPU6050")
+                logger.error(report)
+                raise e
 
-            self._init_mock_hardware()
-            return
-
-        # 3. Attempt MPU6050
-        try:
-            self.sensor = MPU6050Adapter(mpu6050(0x68, bus=self.imu_i2c_bus))
             logger.info(f"Hardware initialized. PiconZero on bus {self.motor_i2c_bus}, MPU6050 on bus {self.imu_i2c_bus}.")
-        except OSError as e:
-            logger.error(f"CRITICAL: MPU6050 Init Failed on Bus {self.imu_i2c_bus}: {e}")
 
-            # Generate pessimistic report for MPU6050 (0x68)
-            report = get_i2c_failure_report(self.imu_i2c_bus, 0x68, "MPU6050")
-            logger.error(report)
+        except (ImportError, OSError, PermissionError, FileNotFoundError) as e:
+            # Check for Fallback
+            if os.environ.get("ALLOW_MOCK_FALLBACK"):
+                logger.warning(f"Hardware Init Failed. Falling back to MOCKS as requested.")
+                self._init_mock_hardware()
+                return
 
-            self._init_mock_hardware()
-            return
+            # Else Re-raise
+            logger.critical("To use simulated hardware, run with --allow-mocks")
+            raise e
 
     def _init_mock_hardware(self) -> None:
         """Initialize mock hardware components."""

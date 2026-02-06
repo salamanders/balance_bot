@@ -4,7 +4,7 @@ from balance_bot.hardware.robot_hardware import RobotHardware, IMUReading
 from balance_bot.enums import Axis
 
 def test_imu_yaw_roll_defaults(monkeypatch):
-    monkeypatch.setenv("MOCK_HARDWARE", "1")
+    monkeypatch.setenv("ALLOW_MOCK_FALLBACK", "1")
     # Defaults: Yaw=Z, Roll=Y. AccelRoll=X (since Vert=Z, Fwd=Y).
     hw = RobotHardware(0, 1)
     hw.sensor = MagicMock()
@@ -26,7 +26,7 @@ def test_imu_yaw_roll_defaults(monkeypatch):
     assert math.isclose(reading.roll_angle, 26.565, abs_tol=0.1)
 
 def test_imu_yaw_roll_custom_axis_invert(monkeypatch):
-    monkeypatch.setenv("MOCK_HARDWARE", "1")
+    monkeypatch.setenv("ALLOW_MOCK_FALLBACK", "1")
     # Set Yaw to X (invert), Roll to Z (invert)
     # Gyro Pitch default is X, so we can't use X for Yaw unless we change Pitch.
     # Let's say: Pitch=Y, Yaw=X, Roll=Z.

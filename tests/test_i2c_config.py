@@ -37,9 +37,6 @@ def test_hardware_init_with_bus():
 
     # Ensure not in mock mode
     with patch.dict(os.environ, {}, clear=True):
-        if "MOCK_HARDWARE" in os.environ:
-             del os.environ["MOCK_HARDWARE"]
-
         hw = RobotHardware(motor_l=0, motor_r=1, motor_i2c_bus=0, imu_i2c_bus=3)
 
         # Verify mpu6050 was called with bus=3
@@ -57,9 +54,6 @@ def test_hardware_init_default_bus():
     mock_pz_class.reset_mock()
 
     with patch.dict(os.environ, {}, clear=True):
-        if "MOCK_HARDWARE" in os.environ:
-             del os.environ["MOCK_HARDWARE"]
-
         hw = RobotHardware(motor_l=0, motor_r=1)
 
         # Verify mpu6050 was called with bus=1 (default)

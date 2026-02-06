@@ -1,3 +1,4 @@
+import os
 import sys
 import traceback
 import importlib.metadata
@@ -14,6 +15,10 @@ def main() -> None:
     """Entry point for the robot control application."""
     # Ensure logging is set up early to capture imports/startup
     setup_logging()
+
+    # Handle Mock Fallback Flag
+    if "--allow-mocks" in sys.argv:
+        os.environ["ALLOW_MOCK_FALLBACK"] = "1"
 
     try:
         if "--diagnose" in sys.argv:
