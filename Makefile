@@ -13,4 +13,4 @@ check: lint
 	uv run ruff format --check src
 
 run:
-	MOCK_HARDWARE=1 uv run balance-bot
+	uv run balance-bot --allow-mocks

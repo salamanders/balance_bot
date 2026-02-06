@@ -197,6 +197,15 @@ This code relies on several hardware, physical, and configuration assumptions. I
 *   **PID Defaults**: Starts with `Kp=25.0`, `Ki=0.0`, `Kd=0.5`.
     *   *Citation*: [src/balance_bot/config.py](src/balance_bot/config.py) (`PIDParams`).
 
+### Simulation / Mock Mode
+If you are developing on a laptop without the robot hardware, you can force the use of Mock Hardware by passing the `--allow-mocks` flag.
+
+```bash
+uv run balance-bot --allow-mocks
+```
+
+This will simulate sensor data and motor responses, allowing you to test the control logic and behavior loop.
+
 ### System Environment
 *   **Status LEDs**: Assumes availability of system LEDs at `/sys/class/leds/led0/brightness` or `/sys/class/leds/ACT/brightness`.
     *   *Citation*: [src/balance_bot/behavior/leds.py](src/balance_bot/behavior/leds.py) (`_find_led_path`).

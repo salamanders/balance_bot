@@ -13,3 +13,7 @@
 6. - [x] The battery levels will change over time, so that will be hard to account for.
 7. - [x] Make a version of https://github.com/salamanders/mecanum/blob/main/AUTO_RUN.md that doesn't wait for WiFi.
 8. - [x] Make a version of https://github.com/salamanders/mecanum/blob/main/wiring_check.py that handles both wheels, and then the gyro directions.
+
+## Testing and Mocks
+- If you need to test the logic without hardware (e.g., in a CI environment or on your laptop), use `uv run balance-bot --allow-mocks`.
+- The code is configured to crash loudly if hardware is missing, unless this flag is passed.
