@@ -619,3 +619,6 @@ obj/
 marimo/_static/
 marimo/_lsp/
 __marimo__/
+
+
+pid_config.json
