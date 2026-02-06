@@ -406,14 +406,6 @@ class RobotConfig:
                     )
 
                 # 6. Handle Root Config
-                # Migration: Map legacy i2c_bus to new separated fields
-                if "i2c_bus" in data:
-                    legacy_bus = data["i2c_bus"]
-                    if "motor_i2c_bus" not in data:
-                        data["motor_i2c_bus"] = legacy_bus
-                    if "imu_i2c_bus" not in data:
-                        data["imu_i2c_bus"] = legacy_bus
-
                 config_kwargs = cls._filter_keys(RobotConfig, data)
 
                 logger.info(

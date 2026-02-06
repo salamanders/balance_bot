@@ -26,7 +26,8 @@ class MovementCheck:
             accel_vertical_invert=self.config.accel_vertical_invert,
             accel_forward_axis=self.config.accel_forward_axis,
             accel_forward_invert=self.config.accel_forward_invert,
-            i2c_bus=self.config.i2c_bus,
+            motor_i2c_bus=self.config.motor_i2c_bus,
+            imu_i2c_bus=self.config.imu_i2c_bus,
         )
         self.hw.init()
         print(">>> Hardware Initialized.")
