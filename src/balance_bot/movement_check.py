@@ -1,5 +1,6 @@
 import time
 import logging
+import sys
 from .config import RobotConfig
 from .hardware.robot_hardware import RobotHardware
 
@@ -9,6 +10,7 @@ class MovementCheck:
     """
     Automated sequence to verify movement and wiring logic.
     Executes a Square pattern Forward, then a Square pattern Backward.
+    Includes PESSIMISTIC verification of sensor data and user confirmation.
     """
 
     def __init__(self):
@@ -22,6 +24,10 @@ class MovementCheck:
             invert_r=self.config.motor_r_invert,
             gyro_axis=self.config.gyro_pitch_axis,
             gyro_invert=self.config.gyro_pitch_invert,
+            gyro_yaw_axis=self.config.gyro_yaw_axis,
+            gyro_yaw_invert=self.config.gyro_yaw_invert,
+            gyro_roll_axis=self.config.gyro_roll_axis,
+            gyro_roll_invert=self.config.gyro_roll_invert,
             accel_vertical_axis=self.config.accel_vertical_axis,
             accel_vertical_invert=self.config.accel_vertical_invert,
             accel_forward_axis=self.config.accel_forward_axis,
@@ -35,7 +41,7 @@ class MovementCheck:
     def run(self):
         """Execute the movement sequence."""
         try:
-            print("\n=== Movement Verification Sequence ===")
+            print("\n=== Movement Verification Sequence (Pessimistic) ===")
             print("The robot will drive in a Square pattern (Forward), then Reverse.")
             print("Ensure the robot is on the floor with space to move.")
             input("Press Enter to START...")
@@ -43,20 +49,20 @@ class MovementCheck:
             # 1. Forward Square
             print("\n>>> Phase 1: Forward Square")
             for i in range(4):
-                print(f"--- Leg {i+1}/4 ---")
+                print(f"\n--- Leg {i+1}/4 ---")
                 self.drive_move(speed=40, duration=0.5, desc="Forward")
                 time.sleep(0.2)
                 self.turn_90(desc="Right Turn")
-                time.sleep(0.2)
+                time.sleep(0.5)
 
             # 2. Reverse Square
             print("\n>>> Phase 2: Reverse Square")
             for i in range(4):
-                print(f"--- Leg {i+1}/4 ---")
+                print(f"\n--- Leg {i+1}/4 ---")
                 self.drive_move(speed=-40, duration=0.5, desc="Backward")
                 time.sleep(0.2)
                 self.turn_90(desc="Right Turn")
-                time.sleep(0.2)
+                time.sleep(0.5)
 
             print("\n>>> Sequence Complete.")
 
@@ -66,48 +72,73 @@ class MovementCheck:
             self.hw.stop()
             self.hw.cleanup()
 
+    def _analyze_dominance(self, data_dict: dict, expected_axis: str, label: str):
+        """
+        Check if expected_axis is the dominant signal in data_dict.
+        """
+        sorted_items = sorted(data_dict.items(), key=lambda x: abs(x[1]), reverse=True)
+        winner, winner_val = sorted_items[0]
+        runner, runner_val = sorted_items[1]
+
+        ratio = abs(winner_val) / (abs(runner_val) + 1e-9)
+
+        print(f"   [Analysis] {label}: Winner={winner.upper()} ({abs(winner_val):.2f}) vs Runner={runner.upper()} ({abs(runner_val):.2f})")
+
+        if winner != expected_axis:
+            print(f"   [FAILURE] Expected {expected_axis.upper()} to be dominant, but {winner.upper()} won!")
+            return False
+
+        if ratio < 1.5:
+            print(f"   [WARNING] Signal is ambiguous! Ratio {ratio:.1f} < 1.5")
+            return False
+
+        print(f"   [PASS] {expected_axis.upper()} is dominant (Ratio {ratio:.1f}).")
+        return True
+
     def drive_move(self, speed: float, duration: float, desc: str):
         """
-        Drive straight for a duration.
-        Monitors Accelerometer on the 'Forward' axis to confirm motion.
+        Drive straight and verify 'Forward' axis dominance.
         """
         print(f"-> {desc} (Speed {speed}) for {duration}s...")
         self.hw.set_motors(speed, speed)
 
         # Monitor Accelerometer
-        fwd_axis = self.hw.accel_forward_axis
-        min_accel = float('inf')
-        max_accel = float('-inf')
+        fwd_axis = self.config.accel_forward_axis.value # e.g. "z"
+        min_vals = {k: float('inf') for k in ['x','y','z']}
+        max_vals = {k: float('-inf') for k in ['x','y','z']}
 
         start_time = time.monotonic()
 
         while (time.monotonic() - start_time) < duration:
             # Read Raw Data
             accel, _ = self.hw.read_imu_raw()
-            val = accel[fwd_axis]
-
-            # Track peaks
-            if val < min_accel: min_accel = val
-            if val > max_accel: max_accel = val
-
+            for k in accel:
+                v = accel[k]
+                if v < min_vals[k]: min_vals[k] = v
+                if v > max_vals[k]: max_vals[k] = v
             time.sleep(0.01)
 
         self.hw.stop()
 
-        # Report
-        delta = max_accel - min_accel
-        print(f"   [CHECK] Forward Axis ({fwd_axis}) Range: [{min_accel:.2f}, {max_accel:.2f}] (Delta: {delta:.2f}g)")
+        # Calculate Deltas
+        deltas = {k: max_vals[k] - min_vals[k] for k in ['x','y','z']}
 
-        # Simple heuristic check
-        if delta > 0.05:
-            print(f"   [PASS] Motion Detected on {fwd_axis}-axis.")
-        else:
-            print(f"   [WARN] Low motion detected ({delta:.2f}g). Motors unplugged or stall?")
+        # Verify Dominance
+        success = self._analyze_dominance(deltas, fwd_axis, "Forward Acceleration")
+
+        # User Confirmation
+        ans = input(f"   User Check: Did the robot drive {desc.upper()}? [y/n]: ").strip().lower()
+        if ans != 'y':
+            print("   [FAILURE] User denied movement.")
+            sys.exit(1)
+
+        if not success:
+            print("   [WARNING] Software detected possible axis mismatch, but User confirmed movement.")
+            print("             Proceeding with caution...")
 
     def turn_90(self, desc: str):
         """
-        Turn 90 degrees using Gyro integration.
-        Monitors 'Off-Axis' gyros to ensure clean rotation.
+        Turn 90 degrees and verify 'Yaw' axis dominance.
         """
         print(f"-> {desc} (Target 90 deg)...")
 
@@ -118,14 +149,12 @@ class MovementCheck:
         target_angle = 90.0
         current_angle = 0.0
 
-        # Identify Axes
-        # Note: RobotHardware.read_imu_converted() uses accel_vertical_axis for Yaw rate.
-        yaw_axis = self.hw.accel_vertical_axis
+        yaw_axis = self.config.gyro_yaw_axis.value
         all_axes = ["x", "y", "z"]
-        off_axes = [a for a in all_axes if a != yaw_axis]
 
-        # Track peaks for off-axes
-        off_axis_peaks = {a: 0.0 for a in off_axes}
+        # Track mean absolute rates
+        rate_sums = {k: 0.0 for k in all_axes}
+        sample_count = 0
 
         last_time = time.monotonic()
         start_time = time.monotonic()
@@ -145,27 +174,33 @@ class MovementCheck:
             rate = reading.yaw_rate
             current_angle += rate * dt
 
-            # 2. Get Raw (for Off-Axis Monitoring)
+            # 2. Get Raw (for Axis Analysis)
             _, gyro = self.hw.read_imu_raw()
-            for axis in off_axes:
-                raw_rate = abs(gyro[axis])
-                if raw_rate > off_axis_peaks[axis]:
-                    off_axis_peaks[axis] = raw_rate
+            for k in all_axes:
+                rate_sums[k] += abs(gyro[k])
+            sample_count += 1
 
             time.sleep(0.01)
 
         self.hw.stop()
         print(f"   Done. Measured Turn: {current_angle:.1f} deg")
 
-        if current_angle < 0:
-            print("   [WARNING] Measured Angle was NEGATIVE. Yaw Axis might be inverted!")
+        # Analysis
+        if sample_count > 0:
+            avg_rates = {k: rate_sums[k]/sample_count for k in all_axes}
+            success = self._analyze_dominance(avg_rates, yaw_axis, "Yaw Rate")
+        else:
+            print("   [ERROR] No samples collected?")
+            success = False
 
-        # Report Off-Axis Stats
-        print(f"   [CHECK] Primary Yaw ({yaw_axis}) Integrated: {current_angle:.1f} deg")
-        for axis in off_axes:
-            peak = off_axis_peaks[axis]
-            status = "Quiet" if peak < 20.0 else "NOISY"
-            print(f"   [CHECK] Off-Axis ({axis}) Peak Rate: {peak:.1f} deg/s ({status})")
+        # User Confirmation
+        ans = input("   User Check: Did the robot turn roughly 90 degrees? [y/n]: ").strip().lower()
+        if ans != 'y':
+             print("   [FAILURE] User denied turn.")
+             sys.exit(1)
+
+        if not success:
+            print("   [WARNING] Software detected possible axis mismatch, but User confirmed turn.")
 
 if __name__ == "__main__":
     MovementCheck().run()

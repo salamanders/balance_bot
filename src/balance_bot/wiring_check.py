@@ -11,6 +11,7 @@ class WiringCheck:
     """
     Streamlined Wiring Check & Calibration Tool.
     Combines motor identification and sensor calibration into a single flow.
+    Includes pessimistic verification steps to ensure hardware is truly responsive.
     """
 
     def __init__(self):
@@ -27,9 +28,6 @@ class WiringCheck:
         if self.hw:
             self.hw.stop()
             self.hw.cleanup()
-
-        # If we are just testing motors, we use raw channels 0 and 1 via the mapped L/R
-        # But if we assume 0=L, 1=R initially, we can correct later.
 
         self.hw = RobotHardware(
             motor_l=self.temp_motor_l,
@@ -52,8 +50,33 @@ class WiringCheck:
         )
         self.hw.init()
 
+    def _check_dominance(self, data_dict, test_name):
+        """
+        Verify that the 'winner' axis is significantly stronger than others.
+        Returns the winner key.
+        """
+        sorted_items = sorted(data_dict.items(), key=lambda x: abs(x[1]), reverse=True)
+        winner, winner_val = sorted_items[0]
+        runner, runner_val = sorted_items[1]
+
+        ratio = abs(winner_val) / (abs(runner_val) + 1e-9)
+        print(f"   [Analysis] {test_name}: Winner={winner.upper()} ({abs(winner_val):.2f}) vs Runner={runner.upper()} ({abs(runner_val):.2f}) -> Ratio: {ratio:.1f}")
+
+        if ratio < 1.5:
+            print(f"   [WARNING] Ambiguous Result for {test_name}! The detected axis is not significantly stronger than others.")
+            print("   Please check mounting or perform the test more carefully.")
+            input("   Press Enter to acknowledge and continue (or Ctrl+C to abort)...")
+        else:
+            print(f"   [PASS] Strong signal for {test_name}.")
+
+        return winner
+
     def detect_i2c_buses(self):
-        """Auto-detect I2C buses for PiconZero (0x22) and MPU6050 (0x68)."""
+        """
+        Auto-detect I2C buses with Pessimistic Verification.
+        - Pulses motors to confirm Motor Driver.
+        - Reads live accel data to confirm IMU.
+        """
         print("Detecting I2C Buses...")
         candidates = [1, 3, 0, 2] # User hint: Motor on 1, Gyro on 3
 
@@ -66,9 +89,24 @@ class WiringCheck:
                     try:
                         # Try to read revision (Reg 0) from address 0x22
                         bus.read_word_data(0x22, 0)
-                        print(f"-> Found PiconZero on Bus {bus_id}")
-                        found_motor = bus_id
-                        break
+                        print(f"-> Found PiconZero candidate on Bus {bus_id}")
+
+                        # PESSIMISM: Pulse Motor
+                        print("   Pulsing Motor A to verify...")
+                        # Write [30, 0] to Reg 0 (Motor A=30, Motor B=0)
+                        bus.write_i2c_block_data(0x22, 0, [30, 0])
+                        time.sleep(0.3)
+                        # Stop [0, 0]
+                        bus.write_i2c_block_data(0x22, 0, [0, 0])
+
+                        ans = input(f"   Did the robot move/click on Bus {bus_id}? [y/n]: ").strip().lower()
+                        if ans == 'y':
+                            found_motor = bus_id
+                            print(f"   [CONFIRMED] Motor on Bus {bus_id}")
+                            break
+                        else:
+                            print(f"   [REJECTED] User denied movement on Bus {bus_id}.")
+
                     except OSError:
                         pass
             except (OSError, FileNotFoundError):
@@ -77,7 +115,11 @@ class WiringCheck:
         if found_motor is not None:
             self.config.motor_i2c_bus = found_motor
         else:
-            print(f"Warning: Could not detect PiconZero. Using default: {self.config.motor_i2c_bus}")
+            print(f"Warning: Could not detect PiconZero (or user rejected all candidates). Keeping: {self.config.motor_i2c_bus}")
+            # We don't exit here, allowing user to potentially force it later or retry?
+            # But usually this is fatal.
+            ans = input("   Continue anyway? [y/n]: ").lower()
+            if ans != 'y': sys.exit(1)
 
         # 2. Find IMU
         found_imu = None
@@ -86,11 +128,46 @@ class WiringCheck:
             try:
                 with smbus2.SMBus(bus_id) as bus:
                     try:
-                        # Try to read WHO_AM_I (Reg 0x75) from address 0x68
-                        bus.read_byte_data(0x68, 0x75)
-                        print(f"-> Found MPU6050 on Bus {bus_id}")
-                        found_imu = bus_id
-                        break
+                        # Try to read WHO_AM_I (Reg 0x75)
+                        who_am_i = bus.read_byte_data(0x68, 0x75)
+                        if who_am_i != 0x68:
+                             continue
+
+                        print(f"-> Found MPU6050 candidate on Bus {bus_id} (WHO_AM_I=0x{who_am_i:02X})")
+
+                        # PESSIMISM: Read Live Accel Data
+                        # IMPORTANT: MPU6050 starts in SLEEP mode. We must wake it up to get data.
+                        # Reg 0x6B (PWR_MGMT_1) = 0
+                        try:
+                            bus.write_byte_data(0x68, 0x6B, 0)
+                            time.sleep(0.1)
+                        except OSError:
+                            print(f"   [WARNING] Failed to wake MPU6050 on Bus {bus_id}")
+                            continue
+
+                        # Reg 0x3B (ACCEL_XOUT_H) -> 6 bytes
+                        data = bus.read_i2c_block_data(0x68, 0x3B, 6)
+
+                        def to_signed(h, l):
+                            val = (h << 8) | l
+                            if val >= 32768: val -= 65536
+                            return val
+
+                        ax = to_signed(data[0], data[1])
+                        ay = to_signed(data[2], data[3])
+                        az = to_signed(data[4], data[5])
+
+                        print(f"   Live Reading: Ax={ax}, Ay={ay}, Az={az}")
+
+                        # Check for gravity or noise
+                        mag = (ax**2 + ay**2 + az**2)**0.5
+                        if mag > 500: # 1g is ~16384 usually, but even if scale is different, >500 is likely valid data
+                            found_imu = bus_id
+                            print(f"   [CONFIRMED] IMU data looks valid (Magnitude {mag:.0f})")
+                            break
+                        else:
+                            print(f"   [WARNING] IMU data extremely low? Magnitude {mag:.0f}. Skipping.")
+
                     except OSError:
                         pass
             except (OSError, FileNotFoundError):
@@ -102,7 +179,7 @@ class WiringCheck:
             print(f"Warning: Could not detect MPU6050. Using default: {self.config.imu_i2c_bus}")
 
     def run(self):
-        print("\n=== Robot Auto-Setup Wizard ===")
+        print("\n=== Robot Auto-Setup Wizard (Pessimistic Mode) ===")
         print("We will configure Motors, then Sensors.")
 
         # Step 0: Auto-Detect Bus
@@ -158,27 +235,21 @@ class WiringCheck:
 
         # Deduce Config
         if choice == 'a':
-            # Ch0 is Left, Fwd. Correct.
             self.config.motor_l = 0
             self.config.motor_l_invert = False
-            # Implies Ch1 is Right
             self.config.motor_r = 1
-            # We don't know Right Invert yet.
             first_motor = "Left"
         elif choice == 'b':
-            # Ch0 is Left, Back. Inverted.
             self.config.motor_l = 0
             self.config.motor_l_invert = True
             self.config.motor_r = 1
             first_motor = "Left"
         elif choice == 'c':
-            # Ch0 is Right, Fwd.
             self.config.motor_r = 0
             self.config.motor_r_invert = False
-            self.config.motor_l = 1 # Ch1 is Left
+            self.config.motor_l = 1
             first_motor = "Right"
         elif choice == 'd':
-            # Ch0 is Right, Back.
             self.config.motor_r = 0
             self.config.motor_r_invert = True
             self.config.motor_l = 1
@@ -193,14 +264,11 @@ class WiringCheck:
         self.temp_invert_l = self.config.motor_l_invert
         self.temp_invert_r = False # Reset Right/Other invert for testing
 
-        # Special case: If Ch0 was Right, we need to make sure we test Ch1 as Left.
-        # But we want to verify the OTHER motor.
-
         # Step 2: Run the OTHER motor
         other_motor = "Right" if first_motor == "Left" else "Left"
         print(f"\nNow running the {other_motor.upper()} wheel (Channel 1)...")
 
-        # Reload HW to ensure we are addressing the correct logical motor
+        # Reload HW
         self.init_hw()
 
         if other_motor == "Right":
@@ -248,13 +316,8 @@ class WiringCheck:
 
         avg_accel = {k: v/samples for k,v in accel_sum.items()}
 
-        # Vertical is the axis with max absolute value (approx 1g)
-        vert_axis = max(avg_accel, key=lambda k: abs(avg_accel[k]))
-        # Polarity: If Sum > 0 (e.g. +1g), we usually invert if we want 'Upright = -1g'
-        # But RobotHardware assumes specific gravity vector?
-        # Standard: Z-Up = +1g.
-        # Previous logic: "Upright = -1g. Sum should be Negative. If Sum > 0, Invert = True."
-        # We will preserve this logic.
+        # Dominance Check
+        vert_axis = self._check_dominance(avg_accel, "Vertical Axis")
         vert_invert = avg_accel[vert_axis] > 0
 
         self.config.accel_vertical_axis = Axis(vert_axis)
@@ -280,21 +343,14 @@ class WiringCheck:
         self.hw.stop()
 
         # Analyze: Axis with highest variance or shift from static
-        # Filter out Vertical Axis
         candidates = [k for k in ["x", "y", "z"] if k != vert_axis]
-
-        # Calculate mean shift from static
         shifts = {}
         for k in candidates:
-            # Mean during move
             mean_move = sum(d[k] for d in accel_data) / len(accel_data)
-            # Shift
             shifts[k] = mean_move - avg_accel[k]
 
-        fwd_axis = max(shifts, key=lambda k: abs(shifts[k]))
-
-        # Polarity: Driving Forward -> Positive Acceleration?
-        # If shift is positive, no invert. If negative, invert.
+        # Dominance Check
+        fwd_axis = self._check_dominance(shifts, "Forward Axis")
         fwd_invert = shifts[fwd_axis] < 0
 
         self.config.accel_forward_axis = Axis(fwd_axis)
@@ -319,11 +375,13 @@ class WiringCheck:
 
         # Analyze: Axis with highest absolute mean rate
         avg_rates = {k: abs(sum(d[k] for d in gyro_data)/len(gyro_data)) for k in ["x","y","z"]}
-        yaw_axis = max(avg_rates, key=avg_rates.get)
+
+        # Dominance Check
+        yaw_axis = self._check_dominance(avg_rates, "Yaw Axis")
 
         # Polarity: Right Turn = Positive Rate
         raw_mean = sum(d[yaw_axis] for d in gyro_data) / len(gyro_data)
-        yaw_invert = raw_mean < 0 # If negative, invert to make it positive
+        yaw_invert = raw_mean < 0
 
         self.config.gyro_yaw_axis = Axis(yaw_axis)
         self.config.gyro_yaw_invert = yaw_invert
@@ -355,30 +413,18 @@ class WiringCheck:
         self.recording = False
         t.join()
 
-        # Analyze: Axis with highest Integral (Total Angle Change)
+        # Analyze: Axis with highest Integral
         integrals = {"x": 0.0, "y": 0.0, "z": 0.0}
         for sample in self.tip_data:
             for k in integrals:
                 integrals[k] += sample[k] * 0.01 # approx dt
 
-        # Filter out Yaw Axis (Spin) to avoid confusion if user twisted?
-        # Ideally Pitch is dominant.
+        # Filter out Yaw Axis
+        # But we pass all to dominance check for transparency
         abs_integrals = {k: abs(v) for k,v in integrals.items()}
-        pitch_axis = max(abs_integrals, key=abs_integrals.get)
 
-        # Polarity:
-        # Move: Back Rest (Nose Up) -> Front Rest (Nose Down).
-        # Standard: Nose Down is Positive Pitch (for balancing logic typically).
-        # Wait, let's verify standard.
-        # If Target=0.
-        # If Robot Falls Forward (Nose Down), Pitch > 0. Error = Target - Pitch = Negative.
-        # PID Output Negative -> Drive Backwards (to catch fall).
-        # Wait. If I fall Forward, I need to drive Forward to catch it.
-        # Previous code:
-        #   Back -> Front = Positive Pitch Rate check.
-        #   "Standard: Nose Down = Positive Pitch."
-        #   "So Gyro Integral should be Positive."
-        #   "If Integral < 0, Invert = True."
+        # Dominance Check
+        pitch_axis = self._check_dominance(abs_integrals, "Pitch Axis")
 
         raw_integral = integrals[pitch_axis]
         pitch_invert = raw_integral < 0
@@ -389,7 +435,6 @@ class WiringCheck:
 
         # --- 5. Deduce Roll ---
         all_axes = {"x", "y", "z"}
-        # Roll Gyro
         roll_gyro = list(all_axes - {yaw_axis, pitch_axis})[0]
         self.config.gyro_roll_axis = Axis(roll_gyro)
         self.config.gyro_roll_invert = False # Default

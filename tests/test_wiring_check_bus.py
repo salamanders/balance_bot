@@ -22,7 +22,8 @@ def wc():
         wc = WiringCheck()
         return wc
 
-def test_detect_i2c_buses_found(wc):
+@patch("builtins.input", return_value="y")
+def test_detect_i2c_buses_found(mock_input, wc):
     """Test successful detection on specific buses."""
     # Candidates are [1, 3, 0, 2]
     # Simulate: PiconZero (0x22) on Bus 1
@@ -44,10 +45,18 @@ def test_detect_i2c_buses_found(wc):
         # MPU6050 Check (read_byte_data 0x68)
         def read_byte_side_effect(addr, reg):
             if bus_id == 3 and addr == 0x68:
-                return 0 # Success
+                return 0x68 # Success
             raise OSError("Not found")
 
         bus.read_byte_data.side_effect = read_byte_side_effect
+
+        # MPU6050 Live Data Check (read_i2c_block_data)
+        def read_block_side_effect(addr, reg, length):
+            if bus_id == 3 and addr == 0x68:
+                # Return valid 1g Z-axis: [0,0, 0,0, 0x40,0x00] -> Z=16384 (Mag ~16384 > 500)
+                return [0, 0, 0, 0, 0x40, 0x00]
+            raise OSError("Not found")
+        bus.read_i2c_block_data.side_effect = read_block_side_effect
 
         return cm
 
@@ -58,7 +67,8 @@ def test_detect_i2c_buses_found(wc):
     assert wc.config.motor_i2c_bus == 1
     assert wc.config.imu_i2c_bus == 3
 
-def test_detect_i2c_buses_not_found(wc):
+@patch("builtins.input", return_value="y")
+def test_detect_i2c_buses_not_found(mock_input, wc):
     """Test when no bus has the device."""
     def smbus_side_effect(bus_id):
         cm = MagicMock()
@@ -76,7 +86,8 @@ def test_detect_i2c_buses_not_found(wc):
     assert wc.config.motor_i2c_bus == 99
     assert wc.config.imu_i2c_bus == 88
 
-def test_detect_i2c_bus_os_error_on_open(wc):
+@patch("builtins.input", return_value="y")
+def test_detect_i2c_bus_os_error_on_open(mock_input, wc):
     """Test when opening the bus raises OSError (bus doesn't exist)."""
     # Simulate Bus 1 failing to open completely
 
