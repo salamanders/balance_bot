@@ -31,6 +31,7 @@ def test_hardware_init_with_bus():
     """Test that RobotHardware initializes mpu6050 with the correct bus."""
     # Reset mocks
     mock_mpu_class.reset_mock()
+    mock_pz_class.reset_mock()
 
     # Ensure not in mock mode
     with patch.dict(os.environ, {}, clear=True):
@@ -43,10 +44,14 @@ def test_hardware_init_with_bus():
         mock_mpu_class.assert_called_once_with(0x68, bus=3)
         assert hw.i2c_bus == 3
 
+        # Verify PiconZero was called with bus=3
+        mock_pz_class.assert_called_once_with(bus_number=3)
+
 def test_hardware_init_default_bus():
     """Test that RobotHardware initializes mpu6050 with default bus 1."""
     # Reset mocks
     mock_mpu_class.reset_mock()
+    mock_pz_class.reset_mock()
 
     with patch.dict(os.environ, {}, clear=True):
         if "MOCK_HARDWARE" in os.environ:
@@ -57,3 +62,6 @@ def test_hardware_init_default_bus():
         # Verify mpu6050 was called with bus=1 (default)
         mock_mpu_class.assert_called_once_with(0x68, bus=1)
         assert hw.i2c_bus == 1
+
+        # Verify PiconZero was called with bus=1 (default)
+        mock_pz_class.assert_called_once_with(bus_number=1)

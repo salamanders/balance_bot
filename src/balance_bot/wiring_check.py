@@ -1,6 +1,7 @@
 import time
 import sys
 import threading
+import smbus2
 from .config import RobotConfig
 from .hardware.robot_hardware import RobotHardware
 from .enums import Axis
@@ -50,9 +51,38 @@ class WiringCheck:
         )
         self.hw.init()
 
+    def detect_i2c_bus(self):
+        """Auto-detect I2C bus by scanning for PiconZero at 0x22."""
+        print("Detecting I2C Bus...")
+        candidates = [1, 2, 3, 0]
+        found_bus = None
+
+        for bus_id in candidates:
+            try:
+                with smbus2.SMBus(bus_id) as bus:
+                    try:
+                        # Try to read revision (Reg 0) from address 0x22
+                        bus.read_word_data(0x22, 0)
+                        print(f"-> Found PiconZero on Bus {bus_id}")
+                        found_bus = bus_id
+                        break
+                    except OSError:
+                        pass
+            except (OSError, FileNotFoundError):
+                pass
+
+        if found_bus is not None:
+            self.config.i2c_bus = found_bus
+        else:
+            print(f"Warning: Could not detect PiconZero on buses {candidates}. Using configured default: {self.config.i2c_bus}")
+
     def run(self):
         print("\n=== Robot Auto-Setup Wizard ===")
         print("We will configure Motors, then Sensors.")
+
+        # Step 0: Auto-Detect Bus
+        self.detect_i2c_bus()
+
         print("Please ensure the robot is on a STAND or wheels are lifted.")
         input("Press Enter to BEGIN...")
 

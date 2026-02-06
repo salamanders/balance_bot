@@ -231,12 +231,12 @@ class RobotHardware:
         # 2. Attempt PiconZero (Bus 1 assumed for HAT)
         try:
             # PiconZero defaults to Bus 1. We assume the HAT is on Bus 1.
-            self.pz = PiconZero()
+            self.pz = PiconZero(bus_number=self.i2c_bus)
         except (OSError, PermissionError, FileNotFoundError) as e:
             logger.error(f"CRITICAL: PiconZero Init Failed: {e}")
 
             # Generate pessimistic report for PiconZero (0x22 on Bus 1)
-            report = get_i2c_failure_report(1, 0x22, "PiconZero")
+            report = get_i2c_failure_report(self.i2c_bus, 0x22, "PiconZero")
             logger.error(report)
 
             self._init_mock_hardware()
