@@ -5,6 +5,7 @@ import smbus2
 from .config import RobotConfig
 from .hardware.robot_hardware import RobotHardware
 from .enums import Axis
+from .utils import analyze_dominance
 
 
 class WiringCheck:
@@ -49,27 +50,6 @@ class WiringCheck:
             imu_i2c_bus=self.config.imu_i2c_bus,
         )
         self.hw.init()
-
-    def _check_dominance(self, data_dict, test_name):
-        """
-        Verify that the 'winner' axis is significantly stronger than others.
-        Returns the winner key.
-        """
-        sorted_items = sorted(data_dict.items(), key=lambda x: abs(x[1]), reverse=True)
-        winner, winner_val = sorted_items[0]
-        runner, runner_val = sorted_items[1]
-
-        ratio = abs(winner_val) / (abs(runner_val) + 1e-9)
-        print(f"   [Analysis] {test_name}: Winner={winner.upper()} ({abs(winner_val):.2f}) vs Runner={runner.upper()} ({abs(runner_val):.2f}) -> Ratio: {ratio:.1f}")
-
-        if ratio < 1.5:
-            print(f"   [WARNING] Ambiguous Result for {test_name}! The detected axis is not significantly stronger than others.")
-            print("   Please check mounting or perform the test more carefully.")
-            input("   Press Enter to acknowledge and continue (or Ctrl+C to abort)...")
-        else:
-            print(f"   [PASS] Strong signal for {test_name}.")
-
-        return winner
 
     def detect_i2c_buses(self):
         """
@@ -317,7 +297,10 @@ class WiringCheck:
         avg_accel = {k: v/samples for k,v in accel_sum.items()}
 
         # Dominance Check
-        vert_axis = self._check_dominance(avg_accel, "Vertical Axis")
+        vert_axis, _, success = analyze_dominance(avg_accel, "Vertical Axis")
+        if not success:
+            print("   Please check mounting or perform the test more carefully.")
+            input("   Press Enter to acknowledge and continue (or Ctrl+C to abort)...")
         vert_invert = avg_accel[vert_axis] > 0
 
         self.config.accel_vertical_axis = Axis(vert_axis)
@@ -350,7 +333,10 @@ class WiringCheck:
             shifts[k] = mean_move - avg_accel[k]
 
         # Dominance Check
-        fwd_axis = self._check_dominance(shifts, "Forward Axis")
+        fwd_axis, _, success = analyze_dominance(shifts, "Forward Axis")
+        if not success:
+            print("   Please check mounting or perform the test more carefully.")
+            input("   Press Enter to acknowledge and continue (or Ctrl+C to abort)...")
         fwd_invert = shifts[fwd_axis] < 0
 
         self.config.accel_forward_axis = Axis(fwd_axis)
@@ -377,7 +363,10 @@ class WiringCheck:
         avg_rates = {k: abs(sum(d[k] for d in gyro_data)/len(gyro_data)) for k in ["x","y","z"]}
 
         # Dominance Check
-        yaw_axis = self._check_dominance(avg_rates, "Yaw Axis")
+        yaw_axis, _, success = analyze_dominance(avg_rates, "Yaw Axis")
+        if not success:
+            print("   Please check mounting or perform the test more carefully.")
+            input("   Press Enter to acknowledge and continue (or Ctrl+C to abort)...")
 
         # Polarity: Right Turn = Positive Rate
         raw_mean = sum(d[yaw_axis] for d in gyro_data) / len(gyro_data)
@@ -424,7 +413,10 @@ class WiringCheck:
         abs_integrals = {k: abs(v) for k,v in integrals.items()}
 
         # Dominance Check
-        pitch_axis = self._check_dominance(abs_integrals, "Pitch Axis")
+        pitch_axis, _, success = analyze_dominance(abs_integrals, "Pitch Axis")
+        if not success:
+            print("   Please check mounting or perform the test more carefully.")
+            input("   Press Enter to acknowledge and continue (or Ctrl+C to abort)...")
 
         raw_integral = integrals[pitch_axis]
         pitch_invert = raw_integral < 0
