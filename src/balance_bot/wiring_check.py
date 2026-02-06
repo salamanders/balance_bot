@@ -47,16 +47,19 @@ class WiringCheck:
             accel_vertical_invert=self.config.accel_vertical_invert,
             accel_forward_axis=self.config.accel_forward_axis,
             accel_forward_invert=self.config.accel_forward_invert,
-            i2c_bus=self.config.i2c_bus,
+            motor_i2c_bus=self.config.motor_i2c_bus,
+            imu_i2c_bus=self.config.imu_i2c_bus,
         )
         self.hw.init()
 
-    def detect_i2c_bus(self):
-        """Auto-detect I2C bus by scanning for PiconZero at 0x22."""
-        print("Detecting I2C Bus...")
-        candidates = [1, 2, 3, 0]
-        found_bus = None
+    def detect_i2c_buses(self):
+        """Auto-detect I2C buses for PiconZero (0x22) and MPU6050 (0x68)."""
+        print("Detecting I2C Buses...")
+        candidates = [1, 3, 0, 2] # User hint: Motor on 1, Gyro on 3
 
+        # 1. Find Motor Driver
+        found_motor = None
+        print("Scanning for PiconZero (0x22)...")
         for bus_id in candidates:
             try:
                 with smbus2.SMBus(bus_id) as bus:
@@ -64,24 +67,46 @@ class WiringCheck:
                         # Try to read revision (Reg 0) from address 0x22
                         bus.read_word_data(0x22, 0)
                         print(f"-> Found PiconZero on Bus {bus_id}")
-                        found_bus = bus_id
+                        found_motor = bus_id
                         break
                     except OSError:
                         pass
             except (OSError, FileNotFoundError):
                 pass
 
-        if found_bus is not None:
-            self.config.i2c_bus = found_bus
+        if found_motor is not None:
+            self.config.motor_i2c_bus = found_motor
         else:
-            print(f"Warning: Could not detect PiconZero on buses {candidates}. Using configured default: {self.config.i2c_bus}")
+            print(f"Warning: Could not detect PiconZero. Using default: {self.config.motor_i2c_bus}")
+
+        # 2. Find IMU
+        found_imu = None
+        print("Scanning for MPU6050 (0x68)...")
+        for bus_id in candidates:
+            try:
+                with smbus2.SMBus(bus_id) as bus:
+                    try:
+                        # Try to read WHO_AM_I (Reg 0x75) from address 0x68
+                        bus.read_byte_data(0x68, 0x75)
+                        print(f"-> Found MPU6050 on Bus {bus_id}")
+                        found_imu = bus_id
+                        break
+                    except OSError:
+                        pass
+            except (OSError, FileNotFoundError):
+                pass
+
+        if found_imu is not None:
+            self.config.imu_i2c_bus = found_imu
+        else:
+            print(f"Warning: Could not detect MPU6050. Using default: {self.config.imu_i2c_bus}")
 
     def run(self):
         print("\n=== Robot Auto-Setup Wizard ===")
         print("We will configure Motors, then Sensors.")
 
         # Step 0: Auto-Detect Bus
-        self.detect_i2c_bus()
+        self.detect_i2c_buses()
 
         print("Please ensure the robot is on a STAND or wheels are lifted.")
         input("Press Enter to BEGIN...")

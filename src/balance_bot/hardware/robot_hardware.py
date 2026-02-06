@@ -146,7 +146,8 @@ class RobotHardware:
         accel_vertical_invert: bool = False,
         accel_forward_axis: Axis = Axis.Y,
         accel_forward_invert: bool = False,
-        i2c_bus: int = 1,
+        motor_i2c_bus: int = 1,
+        imu_i2c_bus: int = 1,
         crash_angle: float = 60.0,
     ):
         """
@@ -166,7 +167,8 @@ class RobotHardware:
         :param accel_vertical_invert: Invert vertical axis sign.
         :param accel_forward_axis: Axis corresponding to forward motion.
         :param accel_forward_invert: Invert forward axis sign.
-        :param i2c_bus: I2C bus number for IMU (default 1).
+        :param motor_i2c_bus: I2C bus number for Motor Driver.
+        :param imu_i2c_bus: I2C bus number for IMU.
         :param crash_angle: Angle to consider as CRASHED state.
         """
         self.motor_l = motor_l
@@ -183,7 +185,8 @@ class RobotHardware:
         self.accel_vertical_invert = accel_vertical_invert
         self.accel_forward_axis = accel_forward_axis
         self.accel_forward_invert = accel_forward_invert
-        self.i2c_bus = i2c_bus
+        self.motor_i2c_bus = motor_i2c_bus
+        self.imu_i2c_bus = imu_i2c_bus
         self.crash_angle = crash_angle
 
         # Deduce Accel Roll Axis (The one not used by Vertical or Forward)
@@ -228,15 +231,14 @@ class RobotHardware:
             self._init_mock_hardware()
             return
 
-        # 2. Attempt PiconZero (Bus 1 assumed for HAT)
+        # 2. Attempt PiconZero
         try:
-            # PiconZero defaults to Bus 1. We assume the HAT is on Bus 1.
-            self.pz = PiconZero(bus_number=self.i2c_bus)
+            self.pz = PiconZero(bus_number=self.motor_i2c_bus)
         except (OSError, PermissionError, FileNotFoundError) as e:
-            logger.error(f"CRITICAL: PiconZero Init Failed: {e}")
+            logger.error(f"CRITICAL: PiconZero Init Failed on Bus {self.motor_i2c_bus}: {e}")
 
-            # Generate pessimistic report for PiconZero (0x22 on Bus 1)
-            report = get_i2c_failure_report(self.i2c_bus, 0x22, "PiconZero")
+            # Generate pessimistic report for PiconZero (0x22)
+            report = get_i2c_failure_report(self.motor_i2c_bus, 0x22, "PiconZero")
             logger.error(report)
 
             self._init_mock_hardware()
@@ -244,13 +246,13 @@ class RobotHardware:
 
         # 3. Attempt MPU6050
         try:
-            self.sensor = MPU6050Adapter(mpu6050(0x68, bus=self.i2c_bus))
-            logger.info(f"Hardware initialized. MPU6050 on bus {self.i2c_bus}.")
+            self.sensor = MPU6050Adapter(mpu6050(0x68, bus=self.imu_i2c_bus))
+            logger.info(f"Hardware initialized. PiconZero on bus {self.motor_i2c_bus}, MPU6050 on bus {self.imu_i2c_bus}.")
         except OSError as e:
-            logger.error(f"CRITICAL: MPU6050 Init Failed on Bus {self.i2c_bus}: {e}")
+            logger.error(f"CRITICAL: MPU6050 Init Failed on Bus {self.imu_i2c_bus}: {e}")
 
-            # Generate pessimistic report for MPU6050 (0x68 on configured bus)
-            report = get_i2c_failure_report(self.i2c_bus, 0x68, "MPU6050")
+            # Generate pessimistic report for MPU6050 (0x68)
+            report = get_i2c_failure_report(self.imu_i2c_bus, 0x68, "MPU6050")
             logger.error(report)
 
             self._init_mock_hardware()
