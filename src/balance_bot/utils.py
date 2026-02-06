@@ -186,3 +186,47 @@ def check_force_calibration_flag() -> bool:
         logger.info("Force calibration flag found")
         return True
     return False
+
+def analyze_dominance(
+    data: dict[str, float],
+    label: str,
+    expected_axis: str = None,
+    threshold: float = 1.5,
+) -> tuple[str, float, bool]:
+    """
+    Analyzes a dictionary of axis values to find the dominant signal.
+
+    :param data: Dictionary of axis values (e.g. {'x': 100, 'y': 10}).
+    :param label: Name of the test for logging.
+    :param expected_axis: (Optional) The axis expected to be dominant.
+    :param threshold: Minimum ratio between winner and runner-up.
+    :return: Tuple (winner_axis, ratio, is_success)
+    """
+    sorted_items = sorted(data.items(), key=lambda x: abs(x[1]), reverse=True)
+    winner, winner_val = sorted_items[0]
+    runner, runner_val = sorted_items[1]
+
+    ratio = abs(winner_val) / (abs(runner_val) + 1e-9)
+
+    print(
+        f"   [Analysis] {label}: Winner={winner.upper()} ({abs(winner_val):.2f}) vs Runner={runner.upper()} ({abs(runner_val):.2f}) -> Ratio: {ratio:.1f}"
+    )
+
+    success = True
+
+    if expected_axis and winner != expected_axis:
+        print(
+            f"   [FAILURE] Expected {expected_axis.upper()} to be dominant, but {winner.upper()} won!"
+        )
+        success = False
+
+    if ratio < threshold:
+        print(f"   [WARNING] Ambiguous Result! Ratio {ratio:.1f} < {threshold}")
+        success = False
+        if not expected_axis:
+            print("   The detected axis is not significantly stronger than others.")
+
+    if success:
+        print(f"   [PASS] Strong signal for {label}.")
+
+    return winner, ratio, success

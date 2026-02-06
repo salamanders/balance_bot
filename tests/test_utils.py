@@ -63,3 +63,30 @@ def test_calculate_pitch():
 
     # -45 degrees backward (Y=-1, Z=1)
     assert math.isclose(calculate_pitch(-1.0, 1.0), -45.0)
+
+from balance_bot.utils import analyze_dominance
+
+def test_analyze_dominance():
+    # Clear winner
+    data = {'x': 100.0, 'y': 10.0, 'z': 5.0}
+    winner, ratio, success = analyze_dominance(data, "Test1")
+    assert winner == 'x'
+    assert abs(ratio - 10.0) < 1e-5
+    assert success is True
+
+    # Ambiguous (ratio 100/90 = 1.11 < 1.5)
+    data = {'x': 100.0, 'y': 90.0, 'z': 5.0}
+    winner, ratio, success = analyze_dominance(data, "Test2")
+    assert winner == 'x'
+    assert success is False
+
+    # Expected winner matches
+    data = {'x': 100.0, 'y': 10.0}
+    winner, ratio, success = analyze_dominance(data, "Test3", expected_axis='x')
+    assert success is True
+
+    # Expected winner mismatch
+    data = {'x': 10.0, 'y': 100.0}
+    winner, ratio, success = analyze_dominance(data, "Test4", expected_axis='x')
+    assert winner == 'y'
+    assert success is False

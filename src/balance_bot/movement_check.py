@@ -3,6 +3,7 @@ import logging
 import sys
 from .config import RobotConfig
 from .hardware.robot_hardware import RobotHardware
+from .utils import analyze_dominance
 
 logger = logging.getLogger(__name__)
 
@@ -72,29 +73,6 @@ class MovementCheck:
             self.hw.stop()
             self.hw.cleanup()
 
-    def _analyze_dominance(self, data_dict: dict, expected_axis: str, label: str):
-        """
-        Check if expected_axis is the dominant signal in data_dict.
-        """
-        sorted_items = sorted(data_dict.items(), key=lambda x: abs(x[1]), reverse=True)
-        winner, winner_val = sorted_items[0]
-        runner, runner_val = sorted_items[1]
-
-        ratio = abs(winner_val) / (abs(runner_val) + 1e-9)
-
-        print(f"   [Analysis] {label}: Winner={winner.upper()} ({abs(winner_val):.2f}) vs Runner={runner.upper()} ({abs(runner_val):.2f})")
-
-        if winner != expected_axis:
-            print(f"   [FAILURE] Expected {expected_axis.upper()} to be dominant, but {winner.upper()} won!")
-            return False
-
-        if ratio < 1.5:
-            print(f"   [WARNING] Signal is ambiguous! Ratio {ratio:.1f} < 1.5")
-            return False
-
-        print(f"   [PASS] {expected_axis.upper()} is dominant (Ratio {ratio:.1f}).")
-        return True
-
     def drive_move(self, speed: float, duration: float, desc: str):
         """
         Drive straight and verify 'Forward' axis dominance.
@@ -124,7 +102,7 @@ class MovementCheck:
         deltas = {k: max_vals[k] - min_vals[k] for k in ['x','y','z']}
 
         # Verify Dominance
-        success = self._analyze_dominance(deltas, fwd_axis, "Forward Acceleration")
+        _, _, success = analyze_dominance(deltas, "Forward Acceleration", expected_axis=fwd_axis)
 
         # User Confirmation
         ans = input(f"   User Check: Did the robot drive {desc.upper()}? [y/n]: ").strip().lower()
@@ -188,7 +166,7 @@ class MovementCheck:
         # Analysis
         if sample_count > 0:
             avg_rates = {k: rate_sums[k]/sample_count for k in all_axes}
-            success = self._analyze_dominance(avg_rates, yaw_axis, "Yaw Rate")
+            _, _, success = analyze_dominance(avg_rates, "Yaw Rate", expected_axis=yaw_axis)
         else:
             print("   [ERROR] No samples collected?")
             success = False
