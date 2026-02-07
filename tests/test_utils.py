@@ -1,6 +1,7 @@
 import time
 import math
-from balance_bot.utils import clamp, RateLimiter, ComplementaryFilter, calculate_pitch, to_signed
+from unittest.mock import patch
+from balance_bot.utils import clamp, RateLimiter, ComplementaryFilter, calculate_pitch, to_signed, LogThrottler
 
 def test_clamp():
     assert clamp(10, 0, 5) == 5.0
@@ -109,3 +110,28 @@ def test_analyze_dominance():
     winner, ratio, success = analyze_dominance(data, "Test4", expected_axis='x')
     assert winner == 'y'
     assert success is False
+
+def test_log_throttler():
+    with patch("time.monotonic") as mock_time:
+        # Start at time 100.0
+        mock_time.return_value = 100.0
+
+        # Interval of 1.0 second
+        throttler = LogThrottler(1.0)
+
+        # First call should succeed (100.0 - 0.0 > 1.0)
+        assert throttler.should_log() is True
+
+        # Immediate subsequent call should fail
+        assert throttler.should_log() is False
+
+        # Advance time by 0.5s (100.5) - still shouldn't log
+        mock_time.return_value = 100.5
+        assert throttler.should_log() is False
+
+        # Advance time to 101.1s (1.1s elapsed since last log) - should log
+        mock_time.return_value = 101.1
+        assert throttler.should_log() is True
+
+        # Immediate subsequent call should fail again
+        assert throttler.should_log() is False
