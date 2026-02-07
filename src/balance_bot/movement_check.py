@@ -51,7 +51,7 @@ class MovementCheck:
             print("\n>>> Phase 1: Forward Square")
             for i in range(4):
                 print(f"\n--- Leg {i+1}/4 ---")
-                self.drive_move(speed=40, duration=0.5, desc="Forward")
+                self.drive_move(speed=60, duration=0.5, desc="Forward")
                 time.sleep(0.2)
                 self.turn_90(desc="Right Turn")
                 time.sleep(0.5)
@@ -60,7 +60,7 @@ class MovementCheck:
             print("\n>>> Phase 2: Reverse Square")
             for i in range(4):
                 print(f"\n--- Leg {i+1}/4 ---")
-                self.drive_move(speed=-40, duration=0.5, desc="Backward")
+                self.drive_move(speed=-60, duration=0.5, desc="Backward")
                 time.sleep(0.2)
                 self.turn_90(desc="Right Turn")
                 time.sleep(0.5)
@@ -123,7 +123,7 @@ class MovementCheck:
         print(f"-> {desc} (Target 90 deg)...")
 
         # Turn Right: Left Motor +, Right Motor -
-        turn_speed = 40
+        turn_speed = 60
         self.hw.set_motors(turn_speed, -turn_speed)
 
         target_angle = 90.0

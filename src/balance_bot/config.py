@@ -236,7 +236,7 @@ class ControlConfig:
     yaw_correction_factor: float = 0.5
     upright_threshold: float = 5.0
     low_battery_log_threshold: float = 0.95
-    kickup_power: float = 30.0
+    kickup_power: float = 60.0
 
 
 @dataclass(frozen=True)
