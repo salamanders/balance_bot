@@ -398,7 +398,7 @@ class Agent:
             # From Front to Back. Drive Positive (Forward).
             direction = Direction.FORWARD
 
-        power = 30.0 # Start small
+        power = 60.0 # Start small
         step = 5.0
         max_power = 100.0
 
@@ -473,7 +473,7 @@ class Agent:
                 # Drive OPPOSITE to kick_direction to fall back to start.
                 # If kick_dir = -1 (Need to go Neg), we are too Pos. Drive Pos to fall back. (fix = +1)
                 # If kick_dir = +1 (Need to go Pos), we are too Neg. Drive Neg to fall back. (fix = -1)
-                fix_power = 30.0 * (-kick_direction)
+                fix_power = 60.0 * (-kick_direction)
 
                 self.core.hw.set_motors(fix_power, fix_power)
                 self._sleep_with_update(0.5)

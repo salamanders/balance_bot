@@ -73,9 +73,9 @@ class WiringCheck:
 
                     # PESSIMISM: Pulse Motor
                     print("   Pulsing Motor A to verify...")
-                    # Write [30, 0] to Reg 0 (Motor A=30, Motor B=0)
-                    bus.write_i2c_block_data(0x22, 0, [30, 0])
-                    time.sleep(0.3)
+                    # Write [60, 0] to Reg 0 (Motor A=60, Motor B=0)
+                    bus.write_i2c_block_data(0x22, 0, [60, 0])
+                    time.sleep(0.5)
                     # Stop [0, 0]
                     bus.write_i2c_block_data(0x22, 0, [0, 0])
 
@@ -212,7 +212,7 @@ class WiringCheck:
 
         # Step 1: Run Channel 0 (Currently mapped to Left)
         print("\nRunning 'Channel A' (0) for 0.5s...")
-        self.hw.set_motors(30, 0) # Left=30, Right=0
+        self.hw.set_motors(60, 0) # Left=60, Right=0
         time.sleep(0.5)
         self.hw.stop()
 
@@ -264,9 +264,9 @@ class WiringCheck:
         self.init_hw()
 
         if other_motor == "Right":
-            self.hw.set_motors(0, 30)
+            self.hw.set_motors(0, 60)
         else:
-            self.hw.set_motors(30, 0)
+            self.hw.set_motors(60, 0)
 
         time.sleep(0.5)
         self.hw.stop()
@@ -326,7 +326,7 @@ class WiringCheck:
 
         print("Driving...")
         # Start Driving
-        self.hw.set_motors(30, 30)
+        self.hw.set_motors(60, 60)
 
         accel_data = []
         end_time = time.time() + 1.0
@@ -360,7 +360,7 @@ class WiringCheck:
         input("Press Enter to SPIN RIGHT...")
 
         print("Spinning...")
-        self.hw.set_motors(30, -30) # Spin Right
+        self.hw.set_motors(60, -60) # Spin Right
 
         gyro_data = []
         end_time = time.time() + 1.0
