@@ -98,13 +98,13 @@ class PiconZero:
 
     def set_motors(self, motor_0_val: int, motor_1_val: int) -> None:
         """
-        Set speed for both motors simultaneously using a block write.
-        :param motor_0_val: Speed for Motor 0 (-100 to 100).
-        :param motor_1_val: Speed for Motor 1 (-100 to 100).
+        Set speed for both motors simultaneously.
+
+        FIX: Use individual set_motor calls. The Picon Zero firmware does not
+        appear to support I2C block writes for the motor registers (0 and 1).
         """
-        safe_val0 = int(clamp(motor_0_val, -127, 127))
-        safe_val1 = int(clamp(motor_1_val, -127, 127))
-        self._write_block(REG_MOTOR_A, [safe_val0, safe_val1])
+        self.set_motor(0, motor_0_val)
+        self.set_motor(1, motor_1_val)
 
     def forward(self, speed: int) -> None:
         """
