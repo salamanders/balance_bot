@@ -1,4 +1,5 @@
 import statistics
+from collections import deque
 from itertools import pairwise
 from typing import NamedTuple
 
@@ -29,7 +30,7 @@ class ContinuousTuner:
         """
         self.config = config
         self.buffer_size = buffer_size
-        self.errors: list[float] = []
+        self.errors: deque[float] = deque(maxlen=self.buffer_size)
         self.cooldown_timer = 0
         self.current_scale = self.config.start_aggression_normal
         self.tick_counter = 0
@@ -60,8 +61,6 @@ class ContinuousTuner:
             return TuningAdjustment(0.0, 0.0, 0.0)
 
         self.errors.append(error)
-        if len(self.errors) > self.buffer_size:
-            self.errors.pop(0)
 
         # Decrement cooldown
         if self.cooldown_timer > 0:
