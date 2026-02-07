@@ -95,34 +95,6 @@ class PiconZero:
         self.set_motor(0, motor_0_val)
         self.set_motor(1, motor_1_val)
 
-    def forward(self, speed: int) -> None:
-        """
-        Drive both motors forward.
-        :param speed: Speed value.
-        """
-        self.set_motors(speed, speed)
-
-    def reverse(self, speed: int) -> None:
-        """
-        Drive both motors in reverse.
-        :param speed: Speed value.
-        """
-        self.set_motors(-speed, -speed)
-
-    def spin_left(self, speed: int) -> None:
-        """
-        Spin robot left (Tank turn).
-        :param speed: Speed value.
-        """
-        self.set_motors(-speed, speed)
-
-    def spin_right(self, speed: int) -> None:
-        """
-        Spin robot right (Tank turn).
-        :param speed: Speed value.
-        """
-        self.set_motors(speed, -speed)
-
     def stop(self) -> None:
         """Stop all motors."""
         self.set_motors(0, 0)
