@@ -130,6 +130,44 @@ Start the balancing software.
 uv run balance-bot
 ```
 
+## CLI Reference
+
+The robot application supports several command-line arguments to assist with setup, debugging, and development.
+
+*   **`--check-wiring`**
+    Runs an interactive wizard to verify motor direction and gyro orientation. Essential for first-time setup.
+    ```bash
+    uv run balance-bot --check-wiring
+    ```
+
+*   **`--confirm-wiring`**
+    Executes a predefined movement pattern (Square Test) to validate that hardware axes are correctly mapped before attempting to balance.
+    ```bash
+    uv run balance-bot --confirm-wiring
+    ```
+
+*   **`--diagnose`**
+    Runs a suite of system diagnostics to check for common issues, including:
+    *   Python package imports.
+    *   System I2C configuration (config.txt overlays).
+    *   I2C bus permissions and access (smbus2).
+    *   Device connectivity (i2cdetect).
+    ```bash
+    uv run balance-bot --diagnose
+    ```
+
+*   **`--auto-fix`**
+    Enables automated crash reporting. If the robot crashes, this flag captures the traceback, logs, configuration state, and library versions, then submits a report to Jules for analysis.
+    ```bash
+    uv run balance-bot --auto-fix
+    ```
+
+*   **`--allow-mocks`**
+    Forces the use of Mock Hardware. This allows you to run the control loop and logic on a laptop or device without physical sensors/motors. Useful for development and testing.
+    ```bash
+    uv run balance-bot --allow-mocks
+    ```
+
 ---
 
 ## Physical Wiring Check
@@ -196,15 +234,6 @@ This code relies on several hardware, physical, and configuration assumptions. I
     *   *Citation*: [src/balance_bot/config.py](src/balance_bot/config.py) (`min_pwm` in `BatteryConfig`).
 *   **PID Defaults**: Starts with `Kp=25.0`, `Ki=0.0`, `Kd=0.5`.
     *   *Citation*: [src/balance_bot/config.py](src/balance_bot/config.py) (`PIDParams`).
-
-### Simulation / Mock Mode
-If you are developing on a laptop without the robot hardware, you can force the use of Mock Hardware by passing the `--allow-mocks` flag.
-
-```bash
-uv run balance-bot --allow-mocks
-```
-
-This will simulate sensor data and motor responses, allowing you to test the control logic and behavior loop.
 
 ### System Environment
 *   **Status LEDs**: Assumes availability of system LEDs at `/sys/class/leds/led0/brightness` or `/sys/class/leds/ACT/brightness`.
