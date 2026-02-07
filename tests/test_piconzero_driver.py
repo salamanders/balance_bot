@@ -1,6 +1,6 @@
 import unittest
 import sys
-import smbus2
+import smbus
 from unittest.mock import MagicMock, patch
 import os
 
@@ -21,9 +21,9 @@ class TestPiconZeroDriver(unittest.TestCase):
         self.PiconZero = PiconZero
         self.REG_MOTOR_A = REG_MOTOR_A
 
-        # Patch smbus2.SMBus globally
+        # Patch smbus.SMBus globally
         self.mock_bus = MagicMock()
-        self.patcher = patch('smbus2.SMBus', return_value=self.mock_bus)
+        self.patcher = patch('smbus.SMBus', return_value=self.mock_bus)
         self.patcher.start()
 
         self.picon = self.PiconZero(bus_number=1)

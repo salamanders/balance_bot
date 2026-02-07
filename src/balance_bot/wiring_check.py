@@ -1,7 +1,7 @@
 import time
 import sys
 import threading
-import smbus2
+import smbus
 from .config import RobotConfig
 from .hardware.robot_hardware import RobotHardware
 from .enums import Axis
@@ -65,7 +65,7 @@ class WiringCheck:
         print("Scanning for PiconZero (0x22)...")
         for bus_id in candidates:
             try:
-                with smbus2.SMBus(bus_id) as bus:
+                with smbus.SMBus(bus_id) as bus:
                     try:
                         # Try to read revision (Reg 0) from address 0x22
                         bus.read_word_data(0x22, 0)
@@ -106,7 +106,7 @@ class WiringCheck:
         print("Scanning for MPU6050 (0x68)...")
         for bus_id in candidates:
             try:
-                with smbus2.SMBus(bus_id) as bus:
+                with smbus.SMBus(bus_id) as bus:
                     try:
                         # Try to read WHO_AM_I (Reg 0x75)
                         who_am_i = bus.read_byte_data(0x68, 0x75)

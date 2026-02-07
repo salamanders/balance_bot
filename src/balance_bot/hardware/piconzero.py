@@ -1,110 +1,214 @@
-import time
-import logging
-import smbus2
-from ..utils import clamp
+# Python library for 4tronix Picon Zero
+# Note that all I2C accesses are wrapped in try clauses with repeats
 
-logger = logging.getLogger(__name__)
+from __future__ import print_function
+import smbus, time
 
-# Constants
-I2C_ADDRESS = 0x22
-RETRIES = 10
+bus = smbus.SMBus(1) # For revision 1 Raspberry Pi, change to bus = smbus.SMBus(0)
 
-# Registers
-REG_MOTOR_A = 0
-REG_RESET = 20
+pzaddr = 0x22 # I2C address of Picon Zero
+
+#---------------------------------------------
+# Definitions of Commands to Picon Zero
+MOTORA = 0
+OUTCFG0 = 2
+OUTPUT0 = 8
+INCFG0 = 14
+SETBRIGHT = 18
+UPDATENOW = 19
+RESET = 20
+INPERIOD0 = 21
+#---------------------------------------------
+
+#---------------------------------------------
+# General variables
+DEBUG = False
+RETRIES = 10   # max number of retries for I2C calls
+#---------------------------------------------
+
+#---------------------------------------------
+# Get Version and Revision info
+def getRevision():
+    for i in range(RETRIES):
+        try:
+            rval = bus.read_word_data (pzaddr, 0)
+            return [rval//256, rval%256]
+        except:
+            if (DEBUG):
+                print("Error in getRevision(), retrying")
+#---------------------------------------------
 
 
-class PiconZero:
-    """
-    Driver for 4tronix Picon Zero board.
-
-    This is a modernized version of the original 4tronix driver, adapted for
-    modern Python (3.10+) with type hints, logging, and integrated into
-    the balance_bot project structure.
-    """
-
-    def __init__(self, bus_number: int = 1, retries: int = RETRIES):
-        """
-        Initialize the PiconZero driver.
-        :param bus_number: I2C bus number (usually 1 for modern Pi, 0 for old).
-        :param retries: Number of retries for I2C operations.
-        """
-        self.bus: smbus2.SMBus | None = None
-        self.bus = smbus2.SMBus(bus_number)
-        self.retries = retries
-        logger.info(f"PiconZero initialized on bus {bus_number} with {retries} retries")
-
-    def set_retries(self, retries: int) -> None:
-        """Set the number of retries for I2C operations."""
-        self.retries = retries
-
-    def _i2c_op(self, method, reg: int, *args, op_name: str = "operation"):
-        """Generic I2C operation with retries."""
-        if self.bus is None:
-            return None
-        for _ in range(self.retries):
+#---------------------------------------------
+# motor must be in range 0..1
+# value must be in range -128 - +127
+# values of -127, -128, +127 are treated as always ON,, no PWM
+def setMotor (motor, value):
+    if (motor>=0 and motor<=1 and value>=-128 and value<128):
+        for i in range(RETRIES):
             try:
-                return method(I2C_ADDRESS, reg, *args)
-            except Exception:
-                pass
-        logger.error(f"Failed to {op_name} register {reg}")
-        return None
+                bus.write_byte_data (pzaddr, motor, value)
+                break
+            except:
+                if (DEBUG):
+                    print("Error in setMotor(), retrying")
 
-    def _write_byte(self, reg: int, value: int) -> None:
-        """Low-level I2C byte write with retries."""
-        self._i2c_op(self.bus.write_byte_data, reg, value, op_name="write byte to")
+def forward (speed):
+    setMotor (0, speed)
+    setMotor (1, speed)
 
-    def _write_block(self, reg: int, data: list[int]) -> None:
-        """Low-level I2C block write with retries."""
-        self._i2c_op(self.bus.write_i2c_block_data, reg, data, op_name="write block to")
+def reverse (speed):
+    setMotor (0, -speed)
+    setMotor (1, -speed)
 
-    def _read_word(self, reg: int) -> int:
-        """Low-level I2C word read with retries."""
-        val = self._i2c_op(self.bus.read_word_data, reg, op_name="read word from")
-        return val if val is not None else 0
+def spinLeft (speed):
+    setMotor (0, -speed)
+    setMotor (1, speed)
 
-    def get_revision(self) -> tuple[int, int]:
-        """
-        Get the board revision.
-        :return: Tuple of (major, minor) revision.
-        """
-        rval = self._read_word(0)
-        return (rval // 256, rval % 256)
+def spinRight (speed):
+    setMotor (0, speed)
+    setMotor (1, -speed)
 
-    def set_motor(self, motor: int, value: int) -> None:
-        """
-        Set motor speed.
-        :param motor: Motor index (0 or 1).
-        :param value: Speed -100 to 100.
-        """
-        if motor not in (0, 1):
-            return
+def stop():
+    setMotor (0, 0)
+    setMotor (1, 0)
 
-        # Original code check: value >= -128 and value < 128
-        # We will clamp it to be safe
-        safe_value = int(clamp(value, -127, 127))
-        self._write_byte(motor, safe_value)
+#---------------------------------------------
 
-    def set_motors(self, motor_0_val: int, motor_1_val: int) -> None:
-        """
-        Set speed for both motors simultaneously.
+#---------------------------------------------
+# Read data for selected input channel (analog or digital)
+# Channel is in range 0 to 3
+def readInput (channel):
+    if (channel>=0 and channel <=3):
+        for i in range(RETRIES):
+            try:
+                return bus.read_word_data (pzaddr, channel + 1)
+            except:
+                if (DEBUG):
+                    print("Error in readChannel(), retrying")
 
-        FIX: Use individual set_motor calls. The Picon Zero firmware does not
-        appear to support I2C block writes for the motor registers (0 and 1).
-        """
-        self.set_motor(0, motor_0_val)
-        self.set_motor(1, motor_1_val)
+#---------------------------------------------
 
-    def stop(self) -> None:
-        """Stop all motors."""
-        self.set_motors(0, 0)
+#---------------------------------------------
+# Set configuration of selected output
+# 0: On/Off, 1: PWM, 2: Servo, 3: WS2812B
+def setOutputConfig (output, value):
+    if (output>=0 and output<=5 and value>=0 and value<=3):
+        for i in range(RETRIES):
+            try:
+                bus.write_byte_data (pzaddr, OUTCFG0 + output, value)
+                break
+            except:
+                if (DEBUG):
+                    print("Error in setOutputConfig(), retrying")
+#---------------------------------------------
 
-    def init(self) -> None:
-        """Initialize/Reset the board."""
-        self._write_byte(REG_RESET, 0)
-        time.sleep(0.01)
+#---------------------------------------------
+# Set configuration of selected input channel
+# 0: Digital, 1: Analog, 2: DS18B20, 4: DutyCycle 5: Pulse Width
+def setInputConfig (channel, value, pullup = False, period = 2000):
+    if (channel >= 0 and channel <= 3 and value >= 0 and value <= 5):
+        if (value == 0 and pullup == True):
+            value = 128
+        for i in range(RETRIES):
+            try:
+                bus.write_byte_data (pzaddr, INCFG0 + channel, value)
+                if (value == 4 or value == 5):
+                    bus.write_word_data (pzaddr, INPERIOD0 + channel, period)
+                break
+            except:
+                if (DEBUG):
+                    print("Error in setInputConfig(), retrying")
+#---------------------------------------------
 
-    def cleanup(self) -> None:
-        """Cleanup resources (reset board)."""
-        self._write_byte(REG_RESET, 0)
-        time.sleep(0.001)
+#---------------------------------------------
+# Set output data for selected output channel
+# Mode  Name    Type    Values
+# 0     On/Off  Byte    0 is OFF, 1 is ON
+# 1     PWM     Byte    0 to 100 percentage of ON time
+# 2     Servo   Byte    -100 to + 100 Position in degrees
+# 3     WS2812B 4 Bytes 0:Pixel ID, 1:Red, 2:Green, 3:Blue
+def setOutput (channel, value):
+    if (channel>=0 and channel<=5):
+        for i in range(RETRIES):
+            try:
+                bus.write_byte_data (pzaddr, OUTPUT0 + channel, value)
+                break
+            except:
+                if (DEBUG):
+                    print("Error in setOutput(), retrying")
+#---------------------------------------------
+
+#---------------------------------------------
+# Set the colour of an individual pixel (always output 5)
+def setPixel (Pixel, Red, Green, Blue, Update=True):
+    pixelData = [Pixel, Red, Green, Blue]
+    for i in range(RETRIES):
+        try:
+            bus.write_i2c_block_data (pzaddr, Update, pixelData)
+            break
+        except:
+            if (DEBUG):
+                print("Error in setPixel(), retrying")
+
+def setAllPixels (Red, Green, Blue, Update=True):
+    pixelData = [100, Red, Green, Blue]
+    for i in range(RETRIES):
+        try:
+            bus.write_i2c_block_data (pzaddr, Update, pixelData)
+            break
+        except:
+            if (DEBUG):
+                print("Error in setAllPixels(), retrying")
+
+def updatePixels ():
+    for i in range(RETRIES):
+        try:
+            bus.write_byte_data (pzaddr, UPDATENOW, 0)
+            break
+        except:
+            if (DEBUG):
+                print("Error in updatePixels(), retrying")
+
+#---------------------------------------------
+
+#---------------------------------------------
+# Set the overall brightness of pixel array
+def setBrightness (brightness):
+    for i in range(RETRIES):
+        try:
+            bus.write_byte_data (pzaddr, SETBRIGHT, brightness)
+            break
+        except:
+            if (DEBUG):
+                print("Error in setBrightness(), retrying")
+#---------------------------------------------
+
+#---------------------------------------------
+# Initialise the Board (same as cleanup)
+def init (debug=False):
+    DEBUG = debug
+    for i in range(RETRIES):
+        try:
+            bus.write_byte_data (pzaddr, RESET, 0)
+            break
+        except:
+            if (DEBUG):
+                print("Error in init(), retrying")
+    time.sleep(0.01)  #1ms delay to allow time to complete
+    if (DEBUG):
+        print("Debug is", DEBUG)
+#---------------------------------------------
+
+#---------------------------------------------
+# Cleanup the Board (same as init)
+def cleanup ():
+    for i in range(RETRIES):
+        try:
+            bus.write_byte_data (pzaddr, RESET, 0)
+            break
+        except:
+            if (DEBUG):
+                print("Error in cleanup(), retrying")
+    time.sleep(0.001)   # 1ms delay to allow time to complete
+#---------------------------------------------
