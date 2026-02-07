@@ -38,41 +38,30 @@ class PiconZero:
         """Set the number of retries for I2C operations."""
         self.retries = retries
 
-    def _write_byte(self, reg: int, value: int) -> None:
-        """Low-level I2C byte write with retries."""
+    def _i2c_op(self, method, reg: int, *args, op_name: str = "operation"):
+        """Generic I2C operation with retries."""
         if self.bus is None:
-            return
+            return None
         for _ in range(self.retries):
             try:
-                self.bus.write_byte_data(I2C_ADDRESS, reg, value)
-                return
+                return method(I2C_ADDRESS, reg, *args)
             except Exception:
                 pass
-        logger.error(f"Failed to write byte to register {reg}")
+        logger.error(f"Failed to {op_name} register {reg}")
+        return None
+
+    def _write_byte(self, reg: int, value: int) -> None:
+        """Low-level I2C byte write with retries."""
+        self._i2c_op(self.bus.write_byte_data, reg, value, op_name="write byte to")
 
     def _write_block(self, reg: int, data: list[int]) -> None:
         """Low-level I2C block write with retries."""
-        if self.bus is None:
-            return
-        for _ in range(self.retries):
-            try:
-                self.bus.write_i2c_block_data(I2C_ADDRESS, reg, data)
-                return
-            except Exception:
-                pass
-        logger.error(f"Failed to write block to register {reg}")
+        self._i2c_op(self.bus.write_i2c_block_data, reg, data, op_name="write block to")
 
     def _read_word(self, reg: int) -> int:
         """Low-level I2C word read with retries."""
-        if self.bus is None:
-            return 0
-        for _ in range(self.retries):
-            try:
-                return self.bus.read_word_data(I2C_ADDRESS, reg)
-            except Exception:
-                pass
-        logger.error(f"Failed to read word from register {reg}")
-        return 0
+        val = self._i2c_op(self.bus.read_word_data, reg, op_name="read word from")
+        return val if val is not None else 0
 
     def get_revision(self) -> tuple[int, int]:
         """

@@ -63,5 +63,25 @@ class TestPiconZeroDriver(unittest.TestCase):
         ]
         self.assertEqual(len(block_calls), 0, "Should not use block write for motors")
 
+    def test_retry_on_write_byte(self):
+        """Test that write_byte retries on failure and eventually succeeds."""
+        self.picon.set_retries(3)
+        # Fail twice, succeed on third attempt
+        self.mock_bus.write_byte_data.side_effect = [OSError("Fail 1"), OSError("Fail 2"), None]
+
+        self.picon._write_byte(0x10, 0xFF)
+
+        self.assertEqual(self.mock_bus.write_byte_data.call_count, 3)
+
+    def test_retry_fail_logs_error(self):
+        """Test that write_byte retries and logs error on total failure."""
+        self.picon.set_retries(3)
+        self.mock_bus.write_byte_data.side_effect = [OSError("Fail 1"), OSError("Fail 2"), OSError("Fail 3")]
+
+        with self.assertLogs('balance_bot.hardware.piconzero', level='ERROR') as cm:
+            self.picon._write_byte(0x10, 0xFF)
+
+        self.assertTrue(any("Failed to write byte" in msg for msg in cm.output))
+
 if __name__ == '__main__':
     unittest.main()
