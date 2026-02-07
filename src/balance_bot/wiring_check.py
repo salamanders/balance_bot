@@ -5,7 +5,7 @@ import smbus2
 from .config import RobotConfig
 from .hardware.robot_hardware import RobotHardware
 from .enums import Axis
-from .utils import analyze_dominance
+from .utils import analyze_dominance, to_signed
 
 
 class WiringCheck:
@@ -127,11 +127,6 @@ class WiringCheck:
 
                         # Reg 0x3B (ACCEL_XOUT_H) -> 6 bytes
                         data = bus.read_i2c_block_data(0x68, 0x3B, 6)
-
-                        def to_signed(h, l):
-                            val = (h << 8) | l
-                            if val >= 32768: val -= 65536
-                            return val
 
                         ax = to_signed(data[0], data[1])
                         ay = to_signed(data[2], data[3])

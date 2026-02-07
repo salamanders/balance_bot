@@ -11,11 +11,6 @@ RETRIES = 10
 
 # Registers
 REG_MOTOR_A = 0
-REG_OUT_CFG_0 = 2
-REG_OUTPUT_0 = 8
-REG_IN_CFG_0 = 14
-REG_SET_BRIGHT = 18
-REG_UPDATE_NOW = 19
 REG_RESET = 20
 
 
@@ -142,83 +137,6 @@ class PiconZero:
     def stop(self) -> None:
         """Stop all motors."""
         self.set_motors(0, 0)
-
-    def read_input(self, channel: int) -> int:
-        """
-        Read data from selected input channel (0-3).
-        :param channel: Input channel index.
-        :return: Read value.
-        """
-        if 0 <= channel <= 3:
-            return self._read_word(channel + 1)
-        return 0
-
-    def set_output_config(self, output: int, mode: int) -> None:
-        """
-        Set configuration of selected output.
-        :param output: 0-5
-        :param mode: 0: On/Off, 1: PWM, 2: Servo, 3: WS2812B
-        """
-        if 0 <= output <= 5 and 0 <= mode <= 3:
-            self._write_byte(REG_OUT_CFG_0 + output, mode)
-
-    def set_input_config(self, channel: int, mode: int, pullup: bool = False) -> None:
-        """
-        Set configuration of selected input channel.
-        :param channel: 0-3
-        :param mode: 0: Digital, 1: Analog
-        :param pullup: Enable pullup resistor (for Digital mode)
-        """
-        if 0 <= channel <= 3 and 0 <= mode <= 3:
-            val = mode
-            if mode == 0 and pullup:
-                val = 128
-            self._write_byte(REG_IN_CFG_0 + channel, val)
-
-    def set_output(self, channel: int, value: int) -> None:
-        """
-        Set output data for selected output channel.
-        :param channel: 0-5
-        :param value: Depends on mode (0-100 for PWM, -100 to 100 for Servo)
-        """
-        if 0 <= channel <= 5:
-            self._write_byte(REG_OUTPUT_0 + channel, value)
-
-    def set_pixel(
-        self, pixel: int, red: int, green: int, blue: int, update: bool = True
-    ) -> None:
-        """
-        Set the color of an individual pixel (Output 5 must be WS2812B).
-        :param pixel: Pixel index.
-        :param red: Red component (0-255).
-        :param green: Green component (0-255).
-        :param blue: Blue component (0-255).
-        :param update: Whether to update immediately.
-        """
-        pixel_data = [pixel, red, green, blue]
-        self._write_block(1 if update else 0, pixel_data)
-
-    def set_all_pixels(self, red: int, green: int, blue: int, update: bool = True) -> None:
-        """
-        Set all pixels to a color.
-        :param red: Red component (0-255).
-        :param green: Green component (0-255).
-        :param blue: Blue component (0-255).
-        :param update: Whether to update immediately.
-        """
-        pixel_data = [100, red, green, blue]
-        self._write_block(1 if update else 0, pixel_data)
-
-    def update_pixels(self) -> None:
-        """Trigger update of pixels."""
-        self._write_byte(REG_UPDATE_NOW, 0)
-
-    def set_brightness(self, brightness: int) -> None:
-        """
-        Set overall brightness of pixel array.
-        :param brightness: Brightness value (0-255).
-        """
-        self._write_byte(REG_SET_BRIGHT, brightness)
 
     def init(self) -> None:
         """Initialize/Reset the board."""

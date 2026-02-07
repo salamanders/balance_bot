@@ -76,6 +76,9 @@ class Agent:
         self.ticks = 0
         self.io_executor = concurrent.futures.ThreadPoolExecutor(max_workers=1)
 
+        # Pre-allocated zero tuning params for waiting/measuring loops
+        self._zero_tuning = TuningParams(0.0, 0.0, 0.0, 0.0)
+
     def init(self) -> None:
         """Initialize hardware and signal readiness."""
         # Core init happens in __init__ currently, but we can verify here?
@@ -91,7 +94,7 @@ class Agent:
         start_wait = time.monotonic()
         while time.monotonic() - start_wait < SYSTEM_TIMING.setup_wait:
             # We must spin the core to settle the filter
-            self.core.update(MotionRequest(), TuningParams(0,0,0,0), self.config.loop_time)
+            self.core.update(MotionRequest(), self._zero_tuning, self.config.loop_time)
             self.led.update()
             time.sleep(self.config.loop_time)
 
@@ -134,6 +137,9 @@ class Agent:
         last_pitch_rate = 0.0
         # Initialize dummy telemetry for the first cycle
         last_telemetry = None
+
+        # Pre-allocate TuningParams for high-frequency reuse
+        tuning_params = TuningParams(0.0, 0.0, 0.0, 0.0)
 
         try:
             while self.running:
@@ -237,12 +243,11 @@ class Agent:
                             logger.error(f"Failed to initiate async config save: {e}")
 
                 # --- TIER 1: REFLEX (Execution) ---
-                tuning_params = TuningParams(
-                    kp=tune_kp,
-                    ki=tune_ki,
-                    kd=tune_kd,
-                    target_angle_offset=target_offset
-                )
+                # Update existing object to avoid allocation
+                tuning_params.kp = tune_kp
+                tuning_params.ki = tune_ki
+                tuning_params.kd = tune_kd
+                tuning_params.target_angle_offset = target_offset
 
                 last_telemetry = self.core.update(
                     motion_req,
@@ -349,7 +354,7 @@ class Agent:
         end_time = time.monotonic() + duration
         while True:
             # Keep filter alive
-            telemetry = self.core.update(MotionRequest(), TuningParams(0, 0, 0, 0), self.config.loop_time)
+            telemetry = self.core.update(MotionRequest(), self._zero_tuning, self.config.loop_time)
 
             if time.monotonic() > end_time:
                 # Check rate
@@ -367,7 +372,7 @@ class Agent:
         pitch_sum = 0.0
         count = 0
         while time.monotonic() < end_time:
-            telemetry = self.core.update(MotionRequest(), TuningParams(0, 0, 0, 0), self.config.loop_time)
+            telemetry = self.core.update(MotionRequest(), self._zero_tuning, self.config.loop_time)
             pitch_sum += telemetry.pitch_angle
             count += 1
             time.sleep(self.config.loop_time)
@@ -377,7 +382,7 @@ class Agent:
         """Sleep for duration while keeping the core filter updated."""
         end_time = time.monotonic() + duration
         while time.monotonic() < end_time:
-            self.core.update(MotionRequest(), TuningParams(0, 0, 0, 0), self.config.loop_time)
+            self.core.update(MotionRequest(), self._zero_tuning, self.config.loop_time)
             time.sleep(self.config.loop_time)
 
     def _incremental_flop(self, target_side: Orientation) -> float:
@@ -411,7 +416,7 @@ class Agent:
             end_wait = time.monotonic() + 1.5
             success = False
             while time.monotonic() < end_wait:
-                telem = self.core.update(MotionRequest(), TuningParams(0,0,0,0), self.config.loop_time)
+                telem = self.core.update(MotionRequest(), self._zero_tuning, self.config.loop_time)
 
                 # Check if we crossed the vertical significantly
                 # Front target (Pos angle) means we passed > 10

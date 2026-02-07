@@ -1,7 +1,7 @@
 import time
 import math
 from unittest.mock import patch
-from balance_bot.utils import clamp, RateLimiter, ComplementaryFilter, calculate_pitch, LogThrottler
+from balance_bot.utils import clamp, RateLimiter, ComplementaryFilter, calculate_pitch, to_signed, LogThrottler
 
 def test_clamp():
     assert clamp(10, 0, 5) == 5.0
@@ -9,6 +9,25 @@ def test_clamp():
     assert clamp(3, 0, 5) == 3.0
     assert clamp(0, 0, 5) == 0.0
     assert clamp(5, 0, 5) == 5.0
+
+def test_to_signed():
+    # Zero
+    assert to_signed(0, 0) == 0
+
+    # Max positive (32767) -> 0x7F, 0xFF
+    assert to_signed(0x7F, 0xFF) == 32767
+
+    # Min negative (-32768) -> 0x80, 0x00
+    assert to_signed(0x80, 0x00) == -32768
+
+    # -1 -> 0xFF, 0xFF
+    assert to_signed(0xFF, 0xFF) == -1
+
+    # Arbitrary positive: 1 -> 0x00, 0x01
+    assert to_signed(0x00, 0x01) == 1
+
+    # Arbitrary negative: -256 -> 0xFF, 0x00
+    assert to_signed(0xFF, 0x00) == -256
 
 def test_rate_limiter():
     freq = 50

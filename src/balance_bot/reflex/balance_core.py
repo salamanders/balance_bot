@@ -1,7 +1,6 @@
 from dataclasses import dataclass
-from typing import NamedTuple
 
-from ..config import RobotConfig, PIDParams
+from ..config import RobotConfig
 from ..hardware.robot_hardware import RobotHardware
 from ..utils import ComplementaryFilter
 from .pid import PIDController
@@ -28,15 +27,21 @@ class BalanceTelemetry:
     crashed: bool
 
 
-class TuningParams(NamedTuple):
+class TuningParams:
     """
     Tier 2 -> Tier 1 Adaptation Interface.
     Allows dynamic adjustment of PID and Balance Point.
     """
-    kp: float
-    ki: float
-    kd: float
-    target_angle_offset: float
+    __slots__ = ['kp', 'ki', 'kd', 'target_angle_offset']
+
+    def __init__(self, kp: float, ki: float, kd: float, target_angle_offset: float):
+        self.kp = kp
+        self.ki = ki
+        self.kd = kd
+        self.target_angle_offset = target_angle_offset
+
+    def __repr__(self):
+        return f"TuningParams(kp={self.kp}, ki={self.ki}, kd={self.kd}, target_angle_offset={self.target_angle_offset})"
 
 
 class BalanceCore:
