@@ -84,7 +84,7 @@ def test_calculate_pitch():
     # -45 degrees backward (Y=-1, Z=1)
     assert math.isclose(calculate_pitch(-1.0, 1.0), -45.0)
 
-from balance_bot.utils import analyze_dominance
+from balance_bot.utils import analyze_dominance  # noqa: E402
 
 def test_analyze_dominance():
     # Clear winner

@@ -65,30 +65,38 @@ class WiringCheck:
         print("Scanning for PiconZero (0x22)...")
         for bus_id in candidates:
             try:
-                with smbus.SMBus(bus_id) as bus:
+                bus = smbus.SMBus(bus_id)
+                try:
+                    # Try to read revision (Reg 0) from address 0x22
+                    bus.read_word_data(0x22, 0)
+                    print(f"-> Found PiconZero candidate on Bus {bus_id}")
+
+                    # PESSIMISM: Pulse Motor
+                    print("   Pulsing Motor A to verify...")
+                    # Write [30, 0] to Reg 0 (Motor A=30, Motor B=0)
+                    bus.write_i2c_block_data(0x22, 0, [30, 0])
+                    time.sleep(0.3)
+                    # Stop [0, 0]
+                    bus.write_i2c_block_data(0x22, 0, [0, 0])
+
+                    ans = input(f"   Did the robot move/click on Bus {bus_id}? [y/n]: ").strip().lower()
+                    if ans == 'y':
+                        found_motor = bus_id
+                        print(f"   [CONFIRMED] Motor on Bus {bus_id}")
+                        # break handled after finally
+                    else:
+                        print(f"   [REJECTED] User denied movement on Bus {bus_id}.")
+
+                except OSError:
+                    pass
+                finally:
                     try:
-                        # Try to read revision (Reg 0) from address 0x22
-                        bus.read_word_data(0x22, 0)
-                        print(f"-> Found PiconZero candidate on Bus {bus_id}")
-
-                        # PESSIMISM: Pulse Motor
-                        print("   Pulsing Motor A to verify...")
-                        # Write [30, 0] to Reg 0 (Motor A=30, Motor B=0)
-                        bus.write_i2c_block_data(0x22, 0, [30, 0])
-                        time.sleep(0.3)
-                        # Stop [0, 0]
-                        bus.write_i2c_block_data(0x22, 0, [0, 0])
-
-                        ans = input(f"   Did the robot move/click on Bus {bus_id}? [y/n]: ").strip().lower()
-                        if ans == 'y':
-                            found_motor = bus_id
-                            print(f"   [CONFIRMED] Motor on Bus {bus_id}")
-                            break
-                        else:
-                            print(f"   [REJECTED] User denied movement on Bus {bus_id}.")
-
-                    except OSError:
+                        bus.close()
+                    except AttributeError:
                         pass
+
+                if found_motor is not None:
+                    break
             except (OSError, FileNotFoundError):
                 pass
 
@@ -99,20 +107,22 @@ class WiringCheck:
             # We don't exit here, allowing user to potentially force it later or retry?
             # But usually this is fatal.
             ans = input("   Continue anyway? [y/n]: ").lower()
-            if ans != 'y': sys.exit(1)
+            if ans != 'y':
+                sys.exit(1)
 
         # 2. Find IMU
         found_imu = None
         print("Scanning for MPU6050 (0x68)...")
         for bus_id in candidates:
             try:
-                with smbus.SMBus(bus_id) as bus:
-                    try:
-                        # Try to read WHO_AM_I (Reg 0x75)
-                        who_am_i = bus.read_byte_data(0x68, 0x75)
-                        if who_am_i != 0x68:
-                             continue
-
+                bus = smbus.SMBus(bus_id)
+                try:
+                    # Try to read WHO_AM_I (Reg 0x75)
+                    who_am_i = bus.read_byte_data(0x68, 0x75)
+                    if who_am_i != 0x68:
+                         # Continue loop
+                         pass
+                    else:
                         print(f"-> Found MPU6050 candidate on Bus {bus_id} (WHO_AM_I=0x{who_am_i:02X})")
 
                         # PESSIMISM: Read Live Accel Data
@@ -121,30 +131,37 @@ class WiringCheck:
                         try:
                             bus.write_byte_data(0x68, 0x6B, 0)
                             time.sleep(0.1)
+
+                            # Reg 0x3B (ACCEL_XOUT_H) -> 6 bytes
+                            data = bus.read_i2c_block_data(0x68, 0x3B, 6)
+
+                            ax = to_signed(data[0], data[1])
+                            ay = to_signed(data[2], data[3])
+                            az = to_signed(data[4], data[5])
+
+                            print(f"   Live Reading: Ax={ax}, Ay={ay}, Az={az}")
+
+                            # Check for gravity or noise
+                            mag = (ax**2 + ay**2 + az**2)**0.5
+                            if mag > 500: # 1g is ~16384 usually, but even if scale is different, >500 is likely valid data
+                                found_imu = bus_id
+                                print(f"   [CONFIRMED] IMU data looks valid (Magnitude {mag:.0f})")
+                            else:
+                                print(f"   [WARNING] IMU data extremely low? Magnitude {mag:.0f}. Skipping.")
+
                         except OSError:
                             print(f"   [WARNING] Failed to wake MPU6050 on Bus {bus_id}")
-                            continue
 
-                        # Reg 0x3B (ACCEL_XOUT_H) -> 6 bytes
-                        data = bus.read_i2c_block_data(0x68, 0x3B, 6)
-
-                        ax = to_signed(data[0], data[1])
-                        ay = to_signed(data[2], data[3])
-                        az = to_signed(data[4], data[5])
-
-                        print(f"   Live Reading: Ax={ax}, Ay={ay}, Az={az}")
-
-                        # Check for gravity or noise
-                        mag = (ax**2 + ay**2 + az**2)**0.5
-                        if mag > 500: # 1g is ~16384 usually, but even if scale is different, >500 is likely valid data
-                            found_imu = bus_id
-                            print(f"   [CONFIRMED] IMU data looks valid (Magnitude {mag:.0f})")
-                            break
-                        else:
-                            print(f"   [WARNING] IMU data extremely low? Magnitude {mag:.0f}. Skipping.")
-
-                    except OSError:
+                except OSError:
+                    pass
+                finally:
+                    try:
+                        bus.close()
+                    except AttributeError:
                         pass
+
+                if found_imu is not None:
+                    break
             except (OSError, FileNotFoundError):
                 pass
 

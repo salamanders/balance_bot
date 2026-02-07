@@ -10,8 +10,8 @@ sys.modules["mpu6050"] = mock_mpu_pkg
 
 mock_pz_pkg = MagicMock()
 mock_pz_class = MagicMock()
-mock_pz_pkg.PiconZero = mock_pz_class
-sys.modules["balance_bot.hardware.piconzero"] = mock_pz_pkg
+mock_pz_pkg.PiconZeroAdapter = mock_pz_class
+sys.modules["balance_bot.hardware.piconzero_adapter"] = mock_pz_pkg
 
 # Now we can safely import RobotHardware
 from balance_bot.config import RobotConfig, PIDParams  # noqa: E402
