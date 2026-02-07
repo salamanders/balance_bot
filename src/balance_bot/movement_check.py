@@ -92,8 +92,10 @@ class MovementCheck:
             accel, _ = self.hw.read_imu_raw()
             for k in accel:
                 v = accel[k]
-                if v < min_vals[k]: min_vals[k] = v
-                if v > max_vals[k]: max_vals[k] = v
+                if v < min_vals[k]:
+                    min_vals[k] = v
+                if v > max_vals[k]:
+                    max_vals[k] = v
             time.sleep(0.01)
 
         self.hw.stop()

@@ -1,6 +1,6 @@
 import math
 from unittest.mock import MagicMock
-from balance_bot.hardware.robot_hardware import RobotHardware, IMUReading
+from balance_bot.hardware.robot_hardware import RobotHardware
 from balance_bot.enums import Axis
 
 def test_imu_yaw_roll_defaults(monkeypatch):

@@ -1,7 +1,6 @@
 
 import time
 import random
-import statistics
 import sys
 import os
 

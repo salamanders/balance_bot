@@ -221,16 +221,16 @@ class RobotHardware:
         try:
             # 1. Attempt Imports
             try:
-                from .piconzero import PiconZero
+                from .piconzero_adapter import PiconZeroAdapter
                 from mpu6050 import mpu6050
-            except ImportError as e:
-                logger.error(f"CRITICAL: Required libraries not found: {e}")
+            except (ImportError, OSError) as e:
+                logger.error(f"CRITICAL: Required libraries not found or failed to load: {e}")
                 logger.error("Try running 'uv sync' or check your virtual environment.")
                 raise e
 
             # 2. Attempt PiconZero
             try:
-                self.pz = PiconZero(bus_number=self.motor_i2c_bus)
+                self.pz = PiconZeroAdapter(bus_number=self.motor_i2c_bus)
             except (OSError, PermissionError, FileNotFoundError) as e:
                 logger.error(f"CRITICAL: PiconZero Init Failed on Bus {self.motor_i2c_bus}: {e}")
                 report = get_i2c_failure_report(self.motor_i2c_bus, 0x22, "PiconZero")
@@ -251,7 +251,7 @@ class RobotHardware:
         except (ImportError, OSError, PermissionError, FileNotFoundError) as e:
             # Check for Fallback
             if os.environ.get("ALLOW_MOCK_FALLBACK"):
-                logger.warning(f"Hardware Init Failed. Falling back to MOCKS as requested.")
+                logger.warning("Hardware Init Failed. Falling back to MOCKS as requested.")
                 self._init_mock_hardware()
                 return
 

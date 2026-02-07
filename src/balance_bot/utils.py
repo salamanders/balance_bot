@@ -133,15 +133,15 @@ def clamp(value: float, min_val: float, max_val: float) -> float:
     return max(min(value, max_val), min_val)
 
 
-def to_signed(h: int, l: int) -> int:
+def to_signed(h: int, low: int) -> int:
     """
     Convert high and low bytes to a signed 16-bit integer.
 
     :param h: High byte (0-255).
-    :param l: Low byte (0-255).
+    :param low: Low byte (0-255).
     :return: Signed 16-bit integer (-32768 to 32767).
     """
-    val = (h << 8) | l
+    val = (h << 8) | low
     if val >= 32768:
         val -= 65536
     return val

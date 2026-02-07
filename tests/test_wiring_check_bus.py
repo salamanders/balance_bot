@@ -2,14 +2,14 @@ import sys
 import pytest
 from unittest.mock import MagicMock, patch
 
-# Mock smbus2
+# Mock smbus (the new dependency)
 mock_smbus = MagicMock()
-sys.modules["smbus2"] = mock_smbus
+sys.modules["smbus"] = mock_smbus
 
 # Mock RobotHardware and Config to avoid file I/O and hardware init
 sys.modules["balance_bot.hardware.robot_hardware"] = MagicMock()
 
-from balance_bot.wiring_check import WiringCheck
+from balance_bot.wiring_check import WiringCheck  # noqa: E402
 
 @pytest.fixture
 def wc():
@@ -29,10 +29,15 @@ def test_detect_i2c_buses_found(mock_input, wc):
     # Simulate: PiconZero (0x22) on Bus 1
     # Simulate: MPU6050 (0x68) on Bus 3
 
+    # We need to ensure WiringCheck uses our mock_smbus, which is patched into sys.modules
+    # But inside the test function, we need to configure the side effects.
+    # The import `from balance_bot.wiring_check import WiringCheck` happened after we set sys.modules["smbus"].
+    # So WiringCheck uses mock_smbus.
+
     def smbus_side_effect(bus_id):
-        cm = MagicMock()
+        # Return a bus mock directly (since we removed context manager usage)
         bus = MagicMock()
-        cm.__enter__.return_value = bus
+        bus.close = MagicMock()
 
         # PiconZero Check (read_word_data 0x22)
         def read_word_side_effect(addr, reg):
@@ -58,7 +63,7 @@ def test_detect_i2c_buses_found(mock_input, wc):
             raise OSError("Not found")
         bus.read_i2c_block_data.side_effect = read_block_side_effect
 
-        return cm
+        return bus
 
     mock_smbus.SMBus.side_effect = smbus_side_effect
 
@@ -71,12 +76,11 @@ def test_detect_i2c_buses_found(mock_input, wc):
 def test_detect_i2c_buses_not_found(mock_input, wc):
     """Test when no bus has the device."""
     def smbus_side_effect(bus_id):
-        cm = MagicMock()
         bus = MagicMock()
-        cm.__enter__.return_value = bus
+        bus.close = MagicMock()
         bus.read_word_data.side_effect = OSError("Device not found")
         bus.read_byte_data.side_effect = OSError("Device not found")
-        return cm
+        return bus
 
     mock_smbus.SMBus.side_effect = smbus_side_effect
 
@@ -95,12 +99,11 @@ def test_detect_i2c_bus_os_error_on_open(mock_input, wc):
         if bus_id == 1:
             raise OSError("Bus not found")
 
-        cm = MagicMock()
         bus = MagicMock()
-        cm.__enter__.return_value = bus
+        bus.close = MagicMock()
         bus.read_word_data.side_effect = OSError("Device not found")
         bus.read_byte_data.side_effect = OSError("Device not found")
-        return cm
+        return bus
 
     mock_smbus.SMBus.side_effect = smbus_side_effect
 

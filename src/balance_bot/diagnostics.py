@@ -104,7 +104,10 @@ def check_i2c_library():
             try:
                 # Try to open the bus
                 bus = smbus.SMBus(bus_id)
-                bus.close()
+                try:
+                    bus.close()
+                except AttributeError:
+                    pass
                 print(f"SUCCESS: smbus.SMBus({bus_id}) opened successfully.")
             except Exception as e:
                 print(f"INFO: Could not open smbus.SMBus({bus_id}): {e}")
@@ -128,7 +131,7 @@ def check_imports():
 
     # Check internal piconzero
     try:
-        from .hardware.piconzero import PiconZero  # noqa: F401
+        from .hardware import piconzero  # noqa: F401
         print("SUCCESS: Internal 'piconzero' module import working.")
     except ImportError as e:
          print(f"FAILURE: Could not import internal 'piconzero': {e}")
