@@ -39,9 +39,22 @@ def main() -> None:
                 pass
             return
 
-        bot = Agent()
-        bot.init()
-        bot.run()
+        try:
+            bot = Agent()
+            bot.init()
+            bot.run()
+        finally:
+            # Emergency Stop / Cleanup if bot was initialized
+            # This catches crashes that happen before bot.run() (e.g. init)
+            # or if bot.run()'s internal cleanup failed.
+            if "bot" in locals():
+                try:
+                    agent_inst = locals()["bot"]
+                    if hasattr(agent_inst, "core"):
+                        agent_inst.core.cleanup()
+                except Exception:
+                    # Do not let cleanup errors mask the original crash
+                    pass
 
     except Exception as e:
         # Check if Auto-Fix is requested

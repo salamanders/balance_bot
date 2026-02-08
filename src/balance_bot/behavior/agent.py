@@ -88,60 +88,58 @@ class Agent:
         """
         Main Event Loop.
         """
-        # 1. Warmup
-        logger.info("-> Warming up sensors...")
-        self.led.signal_setup()
-        start_wait = time.monotonic()
-        while time.monotonic() - start_wait < SYSTEM_TIMING.setup_wait:
-            # We must spin the core to settle the filter
-            self.core.update(MotionRequest(), self._zero_tuning, self.config.loop_time)
-            self.led.update()
-            time.sleep(self.config.loop_time)
-
-        # 2. Calibration / Startup
-        if self.first_run or check_force_calibration_flag():
-            try:
-                self._perform_discovery()
-            except Exception as e:
-                logger.error(f"Discovery Failed: {e}")
-                self.core.cleanup()
-                return
-        else:
-            # Normal Startup: Check if we need to Kick Up
-            # If we are resting on either wheel (Pitch > 10 or < -10), kick up.
-            if abs(self.core.pitch) > 10.0:
-                logger.info(f">>> Resting on Wheel (Pitch={self.core.pitch:.1f}). Initiating Kick-Up.")
-                try:
-                    # Start with saved kickup power
-                    self._incremental_kickup(
-                        self.config.pid.target_angle,
-                        start_power=self.config.control.kickup_power
-                    )
-                except Exception as e:
-                    logger.error(f"Kick-Up Failed: {e}")
-                    self.core.cleanup()
-                    return
-
-        # 3. Main Loop
-        logger.info(f"-> Starting Control Loop. Aggression: {self.tuner.get_current_scale():.2f}")
-
-        # Optimize I2C retries for high-frequency loop (Fail Fast)
-        logger.info("-> Optimizing I2C Retries for Real-Time Loop (1 Retry)")
-        self.core.set_i2c_retries(1)
-
-        self.led.signal_ready()
-
-        rate = RateLimiter(1.0 / self.config.loop_time)
-
-        # Internal State tracking for Adaptation
-        last_pitch_rate = 0.0
-        # Initialize dummy telemetry for the first cycle
-        last_telemetry = None
-
-        # Pre-allocate TuningParams for high-frequency reuse
-        tuning_params = TuningParams(0.0, 0.0, 0.0, 0.0)
-
         try:
+            # 1. Warmup
+            logger.info("-> Warming up sensors...")
+            self.led.signal_setup()
+            start_wait = time.monotonic()
+            while time.monotonic() - start_wait < SYSTEM_TIMING.setup_wait:
+                # We must spin the core to settle the filter
+                self.core.update(MotionRequest(), self._zero_tuning, self.config.loop_time)
+                self.led.update()
+                time.sleep(self.config.loop_time)
+
+            # 2. Calibration / Startup
+            if self.first_run or check_force_calibration_flag():
+                try:
+                    self._perform_discovery()
+                except Exception as e:
+                    logger.error(f"Discovery Failed: {e}")
+                    return
+            else:
+                # Normal Startup: Check if we need to Kick Up
+                # If we are resting on either wheel (Pitch > 10 or < -10), kick up.
+                if abs(self.core.pitch) > 10.0:
+                    logger.info(f">>> Resting on Wheel (Pitch={self.core.pitch:.1f}). Initiating Kick-Up.")
+                    try:
+                        # Start with saved kickup power
+                        self._incremental_kickup(
+                            self.config.pid.target_angle,
+                            start_power=self.config.control.kickup_power
+                        )
+                    except Exception as e:
+                        logger.error(f"Kick-Up Failed: {e}")
+                        return
+
+            # 3. Main Loop
+            logger.info(f"-> Starting Control Loop. Aggression: {self.tuner.get_current_scale():.2f}")
+
+            # Optimize I2C retries for high-frequency loop (Fail Fast)
+            logger.info("-> Optimizing I2C Retries for Real-Time Loop (1 Retry)")
+            self.core.set_i2c_retries(1)
+
+            self.led.signal_ready()
+
+            rate = RateLimiter(1.0 / self.config.loop_time)
+
+            # Internal State tracking for Adaptation
+            last_pitch_rate = 0.0
+            # Initialize dummy telemetry for the first cycle
+            last_telemetry = None
+
+            # Pre-allocate TuningParams for high-frequency reuse
+            tuning_params = TuningParams(0.0, 0.0, 0.0, 0.0)
+
             while self.running:
                 self.ticks += 1
 
