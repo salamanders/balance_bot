@@ -3,7 +3,6 @@ import sys
 import traceback
 import importlib.metadata
 from dataclasses import asdict
-from .diagnostics import run_diagnostics
 from .wiring_check import WiringCheck
 from .behavior.agent import Agent
 from .utils import setup_logging, get_captured_logs
@@ -20,10 +19,6 @@ def main() -> None:
         os.environ["ALLOW_MOCK_FALLBACK"] = "1"
 
     try:
-        if "--diagnose" in sys.argv:
-            run_diagnostics()
-            return
-
         if "--check-wiring" in sys.argv:
             try:
                 WiringCheck().run()
