@@ -10,25 +10,21 @@ class PiconZeroAdapter:
         self.bus_number = bus_number
 
         # piconzero module initializes 'bus = smbus.SMBus(1)' at import time.
-        # If we need a different bus, we must patch the global variable.
-        # Note: We assume the initial import succeeded.
+        # If we need a different bus, or if the current bus handle is stale/invalid
+        # (e.g. due to other SMBus instances probing the same bus), we must refresh it.
 
-        # Only change if different, to avoid unnecessary re-open
-        # Note: We can't easily check which bus is currently open in pz.bus object
-        # without private access or assumptions.
-        # But since piconzero always opens 1, we know if bus_number != 1 we should switch.
-        # Or if we want to be safe and ensure our instance owns the bus handle:
+        # Always force a refresh of the bus connection to ensure it's clean.
+        # This handles cases where:
+        # 1. Bus number changed.
+        # 2. Bus number is same (1), but the handle is stale or interfered with by WiringCheck probing.
+        try:
+            if hasattr(pz.bus, 'close'):
+                pz.bus.close()
+        except Exception:
+            pass
 
-        if bus_number != 1:
-            # Try to close the old one if possible
-            try:
-                if hasattr(pz.bus, 'close'):
-                    pz.bus.close()
-            except Exception:
-                pass
-
-            # Open new one
-            pz.bus = smbus.SMBus(bus_number)
+        # Open new one
+        pz.bus = smbus.SMBus(bus_number)
 
     def init(self) -> None:
         """Initialize the motor driver hardware."""
