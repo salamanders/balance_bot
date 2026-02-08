@@ -331,8 +331,14 @@ class WiringCheck:
         accel_data = []
         end_time = time.time() + 1.0
         while time.time() < end_time:
-            a, _ = self.hw.read_imu_raw()
-            accel_data.append(a)
+            try:
+                # Try to read the sensor
+                a, _ = self.hw.read_imu_raw()
+                accel_data.append(a)
+            except OSError:
+                # If noise kills the connection, just skip this sample.
+                # We only need the average anyway.
+                pass
             time.sleep(0.01)
 
         self.hw.stop()
@@ -365,8 +371,11 @@ class WiringCheck:
         gyro_data = []
         end_time = time.time() + 1.0
         while time.time() < end_time:
-            _, g = self.hw.read_imu_raw()
-            gyro_data.append(g)
+            try:
+                _, g = self.hw.read_imu_raw()
+                gyro_data.append(g)
+            except OSError:
+                pass
             time.sleep(0.01)
 
         self.hw.stop()
