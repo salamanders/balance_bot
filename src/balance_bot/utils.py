@@ -201,6 +201,22 @@ def check_force_calibration_flag() -> bool:
         return True
     return False
 
+
+def cross_product(a: dict[str, float], b: dict[str, float]) -> dict[str, float]:
+    """
+    Calculate the cross product of two 3D vectors (a x b).
+
+    :param a: First vector (dict with x,y,z).
+    :param b: Second vector (dict with x,y,z).
+    :return: Cross product vector (dict with x,y,z).
+    """
+    return {
+        "x": a["y"] * b["z"] - a["z"] * b["y"],
+        "y": a["z"] * b["x"] - a["x"] * b["z"],
+        "z": a["x"] * b["y"] - a["y"] * b["x"],
+    }
+
+
 def analyze_dominance(
     data: dict[str, float],
     label: str,

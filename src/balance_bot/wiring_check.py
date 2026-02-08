@@ -6,7 +6,7 @@ from .diagnostics import run_diagnostics
 from .config import RobotConfig
 from .hardware.robot_hardware import RobotHardware
 from .enums import Axis, Orientation
-from .utils import analyze_dominance, to_signed
+from .utils import analyze_dominance, to_signed, cross_product
 
 
 class WiringCheck:
@@ -255,30 +255,50 @@ class WiringCheck:
 
         # 2. Pitch (Tip)
         print("\nDetecting Pitch Axis. Robot is on BACK wheel.")
-        input("Press Enter, then immediately TIP ROBOT FORWARD to Front Wheel...")
-        print("Recording Tip...")
+        input("Press Enter to measure BACK position...")
 
-        gyro_data = []
-        for _ in range(100): # 1 second
-            _, g = self.hw.read_imu_raw()
-            gyro_data.append(g)
+        # Measure Back
+        accel_back = {"x": 0.0, "y": 0.0, "z": 0.0}
+        for _ in range(50):
+            a, _ = self.hw.read_imu_raw()
+            for k in a:
+                accel_back[k] += a[k]
             time.sleep(0.01)
+        accel_back = {k: v / 50 for k, v in accel_back.items()}
 
-        print("Done.")
-        # Integrate
-        integrals = {"x": 0, "y": 0, "z": 0}
-        for g in gyro_data:
-            for k in integrals: integrals[k] += g[k]
+        print("Now TIP ROBOT FORWARD to Front Wheel.")
+        input("Press Enter to measure FRONT position...")
 
-        abs_ints = {k: abs(v) for k,v in integrals.items()}
-        pitch_axis, _, _ = analyze_dominance(abs_ints, "Pitch")
+        # Measure Front
+        accel_front = {"x": 0.0, "y": 0.0, "z": 0.0}
+        for _ in range(50):
+            a, _ = self.hw.read_imu_raw()
+            for k in a:
+                accel_front[k] += a[k]
+            time.sleep(0.01)
+        accel_front = {k: v / 50 for k, v in accel_front.items()}
 
-        # Polarity: We tipped Forward (Positive Pitch change in standard NED, but usually we define Nose Down as positive?)
-        # Let's check Utils. 'Nose Down (leaning forward) corresponds to a Positive Pitch angle.'
-        # So Tipping Back->Front is a POSITIVE change.
-        # We need the integrated value to be POSITIVE.
-        raw_int = integrals[pitch_axis]
-        pitch_inv = raw_int < 0
+        # Calculate Cross Product: Back x Front
+        # The cross product vector points along the axis of rotation.
+        # Physics:
+        #   Gravity Vector rotates "Front -> Back" (Negative Pitch) in the Sensor Frame.
+        #   So Cross Product points in Negative Pitch Direction (-Y).
+        #   If Cross Product component on axis K is Negative, then +K is "Right" (Positive Pitch).
+        #   If Cross Product component on axis K is Positive, then +K is "Left" (Negative Pitch).
+        # We want "Back -> Front" motion to be POSITIVE Pitch.
+        # Standard Gyro: Right Hand Rule (+K is Right).
+        # So:
+        #   If CrossProd < 0 -> No Invert.
+        #   If CrossProd > 0 -> Invert.
+        axis_vec = cross_product(accel_back, accel_front)
+
+        # Analyze Dominance on the magnitude
+        abs_axis = {k: abs(v) for k, v in axis_vec.items()}
+        pitch_axis, _, _ = analyze_dominance(abs_axis, "Pitch")
+
+        # Polarity
+        raw_val = axis_vec[pitch_axis]
+        pitch_inv = raw_val > 0
 
         self.config.gyro_pitch_axis = Axis(pitch_axis)
         self.config.gyro_pitch_invert = pitch_inv
