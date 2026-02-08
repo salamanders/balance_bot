@@ -350,6 +350,7 @@ class RobotConfig:
     complementary_alpha: float = 0.98
     vibration_threshold: int = 10
     imu_max_retries: int = 5
+    min_power_visible: int = 60
 
     @staticmethod
     def _filter_keys(dataclass_type, data: dict[str, Any]) -> dict[str, Any]:

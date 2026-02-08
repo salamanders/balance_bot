@@ -72,20 +72,49 @@ class WiringCheck:
                     print(f"-> Found PiconZero candidate on Bus {bus_id}")
 
                     # PESSIMISM: Pulse Motor
-                    print("   Pulsing Motor A to verify...")
-                    # Write [60, 0] to Reg 0 (Motor A=60, Motor B=0)
-                    bus.write_i2c_block_data(0x22, 0, [60, 0])
-                    time.sleep(0.5)
-                    # Stop [0, 0]
-                    bus.write_i2c_block_data(0x22, 0, [0, 0])
+                    print(f"   Pulsing Motor A to verify on Bus {bus_id}...")
 
-                    ans = input(f"   Did the robot move/click on Bus {bus_id}? [y/n]: ").strip().lower()
-                    if ans == 'y':
-                        found_motor = bus_id
-                        print(f"   [CONFIRMED] Motor on Bus {bus_id}")
+                    current_power = 20
+                    confirmed = False
+
+                    while current_power <= 120:
+                        print(f"   Using power level: {current_power}")
+                        # Write [current_power, 0] to Reg 0 (Motor A=current_power, Motor B=0)
+                        bus.write_i2c_block_data(0x22, 0, [current_power, 0])
+                        time.sleep(0.5)
+                        # Stop [0, 0]
+                        bus.write_i2c_block_data(0x22, 0, [0, 0])
+
+                        if current_power < 120:
+                            prompt = f"   Did the robot move/click on Bus {bus_id}? [y=Yes / n=No (wrong bus) / m=More Power]: "
+                        else:
+                            prompt = f"   Did the robot move/click on Bus {bus_id}? [y=Yes / n=No (cancel)]: "
+
+                        ans = input(prompt).strip().lower()
+
+                        if ans == 'y':
+                            found_motor = bus_id
+                            self.config.min_power_visible = current_power
+                            print(f"   [CONFIRMED] Motor on Bus {bus_id} at power {current_power}")
+                            confirmed = True
+                            break
+                        elif ans == 'm' and current_power < 120:
+                            current_power += 20
+                            continue
+                        elif ans == 'n':
+                            if current_power >= 120:
+                                print("   [FAILED] No movement seen even at max power (120). Cancelling configuration.")
+                                sys.exit(1)
+                            else:
+                                print(f"   [REJECTED] User denied movement on Bus {bus_id}.")
+                                break
+                        else:
+                            print("   Invalid input. Please try again.")
+                            # Re-loop with same power
+
+                    if confirmed:
                         # break handled after finally
-                    else:
-                        print(f"   [REJECTED] User denied movement on Bus {bus_id}.")
+                        pass
 
                 except OSError:
                     pass
@@ -212,7 +241,7 @@ class WiringCheck:
 
         # Step 1: Run Channel 0 (Currently mapped to Left)
         print("\nRunning 'Channel A' (0) for 0.5s...")
-        self.hw.set_motors(60, 0) # Left=60, Right=0
+        self.hw.set_motors(self.config.min_power_visible, 0) # Left=Power, Right=0
         time.sleep(0.5)
         self.hw.stop()
 
@@ -264,9 +293,9 @@ class WiringCheck:
         self.init_hw()
 
         if other_motor == "Right":
-            self.hw.set_motors(0, 60)
+            self.hw.set_motors(0, self.config.min_power_visible)
         else:
-            self.hw.set_motors(60, 0)
+            self.hw.set_motors(self.config.min_power_visible, 0)
 
         time.sleep(0.5)
         self.hw.stop()
@@ -326,7 +355,7 @@ class WiringCheck:
 
         print("Driving...")
         # Start Driving
-        self.hw.set_motors(60, 60)
+        self.hw.set_motors(self.config.min_power_visible, self.config.min_power_visible)
 
         accel_data = []
         end_time = time.time() + 1.0
@@ -366,7 +395,7 @@ class WiringCheck:
         input("Press Enter to SPIN RIGHT...")
 
         print("Spinning...")
-        self.hw.set_motors(60, -60) # Spin Right
+        self.hw.set_motors(self.config.min_power_visible, -self.config.min_power_visible) # Spin Right
 
         gyro_data = []
         end_time = time.time() + 1.0
