@@ -48,22 +48,10 @@ class MovementCheck:
             input("Press Enter to START...")
 
             # 1. Forward Square
-            print("\n>>> Phase 1: Forward Square")
-            for i in range(4):
-                print(f"\n--- Leg {i+1}/4 ---")
-                self.drive_move(speed=60, duration=0.5, desc="Forward")
-                time.sleep(0.2)
-                self.turn_90(desc="Right Turn")
-                time.sleep(0.5)
+            self.run_square_phase(speed=60, phase_name="Phase 1: Forward Square", move_desc="Forward")
 
             # 2. Reverse Square
-            print("\n>>> Phase 2: Reverse Square")
-            for i in range(4):
-                print(f"\n--- Leg {i+1}/4 ---")
-                self.drive_move(speed=-60, duration=0.5, desc="Backward")
-                time.sleep(0.2)
-                self.turn_90(desc="Right Turn")
-                time.sleep(0.5)
+            self.run_square_phase(speed=-60, phase_name="Phase 2: Reverse Square", move_desc="Backward")
 
             print("\n>>> Sequence Complete.")
 
@@ -72,6 +60,15 @@ class MovementCheck:
         finally:
             self.hw.stop()
             self.hw.cleanup()
+
+    def run_square_phase(self, speed: float, phase_name: str, move_desc: str):
+        print(f"\n>>> {phase_name}")
+        for i in range(4):
+            print(f"\n--- Leg {i+1}/4 ---")
+            self.drive_move(speed=speed, duration=0.5, desc=move_desc)
+            time.sleep(0.2)
+            self.turn_90(desc="Right Turn")
+            time.sleep(0.5)
 
     def drive_move(self, speed: float, duration: float, desc: str):
         """
