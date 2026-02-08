@@ -2,25 +2,24 @@ import sys
 import pytest
 from unittest.mock import MagicMock, patch
 
-# Mock smbus (the new dependency)
-mock_smbus = MagicMock()
-sys.modules["smbus"] = mock_smbus
-
-# Mock RobotHardware and Config to avoid file I/O and hardware init
-sys.modules["balance_bot.hardware.robot_hardware"] = MagicMock()
-
-from balance_bot.wiring_check import WiringCheck  # noqa: E402
+from balance_bot.wiring_check import WiringCheck
 
 @pytest.fixture
 def wc():
-    with patch("balance_bot.wiring_check.RobotConfig") as MockConfig:
+    # Patch smbus specifically for WiringCheck module
+    with patch("balance_bot.wiring_check.smbus") as mock_smbus_module, \
+         patch("balance_bot.wiring_check.RobotHardware") as mock_rh, \
+         patch("balance_bot.wiring_check.RobotConfig") as MockConfig:
+
         config_inst = MagicMock()
         config_inst.motor_i2c_bus = 99 # Default/Pre-existing
         config_inst.imu_i2c_bus = 88
+        config_inst.min_power_visible = 60
         MockConfig.load.return_value = config_inst
 
         wc = WiringCheck()
-        return wc
+        wc.mock_smbus = mock_smbus_module
+        yield wc
 
 @patch("builtins.input", return_value="y")
 def test_detect_i2c_buses_found(mock_input, wc):
@@ -29,13 +28,8 @@ def test_detect_i2c_buses_found(mock_input, wc):
     # Simulate: PiconZero (0x22) on Bus 1
     # Simulate: MPU6050 (0x68) on Bus 3
 
-    # We need to ensure WiringCheck uses our mock_smbus, which is patched into sys.modules
-    # But inside the test function, we need to configure the side effects.
-    # The import `from balance_bot.wiring_check import WiringCheck` happened after we set sys.modules["smbus"].
-    # So WiringCheck uses mock_smbus.
-
     def smbus_side_effect(bus_id):
-        # Return a bus mock directly (since we removed context manager usage)
+        # Return a bus mock directly
         bus = MagicMock()
         bus.close = MagicMock()
 
@@ -65,7 +59,7 @@ def test_detect_i2c_buses_found(mock_input, wc):
 
         return bus
 
-    mock_smbus.SMBus.side_effect = smbus_side_effect
+    wc.mock_smbus.SMBus.side_effect = smbus_side_effect
 
     wc.detect_i2c_buses()
 
@@ -82,7 +76,7 @@ def test_detect_i2c_buses_not_found(mock_input, wc):
         bus.read_byte_data.side_effect = OSError("Device not found")
         return bus
 
-    mock_smbus.SMBus.side_effect = smbus_side_effect
+    wc.mock_smbus.SMBus.side_effect = smbus_side_effect
 
     wc.detect_i2c_buses()
 
@@ -105,9 +99,79 @@ def test_detect_i2c_bus_os_error_on_open(mock_input, wc):
         bus.read_byte_data.side_effect = OSError("Device not found")
         return bus
 
-    mock_smbus.SMBus.side_effect = smbus_side_effect
+    wc.mock_smbus.SMBus.side_effect = smbus_side_effect
 
     wc.detect_i2c_buses()
 
     assert wc.config.motor_i2c_bus == 99
     assert wc.config.imu_i2c_bus == 88
+
+def test_ramping_success_first_try(wc):
+    """Test user says 'y' immediately at power 20."""
+    with patch("builtins.input", side_effect=['y']):
+        def smbus_side_effect(bus_id):
+            bus = MagicMock()
+            bus.read_word_data.return_value = 0 # Found 0x22
+            bus.read_byte_data.return_value = 0x68 # Found 0x68
+            bus.read_i2c_block_data.return_value = [0]*6 # accel
+            return bus
+
+        wc.mock_smbus.SMBus.side_effect = smbus_side_effect
+
+        wc.detect_i2c_buses()
+
+        assert wc.config.min_power_visible == 20
+        assert wc.config.motor_i2c_bus == 1
+
+def test_ramping_success_after_increase(wc):
+    """Test user says 'm' (more power) then 'y'."""
+    with patch("builtins.input", side_effect=['m', 'y']):
+        def smbus_side_effect(bus_id):
+            bus = MagicMock()
+            bus.read_word_data.return_value = 0
+            bus.read_byte_data.return_value = 0x68
+            bus.read_i2c_block_data.return_value = [0]*6
+            return bus
+
+        wc.mock_smbus.SMBus.side_effect = smbus_side_effect
+
+        wc.detect_i2c_buses()
+
+        assert wc.config.min_power_visible == 40
+        assert wc.config.motor_i2c_bus == 1
+
+def test_ramping_failure_max_power(wc):
+    """Test user says 'm' until 120, then 'n' (fail). Should exit."""
+    inputs = ['m', 'm', 'm', 'm', 'm', 'n']
+
+    with patch("builtins.input", side_effect=inputs),          patch("sys.exit", side_effect=SystemExit) as mock_exit:
+
+        def smbus_side_effect(bus_id):
+            bus = MagicMock()
+            bus.read_word_data.return_value = 0
+            return bus
+
+        wc.mock_smbus.SMBus.side_effect = smbus_side_effect
+
+        with pytest.raises(SystemExit):
+            wc.detect_i2c_buses()
+
+        mock_exit.assert_called_with(1)
+
+def test_ramping_skip_bus(wc):
+    """Test user says 'n' (wrong bus) at 20. Should try next bus."""
+    with patch("builtins.input", side_effect=['n', 'y']):
+
+        def smbus_side_effect(bus_id):
+            bus = MagicMock()
+            bus.read_word_data.return_value = 0
+            bus.read_byte_data.return_value = 0x68
+            bus.read_i2c_block_data.return_value = [0]*6
+            return bus
+
+        wc.mock_smbus.SMBus.side_effect = smbus_side_effect
+
+        wc.detect_i2c_buses()
+
+        assert wc.config.motor_i2c_bus == 3 # Detected on Bus 3
+        assert wc.config.min_power_visible == 20
