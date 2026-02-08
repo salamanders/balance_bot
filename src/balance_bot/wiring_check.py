@@ -2,6 +2,7 @@ import time
 import sys
 import threading
 import smbus
+from .diagnostics import run_diagnostics
 from .config import RobotConfig
 from .hardware.robot_hardware import RobotHardware
 from .enums import Axis, Orientation
@@ -55,6 +56,9 @@ class WiringCheck:
             self.hw.cleanup()
 
     def run(self):
+        # 0. Diagnostics (Always run first)
+        run_diagnostics()
+
         print("\n=== Robot Auto-Setup Wizard ===")
         print("Steps: Bus -> Motors -> Sensors -> Dynamics (Flop)")
 

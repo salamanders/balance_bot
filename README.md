@@ -161,7 +161,6 @@ Run the interactive wiring check to verify motor direction and gyro orientation.
 
 ```bash
 uv run balance-bot --check-wiring
-uv run balance-bot --diagnose
 uv run balance-bot --confirm-wiring
 uv run balance-bot
 ```
