@@ -244,3 +244,64 @@ def analyze_dominance(
         print(f"   [PASS] Strong signal for {label}.")
 
     return winner, ratio, success
+
+def collect_imu_data(
+    hw,
+    duration: float,
+    motor_speeds: tuple[float, float] = (0.0, 0.0),
+    sample_rate: float = 0.01,
+) -> tuple[list[dict], list[dict]]:
+    """
+    Drives motors and records IMU data for a fixed duration.
+    Returns (accel_data, gyro_data).
+    """
+    hw.set_motors(*motor_speeds)
+
+    accel_data = []
+    gyro_data = []
+
+    end_time = time.monotonic() + duration
+    while time.monotonic() < end_time:
+        try:
+            a, g = hw.read_imu_raw()
+            accel_data.append(a)
+            gyro_data.append(g)
+        except OSError:
+            pass
+        time.sleep(sample_rate)
+
+    hw.stop()
+    return accel_data, gyro_data
+
+
+def calculate_mean(data: list[dict], keys: list[str] = None) -> dict[str, float]:
+    """
+    Calculate the mean value for each key in the data list.
+    """
+    if not data:
+        return {}
+    if keys is None:
+        keys = list(data[0].keys())
+    return {k: sum(d[k] for d in data) / len(data) for k in keys}
+
+
+def calculate_range(data: list[dict], keys: list[str] = None) -> dict[str, float]:
+    """
+    Calculate the range (max - min) for each key in the data list.
+    """
+    if not data:
+        return {}
+    if keys is None:
+        keys = list(data[0].keys())
+
+    min_vals = {k: float('inf') for k in keys}
+    max_vals = {k: float('-inf') for k in keys}
+
+    for d in data:
+        for k in keys:
+            if d[k] < min_vals[k]:
+                min_vals[k] = d[k]
+            if d[k] > max_vals[k]:
+                max_vals[k] = d[k]
+
+    return {k: max_vals[k] - min_vals[k] for k in keys}

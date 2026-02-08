@@ -3,7 +3,7 @@ import logging
 import sys
 from .config import RobotConfig
 from .hardware.robot_hardware import RobotHardware
-from .utils import analyze_dominance
+from .utils import analyze_dominance, collect_imu_data, calculate_range
 
 logger = logging.getLogger(__name__)
 
@@ -78,30 +78,15 @@ class MovementCheck:
         Drive straight and verify 'Forward' axis dominance.
         """
         print(f"-> {desc} (Speed {speed}) for {duration}s...")
-        self.hw.set_motors(speed, speed)
 
         # Monitor Accelerometer
         fwd_axis = self.config.accel_forward_axis.value # e.g. "z"
-        min_vals = {k: float('inf') for k in ['x','y','z']}
-        max_vals = {k: float('-inf') for k in ['x','y','z']}
 
-        start_time = time.monotonic()
+        # Drive and collect
+        accel_data, _ = collect_imu_data(self.hw, duration=duration, motor_speeds=(speed, speed))
 
-        while (time.monotonic() - start_time) < duration:
-            # Read Raw Data
-            accel, _ = self.hw.read_imu_raw()
-            for k in accel:
-                v = accel[k]
-                if v < min_vals[k]:
-                    min_vals[k] = v
-                if v > max_vals[k]:
-                    max_vals[k] = v
-            time.sleep(0.01)
-
-        self.hw.stop()
-
-        # Calculate Deltas
-        deltas = {k: max_vals[k] - min_vals[k] for k in ['x','y','z']}
+        # Calculate Deltas (Range)
+        deltas = calculate_range(accel_data, keys=['x','y','z'])
 
         # Verify Dominance
         _, _, success = analyze_dominance(deltas, "Forward Acceleration", expected_axis=fwd_axis)

@@ -5,7 +5,7 @@ import smbus
 from .config import RobotConfig
 from .hardware.robot_hardware import RobotHardware
 from .enums import Axis
-from .utils import analyze_dominance, to_signed
+from .utils import analyze_dominance, to_signed, collect_imu_data, calculate_mean
 
 
 class WiringCheck:
@@ -298,15 +298,8 @@ class WiringCheck:
         print("\n[Step 1/4] Detecting Gravity (Vertical Axis)...")
         print("Reading for 1 second (Stay Still)...")
 
-        accel_sum = {"x": 0.0, "y": 0.0, "z": 0.0}
-        samples = 50
-        for _ in range(samples):
-            a, _ = self.hw.read_imu_raw()
-            for k in a:
-                accel_sum[k] += a[k]
-            time.sleep(0.02)
-
-        avg_accel = {k: v/samples for k,v in accel_sum.items()}
+        accel_data, _ = collect_imu_data(self.hw, duration=1.0, sample_rate=0.02)
+        avg_accel = calculate_mean(accel_data, keys=["x", "y", "z"])
 
         # Dominance Check
         vert_axis, _, success = analyze_dominance(avg_accel, "Vertical Axis")
@@ -325,30 +318,13 @@ class WiringCheck:
         input("Press Enter to DRIVE FORWARD...")
 
         print("Driving...")
-        # Start Driving
-        self.hw.set_motors(60, 60)
+        # Start Driving, collect data
+        accel_data, _ = collect_imu_data(self.hw, duration=1.0, motor_speeds=(60, 60))
 
-        accel_data = []
-        end_time = time.time() + 1.0
-        while time.time() < end_time:
-            try:
-                # Try to read the sensor
-                a, _ = self.hw.read_imu_raw()
-                accel_data.append(a)
-            except OSError:
-                # If noise kills the connection, just skip this sample.
-                # We only need the average anyway.
-                pass
-            time.sleep(0.01)
-
-        self.hw.stop()
-
-        # Analyze: Axis with highest variance or shift from static
+        # Analyze: Axis with highest shift from static
+        avg_move = calculate_mean(accel_data, keys=["x", "y", "z"])
         candidates = [k for k in ["x", "y", "z"] if k != vert_axis]
-        shifts = {}
-        for k in candidates:
-            mean_move = sum(d[k] for d in accel_data) / len(accel_data)
-            shifts[k] = mean_move - avg_accel[k]
+        shifts = {k: avg_move[k] - avg_accel[k] for k in candidates}
 
         # Dominance Check
         fwd_axis, _, success = analyze_dominance(shifts, "Forward Axis")
@@ -366,22 +342,11 @@ class WiringCheck:
         input("Press Enter to SPIN RIGHT...")
 
         print("Spinning...")
-        self.hw.set_motors(60, -60) # Spin Right
-
-        gyro_data = []
-        end_time = time.time() + 1.0
-        while time.time() < end_time:
-            try:
-                _, g = self.hw.read_imu_raw()
-                gyro_data.append(g)
-            except OSError:
-                pass
-            time.sleep(0.01)
-
-        self.hw.stop()
+        _, gyro_data = collect_imu_data(self.hw, duration=1.0, motor_speeds=(60, -60))
 
         # Analyze: Axis with highest absolute mean rate
-        avg_rates = {k: abs(sum(d[k] for d in gyro_data)/len(gyro_data)) for k in ["x","y","z"]}
+        raw_rates = calculate_mean(gyro_data, keys=["x", "y", "z"])
+        avg_rates = {k: abs(v) for k, v in raw_rates.items()}
 
         # Dominance Check
         yaw_axis, _, success = analyze_dominance(avg_rates, "Yaw Axis")
@@ -390,7 +355,7 @@ class WiringCheck:
             input("   Press Enter to acknowledge and continue (or Ctrl+C to abort)...")
 
         # Polarity: Right Turn = Positive Rate
-        raw_mean = sum(d[yaw_axis] for d in gyro_data) / len(gyro_data)
+        raw_mean = raw_rates[yaw_axis]
         yaw_invert = raw_mean < 0
 
         self.config.gyro_yaw_axis = Axis(yaw_axis)

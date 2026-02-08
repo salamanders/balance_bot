@@ -1,7 +1,17 @@
 import time
 import math
-from unittest.mock import patch
-from balance_bot.utils import clamp, RateLimiter, ComplementaryFilter, calculate_pitch, to_signed, LogThrottler
+from unittest.mock import patch, MagicMock
+from balance_bot.utils import (
+    clamp,
+    RateLimiter,
+    ComplementaryFilter,
+    calculate_pitch,
+    to_signed,
+    LogThrottler,
+    calculate_mean,
+    calculate_range,
+    collect_imu_data,
+)
 
 def test_clamp():
     assert clamp(10, 0, 5) == 5.0
@@ -135,3 +145,52 @@ def test_log_throttler():
 
         # Immediate subsequent call should fail again
         assert throttler.should_log() is False
+
+
+def test_calculate_mean():
+    data = [{'x': 10, 'y': 20}, {'x': 20, 'y': 30}]
+    mean = calculate_mean(data)
+    assert mean['x'] == 15.0
+    assert mean['y'] == 25.0
+
+    # Specific keys
+    mean = calculate_mean(data, keys=['x'])
+    assert mean['x'] == 15.0
+    assert 'y' not in mean
+
+    # Empty
+    assert calculate_mean([]) == {}
+
+
+def test_calculate_range():
+    data = [{'x': 10, 'y': 20}, {'x': 20, 'y': 30}, {'x': 5, 'y': 40}]
+    rng = calculate_range(data)
+    assert rng['x'] == 15.0  # 20 - 5
+    assert rng['y'] == 20.0  # 40 - 20
+
+    # Empty
+    assert calculate_range([]) == {}
+
+
+def test_collect_imu_data():
+    mock_hw = MagicMock()
+    mock_hw.read_imu_raw.return_value = ({'x': 1}, {'z': 2})
+
+    # Run for a very short time
+    # We patch sleep so the test runs instantly but the loop logic (time based) works
+    # We also need to patch time.monotonic to simulate time passing, otherwise the loop never ends
+    with patch("time.sleep"), \
+         patch("time.monotonic") as mock_mono:
+
+        # Simulate time passing: 0, 0.1, 0.2 ...
+        mock_mono.side_effect = [0.0, 0.0, 0.11, 0.22]
+
+        accel, gyro = collect_imu_data(mock_hw, duration=0.1, sample_rate=0.01)
+
+    assert len(accel) > 0
+    assert len(gyro) > 0
+    assert accel[0] == {'x': 1}
+    assert gyro[0] == {'z': 2}
+
+    mock_hw.set_motors.assert_called()
+    mock_hw.stop.assert_called()
