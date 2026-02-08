@@ -2,6 +2,8 @@
 2. Always run a lint check before a commit to avoid unused variables and other annoying issues.
 3. The hardware is bottom-tier: The motors may be uneven, the wheels are 3d printed, and the whole thing is held together with LEGOs. Excellent code is the only way it can be successful.
 4. Keep the code concise.  Make it modern.  Use the latest python functions to make it more readable.
+5. The piconzero.py file has extra functions (lights, sensors, etc). That is fine. Leave the extra code alone, only worry about the motor controlling code.
+6. The emulator can't know what a real motor would do, so don't try to optimize calls to hardware that are untestable. Feel free to optimize other things, but the final I/O with the hardware has to stay constant. 
 
 ## Features
 
