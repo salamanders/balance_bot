@@ -52,7 +52,7 @@ class PiconZeroAdapter:
         :param motor: Motor channel index (0 or 1).
         :param value: Speed (-100 to 100).
         """
-        pz.setMotor(motor, value)
+        pz.set_motor(motor, value)
 
     def set_motors(self, motor_0_val: int, motor_1_val: int) -> None:
         """
@@ -61,5 +61,5 @@ class PiconZeroAdapter:
         :param motor_0_val: Speed for Motor 0 (-100 to 100).
         :param motor_1_val: Speed for Motor 1 (-100 to 100).
         """
-        pz.setMotor(0, motor_0_val)
-        pz.setMotor(1, motor_1_val)
+        pz.set_motor(0, motor_0_val)
+        pz.set_motor(1, motor_1_val)
