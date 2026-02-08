@@ -113,9 +113,12 @@ class Agent:
                     logger.info(f">>> Resting on Wheel (Pitch={self.core.pitch:.1f}). Initiating Kick-Up.")
                     try:
                         # Start with saved kickup power
+                        # If Pitch < 0 (Back), we kick Back->Front (Forward Power)
+                        # If Pitch > 0 (Front), we kick Front->Back (Backward Power)
+                        pwr = self.config.control.kickup_power_forward if self.core.pitch < 0 else self.config.control.kickup_power_backward
                         self._incremental_kickup(
                             self.config.pid.target_angle,
-                            start_power=self.config.control.kickup_power
+                            start_power=pwr
                         )
                     except Exception as e:
                         logger.error(f"Kick-Up Failed: {e}")
@@ -281,7 +284,8 @@ class Agent:
 
         back_angle = 0.0
         front_angle = 0.0
-        kickup_power_est = 30.0
+        kickup_power_1 = 30.0
+        kickup_power_2 = 30.0
 
         if start_pitch < -5.0:
             start_side = Orientation.BACK
@@ -308,7 +312,7 @@ class Agent:
         # 2. Flop to Other Side
         logger.info(f"-> Flop to {other_side.capitalize()}...")
         # Against gravity (Start->Other)
-        kickup_power_est = self._incremental_flop(target_side=other_side)
+        kickup_power_1 = self._incremental_flop(target_side=other_side)
 
         # 3. Measure Other Limit
         logger.info(f"-> Measuring {other_side.capitalize()} Limit...")
@@ -323,7 +327,7 @@ class Agent:
 
         # 4. Return to Start
         logger.info(f"-> Return to Start ({start_side.capitalize()})...")
-        self._incremental_flop(target_side=start_side)
+        kickup_power_2 = self._incremental_flop(target_side=start_side)
         self._wait_for_settle()
 
         # 5. Bootstrap
@@ -337,14 +341,22 @@ class Agent:
         self.config.pid.kd = 0.2
 
         # Save discovered kick-up power
-        self.config.control.kickup_power = kickup_power_est
+        # If Start=Back: Power 1 was Back->Front (Forward), Power 2 was Front->Back (Backward)
+        # If Start=Front: Power 1 was Front->Back (Backward), Power 2 was Back->Front (Forward)
+        if start_side == Orientation.BACK:
+            self.config.control.kickup_power_forward = kickup_power_1
+            self.config.control.kickup_power_backward = kickup_power_2
+        else:
+            self.config.control.kickup_power_backward = kickup_power_1
+            self.config.control.kickup_power_forward = kickup_power_2
 
         self.config_dirty = True
         self.first_run = False
 
         # 6. Incremental Kick-Up
-        logger.info(f"-> Starting Kick-Up Sequence using est power {kickup_power_est:.1f}...")
-        self._incremental_kickup(target_angle=midpoint, start_power=kickup_power_est)
+        # We are at start_side, so we need kickup_power_1 (Start->Other)
+        logger.info(f"-> Starting Kick-Up Sequence using est power {kickup_power_1:.1f}...")
+        self._incremental_kickup(target_angle=midpoint, start_power=kickup_power_1)
 
     def _wait_for_settle(self, duration: float = 1.0, rate_threshold: float = 10.0) -> None:
         """Wait for the robot to settle (low pitch rate)."""
