@@ -199,6 +199,10 @@ class RobotHardware:
             # Fallback / Collision
             self.accel_roll_axis = Axis.X
 
+        # Store the "last known good" value
+        self._last_accel = {"x": 0.0, "y": 0.0, "z": 0.0}
+        self._last_gyro = {"x": 0.0, "y": 0.0, "z": 0.0}
+
         self.pz: MotorDriver
         self.sensor: IMUDriver
 
@@ -275,9 +279,25 @@ class RobotHardware:
     def read_imu_raw(self) -> tuple[Vector3, Vector3]:
         """
         Returns raw accelerometer and gyro data.
+        Includes error handling for I2C noise.
         :return: Tuple of (accel_dict, gyro_dict).
         """
-        return self.sensor.get_accel_data(), self.sensor.get_gyro_data()
+        try:
+            # Try to read fresh data
+            accel = self.sensor.get_accel_data()
+            gyro = self.sensor.get_gyro_data()
+
+            # Update cache
+            self._last_accel = accel
+            self._last_gyro = gyro
+
+            return accel, gyro
+
+        except OSError:
+            # If I2C fails (noise), return the last known good values
+            # This prevents the robot from crashing or freezing
+            # logger.warning("I2C Glitch - Using stale data")
+            return self._last_accel, self._last_gyro
 
     def read_imu_converted(self) -> IMUReading:
         """
