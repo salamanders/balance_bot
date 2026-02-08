@@ -175,3 +175,53 @@ def test_ramping_skip_bus(wc):
 
         assert wc.config.motor_i2c_bus == 3 # Detected on Bus 3
         assert wc.config.min_power_visible == 20
+
+def test_detect_i2c_buses_uses_write_byte_data(wc):
+    """
+    Verify that detect_i2c_buses uses write_byte_data for motor control
+    and NOT write_i2c_block_data for the motor address (0x22).
+    """
+    with patch("builtins.input", return_value='y'):
+        # Setup mock bus
+        mock_bus = MagicMock()
+        mock_bus.read_word_data.return_value = 0 # Found 0x22
+        mock_bus.read_byte_data.return_value = 0x68 # Found 0x68
+        mock_bus.read_i2c_block_data.return_value = [0]*6 # accel
+
+        wc.mock_smbus.SMBus.return_value = mock_bus
+
+        wc.detect_i2c_buses()
+
+        # Verify calls to write_byte_data for PiconZero (0x22)
+        # We expect calls to set motors 0 and 1 to power (20) and then stop (0)
+        # Sequence:
+        # 1. Pulse: Motor 0 -> 20, Motor 1 -> 20
+        # 2. Stop:  Motor 0 -> 0,  Motor 1 -> 0
+
+        # Filter calls for 0x22
+        write_byte_calls = [
+            c for c in mock_bus.write_byte_data.call_args_list
+            if c.args[0] == 0x22
+        ]
+
+        # We expect at least 4 calls (2 start, 2 stop)
+        assert len(write_byte_calls) >= 4
+
+        # Check specific calls
+        # args: (addr, reg, value)
+        has_motor0_start = any(c.args[1] == 0 and c.args[2] == 20 for c in write_byte_calls)
+        has_motor1_start = any(c.args[1] == 1 and c.args[2] == 20 for c in write_byte_calls)
+        has_motor0_stop = any(c.args[1] == 0 and c.args[2] == 0 for c in write_byte_calls)
+        has_motor1_stop = any(c.args[1] == 1 and c.args[2] == 0 for c in write_byte_calls)
+
+        assert has_motor0_start, "Motor 0 start command not found"
+        assert has_motor1_start, "Motor 1 start command not found"
+        assert has_motor0_stop, "Motor 0 stop command not found"
+        assert has_motor1_stop, "Motor 1 stop command not found"
+
+        # Verify NO calls to write_i2c_block_data for 0x22
+        block_calls = [
+            c for c in mock_bus.write_i2c_block_data.call_args_list
+            if c.args[0] == 0x22
+        ]
+        assert len(block_calls) == 0, f"Found block write calls for PiconZero: {block_calls}"

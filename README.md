@@ -214,6 +214,8 @@ adjust these values in the cited files.
 * **Motor Input Range**: Assumes motor driver accepts values from -100 to 100.
     * *Citation*: [src/balance_bot/hardware/robot_hardware.py](src/balance_bot/hardware/robot_hardware.py) (
       `MOTOR_MIN_OUTPUT`, `MOTOR_MAX_OUTPUT`).
+* **PiconZero Protocol**: The PiconZero motor driver (based on ATmega328P) does NOT support standard I2C "Block Write" commands for motor control. It requires individual "Byte Writes" for each register.
+    * *Citation*: [src/balance_bot/hardware/piconzero.py](src/balance_bot/hardware/piconzero.py) and [src/balance_bot/wiring_check.py](src/balance_bot/wiring_check.py).
 
 ### Physics & Mounting
 

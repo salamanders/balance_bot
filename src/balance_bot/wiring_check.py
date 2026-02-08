@@ -79,11 +79,14 @@ class WiringCheck:
 
                     while current_power <= 120:
                         print(f"   Using power level: {current_power}")
-                        # Write [current_power, 0] to Reg 0 (Motor A=current_power, Motor B=0)
-                        bus.write_i2c_block_data(0x22, 0, [current_power, 0])
+                        # Write to both motors individually (PiconZero requires Byte Write)
+                        # Pulse BOTH motors (A and B) to catch any wiring configuration
+                        bus.write_byte_data(0x22, 0, current_power)
+                        bus.write_byte_data(0x22, 1, current_power)
                         time.sleep(0.5)
-                        # Stop [0, 0]
-                        bus.write_i2c_block_data(0x22, 0, [0, 0])
+                        # Stop
+                        bus.write_byte_data(0x22, 0, 0)
+                        bus.write_byte_data(0x22, 1, 0)
 
                         if current_power < 120:
                             prompt = f"   Did the robot move/click on Bus {bus_id}? [y=Yes / n=No (wrong bus) / m=More Power]: "
