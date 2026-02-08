@@ -124,8 +124,10 @@ reachable GPIO pins.
 Scroll to the bottom and add this exact line:
 
 ```txt
-dtoverlay=i2c-gpio,bus=3,i2c_gpio_sda=17,i2c_gpio_scl=27
+dtoverlay=i2c-gpio,bus=3,i2c_gpio_sda=17,i2c_gpio_scl=27,i2c_gpio_delay_us=5
 ```
+
+*(Note: `i2c_gpio_delay_us=5` sets the bus speed to approximately 100kHz. Increase this value (e.g., to 10) if you still encounter I2C errors.)*
 
 ### 1. Clone the Repository
 
