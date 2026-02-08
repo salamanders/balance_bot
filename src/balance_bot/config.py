@@ -236,7 +236,8 @@ class ControlConfig:
     yaw_correction_factor: float = 0.5
     upright_threshold: float = 5.0
     low_battery_log_threshold: float = 0.95
-    kickup_power: float = 60.0
+    kickup_power_forward: float = 60.0  # Power to kick up from Back (Neg Pitch) -> Front
+    kickup_power_backward: float = 60.0 # Power to kick up from Front (Pos Pitch) -> Back
 
 
 @dataclass(frozen=True)
