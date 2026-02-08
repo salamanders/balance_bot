@@ -226,6 +226,35 @@ class WiringCheck:
         print("Settings saved to disk.")
         self.cleanup()
 
+    def _set_canary(self):
+        """Set a 'Canary' value in MPU6050 to detect power loss."""
+        try:
+            # Check if we have a valid sensor object with bus access
+            if self.hw and hasattr(self.hw, 'sensor') and hasattr(self.hw.sensor, 'sensor'):
+                # Real hardware
+                sensor = self.hw.sensor.sensor
+                # Write 42 to SMPLRT_DIV (0x19)
+                print("Setting Brownout Canary...")
+                sensor.bus.write_byte_data(sensor.address, 0x19, 42)
+        except Exception as e:
+            print(f"Warning: Could not set Canary: {e}")
+
+    def _check_canary(self):
+        """Check if the 'Canary' value is still present."""
+        try:
+            if self.hw and hasattr(self.hw, 'sensor') and hasattr(self.hw.sensor, 'sensor'):
+                sensor = self.hw.sensor.sensor
+                val = sensor.bus.read_byte_data(sensor.address, 0x19)
+
+                if val == 42:
+                    print("-> CANARY ALIVE: Chip stayed powered. Cause: EMI NOISE (Interference).")
+                else:
+                    print(f"-> CANARY DEAD (Val={val}): Chip reset. Cause: VOLTAGE BROWNOUT.")
+        except OSError:
+            print("-> CANARY MISSING: I2C Bus is completely hung.")
+        except Exception as e:
+            print(f"Warning: Could not check Canary: {e}")
+
     def setup_motors(self):
         """Identify Motor Channels and Directions."""
         print("\n>>> Motor Identification")
@@ -354,6 +383,8 @@ class WiringCheck:
         input("Press Enter to DRIVE FORWARD...")
 
         print("Driving...")
+        # Set Canary
+        self._set_canary()
         # Start Driving
         self.hw.set_motors(self.config.min_power_visible, self.config.min_power_visible)
 
@@ -371,6 +402,8 @@ class WiringCheck:
             time.sleep(0.01)
 
         self.hw.stop()
+        # Check Canary
+        self._check_canary()
 
         # Analyze: Axis with highest variance or shift from static
         candidates = [k for k in ["x", "y", "z"] if k != vert_axis]
@@ -395,6 +428,8 @@ class WiringCheck:
         input("Press Enter to SPIN RIGHT...")
 
         print("Spinning...")
+        # Set Canary
+        self._set_canary()
         self.hw.set_motors(self.config.min_power_visible, -self.config.min_power_visible) # Spin Right
 
         gyro_data = []
@@ -408,6 +443,8 @@ class WiringCheck:
             time.sleep(0.01)
 
         self.hw.stop()
+        # Check Canary
+        self._check_canary()
 
         # Analyze: Axis with highest absolute mean rate
         avg_rates = {k: abs(sum(d[k] for d in gyro_data)/len(gyro_data)) for k in ["x","y","z"]}
