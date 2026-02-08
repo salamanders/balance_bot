@@ -149,6 +149,7 @@ class RobotHardware:
         motor_i2c_bus: int = 1,
         imu_i2c_bus: int = 1,
         crash_angle: float = 60.0,
+        imu_max_retries: int = 5,
     ):
         """
         Initialize the robot hardware abstraction.
@@ -170,6 +171,7 @@ class RobotHardware:
         :param motor_i2c_bus: I2C bus number for Motor Driver.
         :param imu_i2c_bus: I2C bus number for IMU.
         :param crash_angle: Angle to consider as CRASHED state.
+        :param imu_max_retries: Max consecutive IMU failures before raising error.
         """
         self.motor_l = motor_l
         self.motor_r = motor_r
@@ -188,6 +190,8 @@ class RobotHardware:
         self.motor_i2c_bus = motor_i2c_bus
         self.imu_i2c_bus = imu_i2c_bus
         self.crash_angle = crash_angle
+        self.imu_max_retries = imu_max_retries
+        self._imu_consecutive_errors = 0
 
         # Deduce Accel Roll Axis (The one not used by Vertical or Forward)
         axes = {Axis.X, Axis.Y, Axis.Z}
@@ -291,9 +295,17 @@ class RobotHardware:
             self._last_accel = accel
             self._last_gyro = gyro
 
+            # Reset error counter on success
+            self._imu_consecutive_errors = 0
+
             return accel, gyro
 
         except OSError:
+            self._imu_consecutive_errors += 1
+            if self._imu_consecutive_errors > self.imu_max_retries:
+                logger.error(f"IMU Failed {self._imu_consecutive_errors} times in a row. Raising Error.")
+                raise
+
             # If I2C fails (noise), return the last known good values
             # This prevents the robot from crashing or freezing
             # logger.warning("I2C Glitch - Using stale data")

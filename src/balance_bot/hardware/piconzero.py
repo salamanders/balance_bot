@@ -36,6 +36,7 @@ def getRevision():
         except:
             if (DEBUG):
                 print("Error in getRevision(), retrying")
+    raise OSError("PiconZero getRevision() failed after retries")
 #---------------------------------------------
 
 
@@ -48,10 +49,11 @@ def setMotor (motor, value):
         for i in range(RETRIES):
             try:
                 bus.write_byte_data (pzaddr, motor, value)
-                break
+                return
             except:
                 if (DEBUG):
                     print("Error in setMotor(), retrying")
+        raise OSError("PiconZero setMotor() failed after retries")
 
 def forward (speed):
     setMotor (0, speed)
@@ -86,6 +88,7 @@ def readInput (channel):
             except:
                 if (DEBUG):
                     print("Error in readChannel(), retrying")
+    raise OSError("PiconZero readInput() failed after retries")
 
 #---------------------------------------------
 
@@ -97,10 +100,11 @@ def setOutputConfig (output, value):
         for i in range(RETRIES):
             try:
                 bus.write_byte_data (pzaddr, OUTCFG0 + output, value)
-                break
+                return
             except:
                 if (DEBUG):
                     print("Error in setOutputConfig(), retrying")
+        raise OSError("PiconZero setOutputConfig() failed after retries")
 #---------------------------------------------
 
 #---------------------------------------------
@@ -115,10 +119,11 @@ def setInputConfig (channel, value, pullup = False, period = 2000):
                 bus.write_byte_data (pzaddr, INCFG0 + channel, value)
                 if (value == 4 or value == 5):
                     bus.write_word_data (pzaddr, INPERIOD0 + channel, period)
-                break
+                return
             except:
                 if (DEBUG):
                     print("Error in setInputConfig(), retrying")
+        raise OSError("PiconZero setInputConfig() failed after retries")
 #---------------------------------------------
 
 #---------------------------------------------
@@ -133,10 +138,11 @@ def setOutput (channel, value):
         for i in range(RETRIES):
             try:
                 bus.write_byte_data (pzaddr, OUTPUT0 + channel, value)
-                break
+                return
             except:
                 if (DEBUG):
                     print("Error in setOutput(), retrying")
+        raise OSError("PiconZero setOutput() failed after retries")
 #---------------------------------------------
 
 #---------------------------------------------
@@ -146,29 +152,32 @@ def setPixel (Pixel, Red, Green, Blue, Update=True):
     for i in range(RETRIES):
         try:
             bus.write_i2c_block_data (pzaddr, Update, pixelData)
-            break
+            return
         except:
             if (DEBUG):
                 print("Error in setPixel(), retrying")
+    raise OSError("PiconZero setPixel() failed after retries")
 
 def setAllPixels (Red, Green, Blue, Update=True):
     pixelData = [100, Red, Green, Blue]
     for i in range(RETRIES):
         try:
             bus.write_i2c_block_data (pzaddr, Update, pixelData)
-            break
+            return
         except:
             if (DEBUG):
                 print("Error in setAllPixels(), retrying")
+    raise OSError("PiconZero setAllPixels() failed after retries")
 
 def updatePixels ():
     for i in range(RETRIES):
         try:
             bus.write_byte_data (pzaddr, UPDATENOW, 0)
-            break
+            return
         except:
             if (DEBUG):
                 print("Error in updatePixels(), retrying")
+    raise OSError("PiconZero updatePixels() failed after retries")
 
 #---------------------------------------------
 
@@ -178,10 +187,11 @@ def setBrightness (brightness):
     for i in range(RETRIES):
         try:
             bus.write_byte_data (pzaddr, SETBRIGHT, brightness)
-            break
+            return
         except:
             if (DEBUG):
                 print("Error in setBrightness(), retrying")
+    raise OSError("PiconZero setBrightness() failed after retries")
 #---------------------------------------------
 
 #---------------------------------------------
@@ -195,6 +205,10 @@ def init (debug=False):
         except:
             if (DEBUG):
                 print("Error in init(), retrying")
+    else:
+        # Loop failed
+        raise OSError("PiconZero init() failed after retries")
+
     time.sleep(0.01)  #1ms delay to allow time to complete
     if (DEBUG):
         print("Debug is", DEBUG)
@@ -210,5 +224,9 @@ def cleanup ():
         except:
             if (DEBUG):
                 print("Error in cleanup(), retrying")
+    else:
+        # Loop failed
+        raise OSError("PiconZero cleanup() failed after retries")
+
     time.sleep(0.001)   # 1ms delay to allow time to complete
 #---------------------------------------------

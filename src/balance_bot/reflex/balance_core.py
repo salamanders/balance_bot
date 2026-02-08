@@ -76,6 +76,7 @@ class BalanceCore:
             motor_i2c_bus=config.motor_i2c_bus,
             imu_i2c_bus=config.imu_i2c_bus,
             crash_angle=config.crash_angle,
+            imu_max_retries=config.imu_max_retries,
         )
         self.hw.init()
 
