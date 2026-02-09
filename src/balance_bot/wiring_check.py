@@ -1,12 +1,11 @@
 import time
 import sys
-import threading
 import smbus
 from .diagnostics import run_diagnostics
 from .config import RobotConfig
 from .hardware.robot_hardware import RobotHardware
-from .enums import Axis, Orientation
-from .utils import analyze_dominance, to_signed, cross_product
+from .enums import Axis
+from .utils import analyze_dominance, cross_product
 
 
 class WiringCheck:
@@ -81,13 +80,13 @@ class WiringCheck:
         # We need to initialize HW with the motors we just found
         self.init_hw()
 
-        # Prerequisite: Identify Gravity/Pitch axes before we can do dynamic moves
+        # Prerequisite: Identify Gravity/Pitch axes before we can do dynamic checks
         self.setup_static_sensors()
 
         # Now do the dynamic checks (Steps 7-14)
-        self.verify_straight_motion() # Steps 7-8
-        self.verify_yaw_turns()       # Steps 9-10
-        self.test_flops()             # Steps 11-14
+        self.verify_straight_motion()  # Steps 7-8
+        self.verify_yaw_turns()        # Steps 9-10
+        self.test_flops()              # Steps 11-14
 
         # 4. Save
         print("\n[SUCCESS] Configuration Complete!")
@@ -191,13 +190,21 @@ class WiringCheck:
         choice = input("Select (a/b/c/d): ").strip().lower()
 
         if choice == 'a':
-            self.config.motor_l = 0; self.config.motor_l_invert = False; self.config.motor_r = 1
+            self.config.motor_l = 0
+            self.config.motor_l_invert = False
+            self.config.motor_r = 1
         elif choice == 'b':
-            self.config.motor_l = 0; self.config.motor_l_invert = True; self.config.motor_r = 1
+            self.config.motor_l = 0
+            self.config.motor_l_invert = True
+            self.config.motor_r = 1
         elif choice == 'c':
-            self.config.motor_r = 0; self.config.motor_r_invert = False; self.config.motor_l = 1
+            self.config.motor_r = 0
+            self.config.motor_r_invert = False
+            self.config.motor_l = 1
         elif choice == 'd':
-            self.config.motor_r = 0; self.config.motor_r_invert = True; self.config.motor_l = 1
+            self.config.motor_r = 0
+            self.config.motor_r_invert = True
+            self.config.motor_l = 1
         else:
             print("Invalid selection.")
             sys.exit(1)
@@ -206,11 +213,11 @@ class WiringCheck:
         self.temp_motor_l = self.config.motor_l
         self.temp_motor_r = self.config.motor_r
         self.temp_invert_l = self.config.motor_l_invert
-        self.temp_invert_r = False # Unknown
+        self.temp_invert_r = False  # Unknown
         self.init_hw()
 
         # Check Motor B
-        other = "Right" if choice in ['a','b'] else "Left"
+        other = "Right" if choice in ['a', 'b'] else "Left"
         print(f"\nTwitching {other} Motor (Channel 1)...")
         if other == "Right":
             self.hw.set_motors(0, self.config.min_power_visible)
@@ -244,10 +251,11 @@ class WiringCheck:
         accel_sum = {"x": 0, "y": 0, "z": 0}
         for _ in range(50):
             a, _ = self.hw.read_imu_raw()
-            for k in a: accel_sum[k] += a[k]
+            for k in a:
+                accel_sum[k] += a[k]
             time.sleep(0.01)
 
-        avg = {k: v/50 for k,v in accel_sum.items()}
+        avg = {k: v / 50 for k, v in accel_sum.items()}
         vert, _, _ = analyze_dominance(avg, "Vertical")
         self.config.accel_vertical_axis = Axis(vert)
         self.config.accel_vertical_invert = avg[vert] > 0
@@ -313,12 +321,13 @@ class WiringCheck:
 
         # 1. Measure Static Baseline first
         print("Measuring baseline...")
-        static_sum = {'x':0.0, 'y':0.0, 'z':0.0}
+        static_sum = {'x': 0.0, 'y': 0.0, 'z': 0.0}
         for _ in range(20):
             a, _ = self.hw.read_imu_raw()
-            for k in a: static_sum[k] += a[k]
+            for k in a:
+                static_sum[k] += a[k]
             time.sleep(0.01)
-        static_avg = {k: v/20 for k,v in static_sum.items()}
+        static_avg = {k: v / 20 for k, v in static_sum.items()}
 
         input("Press Enter to run Straight Forward (1s) then Backward (1s)...")
 
@@ -346,10 +355,10 @@ class WiringCheck:
             sys.exit(1)
 
         # Deduce Forward Axis
-        moving_avg = {k: sum(d[k] for d in accel_data)/len(accel_data) for k in ['x','y','z']}
+        moving_avg = {k: sum(d[k] for d in accel_data) / len(accel_data) for k in ['x', 'y', 'z']}
 
         # Calculate Shift (Delta)
-        deltas = {k: moving_avg[k] - static_avg[k] for k in ['x','y','z']}
+        deltas = {k: moving_avg[k] - static_avg[k] for k in ['x', 'y', 'z']}
 
         # Use Delta for Dominance
         fwd, _, _ = analyze_dominance(deltas, "Forward", exclude=[self.config.accel_vertical_axis.value])
@@ -374,11 +383,11 @@ class WiringCheck:
 
         # Left 360
         input("Press Enter to turn LEFT 360...")
-        self.hw.set_motors(-60, 60) # Left Turn
+        self.hw.set_motors(-60, 60)  # Left Turn
 
         gyro_data = []
         start = time.time()
-        while time.time() - start < 1.5: # Guess time
+        while time.time() - start < 1.5:  # Guess time
             _, g = self.hw.read_imu_raw()
             gyro_data.append(g)
             time.sleep(0.01)
@@ -387,20 +396,20 @@ class WiringCheck:
         input("Did it turn Left approx 360? [Enter=Yes, Ctrl+C=No]")
 
         # Analyze Yaw Axis
-        avgs = {k: sum(d[k] for d in gyro_data)/len(gyro_data) for k in ['x','y','z']}
-        yaw, _, _ = analyze_dominance({k: abs(v) for k,v in avgs.items()}, "Yaw")
+        avgs = {k: sum(d[k] for d in gyro_data) / len(gyro_data) for k in ['x', 'y', 'z']}
+        yaw, _, _ = analyze_dominance({k: abs(v) for k, v in avgs.items()}, "Yaw")
 
         # Left Turn = Negative Yaw Rate usually?
         # Standard: Right is Positive. Left is Negative.
         val = avgs[yaw]
-        yaw_inv = val > 0 # If val is pos during left turn, we must invert to make it neg
+        yaw_inv = val > 0  # If val is pos during left turn, we must invert to make it neg
 
         self.config.gyro_yaw_axis = Axis(yaw)
         self.config.gyro_yaw_invert = yaw_inv
         print(f"-> Yaw Axis: {yaw.upper()} (Inv: {yaw_inv})")
 
         # Deduce Roll (Remaining)
-        all_axes = {'x','y','z'}
+        all_axes = {'x', 'y', 'z'}
         roll = list(all_axes - {self.config.gyro_pitch_axis.value, yaw})[0]
         self.config.gyro_roll_axis = Axis(roll)
         print(f"-> Roll Axis: {roll.upper()}")
@@ -427,8 +436,8 @@ class WiringCheck:
         # Verify position
         curr_pitch, _ = self.hw.read_imu_converted()
         if curr_pitch > -10:
-             print(f"Warning: Pitch is {curr_pitch:.1f}. Should be < -10 (Leaning Back).")
-             input("Fix position and Press Enter...")
+            print(f"Warning: Pitch is {curr_pitch:.1f}. Should be < -10 (Leaning Back).")
+            input("Fix position and Press Enter...")
 
         # Loop
         power = 60
@@ -443,11 +452,11 @@ class WiringCheck:
             time.sleep(0.6)
             self.hw.stop()
 
-            time.sleep(1.0) # Wait for flop
+            time.sleep(1.0)  # Wait for flop
 
             # Check Pitch
             p, _ = self.hw.read_imu_converted()
-            if p > 10: # Flopped to Front
+            if p > 10:  # Flopped to Front
                 print(f"-> Success! Flopped Forward at Power {power}.")
                 found_power = power
                 break
@@ -468,8 +477,8 @@ class WiringCheck:
 
         curr_pitch, _ = self.hw.read_imu_converted()
         if curr_pitch < 10:
-             print(f"Warning: Pitch is {curr_pitch:.1f}. Should be > 10 (Leaning Front).")
-             input("Fix position and Press Enter...")
+            print(f"Warning: Pitch is {curr_pitch:.1f}. Should be > 10 (Leaning Front).")
+            input("Fix position and Press Enter...")
 
         power = 60
         found_power = None
@@ -486,7 +495,7 @@ class WiringCheck:
             time.sleep(1.0)
 
             p, _ = self.hw.read_imu_converted()
-            if p < -10: # Flopped to Back
+            if p < -10:  # Flopped to Back
                 print(f"-> Success! Flopped Backward at Power {power}.")
                 found_power = power
                 break
@@ -497,6 +506,7 @@ class WiringCheck:
 
         if found_power:
             self.config.control.kickup_power_backward = found_power
+
 
 if __name__ == "__main__":
     WiringCheck().run()
