@@ -26,6 +26,8 @@
 * [src/balance_bot/config.py](src/balance_bot/config.py): Centralized configuration (constants, dataclasses) for the
   robot.
 * [src/balance_bot/diagnostics.py](src/balance_bot/diagnostics.py): Tools for checking system health (I2C, imports).
+* [src/balance_bot/enums.py](src/balance_bot/enums.py): Enumerations for direction and orientation.
+* [src/balance_bot/jules_client.py](src/balance_bot/jules_client.py): Client for reporting crashes to Jules.
 * [src/balance_bot/main.py](src/balance_bot/main.py): Main application entry point.
 * [src/balance_bot/utils.py](src/balance_bot/utils.py): Shared utility functions (math, timing, filtering).
 * [src/balance_bot/wiring_check.py](src/balance_bot/wiring_check.py): Interactive tool for verifying motor/sensor wiring
@@ -58,16 +60,27 @@
 * [src/balance_bot/hardware/robot_hardware.py](src/balance_bot/hardware/robot_hardware.py): Hardware Abstraction Layer (
   HAL) managing sensors and motors.
 * [src/balance_bot/hardware/piconzero.py](src/balance_bot/hardware/piconzero.py): Driver for the Picon Zero Motor HAT.
+* [src/balance_bot/hardware/piconzero_adapter.py](src/balance_bot/hardware/piconzero_adapter.py): Adapter for Picon Zero to manage I2C retries and bus switching.
 * [src/balance_bot/hardware/mocks.py](src/balance_bot/hardware/mocks.py): Mock hardware implementations.
 
 ### Tests (`tests/`)
 
+* [tests/benchmarks/](tests/benchmarks/): Benchmark tests for performance critical components.
+* [tests/test_balance_core_params.py](tests/test_balance_core_params.py): Tests for balance core parameters.
+* [tests/test_balance_finder.py](tests/test_balance_finder.py): Tests for the Balance Point Finder logic.
 * [tests/test_battery.py](tests/test_battery.py): Unit tests for battery estimation logic.
+* [tests/test_cross_product.py](tests/test_cross_product.py): Tests for vector math utilities.
 * [tests/test_diagnostics.py](tests/test_diagnostics.py): Tests for diagnostic functions.
 * [tests/test_i2c_config.py](tests/test_i2c_config.py): Tests for I2C bus configuration logic.
 * [tests/test_imu_logic.py](tests/test_imu_logic.py): Tests for IMU math and pitch calculation.
+* [tests/test_imu_resilience.py](tests/test_imu_resilience.py): Tests for IMU error handling and resilience.
+* [tests/test_imu_yaw_roll.py](tests/test_imu_yaw_roll.py): Tests for yaw and roll calculations.
+* [tests/test_kickup_config.py](tests/test_kickup_config.py): Tests for kick-up configuration and logic.
+* [tests/test_piconzero_driver.py](tests/test_piconzero_driver.py): Tests for the Picon Zero driver.
+* [tests/test_startup_logic.py](tests/test_startup_logic.py): Tests for the robot startup sequence.
 * [tests/test_tuner.py](tests/test_tuner.py): Tests for the PID auto-tuning logic.
 * [tests/test_utils.py](tests/test_utils.py): Unit tests for helper functions (clamp, filters, etc.).
+* [tests/test_wiring_check_bus.py](tests/test_wiring_check_bus.py): Tests for the wiring check tool's bus detection.
 
 ### Printed Parts (`printed_parts/`)
 
@@ -161,7 +174,6 @@ Run the interactive wiring check to verify motor direction and gyro orientation.
 
 ```bash
 uv run balance-bot --check-wiring
-uv run balance-bot --confirm-wiring
 uv run balance-bot
 ```
 
