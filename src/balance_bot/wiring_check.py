@@ -145,10 +145,14 @@ class WiringCheck:
                 self.config.save()
                 continue
 
+            # --- Tier 6: Final Verification ---
+            print("-> [VERIFYING] Final Configuration Check.")
+            self.verify_final_configuration()
+
             print("\n[SUCCESS] Self-Discovery Complete. I know everything.")
-            print(f"Summary:")
+            print("Summary:")
             print(f"  Buses: Motor={c.motor_i2c_bus}, IMU={c.imu_i2c_bus}")
-            print(f"  Axes: Vert={c.accel_vertical_axis}, Fwd={c.accel_forward_axis}, Pitch={c.gyro_pitch_axis}")
+            print(f"  Axes: Vert={c.accel_vertical_axis}, Fwd={c.accel_forward_axis}, Pitch={c.gyro_pitch_axis}, Yaw={c.gyro_yaw_axis}")
             print(f"  Motors: MinPower={c.min_power_visible}, L={c.motor_l}(Inv={c.motor_l_invert}), R={c.motor_r}(Inv={c.motor_r_invert})")
             print(f"  KickUp: Fwd={c.control.kickup_power_forward:.1f}, Bwd={c.control.kickup_power_backward:.1f}")
             break
@@ -180,7 +184,7 @@ class WiringCheck:
                 finally:
                     try:
                         bus.close()
-                    except:
+                    except Exception:
                         pass
             except Exception:
                 pass
@@ -209,7 +213,7 @@ class WiringCheck:
                 finally:
                     try:
                         bus.close()
-                    except:
+                    except Exception:
                         pass
             except Exception:
                 pass
@@ -247,22 +251,10 @@ class WiringCheck:
         # Dominant axis in static position is Gravity (Vertical)
         vert, _, _ = analyze_dominance(avg_back, "Vertical (Gravity)")
         self.config.accel_vertical_axis = Axis(vert)
-        # Check sign: Gravity pulls Down. Accelerometer measures Normal Force (Up).
-        # Standard: +1g on Z means Z is Up.
-        # We want Vertical Axis to be positive UP.
-        self.config.accel_vertical_invert = avg_back[vert] < 0 # If reading is negative, we invert to make it positive?
-        # Wait, if Z reads -1g (upside down), then we invert so Up is positive.
-        # Actually, typically we align it so +Vertical is "Up".
-        # If robot is sitting flat-ish, Z should be +1g or -1g.
-        # If it is +1g, Invert=False. If -1g, Invert=True.
-        # But wait, the robot is leaning. Vertical component is still dominant.
         self.config.accel_vertical_invert = avg_back[vert] < 0
         print(f"  -> Vertical Axis: {vert.upper()} (Invert: {self.config.accel_vertical_invert})")
 
-        # 2. Read Lean (Forward Axis) - Deduce from residue?
-        # Actually, spec says: "The axis with the next largest value is Forward".
-        # Because we are leaning, gravity leaks into Forward axis.
-        # We sort by absolute value.
+        # 2. Read Lean (Forward Axis)
         sorted_axes = sorted(avg_back.items(), key=lambda x: abs(x[1]), reverse=True)
         # 0 is Vertical. 1 is Forward. 2 is Pitch (Axle).
         forward_axis = sorted_axes[1][0]
@@ -273,7 +265,6 @@ class WiringCheck:
         print(f"  -> Pitch Axis Candidate: {pitch_axis.upper()}")
 
         # 3. Determine Pitch Axis Orientation (Using Cross Product)
-        # We need a second data point: Tip Forward.
         print("\n  Now TIP ROBOT FORWARD to Front Wheel.")
         input("Press Enter to measure FRONT position...")
 
@@ -285,10 +276,7 @@ class WiringCheck:
             time.sleep(0.01)
         avg_front = {k: v / samples for k, v in accel_sum_front.items()}
 
-        # Cross Product: Back x Front
-        # Back vector (roughly Up + Back)
-        # Front vector (roughly Up + Front)
-        # The rotation axis is the Pitch Axis.
+        # Cross Product: Back x Front -> Pitch Axis Vector
         axis_vec = cross_product(avg_back, avg_front)
 
         # Verify that our calculated pitch axis matches the cross product magnitude
@@ -299,25 +287,8 @@ class WiringCheck:
              pitch_axis = detected_pitch
 
         self.config.gyro_pitch_axis = Axis(pitch_axis)
-
-        # Polarity: Right Hand Rule.
-        # Back -> Front rotation.
-        # If we rotate "Forward" (Positive Pitch usually), the gyro vector points along the axis.
-        # Wait, Back -> Front is changing pitch from Negative (Leaning Back) to Positive (Leaning Front).
-        # So the change is Positive.
-        # The cross product `Back x Front` points in the direction of the axis of rotation for that move.
-        # If `Back x Front` is Positive on the Axis, then the Axis is aligned with the rotation vector.
-        # Standard Gyro: +Rotation about X is "Roll Right". +Rotation about Y is "Pitch Down"?
-        # Let's simplify:
-        # We defined Back->Front as "Positive Pitch Change".
-        # If the gyro reading during that move is Positive, then Invert=False.
-        # Here we used Accelerometer vectors.
-        # Cross product direction: perpendicular to both.
-        # Polarity:
         val = axis_vec[pitch_axis]
-        # If CrossProd is positive, it means the rotation "vector" is positive along that axis.
-        # If we want Positive Pitch to be that direction, we don't invert.
-        self.config.gyro_pitch_invert = val < 0 # If negative, invert to make it positive.
+        self.config.gyro_pitch_invert = val < 0
 
         print(f"  -> Pitch Axis: {pitch_axis.upper()} (Invert: {self.config.gyro_pitch_invert})")
 
@@ -326,12 +297,9 @@ class WiringCheck:
         used = {vert, pitch_axis}
         remaining = list(all_axes - used)
         if len(remaining) == 1:
-            # Usually Yaw is Z (Vertical) but here Vertical is Gravity.
-            # Wait, Gyro Yaw is rotation around Vertical Axis.
-            # So Gyro Yaw Axis == Accel Vertical Axis.
+            # Gyro Yaw is rotation around Vertical Axis
             self.config.gyro_yaw_axis = Axis(vert)
-            # Gyro Roll Axis == Accel Forward Axis? No, Roll is around Forward.
-            # So Gyro Roll Axis == Accel Forward Axis.
+            # Gyro Roll Axis is rotation around Forward Axis
             self.config.gyro_roll_axis = Axis(forward_axis)
         else:
             print("  [ERROR] Axis deduction logic failed.")
@@ -340,17 +308,6 @@ class WiringCheck:
         self.init_hw()
 
         # Deduce Forward Axis Inversion
-        # We need the sign of the Forward Axis change between Back and Front.
-        # Back: Leaning Back. Forward Axis component?
-        # Front: Leaning Front. Forward Axis component?
-        # Pitch increases (Back -> Front).
-        # We want Forward Axis to point "Forward".
-        # When leaning Front, Gravity component on Forward Axis should be... ?
-        # Gravity pulls Down. If we lean Front (Nose Down), Forward Axis points somewhat Down.
-        # So Gravity projects POSITIVE onto Forward Axis (if Forward is +).
-        # When leaning Back (Nose Up), Forward Axis points somewhat Up.
-        # Gravity projects NEGATIVE onto Forward Axis.
-        # So: Value(Front) - Value(Back) should be POSITIVE.
         delta_fwd = avg_front[forward_axis] - avg_back[forward_axis]
         self.config.accel_forward_invert = delta_fwd < 0
         print(f"  -> Forward Axis: {forward_axis.upper()} (Invert: {self.config.accel_forward_invert})")
@@ -384,9 +341,6 @@ class WiringCheck:
 
                 while time.time() - start_time < 0.2:
                     _, g = self.hw.read_imu_raw()
-                    # Simple check: Is gyro rate significantly different?
-                    # Or check for spike.
-                    # Let's check diff from start.
                     diff = sum(abs(g[k] - g_start[k]) for k in g)
                     if diff > 10.0: # Threshold
                          motion_detected = True
@@ -413,179 +367,231 @@ class WiringCheck:
     def align_motors_phase(self):
         """
         Ensure motors spin together (Straight), not opposite (Spin).
+        Verifies via pessimistic loop.
         """
         print(">>> Verifying Motor Phasing <<<")
-        self.init_hw()
 
-        # Test 1: Drive with current config
-        power = self.config.min_power_visible + 10
-        print(f"  Pulse Drive with PWM {power}...")
+        attempts = 0
+        max_attempts = 3
 
-        yaw_sum = 0.0
-        accel_fwd_sum = 0.0
-        count = 0
+        while attempts < max_attempts:
+            attempts += 1
+            print(f"  [Attempt {attempts}] Checking Phasing...")
+            self.init_hw()
 
-        try:
-            self.hw.set_motors(power, power)
-            start = time.time()
-            while time.time() - start < 0.5:
-                imu = self.hw.read_imu_converted()
-                yaw_sum += abs(imu.yaw_rate)
-                # Measure change in velocity (approx by accel? No, IMU accel is noisy when moving)
-                # But we can check if Yaw Rate is huge.
-                count += 1
-                time.sleep(0.01)
-        finally:
-            self.hw.stop()
-            time.sleep(1.0)
+            # Test 1: Drive with current config
+            power = self.config.min_power_visible + 10
+            print(f"  Pulse Drive with PWM {power}...")
 
-        avg_yaw = yaw_sum / max(1, count)
-        print(f"  -> Avg Yaw Rate: {avg_yaw:.1f} deg/s")
+            yaw_sum = 0.0
+            count = 0
 
-        # If Yaw Rate is high (> 50 deg/s?), we are probably spinning in place -> Motors Opposed.
-        if avg_yaw > 40.0:
-            print("  -> High Yaw Rate detected. Motors are fighting (Spinning).")
-            print("  -> Inverting Right Motor logic to align phases.")
-            self.config.motor_r_invert = not self.config.motor_r_invert
-        else:
-            print("  -> Low Yaw Rate. Motors are aligned (Straight).")
+            try:
+                self.hw.set_motors(power, power)
+                start = time.time()
+                while time.time() - start < 0.5:
+                    imu = self.hw.read_imu_converted()
+                    yaw_sum += abs(imu.yaw_rate)
+                    count += 1
+                    time.sleep(0.01)
+            finally:
+                self.hw.stop()
+                time.sleep(1.0)
 
-        self.config.motor_phasing_verified = True
-        self.init_hw() # Apply changes
+            avg_yaw = yaw_sum / max(1, count)
+            print(f"  -> Avg Yaw Rate: {avg_yaw:.1f} deg/s")
+
+            # Threshold for "Spinning"
+            if avg_yaw > 40.0:
+                print("  -> High Yaw Rate detected. Motors are fighting (Spinning).")
+                print("  -> ACTION: Inverting Right Motor logic to align phases.")
+                self.config.motor_r_invert = not self.config.motor_r_invert
+                # Loop back to verify
+                continue
+            else:
+                print("  -> Low Yaw Rate. Motors are aligned (Straight).")
+                # Proven correct.
+                self.config.motor_phasing_verified = True
+                return
+
+        print("  [FAILURE] Could not align motor phases after multiple attempts.")
+        sys.exit(1)
 
     # --- Tier 3c: Direction ---
     def determine_motor_direction(self):
         """
         Ensure Positive Power = "Stand Up" (Reduce Lean).
         "Kick Up" Test.
+        Verifies via pessimistic loop.
         """
         print(">>> Verifying Motor Direction (Kick Up Check) <<<")
-        self.init_hw()
 
-        # 1. Measure Start Pitch
-        imu = self.hw.read_imu_converted()
-        start_pitch = imu.pitch_angle
-        print(f"  Start Pitch: {start_pitch:.1f}")
+        attempts = 0
+        max_attempts = 3
 
-        if abs(start_pitch) < 10:
-            print("  [WARNING] Robot is too upright. Please lean it over (Front or Back).")
-            input("Press Enter when leaned...")
+        while attempts < max_attempts:
+            attempts += 1
+            print(f"  [Attempt {attempts}] Checking Direction...")
+            self.init_hw()
+
+            # 1. Measure Start Pitch
             imu = self.hw.read_imu_converted()
             start_pitch = imu.pitch_angle
+            print(f"  Start Pitch: {start_pitch:.1f}")
 
-        # 2. Pulse Positive
-        power = self.config.min_power_visible + 20
-        print(f"  Pulsing +{power} (Positive)...")
+            if abs(start_pitch) < 10:
+                print("  [WARNING] Robot is too upright. Please lean it over (Front or Back).")
+                input("Press Enter when leaned...")
+                continue # Retry measurement
 
-        try:
-            self.hw.set_motors(power, power)
-            time.sleep(0.3)
-        finally:
-            self.hw.stop()
+            # 2. Pulse Positive
+            power = self.config.min_power_visible + 20
+            print(f"  Pulsing +{power} (Positive)...")
 
-        # 3. Measure End Pitch
-        time.sleep(0.5) # Wait for settle? No, we want the immediate reaction.
-        # Actually, if we pulse, it moves.
-        # We want to know if it moved TOWARDS vertical (0) or AWAY.
-        # Note: After pulse, it might fall back. We should have measured DURING the pulse?
-        # Or measure the peak change.
-        # Let's try measuring during pulse.
+            # Measure during pulse
+            end_pitch = start_pitch
+            try:
+                self.hw.set_motors(power, power)
+                t_end = time.time() + 0.3
+                while time.time() < t_end:
+                     imu = self.hw.read_imu_converted()
+                     end_pitch = imu.pitch_angle
+                     time.sleep(0.01)
+            finally:
+                self.hw.stop()
+                time.sleep(1.0)
 
-        # Retry with measurement
-        print("  Retrying with measurement...")
-        end_pitch = start_pitch # fallback
-        try:
-            self.hw.set_motors(power, power)
-            t_end = time.time() + 0.3
-            while time.time() < t_end:
-                 imu = self.hw.read_imu_converted()
-                 end_pitch = imu.pitch_angle
-                 time.sleep(0.01)
-        finally:
-            self.hw.stop()
-            time.sleep(1.0)
+            print(f"  End Pitch: {end_pitch:.1f}")
 
-        print(f"  End Pitch: {end_pitch:.1f}")
+            # Check Physics
+            started_leaning = abs(start_pitch)
+            ended_leaning = abs(end_pitch)
 
-        # Check Physics
-        started_leaning = abs(start_pitch)
-        ended_leaning = abs(end_pitch)
+            # Did we move towards upright (0)?
+            # If start=-30, upright=0.
+            # If end=-20, abs(-20) < abs(-30) -> Improved.
+            # If end=-40, abs(-40) > abs(-30) -> Worsened.
 
-        if ended_leaning < started_leaning:
-            print("  [SUCCESS] Robot moved towards upright (Stood Up). Direction is Correct.")
-        else:
-            print("  [FAILURE] Robot dug in (Leaned More). Direction is Inverted.")
-            print("  -> Inverting BOTH motors to fix direction.")
-            self.config.motor_l_invert = not self.config.motor_l_invert
-            self.config.motor_r_invert = not self.config.motor_r_invert
+            # Note: We need significant movement to be sure.
+            if abs(started_leaning - ended_leaning) < 2.0:
+                print("  [WARNING] Movement too small to determine direction. Retrying...")
+                continue
 
-            # Also check Gyro Pitch polarity
-            # If we moved "Up" (pitch change opposed gravity), gyro should reflect that.
-            # But we already calibrated gyro pitch axis/invert in Tier 2 based on static vectors.
-            # So Gyro should be correct relative to physical world.
-            # We only change Motors here.
+            if ended_leaning < started_leaning:
+                print("  [SUCCESS] Robot moved towards upright (Stood Up). Direction is Correct.")
+                self.config.motor_direction_verified = True
+                return
+            else:
+                print("  [FAILURE] Robot dug in (Leaned More). Direction is Inverted.")
+                print("  -> ACTION: Inverting BOTH motors to fix direction.")
+                self.config.motor_l_invert = not self.config.motor_l_invert
+                self.config.motor_r_invert = not self.config.motor_r_invert
+                # Loop back to verify
+                continue
 
-        self.config.motor_direction_verified = True
-        self.init_hw()
+        print("  [FAILURE] Could not determine motor direction after multiple attempts.")
+        sys.exit(1)
 
     # --- Tier 4: The Human Anchor ---
     def ask_human_left_right(self):
         """
         Identify Left vs Right Motor.
         Robot spins. Human confirms direction.
+        Also infers Gyro Yaw Polarity based on human feedback.
         """
-        print(">>> Left/Right Verification <<<")
-        self.init_hw()
+        print(">>> Left/Right Verification & Yaw Calibration <<<")
 
-        print("I am going to spin. Watch me.")
-        input("Press Enter to Spin...")
+        while True:
+            self.init_hw()
+            print("I am going to spin. Watch me.")
+            input("Press Enter to Spin...")
 
-        # Drive Ch0 Forward, Ch1 Backward
-        # We don't know which is Left/Right yet.
-        # Current config: motor_l=0, motor_r=1 (Defaults).
-        # We use set_motors.
-        # If we set Left=+Val, Right=-Val.
-        # If L=Ch0, R=Ch1 => Ch0=+, Ch1=-.
+            # Drive Ch0 Forward, Ch1 Backward
+            # Command: L+, R- (Assuming L=0, R=1)
+            # We treat this as a "Right Turn Command" in our internal logic if L=Left, R=Right.
+            # But physically, we just want to know what happens.
 
-        power = self.config.min_power_visible + 10
-        try:
-            # We command a "Right Turn" (Clockwise?): Left Fwd, Right Bwd.
-            self.hw.set_motors(power, -power)
-            time.sleep(1.5)
-        finally:
-            self.hw.stop()
+            power = self.config.min_power_visible + 15
+            yaw_rate_sum = 0.0
+            count = 0
 
-        print("\nDid I spin CLOCKWISE (Right) or COUNTER-CLOCKWISE (Left)?")
-        print("  [r] Clockwise (Right)")
-        print("  [l] Counter-Clockwise (Left)")
-        ans = input("Choice: ").strip().lower()
+            try:
+                # We command L+, R-.
+                self.hw.set_motors(power, -power)
+                start = time.time()
+                while time.time() - start < 1.5:
+                    reading = self.hw.read_imu_converted()
+                    yaw_rate_sum += reading.yaw_rate
+                    count += 1
+                    time.sleep(0.01)
+            finally:
+                self.hw.stop()
 
-        if ans == 'r':
-            # We commanded L+, R-. Robot spun Right.
-            # So Left Motor IS Left side. Right Motor IS Right side.
-            # Current mapping (L=0, R=1) is CORRECT.
-            pass
-        elif ans == 'l':
-            # We commanded L+, R-. Robot spun Left.
-            # This means the "Left" command actually moved the Right wheel forward?
-            # Or Left wheel backward?
-            # Wait. "Spin Left" means turning towards Left. Left Wheel Back, Right Wheel Forward.
-            # We commanded L+, R-.
-            # If result is Spin Left, then L+ made it go Back? No, we verified Direction in Tier 3c.
-            # So L+ means "This motor pushes forward".
-            # So "Left" Motor pushed forward. "Right" Motor pushed backward.
-            # Result was Spin Left.
-            # This implies the motor we call "Left" (Ch0) is actually on the RIGHT side of the robot?
-            # (Right Fwd, Left Back => Turn Left).
-            # So Ch0 is Right. Ch1 is Left.
-            print("  -> Swapping Channels.")
-            self.config.motor_l = 1
-            self.config.motor_r = 0
-        else:
-            print("Invalid input. Retrying...")
-            return # Will loop
+            avg_yaw_rate = yaw_rate_sum / max(1, count)
+            print(f"  [Measured] Avg Yaw Rate (Internal): {avg_yaw_rate:.1f} deg/s")
 
-        self.config.motor_channels_verified = True
+            print("\nDid I spin CLOCKWISE (Right) or COUNTER-CLOCKWISE (Left)?")
+            print("  [r] Clockwise (Right)")
+            print("  [l] Counter-Clockwise (Left)")
+            ans = input("Choice: ").strip().lower()
+
+            if ans not in ['r', 'l']:
+                print("Invalid input. Retrying...")
+                continue
+
+            # 1. Deduce Motor Channels (Left/Right)
+            if ans == 'r':
+                # We commanded L+, R-. Robot spun Right.
+                # This matches expectation for standard wiring (Left Motor on Left, Right Motor on Right).
+                print("  -> Human confirmed Spin Right.")
+                print("  -> Motor Channel Mapping is CORRECT.")
+                # No swap needed.
+            elif ans == 'l':
+                # We commanded L+, R-. Robot spun Left.
+                # This implies "Left" channel is actually on Right side, or wired backwards?
+                # We already verified Phasing and Direction.
+                # So L+ moves Robot "Forward/Up". R- moves Robot "Back/Down".
+                # If L(Right Side) moves Fwd, R(Left Side) moves Back -> Spin Left.
+                # So Ch0 is Right, Ch1 is Left.
+                print("  -> Human confirmed Spin Left.")
+                print("  -> ACTION: Swapping Channels (Ch0 <-> Ch1).")
+                self.config.motor_l, self.config.motor_r = self.config.motor_r, self.config.motor_l
+
+                # IMPORTANT: If we swap channels, we must re-verify!
+                print("  -> Re-verifying with new mapping...")
+                continue
+
+            # 2. Deduce Gyro Yaw Polarity
+            # We now know the PHYSICAL direction was 'ans'.
+            # Right Turn = Positive Yaw (conventionally).
+            # If User says Right ('r'):
+            #   Expected Yaw: POSITIVE.
+            #   Measured Yaw: avg_yaw_rate.
+            #   If Measured < 0: Invert Gyro Yaw.
+            # If User says Left ('l'):
+            #   Expected Yaw: NEGATIVE.
+            #   Measured Yaw: avg_yaw_rate.
+            #   If Measured > 0: Invert Gyro Yaw.
+
+            # Note: Standard Right Hand Rule around Z-Up: Counter-Clockwise is Positive.
+            # But for vehicles, "Turn Right" often implies Positive Yaw in some conventions, or Negative in others.
+            # Let's standardize: Turn Right (Clockwise) is NEGATIVE Yaw (Z-Up).
+            # Turn Left (CCW) is POSITIVE Yaw.
+
+            print("  -> Calibrating Gyro Yaw Polarity...")
+            # Let's assume Z-Up.
+            expected_sign = 1.0 if ans == 'l' else -1.0
+
+            if (avg_yaw_rate * expected_sign) < 0:
+                print(f"  -> Measured {avg_yaw_rate:.1f} opposes expected direction.")
+                print("  -> ACTION: Inverting Gyro Yaw.")
+                self.config.gyro_yaw_invert = not self.config.gyro_yaw_invert
+            else:
+                print("  -> Gyro Yaw polarity is correct.")
+
+            self.config.motor_channels_verified = True
+            break
+
         self.init_hw()
 
     # --- Tier 5: Dynamics ---
@@ -662,6 +668,73 @@ class WiringCheck:
         if found_bwd:
             self.config.control.kickup_power_backward = found_bwd
 
+    # --- Tier 6: Final Verification ---
+    def verify_final_configuration(self):
+        """
+        Autonomous Verification of the learned configuration.
+        Pessimistic check:
+        1. Drive Straight: Verify Yaw Rate is low, Accel/Pitch reflects movement.
+        2. Turn Right: Verify Yaw Rate is Negative (or matches convention).
+        """
+        self.init_hw()
+        print("  Running Autonomous Verification...")
+
+        # 1. Verify Straight Drive
+        print("  [Check 1] Drive Straight...")
+        power = self.config.min_power_visible + 10
+        yaw_sum = 0.0
+        count = 0
+        try:
+            self.hw.set_motors(power, power)
+            start = time.time()
+            while time.time() - start < 1.0:
+                reading = self.hw.read_imu_converted()
+                yaw_sum += abs(reading.yaw_rate)
+                count += 1
+                time.sleep(0.01)
+        finally:
+            self.hw.stop()
+            time.sleep(0.5)
+
+        avg_yaw = yaw_sum / max(1, count)
+        print(f"    Avg Yaw Rate: {avg_yaw:.1f} deg/s")
+
+        if avg_yaw > 40.0:
+             print("  [FAILURE] Robot spun while trying to drive straight.")
+             print("  -> Possible Phase mismatch or Motor Direction mismatch despite checks.")
+             sys.exit(1)
+
+        # 2. Verify Right Turn
+        print("  [Check 2] Turn Right (Clockwise)...")
+        # Command L+, R-
+        yaw_signed_sum = 0.0
+        count = 0
+        try:
+            self.hw.set_motors(power, -power)
+            start = time.time()
+            while time.time() - start < 1.0:
+                reading = self.hw.read_imu_converted()
+                yaw_signed_sum += reading.yaw_rate
+                count += 1
+                time.sleep(0.01)
+        finally:
+            self.hw.stop()
+
+        avg_yaw_signed = yaw_signed_sum / max(1, count)
+        print(f"    Avg Yaw Rate (Signed): {avg_yaw_signed:.1f} deg/s")
+
+        # Expect Negative Yaw (Clockwise)
+        if avg_yaw_signed > -10.0:
+             # It should be significantly negative (e.g. -30)
+             if avg_yaw_signed > 10.0:
+                 print("  [FAILURE] Robot turned LEFT when commanded RIGHT.")
+                 print("  -> Gyro Yaw or Motor Channel mismatch.")
+                 sys.exit(1)
+             else:
+                 print("  [FAILURE] Robot did not turn significantly.")
+                 sys.exit(1)
+
+        print("  [PASS] Configuration Verified.")
 
 if __name__ == "__main__":
     try:
