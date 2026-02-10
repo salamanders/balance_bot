@@ -3,7 +3,7 @@ import sys
 import smbus
 from .diagnostics import run_diagnostics
 from .config import RobotConfig
-from .hardware.robot_hardware import RobotHardware
+from .hardware.robot_hardware import RobotHardware, IMUReading
 from .enums import Axis
 from .utils import analyze_dominance, cross_product
 
@@ -69,6 +69,22 @@ class WiringCheck:
         if self.hw:
             self.hw.stop()
             self.hw.cleanup()
+
+    def drive_and_measure(self, left_power: float, right_power: float, duration: float, sample_interval: float = 0.01) -> list[IMUReading]:
+        """
+        Drive motors for a duration and collect IMU readings.
+        Returns a list of IMUReading objects collected during the drive.
+        """
+        samples = []
+        try:
+            self.hw.set_motors(left_power, right_power)
+            start = time.time()
+            while time.time() - start < duration:
+                samples.append(self.hw.read_imu_converted())
+                time.sleep(sample_interval)
+        finally:
+            self.hw.stop()
+        return samples
 
     def run(self):
         """
@@ -329,27 +345,22 @@ class WiringCheck:
         while pwm <= 100:
             print(f"  Testing PWM {pwm}...")
 
-            # Pulse
-            try:
-                self.hw.set_motors(pwm, pwm)
-                # Check for motion via Gyro or Accel Noise
-                start_time = time.time()
-                motion_detected = False
+            # Pulse and Measure
+            samples = self.drive_and_measure(pwm, pwm, 0.2)
+            time.sleep(0.5) # Wait for stop
 
-                # Read initial
-                _, g_start = self.hw.read_imu_raw()
-
-                while time.time() - start_time < 0.2:
-                    _, g = self.hw.read_imu_raw()
-                    diff = sum(abs(g[k] - g_start[k]) for k in g)
-                    if diff > 10.0: # Threshold
-                         motion_detected = True
-                         break
-                    time.sleep(0.01)
-
-            finally:
-                self.hw.stop()
-                time.sleep(0.5) # Wait for stop
+            # Check for motion (Gyro Rate > Threshold)
+            # We look for ANY significant rotation on ANY axis.
+            # Using 10 deg/s as a safe threshold for "moved".
+            motion_detected = False
+            if samples:
+                # Compare max rate seen to threshold
+                max_rate = max(
+                    (abs(s.pitch_rate) + abs(s.yaw_rate) + abs(s.roll_rate))
+                    for s in samples
+                )
+                if max_rate > 10.0:
+                    motion_detected = True
 
             if motion_detected:
                 print(f"  [FOUND] Motion detected at PWM {pwm}.")
@@ -383,22 +394,15 @@ class WiringCheck:
             power = self.config.min_power_visible + 10
             print(f"  Pulse Drive with PWM {power}...")
 
-            yaw_sum = 0.0
-            count = 0
+            samples = self.drive_and_measure(power, power, 0.5)
+            time.sleep(1.0)
 
-            try:
-                self.hw.set_motors(power, power)
-                start = time.time()
-                while time.time() - start < 0.5:
-                    imu = self.hw.read_imu_converted()
-                    yaw_sum += abs(imu.yaw_rate)
-                    count += 1
-                    time.sleep(0.01)
-            finally:
-                self.hw.stop()
-                time.sleep(1.0)
+            if not samples:
+                avg_yaw = 0.0
+            else:
+                yaw_sum = sum(abs(s.yaw_rate) for s in samples)
+                avg_yaw = yaw_sum / len(samples)
 
-            avg_yaw = yaw_sum / max(1, count)
             print(f"  -> Avg Yaw Rate: {avg_yaw:.1f} deg/s")
 
             # Threshold for "Spinning"
@@ -448,18 +452,10 @@ class WiringCheck:
             power = self.config.min_power_visible + 20
             print(f"  Pulsing +{power} (Positive)...")
 
-            # Measure during pulse
-            end_pitch = start_pitch
-            try:
-                self.hw.set_motors(power, power)
-                t_end = time.time() + 0.3
-                while time.time() < t_end:
-                     imu = self.hw.read_imu_converted()
-                     end_pitch = imu.pitch_angle
-                     time.sleep(0.01)
-            finally:
-                self.hw.stop()
-                time.sleep(1.0)
+            samples = self.drive_and_measure(power, power, 0.3)
+            time.sleep(1.0)
+
+            end_pitch = samples[-1].pitch_angle if samples else start_pitch
 
             print(f"  End Pitch: {end_pitch:.1f}")
 
@@ -512,22 +508,14 @@ class WiringCheck:
             # But physically, we just want to know what happens.
 
             power = self.config.min_power_visible + 15
-            yaw_rate_sum = 0.0
-            count = 0
 
-            try:
-                # We command L+, R-.
-                self.hw.set_motors(power, -power)
-                start = time.time()
-                while time.time() - start < 1.5:
-                    reading = self.hw.read_imu_converted()
-                    yaw_rate_sum += reading.yaw_rate
-                    count += 1
-                    time.sleep(0.01)
-            finally:
-                self.hw.stop()
+            samples = self.drive_and_measure(power, -power, 1.5)
 
-            avg_yaw_rate = yaw_rate_sum / max(1, count)
+            if not samples:
+                avg_yaw_rate = 0.0
+            else:
+                avg_yaw_rate = sum(s.yaw_rate for s in samples) / len(samples)
+
             print(f"  [Measured] Avg Yaw Rate (Internal): {avg_yaw_rate:.1f} deg/s")
 
             print("\nDid I spin CLOCKWISE (Right) or COUNTER-CLOCKWISE (Left)?")
@@ -617,11 +605,7 @@ class WiringCheck:
         while power <= 100:
             print(f"  Trying Power {power}...")
             # Drive Forward to kick Back->Front
-            try:
-                self.hw.set_motors(power, power)
-                time.sleep(0.4)
-            finally:
-                self.hw.stop()
+            self.drive_and_measure(power, power, 0.4)
 
             time.sleep(1.0)
             c = self.hw.read_imu_converted()
@@ -648,11 +632,7 @@ class WiringCheck:
         while power <= 100:
             print(f"  Trying Power {power}...")
             # Drive Backward to kick Front->Back
-            try:
-                self.hw.set_motors(-power, -power)
-                time.sleep(0.4)
-            finally:
-                self.hw.stop()
+            self.drive_and_measure(-power, -power, 0.4)
 
             time.sleep(1.0)
             c = self.hw.read_imu_converted()
@@ -682,21 +662,15 @@ class WiringCheck:
         # 1. Verify Straight Drive
         print("  [Check 1] Drive Straight...")
         power = self.config.min_power_visible + 10
-        yaw_sum = 0.0
-        count = 0
-        try:
-            self.hw.set_motors(power, power)
-            start = time.time()
-            while time.time() - start < 1.0:
-                reading = self.hw.read_imu_converted()
-                yaw_sum += abs(reading.yaw_rate)
-                count += 1
-                time.sleep(0.01)
-        finally:
-            self.hw.stop()
-            time.sleep(0.5)
 
-        avg_yaw = yaw_sum / max(1, count)
+        samples = self.drive_and_measure(power, power, 1.0)
+        time.sleep(0.5)
+
+        if not samples:
+            avg_yaw = 0.0
+        else:
+            avg_yaw = sum(abs(s.yaw_rate) for s in samples) / len(samples)
+
         print(f"    Avg Yaw Rate: {avg_yaw:.1f} deg/s")
 
         if avg_yaw > 40.0:
@@ -707,20 +681,14 @@ class WiringCheck:
         # 2. Verify Right Turn
         print("  [Check 2] Turn Right (Clockwise)...")
         # Command L+, R-
-        yaw_signed_sum = 0.0
-        count = 0
-        try:
-            self.hw.set_motors(power, -power)
-            start = time.time()
-            while time.time() - start < 1.0:
-                reading = self.hw.read_imu_converted()
-                yaw_signed_sum += reading.yaw_rate
-                count += 1
-                time.sleep(0.01)
-        finally:
-            self.hw.stop()
 
-        avg_yaw_signed = yaw_signed_sum / max(1, count)
+        samples = self.drive_and_measure(power, -power, 1.0)
+
+        if not samples:
+            avg_yaw_signed = 0.0
+        else:
+            avg_yaw_signed = sum(s.yaw_rate for s in samples) / len(samples)
+
         print(f"    Avg Yaw Rate (Signed): {avg_yaw_signed:.1f} deg/s")
 
         # Expect Negative Yaw (Clockwise)

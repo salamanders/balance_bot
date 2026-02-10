@@ -25,6 +25,13 @@ def wc_fixture():
         # Mock read_imu_raw default
         mock_hw.read_imu_raw.return_value = ({'x':0, 'y':0, 'z':0}, {'x':0, 'y':0, 'z':0})
 
+        # Mock read_imu_converted default
+        zero_reading = MagicMock()
+        zero_reading.pitch_rate = 0.0
+        zero_reading.yaw_rate = 0.0
+        zero_reading.roll_rate = 0.0
+        mock_hw.read_imu_converted.return_value = zero_reading
+
         wc = WiringCheck()
         # Inject mock hw directly because init_hw might fail without buses
         wc.hw = mock_hw
@@ -87,19 +94,26 @@ def test_find_min_power_success(wc_fixture):
 
     mock_hw.set_motors.side_effect = set_motors_se
 
-    def read_imu_raw_se():
+    zero_reading = MagicMock()
+    zero_reading.pitch_rate = 0.0
+    zero_reading.yaw_rate = 0.0
+    zero_reading.roll_rate = 0.0
+
+    big_reading = MagicMock()
+    big_reading.pitch_rate = 100.0
+    big_reading.yaw_rate = 0.0
+    big_reading.roll_rate = 0.0
+
+    def read_imu_converted_se():
         state['calls'] += 1
-        # First call is start baseline.
-        if state['calls'] == 1:
-            return ({'x':0, 'y':0, 'z':0}, {'x':0, 'y':0, 'z':0})
 
         # Subsequent calls are checks.
         if state['pwm'] == 20:
-            return ({'x':0, 'y':0, 'z':0}, {'x':100, 'y':0, 'z':0}) # Big change
+            return big_reading # Big change
 
-        return ({'x':0, 'y':0, 'z':0}, {'x':0, 'y':0, 'z':0})
+        return zero_reading
 
-    mock_hw.read_imu_raw.side_effect = read_imu_raw_se
+    mock_hw.read_imu_converted.side_effect = read_imu_converted_se
 
     wc.find_min_power()
 
@@ -117,7 +131,11 @@ def test_find_min_power_failure(wc_fixture):
     wc, mock_hw, _ = wc_fixture
 
     # Always return static
-    mock_hw.read_imu_raw.return_value = ({'x':0, 'y':0, 'z':0}, {'x':0, 'y':0, 'z':0})
+    zero_reading = MagicMock()
+    zero_reading.pitch_rate = 0.0
+    zero_reading.yaw_rate = 0.0
+    zero_reading.roll_rate = 0.0
+    mock_hw.read_imu_converted.return_value = zero_reading
 
     with patch("sys.exit", side_effect=SystemExit) as mock_exit:
         with pytest.raises(SystemExit):
