@@ -5,7 +5,7 @@ $fn = 36; // *4 for final)
 // Build outwards from the motor
 overlap = 0.001;
 
-// DC N20 motor -bmw dimensions
+// DC N20 motor dimensions
 silver_height = 10;
 silver_width = 12;
 silver_depth = 27;
