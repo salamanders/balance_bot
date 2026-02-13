@@ -2,8 +2,11 @@ import sys
 import pytest
 from unittest.mock import MagicMock, patch, call
 
-# Mock smbus before import
-# sys.modules['smbus'] = MagicMock()
+# Mock smbus before import if missing
+try:
+    import smbus
+except ImportError:
+    sys.modules['smbus'] = MagicMock()
 
 from balance_bot.wiring_check import WiringCheck
 

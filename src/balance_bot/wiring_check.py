@@ -176,25 +176,19 @@ class WiringCheck:
         self.cleanup()
 
     # --- Tier 1: Hardware Connectivity ---
-    def discover_buses(self):
+    def _scan_for_device(self, name: str, check_fn) -> int | None:
         """
-        Scan I2C buses [0, 1, 2, 3] for PiconZero (0x22) and MPU6050 (0x68).
+        Scans I2C buses for a device using a callback.
+        Returns the bus ID if found, else None.
         """
-        print("Scanning I2C Buses...")
         candidates = [1, 3, 0, 2]
-
-        # 1. Find Motors (0x22)
-        found_motor = None
         for bus_id in candidates:
             try:
                 bus = smbus.SMBus(bus_id)
                 try:
-                    # Try to read a byte from PiconZero
-                    bus.read_byte_data(0x22, 0)
-                    print(f"  [FOUND] PiconZero (Motors) on Bus {bus_id}")
-                    found_motor = bus_id
-                    bus.close()
-                    break
+                    if check_fn(bus):
+                        print(f"  [FOUND] {name} on Bus {bus_id}")
+                        return bus_id
                 except OSError:
                     pass
                 finally:
@@ -204,6 +198,20 @@ class WiringCheck:
                         pass
             except Exception:
                 pass
+        return None
+
+    def discover_buses(self):
+        """
+        Scan I2C buses [0, 1, 2, 3] for PiconZero (0x22) and MPU6050 (0x68).
+        """
+        print("Scanning I2C Buses...")
+
+        # 1. Find Motors (0x22)
+        def check_motor(bus):
+            bus.read_byte_data(0x22, 0)
+            return True
+
+        found_motor = self._scan_for_device("PiconZero (Motors)", check_motor)
 
         if found_motor is None:
             print("  [FAILURE] Could not find PiconZero (0x22) on any bus.")
@@ -212,27 +220,10 @@ class WiringCheck:
         self.config.motor_i2c_bus = found_motor
 
         # 2. Find IMU (0x68)
-        found_imu = None
-        for bus_id in candidates:
-            try:
-                bus = smbus.SMBus(bus_id)
-                try:
-                    # Read WHO_AM_I register
-                    who = bus.read_byte_data(0x68, 0x75)
-                    if who == 0x68:
-                        print(f"  [FOUND] MPU6050 (IMU) on Bus {bus_id}")
-                        found_imu = bus_id
-                        bus.close()
-                        break
-                except OSError:
-                    pass
-                finally:
-                    try:
-                        bus.close()
-                    except Exception:
-                        pass
-            except Exception:
-                pass
+        def check_imu(bus):
+            return bus.read_byte_data(0x68, 0x75) == 0x68
+
+        found_imu = self._scan_for_device("MPU6050 (IMU)", check_imu)
 
         if found_imu is None:
             print("  [FAILURE] Could not find MPU6050 (0x68) on any bus.")
