@@ -35,6 +35,9 @@ verify the fix worked before proceeding.
 * **Deduction:** If successful, I lock in the I2C bus IDs and establish communication. If I fail, I flash an error LED
   and halt—I cannot solve a physical puzzle without a body.
 
+> **Implementation Status:** Implemented.
+> **Code Correlation:** `src/balance_bot/wiring_check.py` in `discover_buses` method.
+
 ---
 
 ## Phase 2: The Sense of Down (Gravity)
@@ -47,6 +50,9 @@ verify the fix worked before proceeding.
 * **Deduction:** Gravity dominates static acceleration. The normalized unit vector of this average reading is exactly
   the **Down Vector ($\vec{D}$)** in my arbitrary internal 3D coordinate space. Its inverse is the **Up
   Vector ($\vec{U}$)**.
+
+> **Implementation Status:** Implemented.
+> **Code Correlation:** `src/balance_bot/wiring_check.py` in `calibrate_static_orientation` method.
 
 ---
 
@@ -67,6 +73,9 @@ verify the fix worked before proceeding.
           zero.
     * *New Knowledge: I know my deadband (`min_pwm`), and my motors now definitively push together.*
 
+> **Implementation Status:** Implemented.
+> **Code Correlation:** `src/balance_bot/wiring_check.py` in `find_min_power` and `align_motors_phase` methods.
+
 ---
 
 ## Phase 4: The Sense of Forward (Pitch Axis & Polarity)
@@ -86,6 +95,9 @@ verify the fix worked before proceeding.
         * **Fix:** Invert *both* global motor polarities in software. **Re-run the test** to verify positive PWM causes
           the robot to pitch up.
     * *New Knowledge: I have my absolute 3D orientation ($\vec{D}$ and $\vec{P}$) and I know how to drive Forward.*
+
+> **Implementation Status:** Implemented.
+> **Code Correlation:** `src/balance_bot/wiring_check.py` in `determine_motor_direction` method.
 
 ---
 
@@ -110,6 +122,16 @@ verify the fix worked before proceeding.
       Right Motor.
     * *New Knowledge: I have mathematically mapped my left and right motor channels with ZERO human intervention.*
 
+> **Implementation Status:** Partially Implemented / Discrepancy.
+> **Code Correlation:** `src/balance_bot/wiring_check.py` in `ask_human_left_right`.
+> **Required Changes:**
+> *   Current implementation relies on human input (`ask_human_left_right`), violating the "ZERO human intervention" rule.
+> *   **Refactor:** Implement `deduce_left_right_autonomous` to replace the human interactive method.
+>     *   Drive Motors (A+, B-).
+>     *   Measure Gyro Yaw Vector.
+>     *   Calculate Dot Product with Up Vector ($\vec{U}$).
+>     *   Deduce Left/Right mapping based on sign (RHR).
+
 ---
 
 ## Phase 6: The Stride (Motor Trimming)
@@ -124,6 +146,12 @@ verify the fix worked before proceeding.
     * **Fix:** Calculate a fractional scaling multiplier (e.g., `Right_Scale = 0.92`) and apply it permanently to the
       stronger motor in the software mixer. **Re-run the test** until the robot drives perfectly straight.
     * *New Knowledge: Perfect linear physical output mapping.*
+
+> **Implementation Status:** Pending / Missing.
+> **Required Changes:**
+> *   **Config:** Add `motor_trim` (or `left_right_bias`) field to `RobotConfig` in `src/balance_bot/config.py`.
+> *   **Logic:** Implement `calibrate_motor_trim` in `src/balance_bot/wiring_check.py`.
+>     *   Loop: Drive Straight -> Measure integrated Yaw Drift -> Adjust Bias -> Repeat until straight.
 
 ---
 
@@ -142,6 +170,13 @@ verify the fix worked before proceeding.
       hover in place is exactly `0%`.
     * *New Knowledge: I have discovered my true mechanical Balance Point Offset.*
 
+> **Implementation Status:** Partially Implemented (Kick-Up Only).
+> **Code Correlation:** `src/balance_bot/wiring_check.py` implements `find_flop_thresholds` (Kick-Up Power) but **not** the Balance Point Tuning.
+> **Required Changes:**
+> *   **Logic:** Implement `find_balance_point` in `src/balance_bot/wiring_check.py`.
+>     *   This requires instantiating the full `BalanceCore` and `PID` controller.
+>     *   The robot must self-balance in a loop for ~5-10 seconds while the algorithm tunes `target_angle`.
+
 ---
 
 ## Output & Persistence
@@ -157,3 +192,8 @@ rapidly in a success pattern and writes a `config.json` file to disk containing:
 
 **On all future bootups:** The robot detects `config.json`, bypasses the Tabula Rasa protocol entirely, performs a
 Kick-Up maneuver based on established facts, and balances flawlessly.
+
+> **Implementation Status:** Implemented.
+> **Code Correlation:** `src/balance_bot/config.py` in `RobotConfig.save`.
+> **Required Changes:**
+> *   Ensure the new `motor_trim` parameter is correctly serialized/deserialized in `RobotConfig`.
