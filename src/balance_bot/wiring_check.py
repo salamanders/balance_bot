@@ -1,6 +1,7 @@
 import time
 import sys
 import smbus
+from typing import Callable
 from .diagnostics import run_diagnostics
 from .config import RobotConfig
 from .hardware.robot_hardware import RobotHardware, IMUReading
@@ -574,6 +575,39 @@ class WiringCheck:
         self.init_hw()
 
     # --- Tier 5: Dynamics ---
+    def _perform_flop_test(self, name: str, start_msg: str, power_sign: float,
+                           success_check: Callable[[float], bool], reset_msg: str,
+                           start_check: Callable[[float], None] | None = None) -> float | None:
+        """
+        Generic helper for Kick-Up (Flop) tests.
+        Returns the power level found, or None.
+        """
+        print(f"\n[Test] {name}")
+        print(start_msg)
+        input("Press Enter...")
+
+        if start_check:
+            curr = self.hw.read_imu_converted()
+            start_check(curr.pitch_angle)
+
+        power = self.config.min_power_visible + 10
+        while power <= 100:
+            print(f"  Trying Power {power}...")
+            p = power * power_sign
+            self.drive_and_measure(p, p, 0.4)
+
+            time.sleep(1.0)
+            c = self.hw.read_imu_converted()
+
+            if success_check(c.pitch_angle):
+                print(f"  [SUCCESS] Flopped at {power}.")
+                return power
+
+            power += 5
+            print(f"  {reset_msg}")
+            input("Enter...")
+        return None
+
     def find_flop_thresholds(self):
         """
         Discover Kick-Up Power for both directions.
@@ -582,59 +616,30 @@ class WiringCheck:
         self.init_hw()
 
         # 1. Forward Flop (Back -> Front)
-        print("\n[Test 1] Kick-Up from BACK (Forward Flop)")
-        print("Place robot on BACK wheel.")
-        input("Press Enter...")
+        def check_back_start(pitch):
+            if pitch > -10:
+                print(f"  Warning: Pitch {pitch:.1f} is not Back enough.")
 
-        curr = self.hw.read_imu_converted()
-        if curr.pitch_angle > -10:
-             print(f"  Warning: Pitch {curr.pitch_angle:.1f} is not Back enough.")
-
-        power = self.config.min_power_visible + 10
-        found_fwd = None
-
-        while power <= 100:
-            print(f"  Trying Power {power}...")
-            # Drive Forward to kick Back->Front
-            self.drive_and_measure(power, power, 0.4)
-
-            time.sleep(1.0)
-            c = self.hw.read_imu_converted()
-            if c.pitch_angle > 10: # Flopped to Front
-                print(f"  [SUCCESS] Flopped at {power}.")
-                found_fwd = power
-                break
-
-            power += 5
-            print("  Reset to Back...")
-            input("Enter...")
+        found_fwd = self._perform_flop_test(
+            name="Kick-Up from BACK (Forward Flop)",
+            start_msg="Place robot on BACK wheel.",
+            power_sign=1.0,
+            success_check=lambda p: p > 10,
+            reset_msg="Reset to Back...",
+            start_check=check_back_start
+        )
 
         if found_fwd:
             self.config.control.kickup_power_forward = found_fwd
 
         # 2. Backward Flop (Front -> Back)
-        print("\n[Test 2] Kick-Up from FRONT (Backward Flop)")
-        print("Place robot on FRONT wheel.")
-        input("Press Enter...")
-
-        power = self.config.min_power_visible + 10
-        found_bwd = None
-
-        while power <= 100:
-            print(f"  Trying Power {power}...")
-            # Drive Backward to kick Front->Back
-            self.drive_and_measure(-power, -power, 0.4)
-
-            time.sleep(1.0)
-            c = self.hw.read_imu_converted()
-            if c.pitch_angle < -10: # Flopped to Back
-                print(f"  [SUCCESS] Flopped at {power}.")
-                found_bwd = power
-                break
-
-            power += 5
-            print("  Reset to Front...")
-            input("Enter...")
+        found_bwd = self._perform_flop_test(
+            name="Kick-Up from FRONT (Backward Flop)",
+            start_msg="Place robot on FRONT wheel.",
+            power_sign=-1.0,
+            success_check=lambda p: p < -10,
+            reset_msg="Reset to Front..."
+        )
 
         if found_bwd:
             self.config.control.kickup_power_backward = found_bwd
