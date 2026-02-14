@@ -17,18 +17,22 @@ class JulesClient:
     """
 
     def __init__(self, api_key: Optional[str] = None):
-        self.api_key = api_key or os.environ.get("JULES_API_KEY")
-        if not self.api_key:
+        self._api_key = api_key or os.environ.get("JULES_API_KEY")
+        if not self._api_key:
             logger.warning("JulesClient initialized without API Key. Auto-fix will fail.")
 
+    def __repr__(self) -> str:
+        key_status = "***" if self._api_key else "None"
+        return f"<{self.__class__.__name__} api_key={key_status}>"
+
     def _make_request(self, method: str, endpoint: str, data: Optional[Dict] = None) -> Dict:
-        if not self.api_key:
+        if not self._api_key:
             raise ValueError("JULES_API_KEY not set.")
 
         url = f"{JULES_API_BASE}/{endpoint}"
         headers = {
             "Content-Type": "application/json",
-            "X-Goog-Api-Key": self.api_key,
+            "X-Goog-Api-Key": self._api_key,
         }
 
         body = json.dumps(data).encode("utf-8") if data else None
@@ -79,7 +83,7 @@ class JulesClient:
         """
         Constructs the prompt and initiates the fix session.
         """
-        if not self.api_key:
+        if not self._api_key:
             logger.error("Cannot report crash: JULES_API_KEY not found.")
             return
 
