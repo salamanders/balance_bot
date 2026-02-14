@@ -42,7 +42,10 @@ class Agent:
         else:
             self.config = RobotConfig.load()
             if self.has_saved_config:
-                logger.info(">>> Config Found. Starting in PRODUCTION MODE.")
+                if self.config.balance_verified:
+                    logger.info(">>> Production Mode: Balance Verified.")
+                else:
+                    logger.info(">>> Discovery Mode: Balance NOT Verified. (Hyper-Learning Enabled)")
                 self.first_run = False
             else:
                 logger.info(">>> No Config Found. Starting in FIRST RUN MODE.")
@@ -100,29 +103,28 @@ class Agent:
                 time.sleep(self.config.loop_time)
 
             # 2. Calibration / Startup
+            # Note: WiringCheck now handles all discovery. We just need to stand up.
             if self.first_run or check_force_calibration_flag():
+                logger.info(">>> First Run / Force Calib detected. Assuming WiringCheck passed.")
+                # We skip _perform_discovery() as it is legacy. WiringCheck handles flop/trim.
+                pass
+
+            # Normal Startup: Check if we need to Kick Up
+            # If we are resting on either wheel (Pitch > 10 or < -10), kick up.
+            if abs(self.core.pitch) > 10.0:
+                logger.info(f">>> Resting on Wheel (Pitch={self.core.pitch:.1f}). Initiating Kick-Up.")
                 try:
-                    self._perform_discovery()
+                    # Start with saved kickup power
+                    # If Pitch < 0 (Back), we kick Back->Front (Forward Power)
+                    # If Pitch > 0 (Front), we kick Front->Back (Backward Power)
+                    pwr = self.config.control.kickup_power_forward if self.core.pitch < 0 else self.config.control.kickup_power_backward
+                    self._incremental_kickup(
+                        self.config.pid.target_angle,
+                        start_power=pwr
+                    )
                 except Exception as e:
-                    logger.error(f"Discovery Failed: {e}")
+                    logger.error(f"Kick-Up Failed: {e}")
                     return
-            else:
-                # Normal Startup: Check if we need to Kick Up
-                # If we are resting on either wheel (Pitch > 10 or < -10), kick up.
-                if abs(self.core.pitch) > 10.0:
-                    logger.info(f">>> Resting on Wheel (Pitch={self.core.pitch:.1f}). Initiating Kick-Up.")
-                    try:
-                        # Start with saved kickup power
-                        # If Pitch < 0 (Back), we kick Back->Front (Forward Power)
-                        # If Pitch > 0 (Front), we kick Front->Back (Backward Power)
-                        pwr = self.config.control.kickup_power_forward if self.core.pitch < 0 else self.config.control.kickup_power_backward
-                        self._incremental_kickup(
-                            self.config.pid.target_angle,
-                            start_power=pwr
-                        )
-                    except Exception as e:
-                        logger.error(f"Kick-Up Failed: {e}")
-                        return
 
             # 3. Main Loop
             logger.info(f"-> Starting Control Loop. Aggression: {self.tuner.get_current_scale():.2f}")
@@ -201,9 +203,15 @@ class Agent:
                         and motion_req.velocity == 0.0
                         and motion_req.turn_rate == 0.0
                     ):
+                        # Hyper-Learning Logic
+                        if not self.config.balance_verified:
+                            aggression = 10.0
+                        else:
+                            aggression = 1.0
+
                         # Compensate motor output for battery to get "effort"
                         effort = last_telemetry.motor_output / self.battery.compensation_factor
-                        bal_adj = self.balance_finder.update(effort, last_telemetry.pitch_rate)
+                        bal_adj = self.balance_finder.update(effort, last_telemetry.pitch_rate, aggression=aggression)
 
                         if bal_adj != 0:
                             new_target = self.config.pid.target_angle + bal_adj
@@ -212,6 +220,15 @@ class Agent:
                                 self.config.pid.target_angle = new_target
                                 self.config_dirty = True
                                 logger.info(f"-> Balance Corrected: Target={new_target:.2f}")
+
+                                # Graduation Logic
+                                # If we are in Hyper Mode, and the adjustment becomes small, or we survive N seconds...
+                                # For simplicity: Assume if we found an adjustment, we are getting closer.
+                                # Real Graduation: When average motor output is near 0.
+                                if not self.config.balance_verified and abs(effort) < 10.0:
+                                    logger.info(">>> Balance Stabilized! Saving to Config.")
+                                    self.config.balance_verified = True
+                                    self.config_dirty = True
 
                     # 4. Battery Estimation
                     ang_accel = (last_telemetry.pitch_rate - last_pitch_rate) / self.config.loop_time

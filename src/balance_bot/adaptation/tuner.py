@@ -143,12 +143,13 @@ class BalancePointFinder:
         self.motor_history: list[float] = []
         self.cooldown_timer = 0
 
-    def update(self, motor_output: float, pitch_rate: float) -> float:
+    def update(self, motor_output: float, pitch_rate: float, aggression: float = 1.0) -> float:
         """
         Record motor output and suggest target angle adjustment.
 
         :param motor_output: Current average motor command.
         :param pitch_rate: Current pitch rate (deg/s) to check for stability.
+        :param aggression: Multiplier for learning rate (default 1.0).
         :return: Angle adjustment (additive) to apply to target_angle.
         """
         # 1. Decrement cooldown
@@ -173,15 +174,16 @@ class BalancePointFinder:
         self.motor_history.clear()  # Reset buffer after analysis
 
         adjustment = 0.0
+        rate = self.config.balance_learning_rate * aggression
 
         # Logic Rule from midpoint.md:
         # If Average Motor Output > Threshold (Positive/Forward) -> Decrease Target Angle (Lean Back)
         if avg_output > self.config.balance_motor_threshold:
-            adjustment = -self.config.balance_learning_rate
+            adjustment = -rate
 
         # If Average Motor Output < -Threshold (Negative/Backward) -> Increase Target Angle (Lean Forward)
         elif avg_output < -self.config.balance_motor_threshold:
-            adjustment = self.config.balance_learning_rate
+            adjustment = rate
 
         # If we made an adjustment, set cooldown (optional, but good practice)
         # Note: clearing the buffer already creates a delay equal to balance_check_interval samples.
