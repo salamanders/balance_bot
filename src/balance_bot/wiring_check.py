@@ -6,7 +6,7 @@ from .diagnostics import run_diagnostics
 from .config import RobotConfig
 from .hardware.robot_hardware import RobotHardware, IMUReading
 from .enums import Axis
-from .utils import analyze_dominance, cross_product
+from .utils import analyze_dominance, cross_product, Vector3
 
 
 class WiringCheck:
@@ -250,14 +250,20 @@ class WiringCheck:
         samples = 50
         for _ in range(samples):
             a, _ = self.hw.read_imu_raw()
-            for k in a:
-                accel_sum[k] += a[k]
+            # a is Vector3
+            accel_sum['x'] += a.x
+            accel_sum['y'] += a.y
+            accel_sum['z'] += a.z
             time.sleep(0.01)
 
-        avg_back = {k: v / samples for k, v in accel_sum.items()}
+        avg_back = Vector3(
+            accel_sum['x'] / samples,
+            accel_sum['y'] / samples,
+            accel_sum['z'] / samples
+        )
 
         # Dominant axis in static position is Gravity (Vertical)
-        vert, _, _ = analyze_dominance(avg_back, "Vertical (Gravity)")
+        vert, _, _ = analyze_dominance(dict(avg_back.items()), "Vertical (Gravity)")
         self.config.accel_vertical_axis = Axis(vert)
         self.config.accel_vertical_invert = avg_back[vert] < 0
         print(f"  -> Vertical Axis: {vert.upper()} (Invert: {self.config.accel_vertical_invert})")
@@ -279,10 +285,16 @@ class WiringCheck:
         accel_sum_front = {"x": 0.0, "y": 0.0, "z": 0.0}
         for _ in range(samples):
             a, _ = self.hw.read_imu_raw()
-            for k in a:
-                accel_sum_front[k] += a[k]
+            accel_sum_front['x'] += a.x
+            accel_sum_front['y'] += a.y
+            accel_sum_front['z'] += a.z
             time.sleep(0.01)
-        avg_front = {k: v / samples for k, v in accel_sum_front.items()}
+
+        avg_front = Vector3(
+            accel_sum_front['x'] / samples,
+            accel_sum_front['y'] / samples,
+            accel_sum_front['z'] / samples
+        )
 
         # Cross Product: Back x Front -> Pitch Axis Vector
         axis_vec = cross_product(avg_back, avg_front)

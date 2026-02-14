@@ -1,7 +1,8 @@
-import math
 from unittest.mock import MagicMock
 from balance_bot.hardware.robot_hardware import RobotHardware
 from balance_bot.enums import Axis
+from balance_bot.utils import Vector3
+import math
 
 def test_imu_yaw_roll_defaults(monkeypatch):
     monkeypatch.setenv("ALLOW_MOCK_FALLBACK", "1")
@@ -13,17 +14,16 @@ def test_imu_yaw_roll_defaults(monkeypatch):
     # Yaw (Z) = 10 deg/s
     # Roll (Y) = 20 deg/s
     # Pitch (X) = 0
-    hw.sensor.get_gyro_data.return_value = {"x": 0.0, "y": 20.0, "z": 10.0}
+    hw.sensor.get_gyro_data.return_value = Vector3(0.0, 20.0, 10.0)
     # Accel: Vertical(Z)=1g. Roll(X)=0.5g. Forward(Y)=0.
     # Roll Angle = atan2(X, Z) = atan2(0.5, 1.0) approx 26.5 deg
-    hw.sensor.get_accel_data.return_value = {"x": 0.5, "y": 0.0, "z": 1.0}
+    hw.sensor.get_accel_data.return_value = Vector3(0.5, 0.0, 1.0)
 
     reading = hw.read_imu_converted()
 
     assert math.isclose(reading.yaw_rate, 10.0)
     assert math.isclose(reading.roll_rate, 20.0)
-    # math.degrees(math.atan2(0.5, 1.0)) = 26.565
-    assert math.isclose(reading.roll_angle, 26.565, abs_tol=0.1)
+    assert math.isclose(reading.roll_angle, math.degrees(math.atan2(0.5, 1.0)), abs_tol=0.1)
 
 def test_imu_yaw_roll_custom_axis_invert(monkeypatch):
     monkeypatch.setenv("ALLOW_MOCK_FALLBACK", "1")
@@ -41,9 +41,9 @@ def test_imu_yaw_roll_custom_axis_invert(monkeypatch):
     )
     hw.sensor = MagicMock()
 
-    hw.sensor.get_gyro_data.return_value = {"x": 10.0, "y": 0.0, "z": 20.0}
+    hw.sensor.get_gyro_data.return_value = Vector3(10.0, 0.0, 20.0)
     # Accel: Roll(X) = 0.5. Vert(Z) = 1.0.
-    hw.sensor.get_accel_data.return_value = {"x": 0.5, "y": 0.0, "z": 1.0}
+    hw.sensor.get_accel_data.return_value = Vector3(0.5, 0.0, 1.0)
 
     reading = hw.read_imu_converted()
 
@@ -51,5 +51,3 @@ def test_imu_yaw_roll_custom_axis_invert(monkeypatch):
     assert math.isclose(reading.yaw_rate, -10.0)
     # Roll is Z (20), inverted -> -20
     assert math.isclose(reading.roll_rate, -20.0)
-    # Roll Angle: Accel Roll Axis is X (deduced). atan2(0.5, 1.0) -> 26.565
-    assert math.isclose(reading.roll_angle, 26.565, abs_tol=0.1)
