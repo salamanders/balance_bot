@@ -283,11 +283,6 @@ class Agent:
         self._wait_for_settle()
         start_pitch = self.core.pitch
 
-        back_angle = 0.0
-        front_angle = 0.0
-        kickup_power_1 = 30.0
-        kickup_power_2 = 30.0
-
         if start_pitch < -5.0:
             start_side = Orientation.BACK
             other_side = Orientation.FRONT
