@@ -237,6 +237,11 @@ class ControlConfig:
         * Purpose: Scales velocity input (-1.0 to 1.0) to target tilt angle.
         * Limits: 5.0 to 20.0.
         * Impact: Higher = faster top speed; Lower = safer, slower.
+    :param turn_gain: Gain for manual turn commands.
+        * UOM: Motor Output Units (0-100) per Turn Input (-1.0 to 1.0)
+        * Purpose: Scales manual turn input to motor differential.
+        * Limits: 10.0 to 50.0.
+        * Impact: Higher = sharper, faster turns; Lower = slower turns.
     """
     yaw_correction_factor: float = 0.5
     upright_threshold: float = 5.0
@@ -244,6 +249,7 @@ class ControlConfig:
     kickup_power_forward: float = 0.0   # Power to kick up from Back (Neg Pitch) -> Front
     kickup_power_backward: float = 0.0  # Power to kick up from Front (Pos Pitch) -> Back
     max_tilt_angle: float = 10.0        # Maximum tilt angle commanded by velocity input (degrees)
+    turn_gain: float = 30.0             # Gain for manual turn commands
 
 
 @dataclass(frozen=True)
