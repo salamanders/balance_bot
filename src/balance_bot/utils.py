@@ -30,12 +30,42 @@ class LogCaptureHandler(logging.Handler):
             self.handleError(record)
 
 
-class Vector3(TypedDict):
+class Vector3:
     """Type definition for a 3D vector (x, y, z)."""
+    __slots__ = ('x', 'y', 'z')
 
-    x: float
-    y: float
-    z: float
+    def __init__(self, x: float, y: float, z: float):
+        self.x = x
+        self.y = y
+        self.z = z
+
+    def __getitem__(self, key: str) -> float:
+        if key == 'x': return self.x
+        if key == 'y': return self.y
+        if key == 'z': return self.z
+        raise KeyError(key)
+
+    def __iter__(self):
+        yield self.x
+        yield self.y
+        yield self.z
+
+    def __repr__(self):
+        return f"Vector3(x={self.x}, y={self.y}, z={self.z})"
+
+    def __eq__(self, other):
+        if isinstance(other, Vector3):
+            return self.x == other.x and self.y == other.y and self.z == other.z
+        return False
+
+    def items(self):
+        yield "x", self.x
+        yield "y", self.y
+        yield "z", self.z
+
+    @staticmethod
+    def from_dict(d: dict[str, float]) -> "Vector3":
+        return Vector3(d['x'], d['y'], d['z'])
 
 
 class ComplementaryFilter:
@@ -202,19 +232,19 @@ def check_force_calibration_flag() -> bool:
     return False
 
 
-def cross_product(a: dict[str, float], b: dict[str, float]) -> dict[str, float]:
+def cross_product(a: Vector3, b: Vector3) -> Vector3:
     """
     Calculate the cross product of two 3D vectors (a x b).
 
-    :param a: First vector (dict with x,y,z).
-    :param b: Second vector (dict with x,y,z).
-    :return: Cross product vector (dict with x,y,z).
+    :param a: First vector (Vector3 or object with x,y,z attributes).
+    :param b: Second vector (Vector3 or object with x,y,z attributes).
+    :return: Cross product vector (Vector3).
     """
-    return {
-        "x": a["y"] * b["z"] - a["z"] * b["y"],
-        "y": a["z"] * b["x"] - a["x"] * b["z"],
-        "z": a["x"] * b["y"] - a["y"] * b["x"],
-    }
+    return Vector3(
+        a.y * b.z - a.z * b.y,
+        a.z * b.x - a.x * b.z,
+        a.x * b.y - a.y * b.x,
+    )
 
 
 def analyze_dominance(

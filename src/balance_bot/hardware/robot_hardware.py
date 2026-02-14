@@ -112,11 +112,11 @@ class MPU6050Adapter:
 
     def get_accel_data(self) -> Vector3:
         """Get accelerometer data."""
-        return self.sensor.get_accel_data()
+        return Vector3.from_dict(self.sensor.get_accel_data())
 
     def get_gyro_data(self) -> Vector3:
         """Get gyroscope data."""
-        return self.sensor.get_gyro_data()
+        return Vector3.from_dict(self.sensor.get_gyro_data())
 
 
 class RobotHardware:
@@ -204,8 +204,8 @@ class RobotHardware:
             self.accel_roll_axis = Axis.X
 
         # Store the "last known good" value
-        self._last_accel = {"x": 0.0, "y": 0.0, "z": 0.0}
-        self._last_gyro = {"x": 0.0, "y": 0.0, "z": 0.0}
+        self._last_accel = Vector3(0.0, 0.0, 0.0)
+        self._last_gyro = Vector3(0.0, 0.0, 0.0)
 
         self.pz: MotorDriver
         self.sensor: IMUDriver
@@ -327,9 +327,9 @@ class RobotHardware:
         accel, gyro = self.read_imu_raw()
 
         # Get raw values based on config
-        accel_forward = accel[self.accel_forward_axis]
-        accel_vertical = accel[self.accel_vertical_axis]
-        gyro_rate = gyro[self.gyro_axis]
+        accel_forward = getattr(accel, self.accel_forward_axis.value)
+        accel_vertical = getattr(accel, self.accel_vertical_axis.value)
+        gyro_rate = getattr(gyro, self.gyro_axis.value)
 
         # Apply inversions
         if self.accel_forward_invert:
@@ -346,17 +346,17 @@ class RobotHardware:
             gyro_rate = -gyro_rate
 
         # Yaw rate
-        yaw_rate = gyro[self.gyro_yaw_axis]
+        yaw_rate = getattr(gyro, self.gyro_yaw_axis.value)
         if self.gyro_yaw_invert:
             yaw_rate = -yaw_rate
 
         # Roll rate
-        roll_rate = gyro[self.gyro_roll_axis]
+        roll_rate = getattr(gyro, self.gyro_roll_axis.value)
         if self.gyro_roll_invert:
             roll_rate = -roll_rate
 
         # Roll Angle (Approximate from Accel)
-        accel_roll = accel[self.accel_roll_axis]
+        accel_roll = getattr(accel, self.accel_roll_axis.value)
         # Calculate angle of side vector relative to vertical
         roll_angle = calculate_pitch(accel_roll, accel_vertical)
 

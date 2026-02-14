@@ -1,6 +1,7 @@
 import pytest
 from unittest.mock import MagicMock
 from balance_bot.hardware.robot_hardware import RobotHardware
+from balance_bot.utils import Vector3
 
 def test_imu_resilience_zero_order_hold(monkeypatch):
     """
@@ -24,20 +25,20 @@ def test_imu_resilience_zero_order_hold(monkeypatch):
     accel, gyro = hw.read_imu_raw()
 
     # Verify defaults
-    assert accel == {"x": 0.0, "y": 0.0, "z": 0.0}
-    assert gyro == {"x": 0.0, "y": 0.0, "z": 0.0}
+    assert accel == Vector3(0.0, 0.0, 0.0)
+    assert gyro == Vector3(0.0, 0.0, 0.0)
 
     # --- Case 2: Successful Read ---
     hw.sensor.get_accel_data.side_effect = None
     hw.sensor.get_gyro_data.side_effect = None
-    hw.sensor.get_accel_data.return_value = {"x": 1.0, "y": 2.0, "z": 3.0}
-    hw.sensor.get_gyro_data.return_value = {"x": 4.0, "y": 5.0, "z": 6.0}
+    hw.sensor.get_accel_data.return_value = Vector3(1.0, 2.0, 3.0)
+    hw.sensor.get_gyro_data.return_value = Vector3(4.0, 5.0, 6.0)
 
     accel, gyro = hw.read_imu_raw()
 
     # Verify we got the new values
-    assert accel == {"x": 1.0, "y": 2.0, "z": 3.0}
-    assert gyro == {"x": 4.0, "y": 5.0, "z": 6.0}
+    assert accel == Vector3(1.0, 2.0, 3.0)
+    assert gyro == Vector3(4.0, 5.0, 6.0)
 
     # --- Case 3: Transient Failure (Zero-Order Hold) ---
     # Simulate another I2C error.
@@ -46,5 +47,5 @@ def test_imu_resilience_zero_order_hold(monkeypatch):
     # Should return the values from Case 2 (Last Known Good)
     accel, gyro = hw.read_imu_raw()
 
-    assert accel == {"x": 1.0, "y": 2.0, "z": 3.0}
-    assert gyro == {"x": 4.0, "y": 5.0, "z": 6.0}
+    assert accel == Vector3(1.0, 2.0, 3.0)
+    assert gyro == Vector3(4.0, 5.0, 6.0)
