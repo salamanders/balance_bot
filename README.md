@@ -9,6 +9,7 @@
 * [AGENTS.md](AGENTS.md): Instructions/Context for AI agents working on this codebase.
 * [AUTO_RUN.md](AUTO_RUN.md): Instructions for setting up the robot to run automatically on boot via systemd.
 * [ITERATE.md](ITERATE.md): Guidelines and prompts for AI-driven code refactoring and maintenance.
+* [LEARN.md](LEARN.md): Documentation of the "Self-Discovery" protocol and implemented algorithms.
 * [LICENSE](LICENSE): Project license file.
 * [Makefile](Makefile): Shortcut commands for installation, linting, formatting, and running.
 * [README.md](README.md): The main entry point documentation.
@@ -169,15 +170,21 @@ uv sync
 
 ### 5. Verify and run
 
-Run the interactive wiring check to verify motor direction and gyro orientation. This is a multistep process.
-**Note:** Ensure the robot is resting on its back training wheel on the floor.
+Run the **Zero-Knowledge Self-Discovery Protocol**. This is a state-machine based wizard that will learn your robot's unique wiring and physics configuration.
+**Note:** The robot will wake up knowing nothing. It will ask you to place it in specific positions to learn gravity, motor direction, and friction thresholds.
+
+For a detailed explanation of the logic, see [LEARN.md](LEARN.md).
 
 ```bash
 uv run balance-bot --check-wiring
-uv run balance-bot
 ```
 
-Follow the on-screen instructions.
+The wizard is **pessimistic**: it will verify every discovery it makes (e.g., if it decides to invert a motor, it will re-test to prove the inversion was correct).
+Once the discovery process reports "[SUCCESS] Self-Discovery Complete", you can run the main agent:
+
+```bash
+uv run balance-bot
+```
 
 ## Additional Flags
 

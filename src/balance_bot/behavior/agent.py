@@ -234,9 +234,8 @@ class Agent:
                         # Asynchronous Configuration Save
                         try:
                             config_snapshot = asdict(self.config)
-                            # Serialize in main thread to ensure consistency
-                            json_str = json.dumps(config_snapshot, indent=4)
-                            self.io_executor.submit(self._save_config_worker, json_str)
+                            # Only capture snapshot in main thread; serialize in background
+                            self.io_executor.submit(self._save_config_worker, config_snapshot)
 
                             self.last_save_time = time.monotonic()
                             self.config_dirty = False
@@ -268,9 +267,11 @@ class Agent:
                 self.config.save()
             self.io_executor.shutdown(wait=True)
 
-    def _save_config_worker(self, json_content: str) -> None:
+    def _save_config_worker(self, config_data: dict) -> None:
         """Background worker to write config to disk."""
         try:
+            # Serialize in background thread
+            json_content = json.dumps(config_data, indent=4)
             CONFIG_FILE.write_text(json_content)
             logger.info("Config saved (Async).")
         except Exception as e:
@@ -281,11 +282,6 @@ class Agent:
 
         self._wait_for_settle()
         start_pitch = self.core.pitch
-
-        back_angle = 0.0
-        front_angle = 0.0
-        kickup_power_1 = 30.0
-        kickup_power_2 = 30.0
 
         if start_pitch < -5.0:
             start_side = Orientation.BACK

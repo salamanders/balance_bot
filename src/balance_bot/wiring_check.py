@@ -1,48 +1,65 @@
 import time
 import sys
 import smbus
+from typing import Callable
 from .diagnostics import run_diagnostics
 from .config import RobotConfig
-from .hardware.robot_hardware import RobotHardware
+from .hardware.robot_hardware import RobotHardware, IMUReading
 from .enums import Axis
 from .utils import analyze_dominance, cross_product
 
 
 class WiringCheck:
     """
-    Streamlined Wiring Check & Calibration Tool.
+    Zero-Knowledge "Self-Discovery" Wiring Check.
+    Implements a state-machine that incrementally discovers robot configuration.
+    See LEARN.md for specification.
     """
 
     def __init__(self):
         self.config = RobotConfig.load()
         self.hw = None
-        # Default safe config for discovery
+
+        # Temporary runtime state
         self.temp_motor_l = 0
         self.temp_motor_r = 1
         self.temp_invert_l = False
         self.temp_invert_r = False
 
     def init_hw(self):
-        """Initialize hardware with current known config."""
+        """
+        Initialize hardware with current known config.
+        If config is incomplete, fills in safe defaults for discovery.
+        """
         if self.hw:
-            self.hw.stop()
-            self.hw.cleanup()
+            try:
+                self.hw.stop()
+                self.hw.cleanup()
+            except Exception:
+                pass
 
+        # We need buses to be discovered first
+        if self.config.motor_i2c_bus is None or self.config.imu_i2c_bus is None:
+            # Cannot init HW without buses.
+            return
+
+        # Use Config values or Safe Defaults
+        # Note: RobotHardware requires Axis enums, but config might be None.
         self.hw = RobotHardware(
-            motor_l=self.temp_motor_l,
-            motor_r=self.temp_motor_r,
-            invert_l=self.temp_invert_l,
-            invert_r=self.temp_invert_r,
-            # Sensors
-            gyro_axis=self.config.gyro_pitch_axis,
+            motor_l=self.config.motor_l,
+            motor_r=self.config.motor_r,
+            invert_l=self.config.motor_l_invert,
+            invert_r=self.config.motor_r_invert,
+            # Sensors: Default to Z/Y/X if unknown, just to allow raw reading
+            gyro_axis=self.config.gyro_pitch_axis or Axis.X,
             gyro_invert=self.config.gyro_pitch_invert,
-            gyro_yaw_axis=self.config.gyro_yaw_axis,
+            gyro_yaw_axis=self.config.gyro_yaw_axis or Axis.Z,
             gyro_yaw_invert=self.config.gyro_yaw_invert,
-            gyro_roll_axis=self.config.gyro_roll_axis,
+            gyro_roll_axis=self.config.gyro_roll_axis or Axis.Y,
             gyro_roll_invert=self.config.gyro_roll_invert,
-            accel_vertical_axis=self.config.accel_vertical_axis,
+            accel_vertical_axis=self.config.accel_vertical_axis or Axis.Z,
             accel_vertical_invert=self.config.accel_vertical_invert,
-            accel_forward_axis=self.config.accel_forward_axis,
+            accel_forward_axis=self.config.accel_forward_axis or Axis.Y,
             accel_forward_invert=self.config.accel_forward_invert,
             motor_i2c_bus=self.config.motor_i2c_bus,
             imu_i2c_bus=self.config.imu_i2c_bus,
@@ -54,459 +71,641 @@ class WiringCheck:
             self.hw.stop()
             self.hw.cleanup()
 
+    def drive_and_measure(self, left_power: float, right_power: float, duration: float, sample_interval: float = 0.01) -> list[IMUReading]:
+        """
+        Drive motors for a duration and collect IMU readings.
+        Returns a list of IMUReading objects collected during the drive.
+        """
+        samples = []
+        try:
+            self.hw.set_motors(left_power, right_power)
+            start = time.time()
+            while time.time() - start < duration:
+                samples.append(self.hw.read_imu_converted())
+                time.sleep(sample_interval)
+        finally:
+            self.hw.stop()
+        return samples
+
     def run(self):
-        # 0. Diagnostics (Always run first)
+        """
+        Main Knowledge Dependency Loop.
+        Iterates until all configuration requirements are met.
+        """
+        print("Beginning Self-Discovery Protocol...")
+
+        # 0. Diagnostics (Always run first to check system health)
         run_diagnostics()
 
-        print("\n=== Robot Auto-Setup Wizard ===")
-        print("Steps: Bus -> Motors -> Sensors -> Dynamics (Flop)")
+        while True:
+            # Reload config from disk (or use current memory state)
+            # We trust self.config tracks the state.
+            c = self.config
 
-        # 1. Bus Detection
-        self.detect_i2c_buses()
-        input("Press Enter to continue...")
+            print("\n---------------------------------------------------")
+            print("Checking Knowledge Base...")
 
-        # 2. Motors
-        print("\n--- Phase 1: Motors ---")
-        print("Please ensure the robot is on a STAND or wheels are lifted.")
-        input("Press Enter to BEGIN MOTORS...")
-        self.setup_motors()
+            # --- Tier 1: Hardware Connectivity ---
+            if c.motor_i2c_bus is None or c.imu_i2c_bus is None:
+                print("-> [MISSING] I2C Bus Assignments.")
+                self.discover_buses()
+                self.config.save()
+                continue
 
-        # 3. Sensors & Dynamics
-        print("\n--- Phase 2: Sensors & Dynamics ---")
-        print("Please place the robot on the FLOOR.")
-        print("Rest it on its BACK training wheel (Leaning Back).")
-        input("Press Enter when ready...")
+            # --- Tier 2: The Physical World (Sensors) ---
+            # We need to know Up, Front, and the Pivot Axis before we can move.
+            if c.accel_vertical_axis is None:
+                print("-> [MISSING] Spatial Orientation (Vertical/Forward/Pitch).")
+                # We need HW initialized to read sensors
+                self.init_hw()
+                self.calibrate_static_orientation()
+                self.config.save()
+                continue
 
-        # We need to initialize HW with the motors we just found
-        self.init_hw()
+            # --- Tier 3: Action/Reaction (Motors) ---
+            # Ensure HW is initialized for motor tests
+            if self.hw is None:
+                self.init_hw()
 
-        # Prerequisite: Identify Gravity/Pitch axes before we can do dynamic checks
-        self.setup_static_sensors()
+            # 3a. Friction Threshold
+            if c.min_power_visible == 0:
+                print("-> [MISSING] Minimum Power Threshold (Friction).")
+                self.find_min_power()
+                self.config.save()
+                continue
 
-        # Now do the dynamic checks (Steps 7-14)
-        self.verify_straight_motion()  # Steps 7-8
-        self.verify_yaw_turns()        # Steps 9-10
-        self.test_flops()              # Steps 11-14
+            # 3b. Phasing (Are motors spinning together or fighting?)
+            if not c.motor_phasing_verified:
+                print("-> [MISSING] Motor Phasing (Spin vs Drive).")
+                self.align_motors_phase()
+                self.config.save()
+                continue
 
-        # 4. Save
-        print("\n[SUCCESS] Configuration Complete!")
-        self.config.save()
-        print("Settings saved to disk.")
+            # 3c. Direction (Does +Power make me Stand Up or Dig In?)
+            if not c.motor_direction_verified:
+                print("-> [MISSING] Motor Polarity (Stand Up Direction).")
+                self.determine_motor_direction()
+                self.config.save()
+                continue
+
+            # --- Tier 4: The Human Anchor ---
+            if not c.motor_channels_verified:
+                print("-> [MISSING] Left/Right Identification.")
+                self.ask_human_left_right()
+                self.config.save()
+                continue
+
+            # --- Tier 5: Dynamics (Optional/Advanced) ---
+            if c.control.kickup_power_forward == 0.0:
+                print("-> [MISSING] Kick-Up Dynamics.")
+                self.find_flop_thresholds()
+                self.config.save()
+                continue
+
+            # --- Tier 6: Final Verification ---
+            print("-> [VERIFYING] Final Configuration Check.")
+            self.verify_final_configuration()
+
+            print("\n[SUCCESS] Self-Discovery Complete. I know everything.")
+            print("Summary:")
+            print(f"  Buses: Motor={c.motor_i2c_bus}, IMU={c.imu_i2c_bus}")
+            print(f"  Axes: Vert={c.accel_vertical_axis}, Fwd={c.accel_forward_axis}, Pitch={c.gyro_pitch_axis}, Yaw={c.gyro_yaw_axis}")
+            print(f"  Motors: MinPower={c.min_power_visible}, L={c.motor_l}(Inv={c.motor_l_invert}), R={c.motor_r}(Inv={c.motor_r_invert})")
+            print(f"  KickUp: Fwd={c.control.kickup_power_forward:.1f}, Bwd={c.control.kickup_power_backward:.1f}")
+            break
+
         self.cleanup()
 
-    # --- Step 1: Bus ---
-    def detect_i2c_buses(self):
-        print("Detecting I2C Buses...")
+    # --- Tier 1: Hardware Connectivity ---
+    def _scan_for_device(self, name: str, check_fn) -> int | None:
+        """
+        Scans I2C buses for a device using a callback.
+        Returns the bus ID if found, else None.
+        """
         candidates = [1, 3, 0, 2]
-
-        # Motors
-        found_motor = None
         for bus_id in candidates:
             try:
                 bus = smbus.SMBus(bus_id)
                 try:
-                    bus.read_word_data(0x22, 0)
-                    print(f"-> Found PiconZero (Motors) on Bus {bus_id}")
-                    found_motor = bus_id
-                    break
+                    if check_fn(bus):
+                        print(f"  [FOUND] {name} on Bus {bus_id}")
+                        return bus_id
                 except OSError:
                     pass
                 finally:
-                    bus.close()
+                    try:
+                        bus.close()
+                    except Exception:
+                        pass
             except Exception:
                 pass
+        return None
 
-        if found_motor is not None:
-            self.config.motor_i2c_bus = found_motor
-        else:
-            print("Warning: PiconZero not found.")
+    def discover_buses(self):
+        """
+        Scan I2C buses [0, 1, 2, 3] for PiconZero (0x22) and MPU6050 (0x68).
+        """
+        print("Scanning I2C Buses...")
 
-        # IMU
-        found_imu = None
-        for bus_id in candidates:
-            try:
-                bus = smbus.SMBus(bus_id)
-                try:
-                    who = bus.read_byte_data(0x68, 0x75)
-                    if who == 0x68:
-                        print(f"-> Found MPU6050 (IMU) on Bus {bus_id}")
-                        found_imu = bus_id
-                        break
-                except OSError:
-                    pass
-                finally:
-                    bus.close()
-            except Exception:
-                pass
+        # 1. Find Motors (0x22)
+        def check_motor(bus):
+            bus.read_byte_data(0x22, 0)
+            return True
 
-        if found_imu is not None:
-            self.config.imu_i2c_bus = found_imu
-        else:
-            print("Warning: MPU6050 not found.")
+        found_motor = self._scan_for_device("PiconZero (Motors)", check_motor)
 
-    # --- Step 2: Motors ---
-    def setup_motors(self):
-        print("\n>>> Motor Identification")
-        self.temp_motor_l = 0
-        self.temp_motor_r = 1
-        self.temp_invert_l = False
-        self.temp_invert_r = False
-        self.init_hw()
-
-        # 1. Find Minimum Power
-        print("finding minimum power...")
-        power = 20
-        found_power = False
-        while power <= 120:
-            print(f"Twitching BOTH motors at Power {power}...")
-            self.hw.set_motors(power, power)
-            time.sleep(0.5)
-            self.hw.stop()
-
-            ans = input("Did the robot move? [y/n]: ").strip().lower()
-            if ans == 'y':
-                self.config.min_power_visible = power
-                found_power = True
-                print(f"-> Minimum Power set to {power}")
-                break
-            else:
-                power += 20
-
-        if not found_power:
-            print("Failed to move even at max power. Check battery/wiring.")
+        if found_motor is None:
+            print("  [FAILURE] Could not find PiconZero (0x22) on any bus.")
             sys.exit(1)
 
-        # 2. Check Motor A (Channel 0)
-        print("\nTwitching Motor A (Channel 0)...")
-        self.hw.set_motors(self.config.min_power_visible, 0)
-        time.sleep(0.5)
-        self.hw.stop()
+        self.config.motor_i2c_bus = found_motor
 
-        print("Which wheel ran, and in which direction?")
-        print("a) LEFT Forward")
-        print("b) LEFT Backward")
-        print("c) RIGHT Forward")
-        print("d) RIGHT Backward")
-        choice = input("Select (a/b/c/d): ").strip().lower()
+        # 2. Find IMU (0x68)
+        def check_imu(bus):
+            return bus.read_byte_data(0x68, 0x75) == 0x68
 
-        if choice == 'a':
-            self.config.motor_l = 0
-            self.config.motor_l_invert = False
-            self.config.motor_r = 1
-        elif choice == 'b':
-            self.config.motor_l = 0
-            self.config.motor_l_invert = True
-            self.config.motor_r = 1
-        elif choice == 'c':
-            self.config.motor_r = 0
-            self.config.motor_r_invert = False
-            self.config.motor_l = 1
-        elif choice == 'd':
-            self.config.motor_r = 0
-            self.config.motor_r_invert = True
-            self.config.motor_l = 1
-        else:
-            print("Invalid selection.")
+        found_imu = self._scan_for_device("MPU6050 (IMU)", check_imu)
+
+        if found_imu is None:
+            print("  [FAILURE] Could not find MPU6050 (0x68) on any bus.")
             sys.exit(1)
 
-        # Update temp
-        self.temp_motor_l = self.config.motor_l
-        self.temp_motor_r = self.config.motor_r
-        self.temp_invert_l = self.config.motor_l_invert
-        self.temp_invert_r = False  # Unknown
-        self.init_hw()
+        self.config.imu_i2c_bus = found_imu
 
-        # Check Motor B
-        other = "Right" if choice in ['a', 'b'] else "Left"
-        print(f"\nTwitching {other} Motor (Channel 1)...")
-        if other == "Right":
-            self.hw.set_motors(0, self.config.min_power_visible)
-        else:
-            self.hw.set_motors(self.config.min_power_visible, 0)
+    # --- Tier 2: The Physical World (Sensors) ---
+    def calibrate_static_orientation(self):
+        """
+        Map Physical Axes (X, Y, Z) to Logical Axes (Vertical, Forward, Pitch).
+        Requirement: Robot on floor, resting on one training wheel.
+        """
+        print(">>> Calibrating Orientation <<<")
+        print("Please place the robot on the FLOOR.")
+        print("Ensure motors are OFF and it is resting on the BACK training wheel.")
+        input("Press Enter when ready...")
 
+        # 1. Read Gravity (Vertical Axis)
+        print("  Measuring Gravity (Vertical)...")
         time.sleep(0.5)
-        self.hw.stop()
-
-        ans = input(f"Did {other} spin Forward? [y/n] (n=Backward): ").strip().lower()
-        is_inverted = (ans != 'y')
-
-        if other == "Right":
-            self.config.motor_r_invert = is_inverted
-        else:
-            self.config.motor_l_invert = is_inverted
-
-        self.temp_invert_l = self.config.motor_l_invert
-        self.temp_invert_r = self.config.motor_r_invert
-        self.init_hw()
-        print(f"-> Motors Configured: L={self.config.motor_l}, R={self.config.motor_r}")
-
-    # --- Prerequisite: Static Sensors ---
-    def setup_static_sensors(self):
-        """Identify Vertical (Gravity) and Pitch Axis (via Tip)."""
-        print("\n>>> Static Sensor Calibration")
-
-        # 1. Vertical (Gravity)
-        print("Detecting Gravity (Vertical Axis)... Keep Still.")
-        time.sleep(0.5)
-        accel_sum = {"x": 0, "y": 0, "z": 0}
-        for _ in range(50):
+        accel_sum = {"x": 0.0, "y": 0.0, "z": 0.0}
+        samples = 50
+        for _ in range(samples):
             a, _ = self.hw.read_imu_raw()
             for k in a:
                 accel_sum[k] += a[k]
             time.sleep(0.01)
 
-        avg = {k: v / 50 for k, v in accel_sum.items()}
-        vert, _, _ = analyze_dominance(avg, "Vertical")
+        avg_back = {k: v / samples for k, v in accel_sum.items()}
+
+        # Dominant axis in static position is Gravity (Vertical)
+        vert, _, _ = analyze_dominance(avg_back, "Vertical (Gravity)")
         self.config.accel_vertical_axis = Axis(vert)
-        self.config.accel_vertical_invert = avg[vert] > 0
-        print(f"-> Vertical Axis: {vert.upper()} (Inv: {self.config.accel_vertical_invert})")
+        self.config.accel_vertical_invert = avg_back[vert] < 0
+        print(f"  -> Vertical Axis: {vert.upper()} (Invert: {self.config.accel_vertical_invert})")
 
-        # 2. Pitch (Tip)
-        print("\nDetecting Pitch Axis. Robot is on BACK wheel.")
-        input("Press Enter to measure BACK position...")
+        # 2. Read Lean (Forward Axis)
+        sorted_axes = sorted(avg_back.items(), key=lambda x: abs(x[1]), reverse=True)
+        # 0 is Vertical. 1 is Forward. 2 is Pitch (Axle).
+        forward_axis = sorted_axes[1][0]
+        pitch_axis = sorted_axes[2][0]
 
-        # Measure Back
-        accel_back = {"x": 0.0, "y": 0.0, "z": 0.0}
-        for _ in range(50):
-            a, _ = self.hw.read_imu_raw()
-            for k in a:
-                accel_back[k] += a[k]
-            time.sleep(0.01)
-        accel_back = {k: v / 50 for k, v in accel_back.items()}
+        self.config.accel_forward_axis = Axis(forward_axis)
+        print(f"  -> Forward Axis Candidate: {forward_axis.upper()}")
+        print(f"  -> Pitch Axis Candidate: {pitch_axis.upper()}")
 
-        print("Now TIP ROBOT FORWARD to Front Wheel.")
+        # 3. Determine Pitch Axis Orientation (Using Cross Product)
+        print("\n  Now TIP ROBOT FORWARD to Front Wheel.")
         input("Press Enter to measure FRONT position...")
 
-        # Measure Front
-        accel_front = {"x": 0.0, "y": 0.0, "z": 0.0}
-        for _ in range(50):
+        accel_sum_front = {"x": 0.0, "y": 0.0, "z": 0.0}
+        for _ in range(samples):
             a, _ = self.hw.read_imu_raw()
             for k in a:
-                accel_front[k] += a[k]
+                accel_sum_front[k] += a[k]
             time.sleep(0.01)
-        accel_front = {k: v / 50 for k, v in accel_front.items()}
+        avg_front = {k: v / samples for k, v in accel_sum_front.items()}
 
-        # Calculate Cross Product: Back x Front
-        # The cross product vector points along the axis of rotation.
-        # Physics:
-        #   Gravity Vector rotates "Front -> Back" (Negative Pitch) in the Sensor Frame.
-        #   So Cross Product points in Negative Pitch Direction (-Y).
-        #   If Cross Product component on axis K is Negative, then +K is "Right" (Positive Pitch).
-        #   If Cross Product component on axis K is Positive, then +K is "Left" (Negative Pitch).
-        # We want "Back -> Front" motion to be POSITIVE Pitch.
-        # Standard Gyro: Right Hand Rule (+K is Right).
-        # So:
-        #   If CrossProd < 0 -> No Invert.
-        #   If CrossProd > 0 -> Invert.
-        axis_vec = cross_product(accel_back, accel_front)
+        # Cross Product: Back x Front -> Pitch Axis Vector
+        axis_vec = cross_product(avg_back, avg_front)
 
-        # Analyze Dominance on the magnitude
-        abs_axis = {k: abs(v) for k, v in axis_vec.items()}
-        pitch_axis, _, _ = analyze_dominance(abs_axis, "Pitch")
+        # Verify that our calculated pitch axis matches the cross product magnitude
+        detected_pitch, _, _ = analyze_dominance({k: abs(v) for k, v in axis_vec.items()}, "Pitch Axis (CrossProd)")
 
-        # Polarity
-        raw_val = axis_vec[pitch_axis]
-        pitch_inv = raw_val > 0
+        if detected_pitch != pitch_axis:
+             print(f"  [WARNING] Cross product suggested {detected_pitch} but magnitude suggested {pitch_axis}. Trusting Cross Product.")
+             pitch_axis = detected_pitch
 
         self.config.gyro_pitch_axis = Axis(pitch_axis)
-        self.config.gyro_pitch_invert = pitch_inv
-        print(f"-> Pitch Axis: {pitch_axis.upper()} (Inv: {pitch_inv})")
+        val = axis_vec[pitch_axis]
+        self.config.gyro_pitch_invert = val < 0
+
+        print(f"  -> Pitch Axis: {pitch_axis.upper()} (Invert: {self.config.gyro_pitch_invert})")
+
+        # Deduce Yaw and Roll
+        all_axes = {'x', 'y', 'z'}
+        used = {vert, pitch_axis}
+        remaining = list(all_axes - used)
+        if len(remaining) == 1:
+            # Gyro Yaw is rotation around Vertical Axis
+            self.config.gyro_yaw_axis = Axis(vert)
+            # Gyro Roll Axis is rotation around Forward Axis
+            self.config.gyro_roll_axis = Axis(forward_axis)
+        else:
+            print("  [ERROR] Axis deduction logic failed.")
 
         # Reload HW with new sensor config
         self.init_hw()
 
-    # --- Step 7-8: Straight Motion ---
-    def verify_straight_motion(self):
-        print("\n>>> Verifying Straight Motion (Steps 7-8)")
+        # Deduce Forward Axis Inversion
+        delta_fwd = avg_front[forward_axis] - avg_back[forward_axis]
+        self.config.accel_forward_invert = delta_fwd < 0
+        print(f"  -> Forward Axis: {forward_axis.upper()} (Invert: {self.config.accel_forward_invert})")
 
-        # 1. Measure Static Baseline first
-        print("Measuring baseline...")
-        static_sum = {'x': 0.0, 'y': 0.0, 'z': 0.0}
-        for _ in range(20):
-            a, _ = self.hw.read_imu_raw()
-            for k in a:
-                static_sum[k] += a[k]
-            time.sleep(0.01)
-        static_avg = {k: v / 20 for k, v in static_sum.items()}
 
-        input("Press Enter to run Straight Forward (1s) then Backward (1s)...")
-
-        # Forward
-        print("Forward...")
-        self.hw.set_motors(60, 60)
-
-        # Record Accel for Forward Axis
-        accel_data = []
-        start = time.time()
-        while time.time() - start < 1.0:
-            a, _ = self.hw.read_imu_raw()
-            accel_data.append(a)
-            time.sleep(0.01)
-
-        # Backward
-        print("Backward...")
-        self.hw.set_motors(-60, -60)
-        time.sleep(1.0)
-        self.hw.stop()
-
-        ans = input("Did it move Forward then Backward? [y/n]: ").lower()
-        if ans != 'y':
-            print("Exit: Movement failed or confused.")
-            sys.exit(1)
-
-        # Deduce Forward Axis
-        moving_avg = {k: sum(d[k] for d in accel_data) / len(accel_data) for k in ['x', 'y', 'z']}
-
-        # Calculate Shift (Delta)
-        deltas = {k: moving_avg[k] - static_avg[k] for k in ['x', 'y', 'z']}
-
-        # Use Delta for Dominance
-        fwd, _, _ = analyze_dominance(deltas, "Forward", exclude=[self.config.accel_vertical_axis.value])
-
-        # Invert check:
-        # When accelerating Forward (+Velocity), the accelerometer (mass) feels a force BACKWARD relative to the sensor frame?
-        # F = ma. Sensor accelerates Forward. Mass resists. Mass presses against Back wall of sensor.
-        # This is usually registered as NEGATIVE acceleration on the Forward Axis?
-        # Or Positive?
-        # Actually, standard convention: +1g on Z when sitting flat.
-        # Let's trust the sign of the delta.
-        # If delta is POSITIVE, and we assume standard mapping, then Invert=False.
-        # If delta is NEGATIVE, Invert=True?
-        # Let's assume Delta matches Axis Direction.
-        self.config.accel_forward_axis = Axis(fwd)
-        self.config.accel_forward_invert = deltas[fwd] < 0
-        print(f"-> Forward Axis: {fwd.upper()} (Inv: {self.config.accel_forward_invert})")
-
-    # --- Step 9-10: Yaw Turns ---
-    def verify_yaw_turns(self):
-        print("\n>>> Verifying Yaw (Steps 9-10)")
-
-        # Left 360
-        input("Press Enter to turn LEFT 360...")
-        self.hw.set_motors(-60, 60)  # Left Turn
-
-        gyro_data = []
-        start = time.time()
-        while time.time() - start < 1.5:  # Guess time
-            _, g = self.hw.read_imu_raw()
-            gyro_data.append(g)
-            time.sleep(0.01)
-        self.hw.stop()
-
-        input("Did it turn Left approx 360? [Enter=Yes, Ctrl+C=No]")
-
-        # Analyze Yaw Axis
-        avgs = {k: sum(d[k] for d in gyro_data) / len(gyro_data) for k in ['x', 'y', 'z']}
-        yaw, _, _ = analyze_dominance({k: abs(v) for k, v in avgs.items()}, "Yaw")
-
-        # Left Turn = Negative Yaw Rate usually?
-        # Standard: Right is Positive. Left is Negative.
-        val = avgs[yaw]
-        yaw_inv = val > 0  # If val is pos during left turn, we must invert to make it neg
-
-        self.config.gyro_yaw_axis = Axis(yaw)
-        self.config.gyro_yaw_invert = yaw_inv
-        print(f"-> Yaw Axis: {yaw.upper()} (Inv: {yaw_inv})")
-
-        # Deduce Roll (Remaining)
-        all_axes = {'x', 'y', 'z'}
-        roll = list(all_axes - {self.config.gyro_pitch_axis.value, yaw})[0]
-        self.config.gyro_roll_axis = Axis(roll)
-        print(f"-> Roll Axis: {roll.upper()}")
-
-        # Reload HW
+    # --- Tier 3a: Friction Threshold ---
+    def find_min_power(self):
+        """
+        Find minimum PWM to overcome friction.
+        """
+        print(">>> Finding Minimum Power <<<")
+        print("Ensuring robot is on the floor...")
         self.init_hw()
 
-        # Right 360
-        input("Press Enter to turn RIGHT 360 (Verification)...")
-        self.hw.set_motors(60, -60)
-        time.sleep(1.5)
-        self.hw.stop()
-        input("Did it turn Right? [Enter]")
+        pwm = 10
+        step = 5
+        found = False
 
-    # --- Steps 11-14: Flop Tests ---
-    def test_flops(self):
-        print("\n>>> Dynamic Flop Tests (Steps 11-14)")
+        while pwm <= 100:
+            print(f"  Testing PWM {pwm}...")
 
-        # 1. Forward Flop (Back -> Front)
-        print("\n[Test 1] Forward Flop (Back -> Front)")
-        print("Ensure robot is resting on BACK wheel.")
-        input("Press Enter to start...")
+            # Pulse and Measure
+            samples = self.drive_and_measure(pwm, pwm, 0.2)
+            time.sleep(0.5) # Wait for stop
 
-        # Verify position
-        curr_pitch, _ = self.hw.read_imu_converted()
-        if curr_pitch > -10:
-            print(f"Warning: Pitch is {curr_pitch:.1f}. Should be < -10 (Leaning Back).")
-            input("Fix position and Press Enter...")
+            # Check for motion (Gyro Rate > Threshold)
+            # We look for ANY significant rotation on ANY axis.
+            # Using 10 deg/s as a safe threshold for "moved".
+            motion_detected = False
+            if samples:
+                # Compare max rate seen to threshold
+                max_rate = max(
+                    (abs(s.pitch_rate) + abs(s.yaw_rate) + abs(s.roll_rate))
+                    for s in samples
+                )
+                if max_rate > 10.0:
+                    motion_detected = True
 
-        # Loop
-        power = 60
-        found_power = None
-        while power <= 100:
-            print(f"Trying 'Reverse' Kick with Power {power}...")
-            # Drive Forward 1s (Setup)
-            self.hw.set_motors(self.config.min_power_visible, self.config.min_power_visible)
-            time.sleep(0.5)
-            # Hard Reverse (Kick)
-            self.hw.set_motors(-power, -power)
-            time.sleep(0.6)
-            self.hw.stop()
-
-            time.sleep(1.0)  # Wait for flop
-
-            # Check Pitch
-            p, _ = self.hw.read_imu_converted()
-            if p > 10:  # Flopped to Front
-                print(f"-> Success! Flopped Forward at Power {power}.")
-                found_power = power
+            if motion_detected:
+                print(f"  [FOUND] Motion detected at PWM {pwm}.")
+                self.config.min_power_visible = pwm
+                found = True
                 break
-            else:
-                print(f"-> Failed (Pitch {p:.1f}). Increasing power...")
-                power += 10
-                # Reset to Back?
-                print("Please reset robot to BACK wheel if needed.")
-                input("Press Enter...")
 
-        if found_power:
-            self.config.control.kickup_power_forward = found_power
+            pwm += step
 
-        # 2. Backward Flop (Front -> Back)
-        print("\n[Test 2] Backward Flop (Front -> Back)")
-        print("Ensure robot is resting on FRONT wheel.")
-        input("Press Enter to start...")
+        if not found:
+             print("  [FAILURE] Robot did not move even at PWM 100.")
+             sys.exit(1)
 
-        curr_pitch, _ = self.hw.read_imu_converted()
-        if curr_pitch < 10:
-            print(f"Warning: Pitch is {curr_pitch:.1f}. Should be > 10 (Leaning Front).")
-            input("Fix position and Press Enter...")
+    # --- Tier 3b: Phasing ---
+    def align_motors_phase(self):
+        """
+        Ensure motors spin together (Straight), not opposite (Spin).
+        Verifies via pessimistic loop.
+        """
+        print(">>> Verifying Motor Phasing <<<")
 
-        power = 60
-        found_power = None
-        while power <= 100:
-            print(f"Trying 'Forward' Kick with Power {power}...")
-            # Drive Backward 1s
-            self.hw.set_motors(-self.config.min_power_visible, -self.config.min_power_visible)
-            time.sleep(0.5)
-            # Hard Forward
-            self.hw.set_motors(power, power)
-            time.sleep(0.6)
-            self.hw.stop()
+        attempts = 0
+        max_attempts = 3
 
+        while attempts < max_attempts:
+            attempts += 1
+            print(f"  [Attempt {attempts}] Checking Phasing...")
+            self.init_hw()
+
+            # Test 1: Drive with current config
+            power = self.config.min_power_visible + 10
+            print(f"  Pulse Drive with PWM {power}...")
+
+            samples = self.drive_and_measure(power, power, 0.5)
             time.sleep(1.0)
 
-            p, _ = self.hw.read_imu_converted()
-            if p < -10:  # Flopped to Back
-                print(f"-> Success! Flopped Backward at Power {power}.")
-                found_power = power
-                break
+            if not samples:
+                avg_yaw = 0.0
             else:
-                print(f"-> Failed (Pitch {p:.1f}). Increasing power...")
-                power += 10
-                input("Reset to FRONT wheel if needed, then Enter...")
+                yaw_sum = sum(abs(s.yaw_rate) for s in samples)
+                avg_yaw = yaw_sum / len(samples)
 
-        if found_power:
-            self.config.control.kickup_power_backward = found_power
+            print(f"  -> Avg Yaw Rate: {avg_yaw:.1f} deg/s")
 
+            # Threshold for "Spinning"
+            if avg_yaw > 40.0:
+                print("  -> High Yaw Rate detected. Motors are fighting (Spinning).")
+                print("  -> ACTION: Inverting Right Motor logic to align phases.")
+                self.config.motor_r_invert = not self.config.motor_r_invert
+                # Loop back to verify
+                continue
+            else:
+                print("  -> Low Yaw Rate. Motors are aligned (Straight).")
+                # Proven correct.
+                self.config.motor_phasing_verified = True
+                return
+
+        print("  [FAILURE] Could not align motor phases after multiple attempts.")
+        sys.exit(1)
+
+    # --- Tier 3c: Direction ---
+    def determine_motor_direction(self):
+        """
+        Ensure Positive Power = "Stand Up" (Reduce Lean).
+        "Kick Up" Test.
+        Verifies via pessimistic loop.
+        """
+        print(">>> Verifying Motor Direction (Kick Up Check) <<<")
+
+        attempts = 0
+        max_attempts = 3
+
+        while attempts < max_attempts:
+            attempts += 1
+            print(f"  [Attempt {attempts}] Checking Direction...")
+            self.init_hw()
+
+            # 1. Measure Start Pitch
+            imu = self.hw.read_imu_converted()
+            start_pitch = imu.pitch_angle
+            print(f"  Start Pitch: {start_pitch:.1f}")
+
+            if abs(start_pitch) < 10:
+                print("  [WARNING] Robot is too upright. Please lean it over (Front or Back).")
+                input("Press Enter when leaned...")
+                continue # Retry measurement
+
+            # 2. Pulse Positive
+            power = self.config.min_power_visible + 20
+            print(f"  Pulsing +{power} (Positive)...")
+
+            samples = self.drive_and_measure(power, power, 0.3)
+            time.sleep(1.0)
+
+            end_pitch = samples[-1].pitch_angle if samples else start_pitch
+
+            print(f"  End Pitch: {end_pitch:.1f}")
+
+            # Check Physics
+            started_leaning = abs(start_pitch)
+            ended_leaning = abs(end_pitch)
+
+            # Did we move towards upright (0)?
+            # If start=-30, upright=0.
+            # If end=-20, abs(-20) < abs(-30) -> Improved.
+            # If end=-40, abs(-40) > abs(-30) -> Worsened.
+
+            # Note: We need significant movement to be sure.
+            if abs(started_leaning - ended_leaning) < 2.0:
+                print("  [WARNING] Movement too small to determine direction. Retrying...")
+                continue
+
+            if ended_leaning < started_leaning:
+                print("  [SUCCESS] Robot moved towards upright (Stood Up). Direction is Correct.")
+                self.config.motor_direction_verified = True
+                return
+            else:
+                print("  [FAILURE] Robot dug in (Leaned More). Direction is Inverted.")
+                print("  -> ACTION: Inverting BOTH motors to fix direction.")
+                self.config.motor_l_invert = not self.config.motor_l_invert
+                self.config.motor_r_invert = not self.config.motor_r_invert
+                # Loop back to verify
+                continue
+
+        print("  [FAILURE] Could not determine motor direction after multiple attempts.")
+        sys.exit(1)
+
+    # --- Tier 4: The Human Anchor ---
+    def ask_human_left_right(self):
+        """
+        Identify Left vs Right Motor.
+        Robot spins. Human confirms direction.
+        Also infers Gyro Yaw Polarity based on human feedback.
+        """
+        print(">>> Left/Right Verification & Yaw Calibration <<<")
+
+        while True:
+            self.init_hw()
+            print("I am going to spin. Watch me.")
+            input("Press Enter to Spin...")
+
+            # Drive Ch0 Forward, Ch1 Backward
+            # Command: L+, R- (Assuming L=0, R=1)
+            # We treat this as a "Right Turn Command" in our internal logic if L=Left, R=Right.
+            # But physically, we just want to know what happens.
+
+            power = self.config.min_power_visible + 15
+
+            samples = self.drive_and_measure(power, -power, 1.5)
+
+            if not samples:
+                avg_yaw_rate = 0.0
+            else:
+                avg_yaw_rate = sum(s.yaw_rate for s in samples) / len(samples)
+
+            print(f"  [Measured] Avg Yaw Rate (Internal): {avg_yaw_rate:.1f} deg/s")
+
+            print("\nDid I spin CLOCKWISE (Right) or COUNTER-CLOCKWISE (Left)?")
+            print("  [r] Clockwise (Right)")
+            print("  [l] Counter-Clockwise (Left)")
+            ans = input("Choice: ").strip().lower()
+
+            if ans not in ['r', 'l']:
+                print("Invalid input. Retrying...")
+                continue
+
+            # 1. Deduce Motor Channels (Left/Right)
+            if ans == 'r':
+                # We commanded L+, R-. Robot spun Right.
+                # This matches expectation for standard wiring (Left Motor on Left, Right Motor on Right).
+                print("  -> Human confirmed Spin Right.")
+                print("  -> Motor Channel Mapping is CORRECT.")
+                # No swap needed.
+            elif ans == 'l':
+                # We commanded L+, R-. Robot spun Left.
+                # This implies "Left" channel is actually on Right side, or wired backwards?
+                # We already verified Phasing and Direction.
+                # So L+ moves Robot "Forward/Up". R- moves Robot "Back/Down".
+                # If L(Right Side) moves Fwd, R(Left Side) moves Back -> Spin Left.
+                # So Ch0 is Right, Ch1 is Left.
+                print("  -> Human confirmed Spin Left.")
+                print("  -> ACTION: Swapping Channels (Ch0 <-> Ch1).")
+                self.config.motor_l, self.config.motor_r = self.config.motor_r, self.config.motor_l
+
+                # IMPORTANT: If we swap channels, we must re-verify!
+                print("  -> Re-verifying with new mapping...")
+                continue
+
+            # 2. Deduce Gyro Yaw Polarity
+            # We now know the PHYSICAL direction was 'ans'.
+            # Right Turn = Positive Yaw (conventionally).
+            # If User says Right ('r'):
+            #   Expected Yaw: POSITIVE.
+            #   Measured Yaw: avg_yaw_rate.
+            #   If Measured < 0: Invert Gyro Yaw.
+            # If User says Left ('l'):
+            #   Expected Yaw: NEGATIVE.
+            #   Measured Yaw: avg_yaw_rate.
+            #   If Measured > 0: Invert Gyro Yaw.
+
+            # Note: Standard Right Hand Rule around Z-Up: Counter-Clockwise is Positive.
+            # But for vehicles, "Turn Right" often implies Positive Yaw in some conventions, or Negative in others.
+            # Let's standardize: Turn Right (Clockwise) is NEGATIVE Yaw (Z-Up).
+            # Turn Left (CCW) is POSITIVE Yaw.
+
+            print("  -> Calibrating Gyro Yaw Polarity...")
+            # Let's assume Z-Up.
+            expected_sign = 1.0 if ans == 'l' else -1.0
+
+            if (avg_yaw_rate * expected_sign) < 0:
+                print(f"  -> Measured {avg_yaw_rate:.1f} opposes expected direction.")
+                print("  -> ACTION: Inverting Gyro Yaw.")
+                self.config.gyro_yaw_invert = not self.config.gyro_yaw_invert
+            else:
+                print("  -> Gyro Yaw polarity is correct.")
+
+            self.config.motor_channels_verified = True
+            break
+
+        self.init_hw()
+
+    # --- Tier 5: Dynamics ---
+    def _perform_flop_test(self, name: str, start_msg: str, power_sign: float,
+                           success_check: Callable[[float], bool], reset_msg: str,
+                           start_check: Callable[[float], None] | None = None) -> float | None:
+        """
+        Generic helper for Kick-Up (Flop) tests.
+        Returns the power level found, or None.
+        """
+        print(f"\n[Test] {name}")
+        print(start_msg)
+        input("Press Enter...")
+
+        if start_check:
+            curr = self.hw.read_imu_converted()
+            start_check(curr.pitch_angle)
+
+        power = self.config.min_power_visible + 10
+        while power <= 100:
+            print(f"  Trying Power {power}...")
+            p = power * power_sign
+            self.drive_and_measure(p, p, 0.4)
+
+            time.sleep(1.0)
+            c = self.hw.read_imu_converted()
+
+            if success_check(c.pitch_angle):
+                print(f"  [SUCCESS] Flopped at {power}.")
+                return power
+
+            power += 5
+            print(f"  {reset_msg}")
+            input("Enter...")
+        return None
+
+    def find_flop_thresholds(self):
+        """
+        Discover Kick-Up Power for both directions.
+        """
+        print(">>> Dynamic Kick-Up Calibration <<<")
+        self.init_hw()
+
+        # 1. Forward Flop (Back -> Front)
+        def check_back_start(pitch):
+            if pitch > -10:
+                print(f"  Warning: Pitch {pitch:.1f} is not Back enough.")
+
+        found_fwd = self._perform_flop_test(
+            name="Kick-Up from BACK (Forward Flop)",
+            start_msg="Place robot on BACK wheel.",
+            power_sign=1.0,
+            success_check=lambda p: p > 10,
+            reset_msg="Reset to Back...",
+            start_check=check_back_start
+        )
+
+        if found_fwd:
+            self.config.control.kickup_power_forward = found_fwd
+
+        # 2. Backward Flop (Front -> Back)
+        found_bwd = self._perform_flop_test(
+            name="Kick-Up from FRONT (Backward Flop)",
+            start_msg="Place robot on FRONT wheel.",
+            power_sign=-1.0,
+            success_check=lambda p: p < -10,
+            reset_msg="Reset to Front..."
+        )
+
+        if found_bwd:
+            self.config.control.kickup_power_backward = found_bwd
+
+    # --- Tier 6: Final Verification ---
+    def verify_final_configuration(self):
+        """
+        Autonomous Verification of the learned configuration.
+        Pessimistic check:
+        1. Drive Straight: Verify Yaw Rate is low, Accel/Pitch reflects movement.
+        2. Turn Right: Verify Yaw Rate is Negative (or matches convention).
+        """
+        self.init_hw()
+        print("  Running Autonomous Verification...")
+
+        # 1. Verify Straight Drive
+        print("  [Check 1] Drive Straight...")
+        power = self.config.min_power_visible + 10
+
+        samples = self.drive_and_measure(power, power, 1.0)
+        time.sleep(0.5)
+
+        if not samples:
+            avg_yaw = 0.0
+        else:
+            avg_yaw = sum(abs(s.yaw_rate) for s in samples) / len(samples)
+
+        print(f"    Avg Yaw Rate: {avg_yaw:.1f} deg/s")
+
+        if avg_yaw > 40.0:
+             print("  [FAILURE] Robot spun while trying to drive straight.")
+             print("  -> Possible Phase mismatch or Motor Direction mismatch despite checks.")
+             sys.exit(1)
+
+        # 2. Verify Right Turn
+        print("  [Check 2] Turn Right (Clockwise)...")
+        # Command L+, R-
+
+        samples = self.drive_and_measure(power, -power, 1.0)
+
+        if not samples:
+            avg_yaw_signed = 0.0
+        else:
+            avg_yaw_signed = sum(s.yaw_rate for s in samples) / len(samples)
+
+        print(f"    Avg Yaw Rate (Signed): {avg_yaw_signed:.1f} deg/s")
+
+        # Expect Negative Yaw (Clockwise)
+        if avg_yaw_signed > -10.0:
+             # It should be significantly negative (e.g. -30)
+             if avg_yaw_signed > 10.0:
+                 print("  [FAILURE] Robot turned LEFT when commanded RIGHT.")
+                 print("  -> Gyro Yaw or Motor Channel mismatch.")
+                 sys.exit(1)
+             else:
+                 print("  [FAILURE] Robot did not turn significantly.")
+                 sys.exit(1)
+
+        print("  [PASS] Configuration Verified.")
 
 if __name__ == "__main__":
-    WiringCheck().run()
+    try:
+        WiringCheck().run()
+    except KeyboardInterrupt:
+        print("\nInterrupted.")
+    except Exception as e:
+        print(f"\nCRITICAL ERROR: {e}")
+        import traceback
+        traceback.print_exc()
