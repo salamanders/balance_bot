@@ -150,6 +150,7 @@ class RobotHardware:
         imu_i2c_bus: int = 1,
         crash_angle: float = 60.0,
         imu_max_retries: int = 5,
+        motor_trim: float = 0.0,
     ):
         """
         Initialize the robot hardware abstraction.
@@ -172,6 +173,7 @@ class RobotHardware:
         :param imu_i2c_bus: I2C bus number for IMU.
         :param crash_angle: Angle to consider as CRASHED state.
         :param imu_max_retries: Max consecutive IMU failures before raising error.
+        :param motor_trim: Motor output scaling (Pos=Reduce Right, Neg=Reduce Left).
         """
         self.motor_l = motor_l
         self.motor_r = motor_r
@@ -191,6 +193,7 @@ class RobotHardware:
         self.imu_i2c_bus = imu_i2c_bus
         self.crash_angle = crash_angle
         self.imu_max_retries = imu_max_retries
+        self.motor_trim = motor_trim
         self._imu_consecutive_errors = 0
 
         # Deduce Accel Roll Axis (The one not used by Vertical or Forward)
@@ -378,6 +381,14 @@ class RobotHardware:
         :param left: Speed -100 to 100
         :param right: Speed -100 to 100
         """
+        # Apply Motor Trim (Compensation for mismatched motors)
+        # Trim > 0: Scale down Right Motor (Right is stronger)
+        # Trim < 0: Scale down Left Motor (Left is stronger)
+        if self.motor_trim > 0:
+            right *= (1.0 - self.motor_trim)
+        elif self.motor_trim < 0:
+            left *= (1.0 - abs(self.motor_trim))
+
         if self.invert_l:
             left = -left
         if self.invert_r:
