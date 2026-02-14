@@ -18,10 +18,10 @@ from balance_bot.config import RobotConfig, PIDParams  # noqa: E402
 from balance_bot.hardware.robot_hardware import RobotHardware  # noqa: E402
 
 def test_config_i2c_bus_default():
-    """Test that i2c buses default to 1."""
+    """Test that i2c buses default to None (defer to hardware default)."""
     config = RobotConfig(pid=PIDParams())
-    assert config.motor_i2c_bus == 1
-    assert config.imu_i2c_bus == 1
+    assert config.motor_i2c_bus is None
+    assert config.imu_i2c_bus is None
 
 def test_config_i2c_bus_load_separate():
     """Test that distinct buses can be loaded from config."""

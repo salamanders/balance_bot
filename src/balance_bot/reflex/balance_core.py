@@ -55,9 +55,6 @@ class BalanceCore:
      - Safety (Hard-coded limits).
     """
 
-    # Maximum tilt angle commanded by velocity input (degrees)
-    MAX_TILT_ANGLE = 10.0
-
     def __init__(self, config: RobotConfig):
         self.config = config
 
@@ -127,7 +124,7 @@ class BalanceCore:
         # Map Velocity (-1 to 1) to Target Angle (-MAX to MAX)
         # Note: To move Forward (Positive Velocity), we must lean Forward (Positive Angle).
         # (Assumes Positive Pitch = Leaning Forward)
-        velocity_tilt = motion.velocity * self.MAX_TILT_ANGLE
+        velocity_tilt = motion.velocity * self.config.control.max_tilt_angle
 
         target_angle = (
             self.config.pid.target_angle  # Base mechanical setpoint

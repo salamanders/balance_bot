@@ -232,12 +232,18 @@ class ControlConfig:
         * Purpose: Baseline power to stand up from resting.
         * Limits: 20.0 to 100.0.
         * Impact: Higher = stronger kick; Lower = gentle/fail.
+    :param max_tilt_angle: Maximum tilt angle commanded by velocity input.
+        * UOM: Degrees
+        * Purpose: Scales velocity input (-1.0 to 1.0) to target tilt angle.
+        * Limits: 5.0 to 20.0.
+        * Impact: Higher = faster top speed; Lower = safer, slower.
     """
     yaw_correction_factor: float = 0.5
     upright_threshold: float = 5.0
     low_battery_log_threshold: float = 0.95
     kickup_power_forward: float = 0.0   # Power to kick up from Back (Neg Pitch) -> Front
     kickup_power_backward: float = 0.0  # Power to kick up from Front (Pos Pitch) -> Back
+    max_tilt_angle: float = 10.0        # Maximum tilt angle commanded by velocity input (degrees)
 
 
 @dataclass(frozen=True)
