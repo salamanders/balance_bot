@@ -170,7 +170,7 @@ class BalanceCore:
         # Intentional: motion.turn_rate * Gain
         # Stabilization: -reading.yaw_rate * CorrectionFactor
 
-        turn_cmd = motion.turn_rate * 30.0  # Arbitrary gain for now
+        turn_cmd = motion.turn_rate * self.config.control.turn_gain
         yaw_damping = -reading.yaw_rate * self.config.control.yaw_correction_factor
 
         total_turn = turn_cmd + yaw_damping

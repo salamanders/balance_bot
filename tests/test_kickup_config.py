@@ -11,10 +11,10 @@ def test_control_config_mutable():
     assert cfg.kickup_power_forward == 50.0
 
 def test_kickup_power_default():
-    """Verify default kickup power is 60.0."""
+    """Verify default kickup power is 0.0."""
     cfg = ControlConfig()
-    assert cfg.kickup_power_forward == 60.0
-    assert cfg.kickup_power_backward == 60.0
+    assert cfg.kickup_power_forward == 0.0
+    assert cfg.kickup_power_backward == 0.0
 
 def test_kickup_power_persistence(tmp_path, monkeypatch):
     """Verify kickup power is saved and loaded correctly."""

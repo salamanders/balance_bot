@@ -232,12 +232,18 @@ class ControlConfig:
         * Purpose: Baseline power to stand up from resting.
         * Limits: 20.0 to 100.0.
         * Impact: Higher = stronger kick; Lower = gentle/fail.
+    :param turn_gain: Manual Turn Gain.
+        * UOM: Motor Units per Turn Rate Unit
+        * Purpose: Scales manual turn commands from remote.
+        * Limits: 10.0 to 100.0.
+        * Impact: Higher = faster turns; Lower = slower turns.
     """
     yaw_correction_factor: float = 0.5
     upright_threshold: float = 5.0
     low_battery_log_threshold: float = 0.95
     kickup_power_forward: float = 0.0   # Power to kick up from Back (Neg Pitch) -> Front
     kickup_power_backward: float = 0.0  # Power to kick up from Front (Pos Pitch) -> Back
+    turn_gain: float = 30.0
 
 
 @dataclass(frozen=True)

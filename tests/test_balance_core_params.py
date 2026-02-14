@@ -1,7 +1,7 @@
 import pytest
 from unittest.mock import MagicMock
 from balance_bot.reflex.balance_core import BalanceCore, MotionRequest, TuningParams, BalanceTelemetry
-from balance_bot.config import RobotConfig, PIDParams
+from balance_bot.config import RobotConfig, PIDParams, ControlConfig
 
 def test_balance_core_update_with_mutable_tuning_params():
     # Setup
@@ -57,5 +57,61 @@ def test_balance_core_update_with_mutable_tuning_params():
 
         print("Integration test passed!")
 
+def test_turn_gain_config():
+    """Test that turn_gain in configuration affects motor output."""
+    # Setup with default turn_gain = 30.0
+    control_config = ControlConfig(turn_gain=30.0, yaw_correction_factor=0.0)
+    config = RobotConfig(pid=PIDParams(), control=control_config)
+
+    with pytest.MonkeyPatch.context() as m:
+        # Mock init
+        m.setattr("balance_bot.hardware.robot_hardware.RobotHardware.__init__", lambda self, *args, **kwargs: None)
+        m.setattr("balance_bot.hardware.robot_hardware.RobotHardware.init", lambda self: None)
+
+        # Mock reading
+        dummy_reading = MagicMock()
+        dummy_reading.pitch_angle = 0.0 # Balanced
+        dummy_reading.pitch_rate = 0.0
+        dummy_reading.yaw_rate = 0.0
+        m.setattr("balance_bot.hardware.robot_hardware.RobotHardware.read_imu_converted", lambda self: dummy_reading)
+
+        # Mock set_motors to capture output
+        mock_set_motors = MagicMock()
+        m.setattr("balance_bot.hardware.robot_hardware.RobotHardware.set_motors", mock_set_motors)
+        m.setattr("balance_bot.hardware.robot_hardware.RobotHardware.stop", lambda self: None)
+
+        core = BalanceCore(config)
+        tuning = TuningParams(kp=0.0, ki=0.0, kd=0.0, target_angle_offset=0.0)
+
+        # 1. Test Default Gain (30.0)
+        # Motion: Turn Right (1.0)
+        motion = MotionRequest(velocity=0.0, turn_rate=1.0)
+
+        core.update(motion, tuning, loop_delta_time=0.01)
+
+        # Expected:
+        # PID Output = 0 (Balanced, Zero Gains)
+        # Turn Cmd = 1.0 * 30.0 = 30.0
+        # Left = 0 + 30 = 30
+        # Right = 0 - 30 = -30
+
+        mock_set_motors.assert_called_with(30.0, -30.0)
+
+        # 2. Test Custom Gain (e.g. 50.0)
+        # We modify the config object directly as BalanceCore holds a reference to it
+        config.control.turn_gain = 50.0
+
+        core.update(motion, tuning, loop_delta_time=0.01)
+
+        # Expected:
+        # Turn Cmd = 1.0 * 50.0 = 50.0
+        # Left = 50
+        # Right = -50
+
+        mock_set_motors.assert_called_with(50.0, -50.0)
+
+        print("Turn gain test passed!")
+
 if __name__ == "__main__":
     test_balance_core_update_with_mutable_tuning_params()
+    test_turn_gain_config()
