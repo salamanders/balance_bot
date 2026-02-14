@@ -3,7 +3,6 @@ import time
 import math
 import logging
 from pathlib import Path
-from typing import TypedDict
 from collections import deque
 
 logger = logging.getLogger(__name__)
@@ -40,9 +39,12 @@ class Vector3:
         self.z = z
 
     def __getitem__(self, key: str) -> float:
-        if key == 'x': return self.x
-        if key == 'y': return self.y
-        if key == 'z': return self.z
+        if key == 'x':
+            return self.x
+        if key == 'y':
+            return self.y
+        if key == 'z':
+            return self.z
         raise KeyError(key)
 
     def __iter__(self):

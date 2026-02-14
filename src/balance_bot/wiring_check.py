@@ -63,6 +63,7 @@ class WiringCheck:
             accel_forward_invert=self.config.accel_forward_invert,
             motor_i2c_bus=self.config.motor_i2c_bus,
             imu_i2c_bus=self.config.imu_i2c_bus,
+            motor_trim=self.config.motor_trim,
         )
         self.hw.init()
 
@@ -148,10 +149,18 @@ class WiringCheck:
                 self.config.save()
                 continue
 
-            # --- Tier 4: The Human Anchor ---
+            # --- Tier 4: The Human Anchor (Autonomous) ---
             if not c.motor_channels_verified:
                 print("-> [MISSING] Left/Right Identification.")
-                self.ask_human_left_right()
+                self.deduce_left_right_autonomous()
+                self.config.save()
+                continue
+
+            # --- Tier 4.5: The Stride (Trim) ---
+            if not c.motor_trim_verified:
+                print("-> [MISSING] Motor Trim (Straight Drive).")
+                self.calibrate_motor_trim()
+                self.config.motor_trim_verified = True
                 self.config.save()
                 continue
 
@@ -171,6 +180,7 @@ class WiringCheck:
             print(f"  Buses: Motor={c.motor_i2c_bus}, IMU={c.imu_i2c_bus}")
             print(f"  Axes: Vert={c.accel_vertical_axis}, Fwd={c.accel_forward_axis}, Pitch={c.gyro_pitch_axis}, Yaw={c.gyro_yaw_axis}")
             print(f"  Motors: MinPower={c.min_power_visible}, L={c.motor_l}(Inv={c.motor_l_invert}), R={c.motor_r}(Inv={c.motor_r_invert})")
+            print(f"  Trim: {c.motor_trim:.3f}")
             print(f"  KickUp: Fwd={c.control.kickup_power_forward:.1f}, Bwd={c.control.kickup_power_backward:.1f}")
             break
 
@@ -493,98 +503,198 @@ class WiringCheck:
         sys.exit(1)
 
     # --- Tier 4: The Human Anchor ---
-    def ask_human_left_right(self):
+    def deduce_left_right_autonomous(self):
         """
-        Identify Left vs Right Motor.
-        Robot spins. Human confirms direction.
-        Also infers Gyro Yaw Polarity based on human feedback.
+        Identify Left vs Right Motor using Gyroscope Physics (Right-Hand Rule).
+        Also deduces Gyro Yaw Polarity.
+        Replaces ask_human_left_right.
         """
-        print(">>> Left/Right Verification & Yaw Calibration <<<")
+        print(">>> Autonomous Left/Right Verification & Yaw Calibration <<<")
+        print("I am going to spin to determine my physical identity.")
+        input("Press Enter when clear...")
 
-        while True:
+        attempts = 0
+        while attempts < 3:
+            attempts += 1
             self.init_hw()
-            print("I am going to spin. Watch me.")
-            input("Press Enter to Spin...")
 
-            # Drive Ch0 Forward, Ch1 Backward
-            # Command: L+, R- (Assuming L=0, R=1)
-            # We treat this as a "Right Turn Command" in our internal logic if L=Left, R=Right.
-            # But physically, we just want to know what happens.
+            # 1. Establish Up Vector (Opposite of Gravity)
+            # We need to know which way is Up in the Raw Sensor Frame.
+            # Re-read static gravity to be sure.
+            print("  Measuring Gravity for Reference...")
+            accel, _ = self.hw.read_imu_raw()
+            # Gravity points DOWN. Up Vector = -Gravity.
+            up_vector = Vector3(-accel.x, -accel.y, -accel.z)
 
+            # 2. Spin Command
+            # Drive Ch0 Forward, Ch1 Backward.
+            # If Ch0=Left, Ch1=Right -> Right Turn (CW).
+            # If Ch0=Right, Ch1=Left -> Left Turn (CCW).
             power = self.config.min_power_visible + 15
+            print(f"  Spinning with Power {power}...")
 
-            samples = self.drive_and_measure(power, -power, 1.5)
+            # We need Raw Gyro data to do the Dot Product
+            # drive_and_measure returns converted readings.
+            # We'll do a manual drive loop to get raw data.
+            raw_gyro_samples = []
+            try:
+                self.hw.set_motors(power, -power)
+                start = time.time()
+                while time.time() - start < 1.5:
+                    _, g = self.hw.read_imu_raw()
+                    raw_gyro_samples.append(g)
+                    time.sleep(0.01)
+            finally:
+                self.hw.stop()
 
-            if not samples:
-                avg_yaw_rate = 0.0
+            if not raw_gyro_samples:
+                print("  [WARNING] No gyro samples collected. Retrying...")
+                continue
+
+            # Average Gyro Vector
+            avg_gyro = Vector3(
+                sum(g.x for g in raw_gyro_samples) / len(raw_gyro_samples),
+                sum(g.y for g in raw_gyro_samples) / len(raw_gyro_samples),
+                sum(g.z for g in raw_gyro_samples) / len(raw_gyro_samples)
+            )
+
+            # 3. Calculate Dot Product: Up . Omega
+            # If Positive: Rotation is CCW (Left) around Up.
+            # If Negative: Rotation is CW (Right) around Up.
+            dot_prod = (up_vector.x * avg_gyro.x) + (up_vector.y * avg_gyro.y) + (up_vector.z * avg_gyro.z)
+
+            print(f"  Dot Product (Up . Gyro): {dot_prod:.2f}")
+
+            if abs(dot_prod) < 500: # Threshold depends on units. Raw gyro is usually LSBs or deg/s.
+                # Assuming deg/s, 500 is very fast?
+                # Raw units from MPU6050 might be large integers or scaled floats.
+                # If floats (deg/s): 20 deg/s is significant.
+                # Let's check typical magnitudes. If raw is deg/s, 20 is good.
+                # If raw is LSB (e.g. 16384/g), it's huge.
+                # MPU6050Adapter returns Vector3.from_dict.
+                # mpu6050 library usually returns degrees/second for gyro.
+                pass
+
+            # Robustness check
+            if abs(dot_prod) < 10.0:
+                 print("  [WARNING] Spin rate too low to determine direction. Retrying...")
+                 continue
+
+            # 4. Deduce Motor Mapping
+            if dot_prod > 0:
+                # CCW Spin (Left).
+                # To spin Left: Right Motor Fwd, Left Motor Back.
+                # We commanded: Ch0 (Fwd), Ch1 (Back).
+                # Therefore: Ch0 is Right, Ch1 is Left.
+                print("  -> Detected Counter-Clockwise (Left) Spin.")
+                print("  -> Deduction: Ch0 is Right, Ch1 is Left.")
+
+                # Check current config
+                # If config says L=0, R=1, it is WRONG.
+                # We want L=1, R=0.
+                if self.config.motor_l == 0:
+                    print("  -> ACTION: Swapping Channels to Correct Mapping.")
+                    self.config.motor_l, self.config.motor_r = self.config.motor_r, self.config.motor_l
+                else:
+                    print("  -> Mapping is already correct.")
+
             else:
-                avg_yaw_rate = sum(s.yaw_rate for s in samples) / len(samples)
+                # CW Spin (Right).
+                # To spin Right: Left Motor Fwd, Right Motor Back.
+                # We commanded: Ch0 (Fwd), Ch1 (Back).
+                # Therefore: Ch0 is Left, Ch1 is Right.
+                print("  -> Detected Clockwise (Right) Spin.")
+                print("  -> Deduction: Ch0 is Left, Ch1 is Right.")
 
-            print(f"  [Measured] Avg Yaw Rate (Internal): {avg_yaw_rate:.1f} deg/s")
+                # Check current config
+                if self.config.motor_l == 1:
+                     print("  -> ACTION: Swapping Channels to Correct Mapping.")
+                     self.config.motor_l, self.config.motor_r = self.config.motor_r, self.config.motor_l
+                else:
+                    print("  -> Mapping is already correct.")
 
-            print("\nDid I spin CLOCKWISE (Right) or COUNTER-CLOCKWISE (Left)?")
-            print("  [r] Clockwise (Right)")
-            print("  [l] Counter-Clockwise (Left)")
-            ans = input("Choice: ").strip().lower()
+            # 5. Deduce Gyro Yaw Polarity
+            # We want Positive Yaw Rate for CCW (Left) Spin.
+            # We detected the physical spin direction via Dot Product.
+            # Now let's see what the "Converted" Yaw Rate says with current config.
+            # We need to re-calc the yaw rate from raw data using current config flags.
 
-            if ans not in ['r', 'l']:
-                print("Invalid input. Retrying...")
-                continue
+            # Re-read config flags
+            yaw_axis = self.config.gyro_yaw_axis
+            yaw_invert = self.config.gyro_yaw_invert
 
-            # 1. Deduce Motor Channels (Left/Right)
-            if ans == 'r':
-                # We commanded L+, R-. Robot spun Right.
-                # This matches expectation for standard wiring (Left Motor on Left, Right Motor on Right).
-                print("  -> Human confirmed Spin Right.")
-                print("  -> Motor Channel Mapping is CORRECT.")
-                # No swap needed.
-            elif ans == 'l':
-                # We commanded L+, R-. Robot spun Left.
-                # This implies "Left" channel is actually on Right side, or wired backwards?
-                # We already verified Phasing and Direction.
-                # So L+ moves Robot "Forward/Up". R- moves Robot "Back/Down".
-                # If L(Right Side) moves Fwd, R(Left Side) moves Back -> Spin Left.
-                # So Ch0 is Right, Ch1 is Left.
-                print("  -> Human confirmed Spin Left.")
-                print("  -> ACTION: Swapping Channels (Ch0 <-> Ch1).")
-                self.config.motor_l, self.config.motor_r = self.config.motor_r, self.config.motor_l
+            # Calc average raw yaw component
+            raw_yaw_component = getattr(avg_gyro, yaw_axis.value)
 
-                # IMPORTANT: If we swap channels, we must re-verify!
-                print("  -> Re-verifying with new mapping...")
-                continue
+            # Apply current invert
+            current_yaw_rate = -raw_yaw_component if yaw_invert else raw_yaw_component
 
-            # 2. Deduce Gyro Yaw Polarity
-            # We now know the PHYSICAL direction was 'ans'.
-            # Right Turn = Positive Yaw (conventionally).
-            # If User says Right ('r'):
-            #   Expected Yaw: POSITIVE.
-            #   Measured Yaw: avg_yaw_rate.
-            #   If Measured < 0: Invert Gyro Yaw.
-            # If User says Left ('l'):
-            #   Expected Yaw: NEGATIVE.
-            #   Measured Yaw: avg_yaw_rate.
-            #   If Measured > 0: Invert Gyro Yaw.
+            print(f"  Current Config Yaw Rate: {current_yaw_rate:.1f}")
 
-            # Note: Standard Right Hand Rule around Z-Up: Counter-Clockwise is Positive.
-            # But for vehicles, "Turn Right" often implies Positive Yaw in some conventions, or Negative in others.
-            # Let's standardize: Turn Right (Clockwise) is NEGATIVE Yaw (Z-Up).
-            # Turn Left (CCW) is POSITIVE Yaw.
+            # If Dot Prod > 0 (CCW), we WANT Positive Yaw Rate.
+            # If Dot Prod < 0 (CW), we WANT Negative Yaw Rate.
 
-            print("  -> Calibrating Gyro Yaw Polarity...")
-            # Let's assume Z-Up.
-            expected_sign = 1.0 if ans == 'l' else -1.0
-
-            if (avg_yaw_rate * expected_sign) < 0:
-                print(f"  -> Measured {avg_yaw_rate:.1f} opposes expected direction.")
+            # Check agreement
+            if (dot_prod > 0 and current_yaw_rate < 0) or \
+               (dot_prod < 0 and current_yaw_rate > 0):
+                print("  -> Gyro Yaw Polarity is Inverted relative to reality.")
                 print("  -> ACTION: Inverting Gyro Yaw.")
                 self.config.gyro_yaw_invert = not self.config.gyro_yaw_invert
             else:
-                print("  -> Gyro Yaw polarity is correct.")
+                print("  -> Gyro Yaw Polarity is Correct.")
 
             self.config.motor_channels_verified = True
-            break
+            return
 
-        self.init_hw()
+        print("  [FAILURE] Could not deduce Left/Right after multiple attempts.")
+        sys.exit(1)
+
+    # --- Tier 6: The Stride (Trim) ---
+    def calibrate_motor_trim(self):
+        """
+        Calibrate Motor Trim to ensure straight driving.
+        Phase 6.
+        """
+        print(">>> Motor Trim Calibration <<<")
+        print("I will drive straight and measure drift.")
+        input("Press Enter when clear...")
+
+        # We will adjust trim until Yaw Rate is small.
+        # Max attempts
+        for attempt in range(10):
+            self.init_hw()
+            print(f"  [Attempt {attempt+1}] Trim: {self.config.motor_trim:.3f}")
+
+            power = self.config.min_power_visible + 15
+            # Drive Straight
+            samples = self.drive_and_measure(power, power, 1.0)
+
+            if not samples:
+                continue
+
+            # Average Yaw Rate
+            avg_yaw = sum(s.yaw_rate for s in samples) / len(samples)
+            print(f"    Avg Yaw Drift: {avg_yaw:.2f} deg/s")
+
+            if abs(avg_yaw) < 2.0:
+                print("  [SUCCESS] Drift is negligible.")
+                return
+
+            # Adjust Trim
+            # If Yaw > 0 (Turning Left), Right Motor is Stronger.
+            # We want to INCREASE trim (Positive Trim reduces Right Motor).
+            # Gain: How much trim per deg/s?
+            # Start gentle. 0.005 per deg/s?
+            # If Drift is 10 deg/s, 0.05 change.
+            correction = avg_yaw * 0.005
+
+            self.config.motor_trim += correction
+
+            # Clamp Trim
+            self.config.motor_trim = max(-0.3, min(0.3, self.config.motor_trim))
+            print(f"    -> New Trim: {self.config.motor_trim:.3f}")
+
+        print("  [WARNING] Could not perfectly trim motors. Saving best effort.")
 
     # --- Tier 5: Dynamics ---
     def _perform_flop_test(self, name: str, start_msg: str, power_sign: float,

@@ -364,11 +364,13 @@ class RobotConfig:
     vibration_threshold: int = 10
     imu_max_retries: int = 5
     min_power_visible: int = 0  # 0 indicates unknown
+    motor_trim: float = 0.0     # Positive = Scale Right (Right is stronger); Negative = Scale Left (Left is stronger)
 
     # Discovery Flags
     motor_phasing_verified: bool = False
     motor_direction_verified: bool = False
     motor_channels_verified: bool = False
+    motor_trim_verified: bool = False
 
     @staticmethod
     def _filter_keys(dataclass_type, data: dict[str, Any]) -> dict[str, Any]:
