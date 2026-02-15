@@ -762,72 +762,140 @@ class WiringCheck:
                 print(f"  [WAITING] Position incorrect (Pitch={curr.pitch_angle:.1f}). Please adjust.")
                 time.sleep(1.0)
 
-    def _perform_flop_test(self, name: str, start_msg: str, power_sign: float,
-                           success_check: Callable[[float], bool], reset_msg: str,
-                           start_check: Callable[[float], bool] | None = None) -> float | None:
+    def _attempt_dynamic_flop(self, start_from: str, power: float) -> str:
         """
-        Generic helper for Kick-Up (Flop) tests.
-        Returns the power level found, or None.
+        Perform a Dynamic "Roll & Slam" maneuver.
+        start_from: "BACK" or "FRONT".
+        Returns: "SUCCESS", "FAIL_POWER", or "FAIL_ALIGNMENT".
         """
-        print(f"\n[Test] {name}")
+        # Define Physics Directions
+        # Convention: Positive Power = "Stand Up" Torque (Wheels Backward).
+        # Kick (Slam) needs "Stand Up" Torque.
+        # Setup (Roll) needs Opposite Torque.
+        if start_from == "BACK":
+            # Leaning Back -> Kick Forward (Stand Up).
+            kick_sign = 1.0
+            setup_sign = -1.0
+            check_success = lambda p: p > 10
+        elif start_from == "FRONT":
+            # Leaning Front -> Kick Backward (Stand Up).
+            kick_sign = -1.0
+            setup_sign = 1.0
+            check_success = lambda p: p < -10
+        else:
+            raise ValueError(f"Unknown direction {start_from}")
 
-        self._wait_for_start_condition(start_check, start_msg)
+        # Execute Maneuver (No delays between Setup and Kick)
+        setup_p = power * setup_sign * 0.7  # Gentle Roll
+        kick_p = power * kick_sign * 1.0    # Hard Kick
 
-        power = self.config.min_power_visible + 10
-        while power <= 100:
-            print(f"  Trying Power {power}...")
-            p = power * power_sign
-            self.drive_and_measure(p, p, 0.4)
+        print(f"  [Action] Roll {setup_p:.1f} (0.3s) -> Slam {kick_p:.1f} (0.4s)...")
 
-            time.sleep(1.0)
-            c = self.hw.read_imu_converted()
+        samples = []
+        try:
+            # Phase 1: Setup (Roll)
+            self.hw.set_motors(setup_p, setup_p)
+            start = time.time()
+            while time.time() - start < 0.3:
+                samples.append(self.hw.read_imu_converted())
+                time.sleep(0.01)
 
-            if success_check(c.pitch_angle):
-                print(f"  [SUCCESS] Flopped at {power}.")
-                return power
+            # Phase 2: Kick (Slam)
+            self.hw.set_motors(kick_p, kick_p)
+            start = time.time()
+            while time.time() - start < 0.4:
+                samples.append(self.hw.read_imu_converted())
+                time.sleep(0.01)
+        finally:
+            self.hw.stop()
 
-            power += 5
-            self._wait_for_start_condition(start_check, reset_msg)
-        return None
+        # Coast & Check
+        time.sleep(1.0)
+        final_reading = self.hw.read_imu_converted()
+        final_pitch = final_reading.pitch_angle
+
+        # check success
+        if check_success(final_pitch):
+             # Even if successful, check alignment briefly?
+             # No, if it worked, it worked. But let's be safe.
+             pass
+        else:
+             # If it failed to flip, we still check alignment to see if that was the cause.
+             pass
+
+        # Alignment Check
+        if not samples:
+            avg_yaw = 0.0
+        else:
+            # Use signed sum to detect net drift, not vibration
+            avg_yaw = sum(s.yaw_rate for s in samples) / len(samples)
+
+        print(f"    Result: Pitch={final_pitch:.1f}, AvgDrift={avg_yaw:.1f} d/s")
+
+        if abs(avg_yaw) > 15.0:
+            return "FAIL_ALIGNMENT"
+
+        if check_success(final_pitch):
+            return "SUCCESS"
+        else:
+            return "FAIL_POWER"
 
     def find_flop_thresholds(self):
         """
-        Discover Kick-Up Power for both directions.
+        Discover Kick-Up Power for both directions using Dynamic Momentum.
         """
-        print(">>> Dynamic Kick-Up Calibration <<<")
+        print(">>> Dynamic Kick-Up Calibration (Roll & Slam) <<<")
         self.init_hw()
 
-        # 1. Forward Flop (Back -> Front)
-        def check_back_start(pitch):
-            return pitch < -10
+        # Define Tests: (Direction, Start Check Msg, Start Check Fn, Config Attr)
+        tests = [
+            ("BACK", "Place robot on BACK wheel.", lambda p: p < -10, "kickup_power_forward"),
+            ("FRONT", "Place robot on FRONT wheel.", lambda p: p > 10, "kickup_power_backward")
+        ]
 
-        found_fwd = self._perform_flop_test(
-            name="Kick-Up from BACK (Forward Flop)",
-            start_msg="Place robot on BACK wheel.",
-            power_sign=1.0,
-            success_check=lambda p: p > 10,
-            reset_msg="Reset to Back...",
-            start_check=check_back_start
-        )
+        for direction, msg, check_fn, config_attr in tests:
+            print(f"\n[Test] Kick-Up from {direction}")
 
-        if found_fwd:
-            self.config.control.kickup_power_forward = found_fwd
+            # Start loop
+            power = self.config.min_power_visible + 10 # Start conservative? Or 20?
+            power = max(20, power)
+            alignment_retries = 0
 
-        # 2. Backward Flop (Front -> Back)
-        def check_front_start(pitch):
-            return pitch > 10
+            # Ensure we start in position
+            self._wait_for_start_condition(check_fn, msg)
 
-        found_bwd = self._perform_flop_test(
-            name="Kick-Up from FRONT (Backward Flop)",
-            start_msg="Place robot on FRONT wheel.",
-            power_sign=-1.0,
-            success_check=lambda p: p < -10,
-            reset_msg="Reset to Front...",
-            start_check=check_front_start
-        )
+            while power <= 100:
+                print(f"  Trying Power {power}...")
 
-        if found_bwd:
-            self.config.control.kickup_power_backward = found_bwd
+                result = self._attempt_dynamic_flop(direction, power)
+
+                if result == "SUCCESS":
+                    print(f"  [SUCCESS] Flopped at {power}.")
+                    setattr(self.config.control, config_attr, power)
+                    self.config.save()
+                    break
+
+                elif result == "FAIL_ALIGNMENT":
+                    print("  [DETECTED DRIFT] Robot is not moving straight. Pausing to re-align.")
+                    if alignment_retries < 3:
+                        alignment_retries += 1
+                        self.calibrate_motor_trim()
+                        self.config.save() # Save the new trim
+                        print(f"  [RETRY] Retrying Power {power} with new trim...")
+                        self._wait_for_start_condition(check_fn, "Reset position...")
+                        # Continue loop with SAME power
+                        continue
+                    else:
+                        print("  [WARNING] Alignment failed too many times. Ignoring drift.")
+                        # Treat as FAIL_POWER -> Increment
+                        power += 5
+                        self._wait_for_start_condition(check_fn, "Reset position...")
+
+                else: # FAIL_POWER
+                    print("  [FAIL] Did not flop.")
+                    power += 5
+                    if power <= 100:
+                        self._wait_for_start_condition(check_fn, "Reset position...")
 
     # --- Tier 6: Final Verification ---
     def verify_final_configuration(self):
