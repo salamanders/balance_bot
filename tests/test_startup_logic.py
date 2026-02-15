@@ -62,12 +62,14 @@ class TestAgentStartup(unittest.TestCase):
         # Mock specific methods to verify calls and avoid real logic
         agent._perform_discovery = MagicMock()
         agent.running = False # Skip main loop
+        self.mock_core_instance.pitch = 0.0
 
         # Act
         agent.run()
 
         # Assert
-        agent._perform_discovery.assert_called_once()
+        # Legacy discovery is skipped as WiringCheck handles it now
+        agent._perform_discovery.assert_not_called()
 
     def test_normal_run_on_back_triggers_kickup(self):
         # Arrange

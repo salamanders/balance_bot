@@ -53,8 +53,14 @@ def test_calibrate_orientation(wc_fixture):
     wc.hw.read_imu_raw.side_effect = side_effect
 
     # Mock input to avoid waiting
-    with patch("builtins.input"):
+    with patch("builtins.input") as mock_input:
+        wc.wait_for_stability = MagicMock()
         wc.calibrate_static_orientation()
+
+        # We expect wait_for_stability instead of the first input
+        wc.wait_for_stability.assert_called_once()
+        # We expect input only for the second interaction (tipping forward)
+        assert mock_input.call_count == 1
 
     # Verify Vertical Axis = Z
     # analyze_dominance on back_vec (z=-9.8) -> Winner Z
