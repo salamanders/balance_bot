@@ -86,14 +86,10 @@
 ### Printed Parts (`printed_parts/`)
 
 * [printed_parts/dcmotor.scad](printed_parts/dcmotor.scad): OpenSCAD source file for motor mount.
-* [printed_parts/self_balancing_wheel.3mf](printed_parts/self_balancing_wheel.3mf): 3D model project file (3MF) for the
-  wheel.
-* [printed_parts/self_balancing_wheel_A_0.15mm_FLEX_MK3S_1h22m.gcode](printed_parts/self_balancing_wheel_A_0.15mm_FLEX_MK3S_1h22m.gcode):
-  G-code for printing Wheel Part A.
-* [printed_parts/self_balancing_wheel_B_0.15mm_FLEX_MK3S_1h22m.gcode](printed_parts/self_balancing_wheel_B_0.15mm_FLEX_MK3S_1h22m.gcode):
-  G-code for printing Wheel Part B.
-* [printed_parts/self_balancing_wheel_proj.3mf](printed_parts/self_balancing_wheel_proj.3mf): Alternative/Project 3MF
-  file for the wheel.
+* [printed_parts/tpu_wheel.scad](printed_parts/tpu_wheel.scad): OpenSCAD source file for TPU wheel.
+* [printed_parts/wheel_v3.3mf](printed_parts/wheel_v3.3mf): 3D model project file (3MF) for the wheel (v3).
+* [printed_parts/wheel_v3.scad](printed_parts/wheel_v3.scad): OpenSCAD source file for wheel v3.
+* [printed_parts/wheel_v3_project.3mf](printed_parts/wheel_v3_project.3mf): Alternative/Project 3MF file for the wheel (v3).
 
 ## Architecture: Multi-Mind (Subsumption)
 
@@ -146,7 +142,7 @@ dtoverlay=i2c-gpio,bus=3,i2c_gpio_sda=17,i2c_gpio_scl=27,i2c_gpio_delay_us=5
 ### 1. Clone the Repository
 
 ```bash
-git clone https://github.com/your-org/balance-bot.git
+git clone https://github.com/salamanders/balance_bot.git
 cd balance-bot
 ```
 
