@@ -141,7 +141,6 @@ class BalancePointFinder:
     def __init__(self, config: TunerConfig):
         self.config = config
         self.motor_history: list[float] = []
-        self.cooldown_timer = 0
 
     def update(self, motor_output: float, pitch_rate: float, aggression: float = 1.0) -> float:
         """
@@ -152,12 +151,7 @@ class BalancePointFinder:
         :param aggression: Multiplier for learning rate (default 1.0).
         :return: Angle adjustment (additive) to apply to target_angle.
         """
-        # 1. Decrement cooldown
-        if self.cooldown_timer > 0:
-            self.cooldown_timer -= 1
-            return 0.0
-
-        # 2. Check stability (don't learn if wobbling)
+        # 1. Check stability (don't learn if wobbling)
         # We only accumulate samples when the robot is relatively stable.
         if abs(pitch_rate) > self.config.balance_pitch_rate_threshold:
             return 0.0
