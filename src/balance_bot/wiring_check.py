@@ -298,7 +298,7 @@ class WiringCheck:
         print(">>> Calibrating Orientation <<<")
         print("Please place the robot on the FLOOR.")
         print("Ensure motors are OFF and it is resting on the BACK training wheel.")
-        input("Press Enter when ready...")
+        self.wait_for_stability(duration=2.0)
 
         # 1. Read Gravity (Vertical Axis)
         print("  Measuring Gravity (Vertical)...")
