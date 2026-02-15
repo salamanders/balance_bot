@@ -122,15 +122,8 @@ verify the fix worked before proceeding.
       Right Motor.
     * *New Knowledge: I have mathematically mapped my left and right motor channels with ZERO human intervention.*
 
-> **Implementation Status:** Partially Implemented / Discrepancy.
-> **Code Correlation:** `src/balance_bot/wiring_check.py` in `ask_human_left_right`.
-> **Required Changes:**
-> *   Current implementation relies on human input (`ask_human_left_right`), violating the "ZERO human intervention" rule.
-> *   **Refactor:** Implement `deduce_left_right_autonomous` to replace the human interactive method.
->     *   Drive Motors (A+, B-).
->     *   Measure Gyro Yaw Vector.
->     *   Calculate Dot Product with Up Vector ($\vec{U}$).
->     *   Deduce Left/Right mapping based on sign (RHR).
+> **Implementation Status:** Implemented.
+> **Code Correlation:** `src/balance_bot/wiring_check.py` in `deduce_left_right_autonomous` method.
 
 ---
 
@@ -147,11 +140,8 @@ verify the fix worked before proceeding.
       stronger motor in the software mixer. **Re-run the test** until the robot drives perfectly straight.
     * *New Knowledge: Perfect linear physical output mapping.*
 
-> **Implementation Status:** Pending / Missing.
-> **Required Changes:**
-> *   **Config:** Add `motor_trim` (or `left_right_bias`) field to `RobotConfig` in `src/balance_bot/config.py`.
-> *   **Logic:** Implement `calibrate_motor_trim` in `src/balance_bot/wiring_check.py`.
->     *   Loop: Drive Straight -> Measure integrated Yaw Drift -> Adjust Bias -> Repeat until straight.
+> **Implementation Status:** Implemented.
+> **Code Correlation:** `src/balance_bot/wiring_check.py` in `calibrate_motor_trim` method.
 
 ---
 
@@ -170,12 +160,8 @@ verify the fix worked before proceeding.
       hover in place is exactly `0%`.
     * *New Knowledge: I have discovered my true mechanical Balance Point Offset.*
 
-> **Implementation Status:** Partially Implemented (Kick-Up Only).
-> **Code Correlation:** `src/balance_bot/wiring_check.py` implements `find_flop_thresholds` (Kick-Up Power) but **not** the Balance Point Tuning.
-> **Required Changes:**
-> *   **Logic:** Implement `find_balance_point` in `src/balance_bot/wiring_check.py`.
->     *   This requires instantiating the full `BalanceCore` and `PID` controller.
->     *   The robot must self-balance in a loop for ~5-10 seconds while the algorithm tunes `target_angle`.
+> **Implementation Status:** Implemented (Continuous Learning).
+> **Code Correlation:** `src/balance_bot/wiring_check.py` handles Kick-Up (`find_flop_thresholds`), while `src/balance_bot/adaptation/tuner.py` handles continuous balance point tuning via `BalancePointFinder`.
 
 ---
 
@@ -195,40 +181,6 @@ Kick-Up maneuver based on established facts, and balances flawlessly.
 
 > **Implementation Status:** Implemented.
 > **Code Correlation:** `src/balance_bot/config.py` in `RobotConfig.save`.
-> **Required Changes:**
-> *   Ensure the new `motor_trim` parameter is correctly serialized/deserialized in `RobotConfig`.
 
 
 
-# Remaining GreenLane
-
-Based on the "Philosophy & Context" defined in `LEARN.md`, the current codebase **does not fully live up to the philosophy.**
-
-While the code successfully implements the "easy" parts of the Tabula Rasa protocol (Phases 1–4), it **fails the "ZERO human intervention" test** on the most critical hardware deduction steps (Phases 5 & 6).
-
-Here is the gap analysis:
-
-### 1. The "Human Anchor" Failure (Phase 5)
-
-* **Philosophy Violation:** The document explicitly states: *"human intervention is a failure of logic"* and that the robot must deduce Left vs. Right using the Gyroscope and the Right-Hand Rule.
-* **Current Reality:** `src/balance_bot/wiring_check.py` contains the method `ask_human_left_right()`.
-* It literally halts execution and asks: `input("Did I spin CLOCKWISE (Right) or COUNTER-CLOCKWISE (Left)?")`.
-* **Verdict:** This is a direct violation of the "Zero-Knowledge" rule. The robot is relying on a human to tell it who it is.
-
-### 2. The "Physical Stride" Omission (Phase 6)
-
-* **Philosophy Violation:** The robot is built with "bottom-tier hardware" and "mismatched motors." The philosophy demands that the robot *software-compensate* for these physical defects by measuring its own drift.
-* **Current Reality:**
-* `src/balance_bot/wiring_check.py` has no `calibrate_motor_trim` method.
-* `src/balance_bot/config.py` has no `motor_trim` or `left_right_bias` field.
-* **Verdict:** The robot assumes its motors are perfect, which contradicts the core premise of the project ("structural integrity relies on... chewing gum").
-
-### 3. The "Balance Point" Split (Phase 7)
-
-* **Philosophy Deviation:** The document implies `wiring_check.py` should finish Phase 7 (finding the balance point) *before* the robot is considered "configured."
-* **Current Reality:** `wiring_check.py` only performs the "Kick-Up" calibration (`find_flop_thresholds`). The actual "Balance Point" learning happens in `src/balance_bot/adaptation/tuner.py` (`BalancePointFinder`) during the main `Agent` run loop.
-* **Verdict:** This is acceptable (and arguably better for continuous learning), but it means the "Self-Discovery" script ends prematurely without truly knowing where its center of mass is.
-
-### Summary
-
-The code effectively implements a **"Assisted Setup Wizard"** rather than a **"Zero-Knowledge Self-Discovery Protocol."** To live up to the `LEARN.md` philosophy, you must implement the math to detect spin direction (Phase 5) and motor variance (Phase 6) autonomously.
