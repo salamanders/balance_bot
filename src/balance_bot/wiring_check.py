@@ -743,20 +743,35 @@ class WiringCheck:
         print("  [WARNING] Could not perfectly trim motors. Saving best effort.")
 
     # --- Tier 5: Dynamics ---
+    def _wait_for_start_condition(self, check_fn: Callable[[float], bool] | None, msg: str):
+        """
+        Wait for stability and a specific pitch condition.
+        """
+        print(msg)
+        while True:
+            self.wait_for_stability(duration=1.0)
+
+            if check_fn is None:
+                return
+
+            curr = self.hw.read_imu_converted()
+            if check_fn(curr.pitch_angle):
+                print("  [OK] Position Verified.")
+                return
+            else:
+                print(f"  [WAITING] Position incorrect (Pitch={curr.pitch_angle:.1f}). Please adjust.")
+                time.sleep(1.0)
+
     def _perform_flop_test(self, name: str, start_msg: str, power_sign: float,
                            success_check: Callable[[float], bool], reset_msg: str,
-                           start_check: Callable[[float], None] | None = None) -> float | None:
+                           start_check: Callable[[float], bool] | None = None) -> float | None:
         """
         Generic helper for Kick-Up (Flop) tests.
         Returns the power level found, or None.
         """
         print(f"\n[Test] {name}")
-        print(start_msg)
-        input("Press Enter...")
 
-        if start_check:
-            curr = self.hw.read_imu_converted()
-            start_check(curr.pitch_angle)
+        self._wait_for_start_condition(start_check, start_msg)
 
         power = self.config.min_power_visible + 10
         while power <= 100:
@@ -772,8 +787,7 @@ class WiringCheck:
                 return power
 
             power += 5
-            print(f"  {reset_msg}")
-            input("Enter...")
+            self._wait_for_start_condition(start_check, reset_msg)
         return None
 
     def find_flop_thresholds(self):
@@ -785,8 +799,7 @@ class WiringCheck:
 
         # 1. Forward Flop (Back -> Front)
         def check_back_start(pitch):
-            if pitch > -10:
-                print(f"  Warning: Pitch {pitch:.1f} is not Back enough.")
+            return pitch < -10
 
         found_fwd = self._perform_flop_test(
             name="Kick-Up from BACK (Forward Flop)",
@@ -801,12 +814,16 @@ class WiringCheck:
             self.config.control.kickup_power_forward = found_fwd
 
         # 2. Backward Flop (Front -> Back)
+        def check_front_start(pitch):
+            return pitch > 10
+
         found_bwd = self._perform_flop_test(
             name="Kick-Up from FRONT (Backward Flop)",
             start_msg="Place robot on FRONT wheel.",
             power_sign=-1.0,
             success_check=lambda p: p < -10,
-            reset_msg="Reset to Front..."
+            reset_msg="Reset to Front...",
+            start_check=check_front_start
         )
 
         if found_bwd:

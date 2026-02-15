@@ -1,3 +1,4 @@
+
 import sys
 import pytest
 from unittest.mock import MagicMock, patch, call
@@ -9,6 +10,7 @@ except ImportError:
     sys.modules['smbus'] = MagicMock()
 
 from balance_bot.wiring_check import WiringCheck
+from balance_bot.hardware.robot_hardware import IMUReading
 
 @pytest.fixture
 def wc_fixture():
@@ -30,56 +32,53 @@ def wc_fixture():
         wc = WiringCheck()
         wc.hw = mock_hw
 
+        # Mock wait_for_stability to avoid infinite loops and side-effect consumption
+        wc.wait_for_stability = MagicMock()
+
         yield wc, mock_hw, config_inst
 
 def test_find_flop_thresholds_success(wc_fixture):
     wc, mock_hw, config_inst = wc_fixture
 
-    # Mock user input to always be "enter"
-    with patch("builtins.input", return_value=""), \
+    # Mock user input just in case, but it shouldn't be called
+    with patch("builtins.input", side_effect=Exception("Input called!")), \
          patch("time.sleep"), \
          patch.object(wc, 'drive_and_measure', return_value=[]):
 
-        # We need to simulate the sequence of IMU readings.
-        # Flow:
-        # 1. Forward Flop:
-        #    - Initial read (check if back enough) -> pitch = -30 (ok)
-        #    - Power 30 loop:
-        #      - drive (mocked)
-        #      - read imu -> pitch = -20 (fail, not > 10)
-        #    - Power 35 loop:
-        #      - drive (mocked)
-        #      - read imu -> pitch = 20 (success)
-        # 2. Backward Flop:
-        #    - Power 30 loop:
-        #      - drive (mocked)
-        #      - read imu -> pitch = 20 (fail, not < -10)
-        #    - Power 35 loop:
-        #      - drive (mocked)
-        #      - read imu -> pitch = -20 (success)
+        # Helper to create IMU reading
+        def reading(p):
+            r = MagicMock(spec=IMUReading)
+            r.pitch_angle = float(p)
+            return r
 
-        # Let's setup side_effect for read_imu_converted
+        # Side effect sequence
+        # 1. Forward Flop (Start Check: Pitch < -10)
+        #    - Reading 1: -30 (OK)
+        #    - Power 30 -> Drive
+        #    - Reading 2: -20 (Fail, > 10 required for success)
+        #    - Reset Check: Pitch < -10
+        #    - Reading 3: -30 (OK)
+        #    - Power 35 -> Drive
+        #    - Reading 4: 20 (Success, > 10)
 
-        reading_back_ok = MagicMock(pitch_angle=-30.0)
-        reading_fwd_fail = MagicMock(pitch_angle=-20.0)
-        reading_fwd_success = MagicMock(pitch_angle=20.0)
-
-        reading_bwd_fail = MagicMock(pitch_angle=20.0)
-        reading_bwd_success = MagicMock(pitch_angle=-20.0)
-
-        # Sequence of calls:
-        # 1. Forward Flop Initial Check
-        # 2. Forward Flop Power 30 Check (read AFTER drive)
-        # 3. Forward Flop Power 35 Check (read AFTER drive)
-        # 4. Backward Flop Power 30 Check (read AFTER drive)
-        # 5. Backward Flop Power 35 Check (read AFTER drive)
+        # 2. Backward Flop (Start Check: Pitch > 10)
+        #    - Reading 5: 20 (OK)
+        #    - Power 30 -> Drive
+        #    - Reading 6: 20 (Fail, < -10 required for success)
+        #    - Reset Check: Pitch > 10
+        #    - Reading 7: 20 (OK)
+        #    - Power 35 -> Drive
+        #    - Reading 8: -20 (Success, < -10)
 
         mock_hw.read_imu_converted.side_effect = [
-            reading_back_ok,      # Initial check
-            reading_fwd_fail,     # Power 30 result
-            reading_fwd_success,  # Power 35 result
-            reading_bwd_fail,     # Power 30 result
-            reading_bwd_success,  # Power 35 result
+            reading(-30),
+            reading(-20),
+            reading(-30),
+            reading(20),
+            reading(20),
+            reading(20),
+            reading(20),
+            reading(-20)
         ]
 
         wc.find_flop_thresholds()
@@ -90,24 +89,38 @@ def test_find_flop_thresholds_success(wc_fixture):
 def test_find_flop_thresholds_initial_pitch_warning(wc_fixture):
     wc, mock_hw, config_inst = wc_fixture
 
-    with patch("builtins.input", return_value=""), \
+    with patch("builtins.input", side_effect=Exception("Input called!")), \
          patch("time.sleep"), \
          patch("builtins.print") as mock_print, \
          patch.object(wc, 'drive_and_measure', return_value=[]):
 
+        def reading(p):
+            r = MagicMock(spec=IMUReading)
+            r.pitch_angle = float(p)
+            return r
+
         # Scenario: Robot is too upright at start of forward flop test
-        reading_bad_start = MagicMock(pitch_angle=0.0) # > -10
-        reading_success = MagicMock(pitch_angle=20.0) # Success immediately
-        reading_bwd_success = MagicMock(pitch_angle=-20.0)
+        # 1. Forward Flop Start Check (Pitch < -10)
+        #    - Reading 1: 0.0 (Fail) -> Should print warning
+        #    - Reading 2: -20.0 (OK)
+        #    - Power 30 -> Drive
+        #    - Reading 3: 20.0 (Success)
+
+        # 2. Backward Flop Start Check (Pitch > 10)
+        #    - Reading 4: 20.0 (OK)
+        #    - Power 30 -> Drive
+        #    - Reading 5: -20.0 (Success)
 
         mock_hw.read_imu_converted.side_effect = [
-            reading_bad_start,
-            reading_success,
-            reading_bwd_success
+            reading(0.0),
+            reading(-20.0),
+            reading(20.0),
+            reading(20.0),
+            reading(-20.0)
         ]
 
         wc.find_flop_thresholds()
 
         # Check that warning was printed
-        # "Warning: Pitch 0.0 is not Back enough."
-        assert any("Warning: Pitch 0.0 is not Back enough" in str(c) for c in mock_print.call_args_list)
+        # "[WAITING] Position incorrect (Pitch=0.0). Please adjust."
+        assert any("Position incorrect (Pitch=0.0)" in str(c) for c in mock_print.call_args_list)
