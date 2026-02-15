@@ -34,6 +34,9 @@ class TestAutonomousConfig(unittest.TestCase):
         # Mock drive_and_measure to avoid actual sleep
         self.check.drive_and_measure = MagicMock(return_value=[])
 
+        # Mock wait_for_stability to avoid blocking or IMU errors
+        self.check.wait_for_stability = MagicMock()
+
     def test_deduce_left_right_ccw_spin(self):
         """
         Case: Robot spins CCW (Left). Dot Product > 0.
@@ -100,9 +103,7 @@ class TestAutonomousConfig(unittest.TestCase):
         # Mock init_hw to do nothing
         self.check.init_hw = MagicMock()
 
-        # Mock input to skip wait
-        with patch('builtins.input', return_value=''):
-            self.check.calibrate_motor_trim()
+        self.check.calibrate_motor_trim()
 
         # Expected: 10 attempts.
         # Each attempt adds 10.0 * 0.005 = 0.05.
@@ -124,8 +125,7 @@ class TestAutonomousConfig(unittest.TestCase):
 
         self.check.init_hw = MagicMock()
 
-        with patch('builtins.input', return_value=''):
-            self.check.calibrate_motor_trim()
+        self.check.calibrate_motor_trim()
 
         # -0.5 clamped to -0.3
         self.assertAlmostEqual(self.check.config.motor_trim, -0.3)
@@ -151,8 +151,7 @@ class TestAutonomousConfig(unittest.TestCase):
 
         self.check.init_hw = MagicMock()
 
-        with patch('builtins.input', return_value=''):
-            self.check.calibrate_motor_trim()
+        self.check.calibrate_motor_trim()
 
         # Should have run 2 times.
         # 1st: Trim += 0.05.

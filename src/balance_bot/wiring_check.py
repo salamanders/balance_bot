@@ -72,6 +72,50 @@ class WiringCheck:
             self.hw.stop()
             self.hw.cleanup()
 
+    def wait_for_stability(self, duration: float = 2.0, threshold: float = 2.0):
+        """
+        Wait for the robot to be stable (gyro rates low) for a duration.
+        Blocks until the condition is met.
+        """
+        print(f"Waiting for stability (rates < {threshold} deg/s) for {duration}s...")
+
+        start_stable_time = None
+        last_log = 0.0
+
+        while True:
+            try:
+                # We need HW to read sensors
+                if not self.hw:
+                    self.init_hw()
+
+                reading = self.hw.read_imu_converted()
+
+                # Calculate total rate magnitude (sum of abs rates is a simple metric)
+                rate = abs(reading.pitch_rate) + abs(reading.yaw_rate) + abs(reading.roll_rate)
+
+                if rate < threshold:
+                    if start_stable_time is None:
+                        start_stable_time = time.time()
+                    elif time.time() - start_stable_time >= duration:
+                        print("  [STABLE] Robot is still.")
+                        return
+                else:
+                    if start_stable_time is not None:
+                        # Reset if movement detected
+                        start_stable_time = None
+                        if time.time() - last_log > 1.0:
+                            print(f"  [MOVING] Rate {rate:.1f} > {threshold}. Waiting...")
+                            last_log = time.time()
+
+                time.sleep(0.05)
+
+            except KeyboardInterrupt:
+                raise
+            except Exception as e:
+                # Handle occasional I2C read errors gracefully
+                print(f"  [Error reading IMU] {e}")
+                time.sleep(0.1)
+
     def drive_and_measure(self, left_power: float, right_power: float, duration: float, sample_interval: float = 0.01) -> list[IMUReading]:
         """
         Drive motors for a duration and collect IMU readings.
@@ -513,7 +557,7 @@ class WiringCheck:
         """
         print(">>> Autonomous Left/Right Verification & Yaw Calibration <<<")
         print("I am going to spin to determine my physical identity.")
-        input("Press Enter when clear...")
+        self.wait_for_stability()
 
         attempts = 0
         while attempts < 3:
@@ -659,7 +703,7 @@ class WiringCheck:
         """
         print(">>> Motor Trim Calibration <<<")
         print("I will drive straight and measure drift.")
-        input("Press Enter when clear...")
+        self.wait_for_stability()
 
         # We will adjust trim until Yaw Rate is small.
         # Max attempts
