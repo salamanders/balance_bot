@@ -6,6 +6,11 @@ import os
 # Ensure src is in path
 sys.path.insert(0, os.path.abspath('src'))
 
+# Mock smbus before importing any module that uses it
+if "smbus" not in sys.modules:
+    from unittest.mock import MagicMock
+    sys.modules["smbus"] = MagicMock()
+
 class TestPiconZeroDriver(unittest.TestCase):
     def setUp(self):
         # Patch smbus.SMBus so we don't hit real hardware

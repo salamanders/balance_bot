@@ -353,7 +353,6 @@ class WiringCheck:
         """
         print(">>> Finding Minimum Power <<<")
         print("Ensuring robot is on the floor...")
-        self.init_hw()
 
         pwm = 10
         step = 5

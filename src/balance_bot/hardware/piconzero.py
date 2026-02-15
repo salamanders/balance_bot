@@ -29,6 +29,7 @@ def _retry(func, name):
         except Exception:
             if DEBUG:
                 print(f"Error in {name}(), retrying")
+            time.sleep(0.005)
     raise OSError(f"PiconZero {name}() failed after retries")
 
 def getRevision():
@@ -103,7 +104,7 @@ def init(debug=False):
     global DEBUG
     DEBUG = debug
     _retry(lambda: bus.write_byte_data(pzaddr, RESET, 0), "init")
-    time.sleep(0.01)
+    time.sleep(0.1)
     if DEBUG:
         print("Debug is", DEBUG)
 
