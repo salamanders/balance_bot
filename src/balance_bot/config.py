@@ -372,6 +372,9 @@ class RobotConfig:
     motor_channels_verified: bool = False
     motor_trim_verified: bool = False
 
+    # The baton pass from Wiring Check to Agent
+    balance_verified: bool = False
+
     @staticmethod
     def _filter_keys(dataclass_type, data: dict[str, Any]) -> dict[str, Any]:
         """Helper to filter dictionary keys based on dataclass annotations."""

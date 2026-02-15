@@ -175,7 +175,10 @@ class WiringCheck:
             print("-> [VERIFYING] Final Configuration Check.")
             self.verify_final_configuration()
 
-            print("\n[SUCCESS] Self-Discovery Complete. I know everything.")
+            # STOP HERE. Do not add find_balance_point.
+            # The Agent will handle the rest.
+
+            print("\n[SUCCESS] Hardware Verified. Ready for Agent (Main Brain).")
             print("Summary:")
             print(f"  Buses: Motor={c.motor_i2c_bus}, IMU={c.imu_i2c_bus}")
             print(f"  Axes: Vert={c.accel_vertical_axis}, Fwd={c.accel_forward_axis}, Pitch={c.gyro_pitch_axis}, Yaw={c.gyro_yaw_axis}")
