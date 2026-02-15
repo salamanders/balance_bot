@@ -1,7 +1,8 @@
 import time
 import math
-from unittest.mock import patch
-from balance_bot.utils import clamp, RateLimiter, ComplementaryFilter, calculate_pitch, to_signed, LogThrottler
+import logging
+from unittest.mock import patch, MagicMock
+from balance_bot.utils import clamp, RateLimiter, ComplementaryFilter, calculate_pitch, to_signed, LogThrottler, LogCaptureHandler
 
 def test_clamp():
     assert clamp(10, 0, 5) == 5.0
@@ -135,3 +136,29 @@ def test_log_throttler():
 
         # Immediate subsequent call should fail again
         assert throttler.should_log() is False
+
+def test_log_capture_handler_emit():
+    """Test that the handler correctly formats and stores log records."""
+    handler = LogCaptureHandler(capacity=10)
+    record = logging.makeLogRecord({"msg": "Test message"})
+
+    # Mock format so we don't depend on actual formatter
+    with patch.object(handler, 'format', return_value="FORMATTED MSG"):
+        handler.emit(record)
+
+    assert len(handler.buffer) == 1
+    assert handler.buffer[0] == "FORMATTED MSG"
+
+def test_log_capture_handler_error():
+    """Test that handleError is called when format raises an exception."""
+    handler = LogCaptureHandler()
+    record = logging.makeLogRecord({"msg": "Test message"})
+
+    # Mock format to raise exception
+    with patch.object(handler, 'format', side_effect=Exception("Boom")):
+        # Mock handleError to verify it's called
+        with patch.object(handler, 'handleError') as mock_handle_error:
+            handler.emit(record)
+
+            mock_handle_error.assert_called_once_with(record)
+            assert len(handler.buffer) == 0
