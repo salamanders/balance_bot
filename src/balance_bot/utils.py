@@ -65,9 +65,34 @@ class Vector3:
         yield "y", self.y
         yield "z", self.z
 
+    def __add__(self, other):
+        if isinstance(other, Vector3):
+            return Vector3(self.x + other.x, self.y + other.y, self.z + other.z)
+        return NotImplemented
+
+    def __sub__(self, other):
+        if isinstance(other, Vector3):
+            return Vector3(self.x - other.x, self.y - other.y, self.z - other.z)
+        return NotImplemented
+
+    def __mul__(self, scalar: float):
+        return Vector3(self.x * scalar, self.y * scalar, self.z * scalar)
+
+    def __truediv__(self, scalar: float):
+        if scalar == 0:
+            raise ValueError("Division by zero")
+        return Vector3(self.x / scalar, self.y / scalar, self.z / scalar)
+
+    def __neg__(self):
+        return Vector3(-self.x, -self.y, -self.z)
+
     @staticmethod
     def from_dict(d: dict[str, float]) -> "Vector3":
         return Vector3(d['x'], d['y'], d['z'])
+
+    @staticmethod
+    def zero() -> "Vector3":
+        return Vector3(0.0, 0.0, 0.0)
 
 
 class ComplementaryFilter:

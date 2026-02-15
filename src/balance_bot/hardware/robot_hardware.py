@@ -34,6 +34,8 @@ class IMUReading:
     yaw_rate: float
     roll_angle: float
     roll_rate: float
+    accel_raw: Vector3 | None = None
+    gyro_raw: Vector3 | None = None
 
 
 @runtime_checkable
@@ -368,7 +370,9 @@ class RobotHardware:
             pitch_rate=gyro_rate,
             yaw_rate=yaw_rate,
             roll_angle=roll_angle,
-            roll_rate=roll_rate
+            roll_rate=roll_rate,
+            accel_raw=accel,
+            gyro_raw=gyro,
         )
 
     def set_motor_retries(self, retries: int) -> None:

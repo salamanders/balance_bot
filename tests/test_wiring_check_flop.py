@@ -43,7 +43,7 @@ def test_find_flop_thresholds_success(wc_fixture):
     # Mock user input just in case, but it shouldn't be called
     with patch("builtins.input", side_effect=Exception("Input called!")), \
          patch("time.sleep"), \
-         patch.object(wc, 'drive_and_measure', return_value=[]):
+         patch.object(wc, 'collect_data', return_value=[]):
 
         # Helper to create IMU reading
         def reading(p):
@@ -54,20 +54,20 @@ def test_find_flop_thresholds_success(wc_fixture):
         # Side effect sequence
         # 1. Forward Flop (Start Check: Pitch < -10)
         #    - Reading 1: -30 (OK)
-        #    - Power 30 -> Drive
+        #    - Power 30 -> Drive (Mocked collect_data)
         #    - Reading 2: -20 (Fail, > 10 required for success)
         #    - Reset Check: Pitch < -10
         #    - Reading 3: -30 (OK)
-        #    - Power 35 -> Drive
+        #    - Power 35 -> Drive (Mocked collect_data)
         #    - Reading 4: 20 (Success, > 10)
 
         # 2. Backward Flop (Start Check: Pitch > 10)
         #    - Reading 5: 20 (OK)
-        #    - Power 30 -> Drive
+        #    - Power 30 -> Drive (Mocked collect_data)
         #    - Reading 6: 20 (Fail, < -10 required for success)
         #    - Reset Check: Pitch > 10
         #    - Reading 7: 20 (OK)
-        #    - Power 35 -> Drive
+        #    - Power 35 -> Drive (Mocked collect_data)
         #    - Reading 8: -20 (Success, < -10)
 
         mock_hw.read_imu_converted.side_effect = [
@@ -92,7 +92,7 @@ def test_find_flop_thresholds_initial_pitch_warning(wc_fixture):
     with patch("builtins.input", side_effect=Exception("Input called!")), \
          patch("time.sleep"), \
          patch("builtins.print") as mock_print, \
-         patch.object(wc, 'drive_and_measure', return_value=[]):
+         patch.object(wc, 'collect_data', return_value=[]):
 
         def reading(p):
             r = MagicMock(spec=IMUReading)
@@ -103,24 +103,38 @@ def test_find_flop_thresholds_initial_pitch_warning(wc_fixture):
         # 1. Forward Flop Start Check (Pitch < -10)
         #    - Reading 1: 0.0 (Fail) -> Should print warning
         #    - Reading 2: -20.0 (OK)
-        #    - Power 30 -> Drive
+        #    - Power 30 -> Drive (Mocked collect_data)
         #    - Reading 3: 20.0 (Success)
-
-        # 2. Backward Flop Start Check (Pitch > 10)
-        #    - Reading 4: 20.0 (OK)
-        #    - Power 30 -> Drive
-        #    - Reading 5: -20.0 (Success)
 
         mock_hw.read_imu_converted.side_effect = [
             reading(0.0),
             reading(-20.0),
             reading(20.0),
-            reading(20.0),
-            reading(-20.0)
+        ]
+
+        # Limit execution to avoid exhausting side_effect or hanging
+        # We can't easily stop find_flop_thresholds in the middle without an exception
+        # But if we provide enough side effects for success, it finishes.
+
+        # NOTE: The original test provided more side effects.
+        # I should match the original logic if possible.
+        # Original test provided: 0, -20, 20, 20, -20.
+        # Why?
+        # 1. Start Check (Forward): 0.0 -> Warn.
+        # 2. Start Check (Forward): -20.0 -> OK.
+        # 3. Drive 30. Check Success: 20.0 -> OK (Found FWD=30).
+        # 4. Start Check (Backward): 20.0 -> OK.
+        # 5. Drive 30. Check Success: -20.0 -> OK (Found BWD=30).
+
+        mock_hw.read_imu_converted.side_effect = [
+             reading(0.0),
+             reading(-20.0),
+             reading(20.0),
+             reading(20.0),
+             reading(-20.0)
         ]
 
         wc.find_flop_thresholds()
 
         # Check that warning was printed
-        # "[WAITING] Position incorrect (Pitch=0.0). Please adjust."
         assert any("Position incorrect (Pitch=0.0)" in str(c) for c in mock_print.call_args_list)
