@@ -233,10 +233,10 @@ adjust these values in the cited files.
 
 ### Physics & Mounting
 
-* **Mounting Orientation**: Default assumes the Pitch axis corresponds to the **X-axis** of the gyroscope.
+* **Mounting Orientation**: Default: **None** (Discovered via Wizard).
     * *Citation*: [src/balance_bot/config.py](src/balance_bot/config.py) (`gyro_pitch_axis` in `RobotConfig`).
-* **Fall Limit**: The robot considers itself "fallen" (and stops motors) if the pitch angle exceeds **45 degrees**.
-    * *Citation*: [src/balance_bot/config.py](src/balance_bot/config.py) (`fall_angle_limit` in `RobotConfig`).
+* **Fall Limit**: The robot considers itself "fallen" (and stops motors) if the pitch angle exceeds **60 degrees**.
+    * *Citation*: [src/balance_bot/config.py](src/balance_bot/config.py) (`crash_angle` in `RobotConfig`).
 * **Gravity Vector**: Pitch calculation assumes the Z-axis accelerometer measures gravity when upright.
     * *Citation*: [src/balance_bot/utils.py](src/balance_bot/utils.py) (`calculate_pitch`).
 
@@ -244,8 +244,8 @@ adjust these values in the cited files.
 
 * **Loop Frequency**: The control loop is designed to run at **100 Hz** (10ms per loop).
     * *Citation*: [src/balance_bot/config.py](src/balance_bot/config.py) (`loop_time` in `RobotConfig`).
-* **Motor Deadband**: Assumes motors require a minimum PWM of **20.0** to overcome static friction.
-    * *Citation*: [src/balance_bot/config.py](src/balance_bot/config.py) (`min_pwm` in `BatteryConfig`).
+* **Motor Deadband**: Assumes motors require a minimum PWM of **20.0** to overcome static friction (for battery estimation). The actual physical deadband is discovered and stored as `min_power_visible`.
+    * *Citation*: [src/balance_bot/config.py](src/balance_bot/config.py) (`min_pwm` in `BatteryConfig`, `min_power_visible` in `RobotConfig`).
 * **PID Defaults**: Starts with `Kp=25.0`, `Ki=0.0`, `Kd=0.5`.
     * *Citation*: [src/balance_bot/config.py](src/balance_bot/config.py) (`PIDParams`).
 

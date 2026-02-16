@@ -227,9 +227,14 @@ class ControlConfig:
     :param low_battery_log_threshold: Threshold to log battery warnings.
         * UOM: Factor (Compensation Multiplier)
         * Purpose: Warn user when voltage drop is significant.
-    :param kickup_power: Power level used for kick-up maneuver.
+    :param kickup_power_forward: Power to kick up from Back (Neg Pitch) -> Front.
         * UOM: Motor Output Units (0-100)
-        * Purpose: Baseline power to stand up from resting.
+        * Purpose: Baseline power to stand up from resting on back wheel.
+        * Limits: 20.0 to 100.0.
+        * Impact: Higher = stronger kick; Lower = gentle/fail.
+    :param kickup_power_backward: Power to kick up from Front (Pos Pitch) -> Back.
+        * UOM: Motor Output Units (0-100)
+        * Purpose: Baseline power to stand up from resting on front wheel.
         * Limits: 20.0 to 100.0.
         * Impact: Higher = stronger kick; Lower = gentle/fail.
     :param max_tilt_angle: Maximum tilt angle commanded by velocity input.
