@@ -327,7 +327,7 @@ class WiringCheck:
 
         # 2. Read Lean (Forward Axis)
         sorted_axes = sorted(avg_back.items(), key=lambda x: abs(x[1]), reverse=True)
-        # 0 is Vertical. 1 is Forward. 2 is Pitch (Axle).
+        # Assume sorted order: 0 is Vertical (Gravity Dominant). 1 is Forward (Lean Component). 2 is Pitch (Axle).
         forward_axis = sorted_axes[1][0]
         pitch_axis = sorted_axes[2][0]
 
@@ -773,12 +773,12 @@ class WiringCheck:
         # Kick (Slam) needs "Stand Up" Torque.
         # Setup (Roll) needs Opposite Torque.
         if start_from == "BACK":
-            # Leaning Back -> Kick Forward (Stand Up).
+            # Leaning Back -> Kick Body Forward (Stand Up).
             kick_sign = 1.0
             setup_sign = -1.0
             check_success = lambda p: p > 10
         elif start_from == "FRONT":
-            # Leaning Front -> Kick Backward (Stand Up).
+            # Leaning Front -> Kick Body Backward (Stand Up).
             kick_sign = -1.0
             setup_sign = 1.0
             check_success = lambda p: p < -10

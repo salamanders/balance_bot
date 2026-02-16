@@ -36,9 +36,9 @@ class BatteryEstimator:
 
         :param pwm: The commanded PWM sent to motors (before compensation).
         :param angular_accel: Measured angular acceleration (deg/s^2).
-        :param loop_delta_time: Time step.
         :return: Current compensation factor (0.0 to 1.0ish).
         """
+        # Note: loop_delta_time is unused but kept for API consistency.
         if abs(pwm) < self.config.min_pwm:
             return self.compensation_factor
 

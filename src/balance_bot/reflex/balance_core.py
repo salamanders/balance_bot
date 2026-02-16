@@ -102,7 +102,7 @@ class BalanceCore:
         :param motion: Desired movement (Velocity, Turn).
         :param tuning: Current PID gains and balance offset.
         :param loop_delta_time: Time elapsed since last step.
-        :param battery_compensation: Multiplier to account for voltage drop (1.0 = Full, <1.0 = Low).
+        :param battery_compensation: Factor to account for voltage drop (1.0 = Full, <1.0 = Low). Output is divided by this factor.
         :return: Telemetry for higher tiers.
         """
         # 1. Read Physics
