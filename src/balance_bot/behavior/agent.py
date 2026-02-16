@@ -106,7 +106,6 @@ class Agent:
             # Note: WiringCheck now handles all discovery. We just need to stand up.
             if self.first_run or check_force_calibration_flag():
                 logger.info(">>> First Run / Force Calib detected. Assuming WiringCheck passed.")
-                # We skip _perform_discovery() as it is legacy. WiringCheck handles flop/trim.
                 pass
 
             # Normal Startup: Check if we need to Kick Up
@@ -294,83 +293,6 @@ class Agent:
         except Exception as e:
             logger.error(f"Error saving config asynchronously: {e}")
 
-    def _perform_discovery(self) -> None:
-        logger.info(">>> STARTING AUTONOMOUS DISCOVERY <<<")
-
-        self._wait_for_settle()
-        start_pitch = self.core.pitch
-
-        if start_pitch < -5.0:
-            start_side = Orientation.BACK
-            other_side = Orientation.FRONT
-        elif start_pitch > 5.0:
-            start_side = Orientation.FRONT
-            other_side = Orientation.BACK
-        else:
-            logger.error(f"Cannot perform discovery: Robot is too upright (Pitch: {start_pitch:.1f})")
-            return
-
-        logger.info(f"-> Detected {start_side.upper()} Start.")
-
-        # 1. Measure Start Limit
-        logger.info(f"-> Measuring {start_side.capitalize()} Limit...")
-        angle_1 = self._measure_stable_angle()
-        logger.info(f"-> {start_side.capitalize()} Angle: {angle_1:.2f}")
-
-        if start_side == Orientation.BACK:
-            back_angle = angle_1
-        else:
-            front_angle = angle_1
-
-        # 2. Flop to Other Side
-        logger.info(f"-> Flop to {other_side.capitalize()}...")
-        # Against gravity (Start->Other)
-        kickup_power_1 = self._incremental_flop(target_side=other_side)
-
-        # 3. Measure Other Limit
-        logger.info(f"-> Measuring {other_side.capitalize()} Limit...")
-        self._wait_for_settle()
-        angle_2 = self._measure_stable_angle()
-        logger.info(f"-> {other_side.capitalize()} Angle: {angle_2:.2f}")
-
-        if other_side == Orientation.BACK:
-            back_angle = angle_2
-        else:
-            front_angle = angle_2
-
-        # 4. Return to Start
-        logger.info(f"-> Return to Start ({start_side.capitalize()})...")
-        kickup_power_2 = self._incremental_flop(target_side=start_side)
-        self._wait_for_settle()
-
-        # 5. Bootstrap
-        midpoint = (back_angle + front_angle) / 2
-        logger.info(f"-> Calculated Midpoint: {midpoint:.2f}")
-
-        self.config.pid.target_angle = midpoint
-        # Set conservative starting PID
-        self.config.pid.kp = 10.0
-        self.config.pid.ki = 0.0 # Keep I/D low initially
-        self.config.pid.kd = 0.2
-
-        # Save discovered kick-up power
-        # If Start=Back: Power 1 was Back->Front (Forward), Power 2 was Front->Back (Backward)
-        # If Start=Front: Power 1 was Front->Back (Backward), Power 2 was Back->Front (Forward)
-        if start_side == Orientation.BACK:
-            self.config.control.kickup_power_forward = kickup_power_1
-            self.config.control.kickup_power_backward = kickup_power_2
-        else:
-            self.config.control.kickup_power_backward = kickup_power_1
-            self.config.control.kickup_power_forward = kickup_power_2
-
-        self.config_dirty = True
-        self.first_run = False
-
-        # 6. Incremental Kick-Up
-        # We are at start_side, so we need kickup_power_1 (Start->Other)
-        logger.info(f"-> Starting Kick-Up Sequence using est power {kickup_power_1:.1f}...")
-        self._incremental_kickup(target_angle=midpoint, start_power=kickup_power_1)
-
     def _wait_for_settle(self, duration: float = 1.0, rate_threshold: float = 10.0) -> None:
         """Wait for the robot to settle (low pitch rate)."""
         logger.info("-> Waiting for settle...")
@@ -389,76 +311,12 @@ class Agent:
 
             time.sleep(self.config.loop_time)
 
-    def _measure_stable_angle(self, duration: float = 1.0) -> float:
-        """Measure average pitch over a duration."""
-        end_time = time.monotonic() + duration
-        pitch_sum = 0.0
-        count = 0
-        while time.monotonic() < end_time:
-            telemetry = self.core.update(MotionRequest(), self._zero_tuning, self.config.loop_time)
-            pitch_sum += telemetry.pitch_angle
-            count += 1
-            time.sleep(self.config.loop_time)
-        return pitch_sum / max(1, count)
-
     def _sleep_with_update(self, duration: float) -> None:
         """Sleep for duration while keeping the core filter updated."""
         end_time = time.monotonic() + duration
         while time.monotonic() < end_time:
             self.core.update(MotionRequest(), self._zero_tuning, self.config.loop_time)
             time.sleep(self.config.loop_time)
-
-    def _incremental_flop(self, target_side: Orientation) -> float:
-        """
-        Incrementally apply power until the robot flops to the target side.
-        target_side: Orientation.FRONT or Orientation.BACK.
-        Returns the power level that caused the flop.
-        """
-        if target_side == Orientation.FRONT:
-            # From Back to Front. Drive Negative (Backward).
-            direction = Direction.BACKWARD
-        else:
-            # From Front to Back. Drive Positive (Forward).
-            direction = Direction.FORWARD
-
-        power = 60.0 # Start small
-        step = 5.0
-        max_power = 100.0
-
-        while power <= max_power:
-            self._wait_for_settle()
-
-            logger.info(f"-> Attempting Flop to {target_side.upper()} with Power {power:.1f}...")
-
-            # Impulse
-            self.core.hw.set_motors(direction * power, direction * power)
-            self._sleep_with_update(0.4) # Short burst
-            self.core.hw.stop()
-
-            # Wait for result
-            end_wait = time.monotonic() + 1.5
-            success = False
-            while time.monotonic() < end_wait:
-                telem = self.core.update(MotionRequest(), self._zero_tuning, self.config.loop_time)
-
-                # Check if we crossed the vertical significantly
-                # Front target (Pos angle) means we passed > 10
-                # Back target (Neg angle) means we passed < -10
-                if (target_side == Orientation.FRONT and telem.pitch_angle > 10.0) or \
-                   (target_side == Orientation.BACK and telem.pitch_angle < -10.0):
-                    success = True
-                    break
-                time.sleep(self.config.loop_time)
-
-            if success:
-                logger.info(f"-> Flop Success at Power {power:.1f}")
-                self._wait_for_settle() # Let it crash and settle
-                return power
-
-            logger.info("-> Failed. Retrying...")
-            power += step
-
-        raise RuntimeError(f"Failed to flop to {target_side} even at max power.")
 
     def _incremental_kickup(self, target_angle: float, start_power: float) -> None:
         """

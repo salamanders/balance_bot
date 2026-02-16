@@ -51,26 +51,6 @@ class TestAgentStartup(unittest.TestCase):
     def tearDown(self):
         patch.stopall()
 
-    def test_first_run_triggers_discovery(self):
-        # Arrange
-        self.mock_config_file.exists.return_value = False # First run
-
-        agent = Agent()
-        # Ensure first_run is True (logic in __init__)
-        self.assertTrue(agent.first_run)
-
-        # Mock specific methods to verify calls and avoid real logic
-        agent._perform_discovery = MagicMock()
-        agent.running = False # Skip main loop
-        self.mock_core_instance.pitch = 0.0
-
-        # Act
-        agent.run()
-
-        # Assert
-        # Legacy discovery is skipped as WiringCheck handles it now
-        agent._perform_discovery.assert_not_called()
-
     def test_normal_run_on_back_triggers_kickup(self):
         # Arrange
         self.mock_config_file.exists.return_value = True # Saved config
