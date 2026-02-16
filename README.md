@@ -126,7 +126,7 @@ Follow these steps to get your robot up and running from a fresh Raspberry Pi in
 * **MPU-6050**: VCC to 3.3V, GND to GND, SDA to SDA, SCL to SCL.
 * **Motors**: Plugged into Motor A and Motor B on the Picon Zero.
 
-If you have a Picon Zero hat - it gets in the way!  But fear not, you can use add a "bus 3" that uses some of the
+If you have a Picon Zero hat - it gets in the way!  But fear not, you can add a "bus 3" that uses some of the
 reachable GPIO pins.
 
 `sudo nano /boot/firmware/config.txt`
@@ -164,7 +164,7 @@ curl -LsSf https://astral.sh/uv/install.sh | sh
 uv sync
 ```
 
-### 5. Verify and run
+### 4. Verify and run
 
 Run the **Zero-Knowledge Self-Discovery Protocol**. This is a state-machine based wizard that will learn your robot's unique wiring and physics configuration.
 **Note:** The robot will wake up knowing nothing. It will ask you to place it in specific positions to learn gravity, motor direction, and friction thresholds.
