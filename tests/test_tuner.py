@@ -65,3 +65,22 @@ def test_cooldown():
     assert kp == 0
     assert ki == 0
     assert kd == 0
+
+def test_statistics_error_handling():
+    """
+    Test that the tuner handles StatisticsError gracefully (e.g. when buffer size is 1).
+    Statistics.stdev requires at least 2 data points.
+    """
+    # buffer_size=1 means we have 1 sample. mean() works, stdev() fails.
+    tuner = ContinuousTuner(config=TunerConfig(analysis_interval=1), buffer_size=1)
+
+    # Update with 1 value.
+    # len(errors) will be 1. 1 < 1 is False (so it thinks buffer is full).
+    # It proceeds to calc stats.
+    # statistics.stdev should raise StatisticsError, which is caught.
+    # stdev_err defaults to 0.0.
+    kp, ki, kd = tuner.update(0.0)
+
+    # stdev=0.0 and mean=0.0 triggers "Stability" check: stdev < 1.0 and mean < 1.0
+    # So we expect Kp boost.
+    assert kp > 0.0, "Should catch StatisticsError and trigger stability boost"
