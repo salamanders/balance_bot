@@ -146,7 +146,15 @@ git clone https://github.com/salamanders/balance_bot.git
 cd balance-bot
 ```
 
-### 2. System Setup
+### 2. Install `uv`
+
+This project uses `uv` for Python dependency management.
+
+```bash
+curl -LsSf https://astral.sh/uv/install.sh | sh
+```
+
+### 3. System Setup
 
 Run the setup script to enable I2C and install necessary system libraries.
 
@@ -155,16 +163,13 @@ chmod +x setup.sh
 sudo ./setup.sh
 ```
 
-### 3. Install `uv`, Install Dependencies
-
-This project uses `uv` for Python dependency management.
+### 4. Install Dependencies
 
 ```bash
-curl -LsSf https://astral.sh/uv/install.sh | sh
 uv sync
 ```
 
-### 4. Verify and run
+### 5. Verify and run
 
 Run the **Zero-Knowledge Self-Discovery Protocol**. This is a state-machine based wizard that will learn your robot's unique wiring and physics configuration.
 **Note:** The robot will wake up knowing nothing. It will ask you to place it in specific positions to learn gravity, motor direction, and friction thresholds.
