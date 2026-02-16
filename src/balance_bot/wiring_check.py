@@ -695,11 +695,11 @@ class WiringCheck:
         print("  [FAILURE] Could not deduce Left/Right after multiple attempts.")
         sys.exit(1)
 
-    # --- Tier 6: The Stride (Trim) ---
+    # --- Tier 4.5: The Stride (Trim) ---
     def calibrate_motor_trim(self):
         """
         Calibrate Motor Trim to ensure straight driving.
-        Phase 6.
+        Phase 4.5.
         """
         print(">>> Motor Trim Calibration <<<")
         print("I will drive straight and measure drift.")
