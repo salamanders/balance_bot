@@ -2,6 +2,7 @@ import sys
 import time
 import math
 import logging
+from typing import NamedTuple
 from pathlib import Path
 from collections import deque
 
@@ -29,36 +30,22 @@ class LogCaptureHandler(logging.Handler):
             self.handleError(record)
 
 
-class Vector3:
+class Vector3(NamedTuple):
     """Type definition for a 3D vector (x, y, z)."""
-    __slots__ = ('x', 'y', 'z')
+    x: float
+    y: float
+    z: float
 
-    def __init__(self, x: float, y: float, z: float):
-        self.x = x
-        self.y = y
-        self.z = z
-
-    def __getitem__(self, key: str) -> float:
+    def __getitem__(self, key):
         if key == 'x':
             return self.x
         if key == 'y':
             return self.y
         if key == 'z':
             return self.z
-        raise KeyError(key)
-
-    def __iter__(self):
-        yield self.x
-        yield self.y
-        yield self.z
-
-    def __repr__(self):
-        return f"Vector3(x={self.x}, y={self.y}, z={self.z})"
-
-    def __eq__(self, other):
-        if isinstance(other, Vector3):
-            return self.x == other.x and self.y == other.y and self.z == other.z
-        return False
+        if isinstance(key, str):
+            raise KeyError(key)
+        return tuple.__getitem__(self, key)
 
     def items(self):
         yield "x", self.x
