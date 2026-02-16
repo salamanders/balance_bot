@@ -3,7 +3,7 @@ import json
 import logging
 import urllib.request
 import urllib.error
-from typing import Any, Dict, Optional
+from typing import Any, Dict, Optional, Tuple
 
 logger = logging.getLogger(__name__)
 
@@ -79,14 +79,11 @@ class JulesClient:
         logs: str,
         state: Dict[str, Any],
         libs: Dict[str, str]
-    ) -> None:
+    ) -> Tuple[bool, str]:
         """
         Constructs the prompt and initiates the fix session.
+        Returns (success, prompt_content).
         """
-        if not self._api_key:
-            logger.error("Cannot report crash: JULES_API_KEY not found.")
-            return
-
         # Construct a detailed prompt
         prompt = (
             f"The application crashed with the following error:\n\n"
@@ -99,11 +96,17 @@ class JulesClient:
             f"with a fix."
         )
 
+        if not self._api_key:
+            logger.error("Cannot report crash: JULES_API_KEY not found.")
+            return False, prompt
+
         try:
             logger.info("Contacting Jules API to report crash...")
             session = self.create_session(prompt)
             session_id = session.get("name", "unknown")
             logger.info(f"Successfully started Jules Session: {session_id}")
             logger.info("Jules is now working on a fix.")
+            return True, prompt
         except Exception as e:
             logger.error(f"Failed to trigger Jules Auto-Fix: {e}")
+            return False, prompt

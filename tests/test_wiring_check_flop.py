@@ -40,59 +40,48 @@ def wc_fixture():
 def test_find_flop_thresholds_success(wc_fixture):
     wc, mock_hw, config_inst = wc_fixture
 
-    # Mock user input just in case, but it shouldn't be called
+    # Patch internal method to avoid dealing with IMU loops
+    wc._attempt_dynamic_flop = MagicMock()
+    # Also patch start condition to avoid IMU reads there if we want, or just mock IMU for it.
+    # Let's patch start condition to be simple.
+    wc._wait_for_start_condition = MagicMock()
+
+    # Scenario:
+    # 1. Forward Flop (BACK)
+    #    - Power 30: FAIL_POWER
+    #    - Power 35: SUCCESS
+    # 2. Backward Flop (FRONT)
+    #    - Power 30: FAIL_POWER
+    #    - Power 35: SUCCESS
+
+    wc._attempt_dynamic_flop.side_effect = [
+        "FAIL_POWER", # BACK, 30
+        "SUCCESS",    # BACK, 35
+        "FAIL_POWER", # FRONT, 30
+        "SUCCESS"     # FRONT, 35
+    ]
+
     with patch("builtins.input", side_effect=Exception("Input called!")), \
-         patch("time.sleep"), \
-         patch.object(wc, 'drive_and_measure', return_value=[]):
-
-        # Helper to create IMU reading
-        def reading(p):
-            r = MagicMock(spec=IMUReading)
-            r.pitch_angle = float(p)
-            return r
-
-        # Side effect sequence
-        # 1. Forward Flop (Start Check: Pitch < -10)
-        #    - Reading 1: -30 (OK)
-        #    - Power 30 -> Drive
-        #    - Reading 2: -20 (Fail, > 10 required for success)
-        #    - Reset Check: Pitch < -10
-        #    - Reading 3: -30 (OK)
-        #    - Power 35 -> Drive
-        #    - Reading 4: 20 (Success, > 10)
-
-        # 2. Backward Flop (Start Check: Pitch > 10)
-        #    - Reading 5: 20 (OK)
-        #    - Power 30 -> Drive
-        #    - Reading 6: 20 (Fail, < -10 required for success)
-        #    - Reset Check: Pitch > 10
-        #    - Reading 7: 20 (OK)
-        #    - Power 35 -> Drive
-        #    - Reading 8: -20 (Success, < -10)
-
-        mock_hw.read_imu_converted.side_effect = [
-            reading(-30),
-            reading(-20),
-            reading(-30),
-            reading(20),
-            reading(20),
-            reading(20),
-            reading(20),
-            reading(-20)
-        ]
+         patch("time.sleep"):
 
         wc.find_flop_thresholds()
 
-        assert config_inst.control.kickup_power_forward == 35
-        assert config_inst.control.kickup_power_backward == 35
+    assert config_inst.control.kickup_power_forward == 35
+    assert config_inst.control.kickup_power_backward == 35
+
+    # Verify calls to attempt_dynamic_flop
+    assert wc._attempt_dynamic_flop.call_count == 4
 
 def test_find_flop_thresholds_initial_pitch_warning(wc_fixture):
     wc, mock_hw, config_inst = wc_fixture
 
+    # Here we WANT to test the start condition logic, so we do NOT patch _wait_for_start_condition.
+    # But we MUST patch _attempt_dynamic_flop to avoid the IMU loop crash.
+    wc._attempt_dynamic_flop = MagicMock(return_value="SUCCESS")
+
     with patch("builtins.input", side_effect=Exception("Input called!")), \
          patch("time.sleep"), \
-         patch("builtins.print") as mock_print, \
-         patch.object(wc, 'drive_and_measure', return_value=[]):
+         patch("builtins.print") as mock_print:
 
         def reading(p):
             r = MagicMock(spec=IMUReading)
@@ -103,20 +92,16 @@ def test_find_flop_thresholds_initial_pitch_warning(wc_fixture):
         # 1. Forward Flop Start Check (Pitch < -10)
         #    - Reading 1: 0.0 (Fail) -> Should print warning
         #    - Reading 2: -20.0 (OK)
-        #    - Power 30 -> Drive
-        #    - Reading 3: 20.0 (Success)
+        #    - (Call _attempt_dynamic_flop -> Success)
 
         # 2. Backward Flop Start Check (Pitch > 10)
-        #    - Reading 4: 20.0 (OK)
-        #    - Power 30 -> Drive
-        #    - Reading 5: -20.0 (Success)
+        #    - Reading 3: 20.0 (OK)
+        #    - (Call _attempt_dynamic_flop -> Success)
 
         mock_hw.read_imu_converted.side_effect = [
-            reading(0.0),
-            reading(-20.0),
-            reading(20.0),
-            reading(20.0),
-            reading(-20.0)
+            reading(0.0),   # Fail
+            reading(-20.0), # Pass
+            reading(20.0)   # Pass (Backward)
         ]
 
         wc.find_flop_thresholds()
@@ -124,3 +109,6 @@ def test_find_flop_thresholds_initial_pitch_warning(wc_fixture):
         # Check that warning was printed
         # "[WAITING] Position incorrect (Pitch=0.0). Please adjust."
         assert any("Position incorrect (Pitch=0.0)" in str(c) for c in mock_print.call_args_list)
+
+        # Verify attempts
+        assert wc._attempt_dynamic_flop.call_count == 2

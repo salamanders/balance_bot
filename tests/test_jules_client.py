@@ -57,3 +57,33 @@ class TestJulesClient(unittest.TestCase):
             client = JulesClient()
             with self.assertRaises(ValueError):
                 client._make_request("GET", "test")
+
+    @patch("balance_bot.jules_client.JulesClient.create_session")
+    def test_report_crash_success(self, mock_create_session):
+        client = JulesClient(api_key="test_key")
+        mock_create_session.return_value = {"name": "session_123"}
+
+        success, prompt = client.report_crash("Error", "Stack", "Logs", {}, {})
+
+        self.assertTrue(success)
+        self.assertIn("The application crashed", prompt)
+        mock_create_session.assert_called_once()
+
+    def test_report_crash_missing_key(self):
+        # Ensure env var is cleared so no key is present
+        with patch.dict(os.environ, {}, clear=True):
+            client = JulesClient(api_key=None)
+            success, prompt = client.report_crash("Error", "Stack", "Logs", {}, {})
+
+            self.assertFalse(success)
+            self.assertIn("The application crashed", prompt)
+
+    @patch("balance_bot.jules_client.JulesClient.create_session")
+    def test_report_crash_failure(self, mock_create_session):
+        client = JulesClient(api_key="test_key")
+        mock_create_session.side_effect = Exception("API Error")
+
+        success, prompt = client.report_crash("Error", "Stack", "Logs", {}, {})
+
+        self.assertFalse(success)
+        self.assertIn("The application crashed", prompt)

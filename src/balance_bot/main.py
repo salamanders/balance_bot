@@ -2,6 +2,7 @@ import os
 import sys
 import traceback
 import importlib.metadata
+import datetime
 from dataclasses import asdict
 from .wiring_check import WiringCheck
 from .behavior.agent import Agent
@@ -76,8 +77,19 @@ def main() -> None:
 
             # 5. Report
             client = JulesClient()
-            client.report_crash(str(e), tb, logs, state, libs)
-            print("Crash report submitted to Jules. Check your dashboard for the new session.")
+            success, prompt = client.report_crash(str(e), tb, logs, state, libs)
+
+            if success:
+                print("Crash report submitted to Jules. Check your dashboard for the new session.")
+            else:
+                timestamp = datetime.datetime.now().strftime("%Y%m%d_%H%M%S")
+                filename = f"exception_{timestamp}.md"
+                try:
+                    with open(filename, "w") as f:
+                        f.write(prompt)
+                    print(f"Jules API failed. Crash report dumped to {filename}")
+                except Exception as write_err:
+                    print(f"Failed to report to Jules AND failed to write local dump: {write_err}")
 
         # Always re-raise to exit with error
         raise
