@@ -132,22 +132,22 @@ class RobotHardware:
 
     def __init__(
         self,
-        motor_l: int,
-        motor_r: int,
+        motor_l: int = 0,
+        motor_r: int = 1,
         invert_l: bool = False,
         invert_r: bool = False,
-        gyro_axis: Axis = Axis.X,
+        gyro_axis: Axis | None = None,
         gyro_invert: bool = False,
-        gyro_yaw_axis: Axis = Axis.Z,
+        gyro_yaw_axis: Axis | None = None,
         gyro_yaw_invert: bool = False,
-        gyro_roll_axis: Axis = Axis.Y,
+        gyro_roll_axis: Axis | None = None,
         gyro_roll_invert: bool = False,
-        accel_vertical_axis: Axis = Axis.Z,
+        accel_vertical_axis: Axis | None = None,
         accel_vertical_invert: bool = False,
-        accel_forward_axis: Axis = Axis.Y,
+        accel_forward_axis: Axis | None = None,
         accel_forward_invert: bool = False,
-        motor_i2c_bus: int = 1,
-        imu_i2c_bus: int = 1,
+        motor_i2c_bus: int | None = None,
+        imu_i2c_bus: int | None = None,
         crash_angle: float = 60.0,
         imu_max_retries: int = 5,
         motor_trim: float = 0.0,
@@ -197,38 +197,36 @@ class RobotHardware:
         self._imu_consecutive_errors = 0
 
         # Deduce Accel Roll Axis (The one not used by Vertical or Forward)
-        axes = {Axis.X, Axis.Y, Axis.Z}
-        used = {accel_vertical_axis, accel_forward_axis}
-        remaining = axes - used
-        if remaining:
-            self.accel_roll_axis = list(remaining)[0]
+        if accel_vertical_axis and accel_forward_axis:
+            axes = {Axis.X, Axis.Y, Axis.Z}
+            used = {accel_vertical_axis, accel_forward_axis}
+            remaining = axes - used
+            if remaining:
+                self.accel_roll_axis = list(remaining)[0]
+            else:
+                self.accel_roll_axis = Axis.X  # Fallback
         else:
-            # Fallback / Collision
-            self.accel_roll_axis = Axis.X
+            self.accel_roll_axis = None
 
         # Store the "last known good" value
         self._last_accel = Vector3(0.0, 0.0, 0.0)
         self._last_gyro = Vector3(0.0, 0.0, 0.0)
 
-        self.pz: MotorDriver
-        self.sensor: IMUDriver
+        self.pz: MotorDriver | None = None
+        self.sensor: IMUDriver | None = None
 
         self._init_hardware()
 
     def _init_hardware(self) -> None:
         """
         Initialize hardware components.
-
-        Strategy:
-        1. Try importing hardware libraries.
-        2. Try initializing PiconZero (Motors).
-        3. Try initializing MPU6050 (IMU).
-
-        If any step fails:
-         - Check if ALLOW_MOCK_FALLBACK is set.
-         - If YES: Fall back to Mock Hardware.
-         - If NO: Log critical error and crash (raise Exception).
         """
+        # If running in explicit mock mode via env var, do that first.
+        if os.environ.get("ALLOW_MOCK_FALLBACK"):
+            logger.warning("Hardware Init: Mock Mode Requested via Environment.")
+            self._init_mock_hardware()
+            return
+
         try:
             # 1. Attempt Imports
             try:
@@ -236,38 +234,40 @@ class RobotHardware:
                 from mpu6050 import mpu6050
             except (ImportError, OSError) as e:
                 logger.error(f"CRITICAL: Required libraries not found or failed to load: {e}")
-                logger.error("Try running 'uv sync' or check your virtual environment.")
                 raise e
 
-            # 2. Attempt PiconZero
-            try:
-                self.pz = PiconZeroAdapter(bus_number=self.motor_i2c_bus)
-            except (OSError, PermissionError, FileNotFoundError) as e:
-                logger.error(f"CRITICAL: PiconZero Init Failed on Bus {self.motor_i2c_bus}: {e}")
-                report = get_i2c_failure_report(self.motor_i2c_bus, 0x22, "PiconZero")
-                logger.error(report)
-                raise e
+            # 2. Attempt PiconZero (if bus known)
+            if self.motor_i2c_bus is not None:
+                try:
+                    self.pz = PiconZeroAdapter(bus_number=self.motor_i2c_bus)
+                except (OSError, PermissionError, FileNotFoundError) as e:
+                    logger.error(f"CRITICAL: PiconZero Init Failed on Bus {self.motor_i2c_bus}: {e}")
+                    report = get_i2c_failure_report(self.motor_i2c_bus, 0x22, "PiconZero")
+                    logger.error(report)
+                    raise e
+            else:
+                logger.info("Skipping PiconZero init (Bus Unknown)")
 
-            # 3. Attempt MPU6050
-            try:
-                self.sensor = MPU6050Adapter(mpu6050(0x68, bus=self.imu_i2c_bus))
-            except OSError as e:
-                logger.error(f"CRITICAL: MPU6050 Init Failed on Bus {self.imu_i2c_bus}: {e}")
-                report = get_i2c_failure_report(self.imu_i2c_bus, 0x68, "MPU6050")
-                logger.error(report)
-                raise e
+            # 3. Attempt MPU6050 (if bus known)
+            if self.imu_i2c_bus is not None:
+                try:
+                    self.sensor = MPU6050Adapter(mpu6050(0x68, bus=self.imu_i2c_bus))
+                except OSError as e:
+                    logger.error(f"CRITICAL: MPU6050 Init Failed on Bus {self.imu_i2c_bus}: {e}")
+                    report = get_i2c_failure_report(self.imu_i2c_bus, 0x68, "MPU6050")
+                    logger.error(report)
+                    raise e
+            else:
+                logger.info("Skipping MPU6050 init (Bus Unknown)")
 
-            logger.info(f"Hardware initialized. PiconZero on bus {self.motor_i2c_bus}, MPU6050 on bus {self.imu_i2c_bus}.")
+            logger.info(f"Hardware initialized (Partial). PiconZero={self.motor_i2c_bus}, MPU6050={self.imu_i2c_bus}.")
 
         except (ImportError, OSError, PermissionError, FileNotFoundError) as e:
-            # Check for Fallback
+             # Check for Fallback (if initialization failed)
             if os.environ.get("ALLOW_MOCK_FALLBACK"):
                 logger.warning("Hardware Init Failed. Falling back to MOCKS as requested.")
                 self._init_mock_hardware()
                 return
-
-            # Else Re-raise
-            logger.critical("To use simulated hardware, run with --allow-mocks")
             raise e
 
     def _init_mock_hardware(self) -> None:
@@ -289,6 +289,9 @@ class RobotHardware:
         Includes error handling for I2C noise.
         :return: Tuple of (accel_dict, gyro_dict).
         """
+        if self.sensor is None:
+            raise RuntimeError("IMU Sensor not initialized (Bus Unknown?)")
+
         try:
             # Try to read fresh data
             accel = self.sensor.get_accel_data()
@@ -317,16 +320,14 @@ class RobotHardware:
     def read_imu_converted(self) -> IMUReading:
         """
         Read IMU and calculate pitch/rates based on config.
-
-        Process:
-        1. Read raw Accel/Gyro.
-        2. Map Raw Axes -> Logical Axes (Forward, Vertical).
-        3. Apply Inversions.
-        4. Calculate Angle via atan2(forward, vertical).
-        5. Return IMUReading.
-
-        :return: IMUReading object containing pitch angle and rates.
         """
+        if (
+            self.accel_forward_axis is None
+            or self.accel_vertical_axis is None
+            or self.gyro_axis is None
+        ):
+            raise RuntimeError("IMU axes not configured. Use read_imu_raw() instead.")
+
         accel, gyro = self.read_imu_raw()
 
         # Get raw values based on config
@@ -349,19 +350,29 @@ class RobotHardware:
             gyro_rate = -gyro_rate
 
         # Yaw rate
-        yaw_rate = getattr(gyro, self.gyro_yaw_axis.value)
-        if self.gyro_yaw_invert:
-            yaw_rate = -yaw_rate
+        # Default to 0.0 if not configured
+        if self.gyro_yaw_axis:
+            yaw_rate = getattr(gyro, self.gyro_yaw_axis.value)
+            if self.gyro_yaw_invert:
+                yaw_rate = -yaw_rate
+        else:
+            yaw_rate = 0.0
 
         # Roll rate
-        roll_rate = getattr(gyro, self.gyro_roll_axis.value)
-        if self.gyro_roll_invert:
-            roll_rate = -roll_rate
+        if self.gyro_roll_axis:
+            roll_rate = getattr(gyro, self.gyro_roll_axis.value)
+            if self.gyro_roll_invert:
+                roll_rate = -roll_rate
+        else:
+            roll_rate = 0.0
 
         # Roll Angle (Approximate from Accel)
-        accel_roll = getattr(accel, self.accel_roll_axis.value)
-        # Calculate angle of side vector relative to vertical
-        roll_angle = calculate_pitch(accel_roll, accel_vertical)
+        if self.accel_roll_axis:
+            accel_roll = getattr(accel, self.accel_roll_axis.value)
+            # Calculate angle of side vector relative to vertical
+            roll_angle = calculate_pitch(accel_roll, accel_vertical)
+        else:
+            roll_angle = 0.0
 
         return IMUReading(
             pitch_angle=acc_angle,
@@ -381,6 +392,14 @@ class RobotHardware:
         :param left: Speed -100 to 100
         :param right: Speed -100 to 100
         """
+        if self.pz is None:
+            # If not initialized, maybe we can't drive?
+            # Or should we raise?
+            # The user might be calling this from "Twitch" which knows the bus...
+            # But Twitch should probably use pz.set_motor directly if it's doing raw stuff.
+            # But if we want to use the high level abstraction, we expect pz to be there.
+            raise RuntimeError("Motor Driver not initialized (Bus Unknown?)")
+
         # Apply Motor Trim (Compensation for mismatched motors)
         # Trim > 0: Scale down Right Motor (Right is stronger)
         # Trim < 0: Scale down Left Motor (Left is stronger)

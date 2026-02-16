@@ -7,7 +7,12 @@ import math
 def test_imu_yaw_roll_defaults(monkeypatch):
     monkeypatch.setenv("ALLOW_MOCK_FALLBACK", "1")
     # Defaults: Yaw=Z, Roll=Y. AccelRoll=X (since Vert=Z, Fwd=Y).
-    hw = RobotHardware(0, 1)
+    hw = RobotHardware(0, 1,
+                       gyro_axis=Axis.X,
+                       accel_vertical_axis=Axis.Z,
+                       accel_forward_axis=Axis.Y,
+                       gyro_yaw_axis=Axis.Z,
+                       gyro_roll_axis=Axis.Y)
     hw.sensor = MagicMock()
 
     # Simulate:

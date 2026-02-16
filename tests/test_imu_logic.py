@@ -14,7 +14,11 @@ from balance_bot.utils import Vector3
 def test_imu_processing_default(monkeypatch):
     monkeypatch.setenv("ALLOW_MOCK_FALLBACK", "1")
 
-    hw = RobotHardware(0, 1)
+    # Explicitly set defaults that were previously implicit
+    hw = RobotHardware(0, 1,
+                       accel_vertical_axis=Axis.Z,
+                       accel_forward_axis=Axis.Y,
+                       gyro_axis=Axis.X)
 
     # Mock the sensor
     hw.sensor = MagicMock()
@@ -31,7 +35,10 @@ def test_imu_processing_default(monkeypatch):
 
 def test_imu_processing_tilted(monkeypatch):
     monkeypatch.setenv("ALLOW_MOCK_FALLBACK", "1")
-    hw = RobotHardware(0, 1)
+    hw = RobotHardware(0, 1,
+                       accel_vertical_axis=Axis.Z,
+                       accel_forward_axis=Axis.Y,
+                       gyro_axis=Axis.X)
     hw.sensor = MagicMock()
 
     # Simulate tilt 45 deg forward
@@ -48,7 +55,10 @@ def test_imu_processing_tilted(monkeypatch):
 def test_imu_processing_axis_y(monkeypatch):
     monkeypatch.setenv("ALLOW_MOCK_FALLBACK", "1")
     # Axis Y means we use X accel and Y gyro. In new API, we must specify accel_forward_axis.
-    hw = RobotHardware(0, 1, gyro_axis=Axis.Y, accel_forward_axis=Axis.X)
+    hw = RobotHardware(0, 1,
+                       gyro_axis=Axis.Y,
+                       accel_forward_axis=Axis.X,
+                       accel_vertical_axis=Axis.Z) # Z assumed vertical
     hw.sensor = MagicMock()
 
     # Simulate tilt on X axis (which is now pitch)
@@ -64,7 +74,12 @@ def test_imu_processing_axis_y(monkeypatch):
 def test_imu_processing_invert(monkeypatch):
     monkeypatch.setenv("ALLOW_MOCK_FALLBACK", "1")
     # Invert both pitch angle and gyro rate
-    hw = RobotHardware(0, 1, gyro_invert=True, accel_forward_invert=True)
+    hw = RobotHardware(0, 1,
+                       gyro_invert=True,
+                       accel_forward_invert=True,
+                       accel_vertical_axis=Axis.Z,
+                       accel_forward_axis=Axis.Y,
+                       gyro_axis=Axis.X)
     hw.sensor = MagicMock()
 
     val = 9.8 * 0.707

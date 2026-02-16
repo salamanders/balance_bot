@@ -19,6 +19,24 @@ def main() -> None:
         os.environ["ALLOW_MOCK_FALLBACK"] = "1"
 
     try:
+        if "--reset-brain" in sys.argv:
+            from .discovery.knowledge_graph import DiscoveryContext
+            DiscoveryContext().forget_all()
+            if "--discover" not in sys.argv:
+                return
+
+        if "--discover" in sys.argv:
+            from .discovery.knowledge_graph import DiscoveryContext
+            from .discovery.baby_brain import DiscoveryBrain
+
+            try:
+                ctx = DiscoveryContext()
+                brain = DiscoveryBrain(ctx)
+                brain.think()
+            except KeyboardInterrupt:
+                pass
+            return
+
         if "--check-wiring" in sys.argv:
             try:
                 WiringCheck().run()

@@ -3,6 +3,7 @@ from dataclasses import dataclass
 from ..config import RobotConfig
 from ..hardware.robot_hardware import RobotHardware
 from ..utils import ComplementaryFilter
+from ..enums import Axis
 from .pid import PIDController
 
 
@@ -59,19 +60,20 @@ class BalanceCore:
         self.config = config
 
         # Hardware
+        # If config is incomplete (e.g. First Run), assume standard defaults (Bus 1, Axis Z/Y/X)
         self.hw = RobotHardware(
             motor_l=config.motor_l,
             motor_r=config.motor_r,
             invert_l=config.motor_l_invert,
             invert_r=config.motor_r_invert,
-            gyro_axis=config.gyro_pitch_axis,
+            gyro_axis=config.gyro_pitch_axis or Axis.X,
             gyro_invert=config.gyro_pitch_invert,
-            accel_vertical_axis=config.accel_vertical_axis,
+            accel_vertical_axis=config.accel_vertical_axis or Axis.Z,
             accel_vertical_invert=config.accel_vertical_invert,
-            accel_forward_axis=config.accel_forward_axis,
+            accel_forward_axis=config.accel_forward_axis or Axis.Y,
             accel_forward_invert=config.accel_forward_invert,
-            motor_i2c_bus=config.motor_i2c_bus,
-            imu_i2c_bus=config.imu_i2c_bus,
+            motor_i2c_bus=config.motor_i2c_bus if config.motor_i2c_bus is not None else 1,
+            imu_i2c_bus=config.imu_i2c_bus if config.imu_i2c_bus is not None else 1,
             crash_angle=config.crash_angle,
             imu_max_retries=config.imu_max_retries,
             motor_trim=config.motor_trim,
