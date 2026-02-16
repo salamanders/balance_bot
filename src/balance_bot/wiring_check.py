@@ -486,6 +486,7 @@ class WiringCheck:
         """
         Ensure Positive Power = "Stand Up" (Reduce Lean).
         "Kick Up" Test.
+        Requirement: Robot must be leaning FORWARD.
         Verifies via pessimistic loop.
         """
         print(">>> Verifying Motor Direction (Kick Up Check) <<<")
@@ -503,8 +504,17 @@ class WiringCheck:
             start_pitch = imu.pitch_angle
             print(f"  Start Pitch: {start_pitch:.1f}")
 
+            # Enforce Forward Lean (Positive Pitch)
+            # If start_pitch is Negative, we are leaning Back.
+            if start_pitch < -10.0:
+                print("  [ERROR] Robot is leaning BACK (Negative Pitch).")
+                print("  -> Positive Power = Forward. Starting from Back would require Negative Power to stand up.")
+                print("  -> Please lean the robot FORWARD (on its face/front kickstand).")
+                input("Press Enter when re-positioned...")
+                continue
+
             if abs(start_pitch) < 10:
-                print("  [WARNING] Robot is too upright. Please lean it over (Front or Back).")
+                print("  [WARNING] Robot is too upright. Please lean it over FORWARD.")
                 input("Press Enter when leaned...")
                 continue # Retry measurement
 
