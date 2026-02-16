@@ -509,8 +509,10 @@ class WiringCheck:
                 continue # Retry measurement
 
             # 2. Pulse Positive
-            power = self.config.min_power_visible + 20
-            print(f"  Pulsing +{power} (Positive)...")
+            # Calculate direction sign to enforce Positive = Forward
+            direction_sign = 1.0 if start_pitch > 0 else -1.0
+            power = (self.config.min_power_visible + 20) * direction_sign
+            print(f"  Pulsing {power} (Positive=Forward Check)...")
 
             samples = self.drive_and_measure(power, power, 0.3)
             time.sleep(1.0)
@@ -769,18 +771,18 @@ class WiringCheck:
         Returns: "SUCCESS", "FAIL_POWER", or "FAIL_ALIGNMENT".
         """
         # Define Physics Directions
-        # Convention: Positive Power = "Stand Up" Torque (Wheels Backward).
-        # Kick (Slam) needs "Stand Up" Torque.
-        # Setup (Roll) needs Opposite Torque.
+        # Convention: Positive Power = Forward.
+        # To Stand Up from BACK (Pitch < 0): Need Backward Wheels (Neg Power).
+        # To Stand Up from FRONT (Pitch > 0): Need Forward Wheels (Pos Power).
         if start_from == "BACK":
-            # Leaning Back -> Kick Forward (Stand Up).
-            kick_sign = 1.0
-            setup_sign = -1.0
-            check_success = lambda p: p > 10
-        elif start_from == "FRONT":
-            # Leaning Front -> Kick Backward (Stand Up).
+            # Leaning Back -> Kick Up (Increase Pitch).
             kick_sign = -1.0
             setup_sign = 1.0
+            check_success = lambda p: p > 10
+        elif start_from == "FRONT":
+            # Leaning Front -> Kick Up (Decrease Pitch).
+            kick_sign = 1.0
+            setup_sign = -1.0
             check_success = lambda p: p < -10
         else:
             raise ValueError(f"Unknown direction {start_from}")
