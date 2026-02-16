@@ -83,15 +83,18 @@ verify the fix worked before proceeding.
 * **What do I know?** $\vec{D}$ (Down), `min_pwm`, and that my motors push together. I am leaning at an angle.
 * **What am I uncertain of?** Which motor polarity means "Forward" (driving *under* the center of mass to stand up)?
   Which IMU axis measures my Pitch?
-* **Action:** Apply a brief, strong pulse (+50%) to *both* motors in the Positive direction. Observe the Accelerometer
-  and Gyroscope.
+* **Action:**
+    1. **Orientation:** Lean the robot **FORWARD** (on its front face/kickstand). This is critical: Positive Power is defined
+       as the direction that stands the robot up *from a forward lean*.
+    2. **Pulse:** Apply a brief, strong pulse (+50%) to *both* motors in the Positive direction. Observe the Accelerometer
+       and Gyroscope.
 * **Deduction:**
     * The Gyro rotation vector during this lurch is definitively the **Pitch Axis ($\vec{P}$)**.
     * Look at the angle between the Up vector and the accelerometer.
-    * If the pitch angle *decreases* (the chassis moves toward vertical), the wheels drove *under* the leaning center of
-      mass. This is exactly what "Forward" means for a balancing robot. Positive = Forward.
+    * If the pitch angle *decreases* (the chassis moves toward vertical from the front), the wheels drove *under* the
+      leaning center of mass. This is exactly what "Forward" means for a balancing robot. Positive = Forward.
     * If the pitch angle *increases* (the chassis slams harder into the ground), the wheels drove *away* from the center
-      of mass.
+      of mass (Backward).
         * **Fix:** Invert *both* global motor polarities in software. **Re-run the test** to verify positive PWM causes
           the robot to pitch up.
     * *New Knowledge: I have my absolute 3D orientation ($\vec{D}$ and $\vec{P}$) and I know how to drive Forward.*
