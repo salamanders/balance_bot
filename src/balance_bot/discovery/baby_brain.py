@@ -66,31 +66,7 @@ class DiscoveryBrain:
                     pass
 
             # Create new instance
-            self.hw = RobotHardware(
-                motor_l=c.motor_l,
-                motor_r=c.motor_r,
-                invert_l=c.motor_l_invert,
-                invert_r=c.motor_r_invert,
-                gyro_axis=c.gyro_pitch_axis,
-                gyro_invert=c.gyro_pitch_invert,
-                accel_vertical_axis=c.accel_vertical_axis,
-                accel_vertical_invert=c.accel_vertical_invert,
-                accel_forward_axis=c.accel_forward_axis,
-                accel_forward_invert=c.accel_forward_invert,
-                motor_i2c_bus=c.motor_i2c_bus,
-                imu_i2c_bus=c.imu_i2c_bus,
-                motor_trim=c.motor_trim,
-                # We need to map other axes if they exist in config
-                # but build_config might not set everything yet.
-                # RobotHardware handles None.
-            )
-            # init() calls pz.init()
-            # If bus is None, it won't do much.
-            # But here we know bus is set.
-            # However, if bus is None (shouldn't happen due to check above), it raises/skips.
-
-            # We skip init() if bus is None in HW, but here we passed it.
-            # Actually RobotHardware calls _init_hardware in __init__.
+            self.hw = c.to_hardware(force_defaults=False)
 
         except ValueError:
             self.hw = None

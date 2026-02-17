@@ -8,72 +8,48 @@ if 'smbus' not in sys.modules:
     sys.modules['smbus'] = MagicMock()
 
 from balance_bot.wiring_check import WiringCheck
-from balance_bot.hardware.robot_hardware import IMUReading
 
 @pytest.fixture
 def wc_fixture():
     with patch("balance_bot.wiring_check.smbus"), \
-         patch("balance_bot.wiring_check.RobotHardware"), \
          patch("balance_bot.wiring_check.RobotConfig") as MockConfig:
+
+        config_inst = MagicMock()
+        MockConfig.load.return_value = config_inst
 
         wc = WiringCheck()
         wc.hw = MagicMock()
-        wc.config = MagicMock()
+        config_inst.to_hardware.return_value = wc.hw
+
         yield wc
 
-def test_wait_for_stability_success(wc_fixture):
+def test_wait_for_stability_delegation(wc_fixture):
+    """
+    Verify WiringCheck.wait_for_stability delegates to RobotHardware.
+    """
     wc = wc_fixture
 
-    moving = IMUReading(
-        pitch_angle=0.0, pitch_rate=10.0, yaw_rate=10.0, roll_angle=0.0, roll_rate=10.0
-    )
-    stable = IMUReading(
-        pitch_angle=0.0, pitch_rate=0.1, yaw_rate=0.1, roll_angle=0.0, roll_rate=0.1
-    )
+    wc.wait_for_stability(duration=0.5, threshold=3.0)
 
-    wc.hw.read_imu_converted.side_effect = [moving, stable, stable, stable, stable]
+    wc.hw.wait_for_stability.assert_called_once_with(0.5, 3.0)
 
-    start_time = 1000.0
-    def time_gen():
-        nonlocal start_time
-        start_time += 0.1
-        return start_time
-
-    with patch("time.sleep") as mock_sleep, \
-         patch("time.time", side_effect=time_gen) as mock_time:
-
-        # Duration 0.15s should pass with 2 stable readings at 0.1s interval
-        wc.wait_for_stability(duration=0.15, threshold=5.0)
-
-    assert wc.hw.read_imu_converted.call_count >= 3
-
-def test_wait_for_stability_interrupted(wc_fixture):
+def test_wait_for_stability_inits_hw(wc_fixture):
+    """
+    Verify WiringCheck.wait_for_stability initializes HW if missing.
+    """
     wc = wc_fixture
+    wc.hw = None # Simulate missing HW
 
-    moving = IMUReading(
-        pitch_angle=0.0, pitch_rate=10.0, yaw_rate=10.0, roll_angle=0.0, roll_rate=10.0
-    )
-    stable = IMUReading(
-        pitch_angle=0.0, pitch_rate=0.1, yaw_rate=0.1, roll_angle=0.0, roll_rate=0.1
-    )
+    # We need to mock to_hardware to return a mock we can check
+    mock_hw = MagicMock()
+    wc.config.to_hardware.return_value = mock_hw
 
-    # Sequence:
-    # 1. Stable (Start Timer)
-    # 2. Moving (Reset Timer)
-    # 3. Stable (Start Timer)
-    # 4. Stable (Check Timer - Done)
-    wc.hw.read_imu_converted.side_effect = [stable, moving, stable, stable, stable, stable]
+    # Run
+    wc.wait_for_stability(duration=1.0, threshold=2.0)
 
-    start_time = 1000.0
-    def time_gen():
-        nonlocal start_time
-        start_time += 0.1
-        return start_time
+    # Verify Init
+    wc.config.to_hardware.assert_called()
+    mock_hw.init.assert_called()
 
-    with patch("time.sleep") as mock_sleep, \
-         patch("time.time", side_effect=time_gen) as mock_time:
-
-        wc.wait_for_stability(duration=0.15, threshold=5.0)
-
-    # Should have called read at least 4 times
-    assert wc.hw.read_imu_converted.call_count >= 4
+    # Verify Delegation
+    mock_hw.wait_for_stability.assert_called_once_with(1.0, 2.0)

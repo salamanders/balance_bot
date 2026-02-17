@@ -13,7 +13,6 @@ from balance_bot.wiring_check import WiringCheck
 @pytest.fixture
 def wc_fixture():
     with patch("balance_bot.wiring_check.smbus") as mock_smbus_module, \
-         patch("balance_bot.wiring_check.RobotHardware") as mock_rh_cls, \
          patch("balance_bot.wiring_check.RobotConfig") as MockConfig:
 
         config_inst = MagicMock()
@@ -23,7 +22,8 @@ def wc_fixture():
         MockConfig.load.return_value = config_inst
 
         # Setup RobotHardware Mock Instance
-        mock_hw = mock_rh_cls.return_value
+        mock_hw = MagicMock()
+        config_inst.to_hardware.return_value = mock_hw
 
         # Mock read_imu_raw default
         mock_hw.read_imu_raw.return_value = ({'x':0, 'y':0, 'z':0}, {'x':0, 'y':0, 'z':0})
@@ -35,8 +35,10 @@ def wc_fixture():
         zero_reading.roll_rate = 0.0
         mock_hw.read_imu_converted.return_value = zero_reading
 
+        # Default drive_and_measure to return list of zeros
+        mock_hw.drive_and_measure.return_value = [zero_reading]
+
         wc = WiringCheck()
-        # Inject mock hw directly because init_hw might fail without buses
         wc.hw = mock_hw
 
         yield wc, mock_hw, mock_smbus_module
@@ -44,30 +46,21 @@ def wc_fixture():
 def test_discover_buses_found(wc_fixture):
     wc, mock_hw, mock_smbus = wc_fixture
 
-    # Setup SMBus Mocks
-    # Bus 1 has PiconZero (0x22)
-    # Bus 3 has MPU6050 (0x68)
-
-    # We need separate Mock objects for each bus call
     bus1 = MagicMock()
     bus3 = MagicMock()
     bus0 = MagicMock()
     bus2 = MagicMock()
 
-    # Configure Bus 1: Has 0x22 (read_byte_data succeeds), No 0x68 (read_byte_data fails)
-    # Note: side_effect must return value or raise Exception
     def bus1_read(addr, reg):
         if addr == 0x22: return 0
         raise OSError("Not Found")
     bus1.read_byte_data.side_effect = bus1_read
 
-    # Configure Bus 3: Has 0x68 (read_byte_data succeeds for 0x75), No 0x22
     def bus3_read(addr, reg):
         if addr == 0x68 and reg == 0x75: return 0x68
         raise OSError("Not Found")
     bus3.read_byte_data.side_effect = bus3_read
 
-    # Bus 0, 2: Nothing
     bus0.read_byte_data.side_effect = OSError("Not Found")
     bus2.read_byte_data.side_effect = OSError("Not Found")
 
@@ -88,15 +81,6 @@ def test_discover_buses_found(wc_fixture):
 def test_find_min_power_success(wc_fixture):
     wc, mock_hw, _ = wc_fixture
 
-    # State
-    state = {'pwm': 0, 'calls': 0}
-
-    def set_motors_se(l, r):
-        state['pwm'] = l
-        state['calls'] = 0 # Reset for new PWM attempt
-
-    mock_hw.set_motors.side_effect = set_motors_se
-
     zero_reading = MagicMock()
     zero_reading.pitch_rate = 0.0
     zero_reading.yaw_rate = 0.0
@@ -107,24 +91,19 @@ def test_find_min_power_success(wc_fixture):
     big_reading.yaw_rate = 0.0
     big_reading.roll_rate = 0.0
 
-    def read_imu_converted_se():
-        state['calls'] += 1
+    def drive_and_measure_se(l, r, duration, sample_interval=0.01, read_raw=False):
+        if l == 20:
+            return [big_reading]
+        return [zero_reading]
 
-        # Subsequent calls are checks.
-        if state['pwm'] == 20:
-            return big_reading # Big change
-
-        return zero_reading
-
-    mock_hw.read_imu_converted.side_effect = read_imu_converted_se
+    mock_hw.drive_and_measure.side_effect = drive_and_measure_se
 
     wc.find_min_power()
 
     assert wc.config.min_power_visible == 20
 
-    # Verify sequence
-    # Should have called 10, 15, 20
-    calls = [c[0][0] for c in mock_hw.set_motors.call_args_list]
+    # Verify calls
+    calls = [c[0][0] for c in mock_hw.drive_and_measure.call_args_list]
     assert 10 in calls
     assert 15 in calls
     assert 20 in calls
@@ -133,18 +112,16 @@ def test_find_min_power_success(wc_fixture):
 def test_find_min_power_failure(wc_fixture):
     wc, mock_hw, _ = wc_fixture
 
-    # Always return static
     zero_reading = MagicMock()
     zero_reading.pitch_rate = 0.0
     zero_reading.yaw_rate = 0.0
     zero_reading.roll_rate = 0.0
-    mock_hw.read_imu_converted.return_value = zero_reading
+    mock_hw.drive_and_measure.return_value = [zero_reading]
 
     with patch("sys.exit", side_effect=SystemExit) as mock_exit:
         with pytest.raises(SystemExit):
             wc.find_min_power()
 
         mock_exit.assert_called_with(1)
-        # Should have tried up to 100
-        calls = [c[0][0] for c in mock_hw.set_motors.call_args_list]
+        calls = [c[0][0] for c in mock_hw.drive_and_measure.call_args_list]
         assert 100 in calls

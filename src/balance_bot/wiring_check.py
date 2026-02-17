@@ -22,7 +22,7 @@ class WiringCheck:
 
     def __init__(self):
         self.config = RobotConfig.load()
-        self.hw = None
+        self.hw: RobotHardware | None = None
 
         # Temporary runtime state
         self.temp_motor_l = 0
@@ -47,28 +47,8 @@ class WiringCheck:
             # Cannot init HW without buses.
             return
 
-        # Use Config values or Safe Defaults
-        # Note: RobotHardware requires Axis enums, but config might be None.
-        self.hw = RobotHardware(
-            motor_l=self.config.motor_l,
-            motor_r=self.config.motor_r,
-            invert_l=self.config.motor_l_invert,
-            invert_r=self.config.motor_r_invert,
-            # Sensors: Default to Z/Y/X if unknown, just to allow raw reading
-            gyro_axis=self.config.gyro_pitch_axis or Axis.X,
-            gyro_invert=self.config.gyro_pitch_invert,
-            gyro_yaw_axis=self.config.gyro_yaw_axis or Axis.Z,
-            gyro_yaw_invert=self.config.gyro_yaw_invert,
-            gyro_roll_axis=self.config.gyro_roll_axis or Axis.Y,
-            gyro_roll_invert=self.config.gyro_roll_invert,
-            accel_vertical_axis=self.config.accel_vertical_axis or Axis.Z,
-            accel_vertical_invert=self.config.accel_vertical_invert,
-            accel_forward_axis=self.config.accel_forward_axis or Axis.Y,
-            accel_forward_invert=self.config.accel_forward_invert,
-            motor_i2c_bus=self.config.motor_i2c_bus,
-            imu_i2c_bus=self.config.imu_i2c_bus,
-            motor_trim=self.config.motor_trim,
-        )
+        # Use Config factory (apply defaults for missing axes)
+        self.hw = self.config.to_hardware(force_defaults=False)
         self.hw.init()
 
     def cleanup(self):
@@ -82,59 +62,12 @@ class WiringCheck:
         Blocks until the condition is met.
         """
         print(f"Waiting for stability (rates < {threshold} deg/s) for {duration}s...")
+        if not self.hw:
+            self.init_hw()
 
-        start_stable_time = None
-        last_log = 0.0
-
-        while True:
-            try:
-                # We need HW to read sensors
-                if not self.hw:
-                    self.init_hw()
-
-                reading = self.hw.read_imu_converted()
-
-                # Calculate total rate magnitude (sum of abs rates is a simple metric)
-                rate = abs(reading.pitch_rate) + abs(reading.yaw_rate) + abs(reading.roll_rate)
-
-                if rate < threshold:
-                    if start_stable_time is None:
-                        start_stable_time = time.time()
-                    elif time.time() - start_stable_time >= duration:
-                        print("  [STABLE] Robot is still.")
-                        return
-                else:
-                    if start_stable_time is not None:
-                        # Reset if movement detected
-                        start_stable_time = None
-                        if time.time() - last_log > 1.0:
-                            print(f"  [MOVING] Rate {rate:.1f} > {threshold}. Waiting...")
-                            last_log = time.time()
-
-                time.sleep(0.05)
-
-            except KeyboardInterrupt:
-                raise
-            except Exception as e:
-                # Handle occasional I2C read errors gracefully
-                print(f"  [Error reading IMU] {e}")
-                time.sleep(0.1)
-
-    def drive_and_measure(self, left_power: float, right_power: float, duration: float, sample_interval: float = 0.01) -> list[IMUReading]:
-        """
-        Drive motors for a duration and collect IMU readings.
-        Returns a list of IMUReading objects collected during the drive.
-        """
-        samples = []
-        try:
-            self.hw.set_motors(left_power, right_power)
-            start = time.time()
-            while time.time() - start < duration:
-                samples.append(self.hw.read_imu_converted())
-                time.sleep(sample_interval)
-        finally:
-            self.hw.stop()
-        return samples
+        # Delegate to hardware
+        self.hw.wait_for_stability(duration, threshold)
+        print("  [STABLE] Robot is still.")
 
     def run(self):
         """
@@ -410,7 +343,7 @@ class WiringCheck:
             print(f"  Testing PWM {pwm}...")
 
             # Pulse and Measure
-            samples = self.drive_and_measure(pwm, pwm, 0.2)
+            samples = self.hw.drive_and_measure(pwm, pwm, 0.2)
             time.sleep(0.5) # Wait for stop
 
             # Check for motion (Gyro Rate > Threshold)
@@ -458,7 +391,7 @@ class WiringCheck:
             power = self.config.min_power_visible + 10
             print(f"  Pulse Drive with PWM {power}...")
 
-            samples = self.drive_and_measure(power, power, 0.5)
+            samples = self.hw.drive_and_measure(power, power, 0.5)
             time.sleep(1.0)
 
             if not samples:
@@ -528,7 +461,7 @@ class WiringCheck:
             power = (self.config.min_power_visible + 20) * direction_sign
             print(f"  Pulsing {power} (Positive=Forward Check)...")
 
-            samples = self.drive_and_measure(power, power, 0.3)
+            samples = self.hw.drive_and_measure(power, power, 0.3)
             time.sleep(1.0)
 
             end_pitch = samples[-1].pitch_angle if samples else start_pitch
@@ -596,18 +529,9 @@ class WiringCheck:
             print(f"  Spinning with Power {power}...")
 
             # We need Raw Gyro data to do the Dot Product
-            # drive_and_measure returns converted readings.
-            # We'll do a manual drive loop to get raw data.
-            raw_gyro_samples = []
-            try:
-                self.hw.set_motors(power, -power)
-                start = time.time()
-                while time.time() - start < 1.5:
-                    _, g = self.hw.read_imu_raw()
-                    raw_gyro_samples.append(g)
-                    time.sleep(0.01)
-            finally:
-                self.hw.stop()
+            # drive_and_measure(read_raw=True) returns [(accel, gyro), ...]
+            raw_samples = self.hw.drive_and_measure(power, -power, 1.5, read_raw=True)
+            raw_gyro_samples = [s[1] for s in raw_samples]
 
             if not raw_gyro_samples:
                 print("  [WARNING] No gyro samples collected. Retrying...")
@@ -627,14 +551,7 @@ class WiringCheck:
 
             print(f"  Dot Product (Up . Gyro): {dot_prod:.2f}")
 
-            if abs(dot_prod) < 500: # Threshold depends on units. Raw gyro is usually LSBs or deg/s.
-                # Assuming deg/s, 500 is very fast?
-                # Raw units from MPU6050 might be large integers or scaled floats.
-                # If floats (deg/s): 20 deg/s is significant.
-                # Let's check typical magnitudes. If raw is deg/s, 20 is good.
-                # If raw is LSB (e.g. 16384/g), it's huge.
-                # MPU6050Adapter returns Vector3.from_dict.
-                # mpu6050 library usually returns degrees/second for gyro.
+            if abs(dot_prod) < 500: # Threshold depends on units.
                 pass
 
             # Robustness check
@@ -645,15 +562,9 @@ class WiringCheck:
             # 4. Deduce Motor Mapping
             if dot_prod > 0:
                 # CCW Spin (Left).
-                # To spin Left: Right Motor Fwd, Left Motor Back.
-                # We commanded: Ch0 (Fwd), Ch1 (Back).
-                # Therefore: Ch0 is Right, Ch1 is Left.
                 print("  -> Detected Counter-Clockwise (Left) Spin.")
                 print("  -> Deduction: Ch0 is Right, Ch1 is Left.")
 
-                # Check current config
-                # If config says L=0, R=1, it is WRONG.
-                # We want L=1, R=0.
                 if self.config.motor_l == 0:
                     print("  -> ACTION: Swapping Channels to Correct Mapping.")
                     self.config.motor_l, self.config.motor_r = self.config.motor_r, self.config.motor_l
@@ -662,13 +573,9 @@ class WiringCheck:
 
             else:
                 # CW Spin (Right).
-                # To spin Right: Left Motor Fwd, Right Motor Back.
-                # We commanded: Ch0 (Fwd), Ch1 (Back).
-                # Therefore: Ch0 is Left, Ch1 is Right.
                 print("  -> Detected Clockwise (Right) Spin.")
                 print("  -> Deduction: Ch0 is Left, Ch1 is Right.")
 
-                # Check current config
                 if self.config.motor_l == 1:
                      print("  -> ACTION: Swapping Channels to Correct Mapping.")
                      self.config.motor_l, self.config.motor_r = self.config.motor_r, self.config.motor_l
@@ -677,9 +584,6 @@ class WiringCheck:
 
             # 5. Deduce Gyro Yaw Polarity
             # We want Positive Yaw Rate for CCW (Left) Spin.
-            # We detected the physical spin direction via Dot Product.
-            # Now let's see what the "Converted" Yaw Rate says with current config.
-            # We need to re-calc the yaw rate from raw data using current config flags.
 
             # Re-read config flags
             yaw_axis = self.config.gyro_yaw_axis
@@ -729,7 +633,7 @@ class WiringCheck:
 
             power = self.config.min_power_visible + 15
             # Drive Straight
-            samples = self.drive_and_measure(power, power, 1.0)
+            samples = self.hw.drive_and_measure(power, power, 1.0)
 
             if not samples:
                 continue
@@ -808,22 +712,11 @@ class WiringCheck:
         print(f"  [Action] Roll {setup_p:.1f} (0.3s) -> Slam {kick_p:.1f} (0.4s)...")
 
         samples = []
-        try:
-            # Phase 1: Setup (Roll)
-            self.hw.set_motors(setup_p, setup_p)
-            start = time.time()
-            while time.time() - start < 0.3:
-                samples.append(self.hw.read_imu_converted())
-                time.sleep(0.01)
+        # Phase 1: Setup (Roll)
+        samples.extend(self.hw.drive_and_measure(setup_p, setup_p, 0.3))
 
-            # Phase 2: Kick (Slam)
-            self.hw.set_motors(kick_p, kick_p)
-            start = time.time()
-            while time.time() - start < 0.4:
-                samples.append(self.hw.read_imu_converted())
-                time.sleep(0.01)
-        finally:
-            self.hw.stop()
+        # Phase 2: Kick (Slam)
+        samples.extend(self.hw.drive_and_measure(kick_p, kick_p, 0.4))
 
         # Coast & Check
         time.sleep(1.0)
@@ -832,11 +725,8 @@ class WiringCheck:
 
         # check success
         if check_success(final_pitch):
-             # Even if successful, check alignment briefly?
-             # No, if it worked, it worked. But let's be safe.
              pass
         else:
-             # If it failed to flip, we still check alignment to see if that was the cause.
              pass
 
         # Alignment Check
@@ -928,7 +818,7 @@ class WiringCheck:
         print("  [Check 1] Drive Straight...")
         power = self.config.min_power_visible + 10
 
-        samples = self.drive_and_measure(power, power, 1.0)
+        samples = self.hw.drive_and_measure(power, power, 1.0)
         time.sleep(0.5)
 
         if not samples:
@@ -947,7 +837,7 @@ class WiringCheck:
         print("  [Check 2] Turn Right (Clockwise)...")
         # Command L+, R-
 
-        samples = self.drive_and_measure(power, -power, 1.0)
+        samples = self.hw.drive_and_measure(power, -power, 1.0)
 
         if not samples:
             avg_yaw_signed = 0.0

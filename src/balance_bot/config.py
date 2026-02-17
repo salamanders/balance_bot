@@ -462,3 +462,44 @@ class RobotConfig:
             logger.info("Config saved.")
         except OSError as e:
             logger.error(f"Error saving config: {e}")
+
+    def to_hardware(self, force_defaults: bool = False) -> "RobotHardware":
+        """
+        Create a RobotHardware instance from this configuration.
+        :param force_defaults: If True, assume default I2C buses (1) if not set.
+        """
+        # Local import to avoid circular dependency
+        from .hardware.robot_hardware import RobotHardware
+
+        motor_bus = self.motor_i2c_bus
+        imu_bus = self.imu_i2c_bus
+
+        if force_defaults:
+            if motor_bus is None:
+                motor_bus = 1
+            if imu_bus is None:
+                imu_bus = 1
+
+        # Use defaults (Axis.X/Y/Z) if axes are unknown, to support "raw" reading modes
+        # in RobotHardware even if full config isn't ready.
+        return RobotHardware(
+            motor_l=self.motor_l,
+            motor_r=self.motor_r,
+            invert_l=self.motor_l_invert,
+            invert_r=self.motor_r_invert,
+            gyro_axis=self.gyro_pitch_axis or Axis.X,
+            gyro_invert=self.gyro_pitch_invert,
+            gyro_yaw_axis=self.gyro_yaw_axis or Axis.Z,
+            gyro_yaw_invert=self.gyro_yaw_invert,
+            gyro_roll_axis=self.gyro_roll_axis or Axis.Y,
+            gyro_roll_invert=self.gyro_roll_invert,
+            accel_vertical_axis=self.accel_vertical_axis or Axis.Z,
+            accel_vertical_invert=self.accel_vertical_invert,
+            accel_forward_axis=self.accel_forward_axis or Axis.Y,
+            accel_forward_invert=self.accel_forward_invert,
+            motor_i2c_bus=motor_bus,
+            imu_i2c_bus=imu_bus,
+            crash_angle=self.crash_angle,
+            imu_max_retries=self.imu_max_retries,
+            motor_trim=self.motor_trim,
+        )

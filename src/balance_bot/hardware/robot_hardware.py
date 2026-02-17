@@ -1,5 +1,6 @@
 import os
 import logging
+import time
 from typing import Protocol, runtime_checkable, Any
 from dataclasses import dataclass
 
@@ -463,3 +464,54 @@ class RobotHardware:
             return "CRASHED"
         else:
             return "FALLING"
+
+    def drive_and_measure(
+        self,
+        left: float,
+        right: float,
+        duration: float,
+        sample_interval: float = 0.01,
+        read_raw: bool = False
+    ) -> list[Any]:
+        """
+        Drive motors for a duration and collect IMU readings.
+        :param left: Left motor speed
+        :param right: Right motor speed
+        :param duration: Seconds to drive
+        :param sample_interval: Seconds between samples
+        :param read_raw: If True, returns (accel, gyro) tuples. Else returns IMUReading.
+        :return: List of samples collected.
+        """
+        samples = []
+        try:
+            self.set_motors(left, right)
+            start = time.time()
+            while time.time() - start < duration:
+                if read_raw:
+                    samples.append(self.read_imu_raw())
+                else:
+                    samples.append(self.read_imu_converted())
+                time.sleep(sample_interval)
+        finally:
+            self.stop()
+        return samples
+
+    def wait_for_stability(self, duration: float = 2.0, threshold: float = 2.0) -> None:
+        """
+        Block until gyro rates (raw magnitude) are below threshold for duration.
+        """
+        start_stable = None
+        while True:
+            # We use raw data to be independent of axis configuration
+            _, gyro = self.read_imu_raw()
+            rate = abs(gyro.x) + abs(gyro.y) + abs(gyro.z)
+
+            if rate < threshold:
+                if start_stable is None:
+                    start_stable = time.time()
+                elif time.time() - start_stable > duration:
+                    return
+            else:
+                start_stable = None
+
+            time.sleep(0.05)

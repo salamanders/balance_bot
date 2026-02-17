@@ -48,8 +48,6 @@ class Experiment(ABC):
     def has_result(self, context: DiscoveryContext) -> bool:
         """Do we already know the result?"""
         # Simplistic check: If all output atoms are present.
-        # Ideally, we check if the SPECIFIC result from this exp is known.
-        # But for now, presence of atoms is enough.
         for atom in self.output_atoms:
             if not context.has_atom(atom):
                 return False
@@ -118,10 +116,6 @@ class ExpPulse(Experiment):
         imu_bus = self._scan_for_device("MPU6050 (IMU)", check_imu)
 
         if motor_bus is None or imu_bus is None:
-             # In Mock Mode, we might not find them but we want to proceed?
-             # If hardware was initialized with defaults, we might be okay.
-             # But here we are discovering.
-             # Assume Mock Mode returns 1 if mocked.
              return ExperimentResult(success=False, error="Could not find I2C devices.")
 
         data = {Atom.HARDWARE_BUS: {"motor": motor_bus, "imu": imu_bus}}
@@ -153,9 +147,6 @@ class ExpMeditation(Experiment):
         samples = 50
 
         # Simple stability check
-        # We need raw data because we don't know axes yet.
-        # RobotHardware read_imu_raw() works.
-
         last_g = None
         total_delta = 0.0
 
@@ -184,7 +175,6 @@ class ExpMeditation(Experiment):
 
         avg_noise = total_delta / samples
         is_stable = avg_noise < 10.0 # Threshold for raw gyro noise?
-        # Ideally we check if it's "still".
 
         if not is_stable:
              return ExperimentResult(success=False, error="Robot is moving. Please keep still.", retry_suggested=True)
@@ -221,26 +211,21 @@ class ExpTwitch(Experiment):
 
         while pwm <= max_pwm:
             # Pulse both motors (we don't know channels yet, assume 0 and 1)
-            # RobotHardware maps motor_l/r. Default 0/1.
-            # We want to twitch "Something".
 
-            # Pulse
-            hardware.set_motors(pwm, pwm)
+            # Use shared drive_and_measure with raw reading (since we don't know axes)
+            samples = hardware.drive_and_measure(pwm, pwm, 0.2, read_raw=True)
+            time.sleep(0.5) # Wait for settle
 
             # Measure Vibration (Gyro Magnitude)
             max_rate = 0.0
-            start = time.time()
-            while time.time() - start < 0.2:
-                _, g = hardware.read_imu_raw()
-                rate = abs(g.x) + abs(g.y) + abs(g.z)
-                max_rate = max(max_rate, rate)
-                time.sleep(0.01)
-
-            hardware.stop()
-            time.sleep(0.5) # Wait for settle
+            if samples:
+                # samples is list[tuple[Vector3, Vector3]]
+                max_rate = max(
+                    (abs(s[1].x) + abs(s[1].y) + abs(s[1].z))
+                    for s in samples
+                )
 
             # Threshold: 10 deg/s (or raw units)
-            # Assuming raw units are consistent.
             if max_rate > 10.0:
                 logger.info(f"Response detected at PWM {pwm}. MaxRate={max_rate:.1f}")
                 return ExperimentResult(success=True, data={
@@ -270,12 +255,6 @@ class ExpCrunch(Experiment):
         if not hardware: return ExperimentResult(success=False, error="No Hardware")
 
         # 1. Get Static Gravity (Back)
-        # We assume we are starting from a stable position (Back or Front).
-        # We need to measure "State A", then "State B".
-        # State A: Current Resting Position.
-        # State B: Tipped Forward Position.
-
-        # Wait for stability
         logger.info("Please ensure robot is resting on BACK wheels/strut.")
         time.sleep(2.0)
 
@@ -289,31 +268,21 @@ class ExpCrunch(Experiment):
         avg_back = Vector3(sum_back.x/samples, sum_back.y/samples, sum_back.z/samples)
 
         # 2. Prompt for "Crunch" (Tip Forward)
-        # Since we want to be autonomous, can we do this via motor lurch?
-        # "The Crunch: Send a Lurch command... monitor which axis had highest velocity?"
-        # The design doc says: "Send a 'Lurch' command... Observation: Which Gyro axis had highest velocity?"
-        # That identifies the Gyro Pitch Axis.
-        # It does NOT necessarily identify the Accel Pitch Axis (Forward).
-        # But Gyro Pitch is the main one.
-
-        # Let's try the dynamic approach (Design Doc Method D).
         power = context.get(Atom.FRICTION_THRESHOLD) + 20
 
         logger.info(f"Lurching with power {power}...")
 
         gyro_sums = {"x": 0.0, "y": 0.0, "z": 0.0}
-        count = 0
 
-        hardware.set_motors(power, power)
-        start = time.time()
-        while time.time() - start < 0.3:
-            _, g = hardware.read_imu_raw()
+        # Use drive_and_measure
+        samples = hardware.drive_and_measure(power, power, 0.3, read_raw=True)
+
+        for _, g in samples:
             gyro_sums['x'] += abs(g.x)
             gyro_sums['y'] += abs(g.y)
             gyro_sums['z'] += abs(g.z)
-            count += 1
-            time.sleep(0.01)
-        hardware.stop()
+
+        count = len(samples)
 
         # Find dominant Gyro Axis
         if count == 0: return ExperimentResult(success=False, error="No samples collected")
@@ -323,18 +292,6 @@ class ExpCrunch(Experiment):
 
         if not success:
             return ExperimentResult(success=False, error="Could not identify clear pitch axis.", retry_suggested=True)
-
-        # Determine Polarity (Invert)
-        # If we surged Forward (+Power), and robot is on back wheels...
-        # It might just scoot forward. Or it might wheelie.
-        # If it wheelies (Pitch Up), we expect Positive Rate?
-        # We don't know yet.
-        # But we know the AXIS.
-
-        # We also need Accel Forward Axis.
-        # We can deduce Accel Forward from Gravity (Vertical) and Pitch (Axle).
-        # Cross Product: Vertical x Pitch = Forward?
-        # Or Pitch x Vertical?
 
         # Let's use the Gravity Vector we know.
         grav = context.get(Atom.GRAVITY_VECTOR)
@@ -354,31 +311,8 @@ class ExpCrunch(Experiment):
 
         logger.info(f"Identified Axes: Pitch={pitch_axis_name.upper()}, Vert={vert_axis_name.upper()}, Fwd={fwd_axis_name.upper()}")
 
-        # Construct result data
-        # We need to store enough info to build RobotConfig.
-        # We need INVERTS too.
-
-        # Vert Invert: If Gravity is Negative on Axis, Invert=False (Assuming -1G is standard).
-        # Wait, if Z is -1G (Down), and we want Z to be Vertical (Up?), then Invert=True?
-        # Let's follow wiring_check.py: "self.config.accel_vertical_invert = avg_back[vert] < 0"
-        # If avg_back[vert] is NEGATIVE, set Invert to TRUE.
-        # Means we want it POSITIVE?
-        # If Gravity is Down, and sensor reads -1G. Invert -> +1G.
-        # So "Up" is +1G.
-
         vert_val = grav_dict[vert_axis_name]
         vert_invert = vert_val < 0
-
-        # Forward Invert?
-        # We can't know Forward Invert without tipping.
-        # BUT the design doc says "The Crunch" learns PitchAxis.
-        # "The Attempt" learns MotorPolarity (and presumably Forward Invert?).
-
-        # We need to know Pitch Invert too.
-        # If we lurched forward, did we pitch up or down?
-        # We don't know "Forward" yet.
-
-        # Let's just store the AXES for now. The Polarity experiment will refine Inverts.
 
         return ExperimentResult(success=True, data={
             Atom.PITCH_AXIS: {
@@ -410,20 +344,10 @@ class ExpWiggle(Experiment):
 
         power = context.get(Atom.FRICTION_THRESHOLD) + 10
 
-        # Drive both Positive
-        # hardware.set_motors uses RobotConfig mapping.
-        # At this stage, RobotConfig has defaults (L=0, R=1, Inv=False).
-        # We are testing if this default configuration causes "Straight" or "Spin".
-
         logger.info(f"Driving motors with {power}...")
 
-        samples = []
-        hardware.set_motors(power, power)
-        start = time.time()
-        while time.time() - start < 0.5:
-            samples.append(hardware.read_imu_converted()) # Uses partially configured HW
-            time.sleep(0.01)
-        hardware.stop()
+        # drive_and_measure with converted readings
+        samples = hardware.drive_and_measure(power, power, 0.5, read_raw=False)
 
         if not samples: return ExperimentResult(success=False, error="No samples")
 
@@ -433,10 +357,7 @@ class ExpWiggle(Experiment):
 
         logger.info(f"Response: Yaw={avg_yaw:.1f}, Pitch={avg_pitch:.1f}")
 
-        # If Spinning, Yaw is high. If Driving, Pitch is high (or at least Yaw is low).
         if avg_yaw > 20.0 and avg_yaw > avg_pitch:
-            # Spinning -> Motors are fighting.
-            # One needs inversion.
             logger.info("Motors are fighting (Spinning). Inverting Right Motor.")
             return ExperimentResult(success=True, data={
                 Atom.MOTOR_PHASING: {"invert_right": True}
@@ -471,60 +392,15 @@ class ExpAttempt(Experiment):
 
         if pitch < -10:
             logger.info(f"Leaning BACK (Pitch={pitch:.1f}). Expecting +Power to Kick Up.")
-            direction_sign = 1.0
         elif pitch > 10:
             logger.info(f"Leaning FRONT (Pitch={pitch:.1f}). Expecting -Power to Kick Up.")
-            # If Leaning Front, +Power moves wheels Forward -> Robot falls more Front.
-            # To stand up, we need Wheels Back -> -Power.
-            # Wait.
-            # Forward Lean (Pos Pitch). To reduce Pitch, we need to drive Forward (Under center of mass).
-            # So +Power should reduce Pitch.
-            # Back Lean (Neg Pitch). To reduce Pitch (towards 0), we need to drive Backward.
-            # So -Power should reduce Pitch (make it more positive).
-
-            # Let's stick to wiring_check logic:
-            # "Positive Power = Forward. Starting from Back would require Negative Power to stand up."
-            # Wait. wiring_check says:
-            # "If start_pitch < -10 (Back)... Positive Power = Forward. Starting from Back would require Negative Power to stand up."
-            # "Please lean the robot FORWARD."
-
-            # Why? Because if on Back, wheels are in front of CoM? No, on Back, CoM is behind wheels.
-            # To stand up, wheels must move BACK under CoM.
-            # So Backwards (-Power).
-
-            # If on Front, CoM is in front of wheels.
-            # To stand up, wheels must move FRONT under CoM.
-            # So Forwards (+Power).
-
-            # So:
-            # If Pitch > 0 (Front): +Power should Stand Up (Pitch -> 0).
-            # If Pitch < 0 (Back): -Power should Stand Up (Pitch -> 0).
-
-            direction_sign = 1.0 # We will test Positive Power
         else:
             return ExperimentResult(success=False, error=f"Robot is too upright ({pitch:.1f}). Please lean it over.", retry_suggested=True)
 
         power = context.get(Atom.FRICTION_THRESHOLD) + 20
-        # If we are on Back (Pitch < 0), we test +Power (Forward).
-        # We expect this to make it Fall MORE (Pitch becomes more Negative? No, Wheels go fwd, CoM goes back -> More Neg).
-        # So |Pitch| increases.
-
-        # If we are on Front (Pitch > 0), we test +Power (Forward).
-        # We expect wheels to go fwd (under CoM). Robot stands up.
-        # So |Pitch| decreases.
-
-        # We will apply +Power * direction_sign.
-        # Actually let's just apply +Power (Forward).
-
         logger.info(f"Applying +Power ({power})...")
-        hardware.set_motors(power, power)
 
-        samples = []
-        start = time.time()
-        while time.time() - start < 0.3:
-            samples.append(hardware.read_imu_converted())
-            time.sleep(0.01)
-        hardware.stop()
+        samples = hardware.drive_and_measure(power, power, 0.3, read_raw=False)
 
         end_pitch = samples[-1].pitch_angle
         logger.info(f"Pitch: {pitch:.1f} -> {end_pitch:.1f}")
@@ -534,15 +410,6 @@ class ExpAttempt(Experiment):
         ended_leaning = abs(end_pitch)
 
         improved = ended_leaning < started_leaning
-
-        # If we were on Front (Pitch>0) and applied +Power:
-        # Improved -> Direction Correct.
-        # Worsened -> Direction Inverted.
-
-        # If we were on Back (Pitch<0) and applied +Power:
-        # Improved -> Direction Inverted (Because +Power caused Backwards motion effectively?).
-        # Worsened -> Direction Correct (+Power moved wheels Fwd, making back lean worse).
-
         invert_needed = False
 
         if pitch > 0: # Front
@@ -554,12 +421,9 @@ class ExpAttempt(Experiment):
                 invert_needed = True
         else: # Back
             if improved:
-                # We applied +Power and it stood up from Back.
-                # Means +Power moved wheels Backward.
                 logger.info("Robot stood up from Back using +Power. Direction Inverted.")
                 invert_needed = True
             else:
-                # It got worse (wheels went fwd).
                 logger.info("Robot fell more. Direction Correct.")
                 invert_needed = False
 
@@ -584,27 +448,13 @@ class ExpPirouette(Experiment):
     def run(self, context: DiscoveryContext, hardware: Optional[RobotHardware]) -> ExperimentResult:
         if not hardware: return ExperimentResult(success=False, error="No Hardware")
 
-        # Spin: Motor 0 Fwd, Motor 1 Back.
         power = context.get(Atom.FRICTION_THRESHOLD) + 15
-
-        # NOTE: hardware.set_motors(L, R) maps L->0, R->1 (defaults).
-        # We want to explicitly drive raw channels 0 and 1.
-        # But set_motors is abstracted.
-        # If we trust set_motors default (L=0, R=1), then:
-        # set_motors(power, -power) -> Ch0=power, Ch1=-power.
 
         logger.info(f"Spinning (L=+, R=-)...")
 
-        hardware.set_motors(power, -power)
-
-        gyro_samples = []
-        start = time.time()
-        while time.time() - start < 1.0:
-            # We need RAW gyro to check against Gravity Vector
-            _, g = hardware.read_imu_raw()
-            gyro_samples.append(g)
-            time.sleep(0.01)
-        hardware.stop()
+        # Use drive_and_measure with raw reading (need for dot product)
+        samples = hardware.drive_and_measure(power, -power, 1.0, read_raw=True)
+        gyro_samples = [s[1] for s in samples]
 
         avg_gyro = Vector3(
             sum(g.x for g in gyro_samples)/len(gyro_samples),
@@ -622,17 +472,6 @@ class ExpPirouette(Experiment):
 
         if abs(dot) < 10.0:
             return ExperimentResult(success=False, error="Did not spin enough.", retry_suggested=True)
-
-        # Dot > 0: CCW (Left Turn).
-        # Dot < 0: CW (Right Turn).
-
-        # We commanded L(Ch0)=+, R(Ch1)=-.
-        # If Ch0 is Left, Ch1 is Right -> Right Turn (CW). Dot < 0.
-        # If Ch0 is Right, Ch1 is Left -> Left Turn (CCW). Dot > 0.
-
-        # Therefore:
-        # If Dot < 0: Config is Correct (0=L, 1=R).
-        # If Dot > 0: Config is Inverted (0=R, 1=L).
 
         swap_channels = dot > 0
 
@@ -670,19 +509,9 @@ class ExpStride(Experiment):
         # Iterative attempt
         for i in range(5):
             logger.info(f"Testing Trim {trim:.3f}...")
-            # We can't easily update hardware trim property permanently here,
-            # so we manually adjust?
-            # Or we assume hardware is re-inited with current trim?
-            # hardware.motor_trim = trim (It's public).
             hardware.motor_trim = trim
 
-            hardware.set_motors(power, power)
-            samples = []
-            start = time.time()
-            while time.time() - start < 1.0:
-                samples.append(hardware.read_imu_converted())
-                time.sleep(0.01)
-            hardware.stop()
+            samples = hardware.drive_and_measure(power, power, 1.0, read_raw=False)
 
             if not samples: continue
 

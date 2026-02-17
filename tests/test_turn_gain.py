@@ -1,5 +1,5 @@
 import pytest
-from unittest.mock import MagicMock
+from unittest.mock import MagicMock, patch
 from balance_bot.reflex.balance_core import BalanceCore, MotionRequest, TuningParams
 from balance_bot.config import RobotConfig, PIDParams, ControlConfig
 
@@ -7,15 +7,11 @@ def test_turn_gain_impact():
     """Verify that changing turn_gain affects motor output."""
 
     # 1. Setup Config with default turn_gain
-    # Note: turn_gain default is 30.0 in class definition, but we can override.
-    # Let's start with explicit 30.0
     control_config = ControlConfig(turn_gain=30.0)
     config = RobotConfig(pid=PIDParams(), control=control_config)
 
     # 2. Mock Hardware
-    # We need to mock RobotHardware enough to instantiate BalanceCore and run update()
-    mock_hw_cls = MagicMock()
-    mock_hw_instance = mock_hw_cls.return_value
+    mock_hw_instance = MagicMock()
 
     # Mock read_imu_converted
     mock_reading = MagicMock()
@@ -24,9 +20,8 @@ def test_turn_gain_impact():
     mock_reading.yaw_rate = 0.0
     mock_hw_instance.read_imu_converted.return_value = mock_reading
 
-    # Patch RobotHardware class in balance_core.py
-    with pytest.MonkeyPatch.context() as m:
-        m.setattr("balance_bot.reflex.balance_core.RobotHardware", mock_hw_cls)
+    # Patch RobotHardware class in its definition source so config.to_hardware picks up the mock
+    with patch("balance_bot.hardware.robot_hardware.RobotHardware", return_value=mock_hw_instance):
 
         # 3. Instantiate Core
         core = BalanceCore(config)

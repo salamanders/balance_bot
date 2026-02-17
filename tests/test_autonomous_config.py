@@ -21,6 +21,10 @@ class TestAutonomousConfig(unittest.TestCase):
 
         # Mock HW
         self.check.hw = MagicMock()
+        # Ensure config.to_hardware returns this mock
+        with patch('balance_bot.config.RobotConfig.to_hardware', return_value=self.check.hw):
+             pass # just ensure if it's called we are safe, but we set self.check.hw directly
+
         # Default side_effect for read_imu_raw (Infinite loop safety)
         self.check.hw.read_imu_raw.return_value = (Vector3(0, 0, -1), Vector3(0, 0, 0))
 
@@ -31,10 +35,7 @@ class TestAutonomousConfig(unittest.TestCase):
         self.check.config.gyro_yaw_axis = Axis.Z
         self.check.config.gyro_yaw_invert = False
 
-        # Mock drive_and_measure to avoid actual sleep
-        self.check.drive_and_measure = MagicMock(return_value=[])
-
-        # Mock wait_for_stability to avoid blocking or IMU errors
+        # Mock wait_for_stability
         self.check.wait_for_stability = MagicMock()
 
     def test_deduce_left_right_ccw_spin(self):
@@ -43,18 +44,13 @@ class TestAutonomousConfig(unittest.TestCase):
         Deduction: Ch0 is Right, Ch1 is Left.
         Expect: Config updated to L=1, R=0 (Swap from default).
         """
-        # 1. Mock Gravity (-Z) -> Up is +Z
-        # 2. Mock Gyro (+Z) -> Dot Prod > 0
-
-        # We need a sequence for read_imu_raw:
         # Call 1: Gravity Check (Up Vector)
-        # Call 2...N: Spin Loop (Gyro)
+        self.check.hw.read_imu_raw.return_value = (Vector3(0, 0, -1.0), Vector3(0, 0, 0))
 
+        # Call 2: Spin Loop via drive_and_measure(read_raw=True)
+        # Returns list of (accel, gyro)
         spin_sample = (Vector3(0, 0, -1.0), Vector3(0, 0, 100.0))
-
-        self.check.hw.read_imu_raw.side_effect = [
-            (Vector3(0, 0, -1.0), Vector3(0, 0, 0)), # Gravity
-        ] + [spin_sample] * 200 # Spin samples
+        self.check.hw.drive_and_measure.return_value = [spin_sample] * 20
 
         with patch('builtins.input', return_value=''):
             self.check.deduce_left_right_autonomous()
@@ -74,11 +70,10 @@ class TestAutonomousConfig(unittest.TestCase):
         self.check.config.motor_l = 1
         self.check.config.motor_r = 0
 
-        spin_sample = (Vector3(0, 0, -1.0), Vector3(0, 0, -100.0))
+        self.check.hw.read_imu_raw.return_value = (Vector3(0, 0, -1.0), Vector3(0, 0, 0))
 
-        self.check.hw.read_imu_raw.side_effect = [
-            (Vector3(0, 0, -1.0), Vector3(0, 0, 0)), # Gravity
-        ] + [spin_sample] * 200 # Spin samples
+        spin_sample = (Vector3(0, 0, -1.0), Vector3(0, 0, -100.0))
+        self.check.hw.drive_and_measure.return_value = [spin_sample] * 20
 
         with patch('builtins.input', return_value=''):
             self.check.deduce_left_right_autonomous()
@@ -98,9 +93,8 @@ class TestAutonomousConfig(unittest.TestCase):
         # Mock drive_and_measure to return Pos Yaw
         sample = MagicMock()
         sample.yaw_rate = 10.0
-        self.check.drive_and_measure.return_value = [sample] * 10
+        self.check.hw.drive_and_measure.return_value = [sample] * 10
 
-        # Mock init_hw to do nothing
         self.check.init_hw = MagicMock()
 
         self.check.calibrate_motor_trim()
@@ -121,7 +115,7 @@ class TestAutonomousConfig(unittest.TestCase):
 
         sample = MagicMock()
         sample.yaw_rate = -10.0
-        self.check.drive_and_measure.return_value = [sample] * 10
+        self.check.hw.drive_and_measure.return_value = [sample] * 10
 
         self.check.init_hw = MagicMock()
 
@@ -144,7 +138,7 @@ class TestAutonomousConfig(unittest.TestCase):
         s1 = MagicMock(); s1.yaw_rate = 10.0
         s2 = MagicMock(); s2.yaw_rate = 1.0
 
-        self.check.drive_and_measure.side_effect = [
+        self.check.hw.drive_and_measure.side_effect = [
             [s1]*10,
             [s2]*10
         ]
