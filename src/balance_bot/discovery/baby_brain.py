@@ -110,7 +110,7 @@ class DiscoveryBrain:
             return # Can't know.
 
         # We need raw data to check orientation vs Gravity Vector
-        logger.info("Checking posture...")
+        logger.info("[SENSORY] Checking posture...")
 
         while True:
             try:
@@ -142,12 +142,12 @@ class DiscoveryBrain:
                 is_moving = rate > 20.0 # Raw units? deg/s?
 
                 if is_crashed:
-                    logger.warning(f"I have fallen! (CosTheta={cos_theta:.2f}). Please stand me up.")
+                    logger.warning(f"[SENSORY] I have fallen! (CosTheta={cos_theta:.2f}). Please stand me up.")
                     time.sleep(2.0)
                     continue
 
                 if is_moving:
-                    logger.info(f"Stabilizing... (Rate={rate:.1f})")
+                    logger.info(f"[SENSORY] Stabilizing... (Rate={rate:.1f})")
                     time.sleep(0.5)
                     continue
 
@@ -159,7 +159,7 @@ class DiscoveryBrain:
                 time.sleep(1.0)
 
     def think(self):
-        logger.info("Brain Online. Starting Discovery Loop.")
+        logger.info("[THOUGHT] Brain Online. Starting Discovery Loop.")
 
         while True:
             # 1. State Estimation
@@ -181,16 +181,16 @@ class DiscoveryBrain:
                 # Or stuck?
                 # If we have all critical atoms, we are done.
                 if self.context.has_atom(Atom.TRIM_CALIBRATION):
-                    logger.info("All experiments complete! I have learned everything.")
+                    logger.info("[THOUGHT] All experiments complete! I have learned everything.")
                     self.graduation()
                     break
                 else:
-                    logger.error("I am stuck. I don't know enough to proceed, but have no candidates.")
+                    logger.error("[THOUGHT] I am stuck. I don't know enough to proceed, but have no candidates.")
                     # Debug: what is missing?
                     for exp in self.experiments:
                         if not exp.has_result(self.context):
                              missing = [a.name for a in exp.required_atoms if not self.context.has_atom(a)]
-                             logger.info(f"  Cannot run {exp.name}: Missing {missing}")
+                             logger.info(f"[THOUGHT]   Cannot run {exp.name}: Missing {missing}")
                     break
 
             # 3. Prioritization
@@ -202,7 +202,7 @@ class DiscoveryBrain:
             try:
                 result = best_exp.run(self.context, self.hw)
             except Exception as e:
-                logger.error(f"Experiment {best_exp.name} crashed: {e}")
+                logger.error(f"[THOUGHT] Experiment {best_exp.name} crashed: {e}")
                 traceback.print_exc()
                 time.sleep(2.0)
                 continue
@@ -214,12 +214,12 @@ class DiscoveryBrain:
             else:
                 logger.warning(f"[FAILURE] {best_exp.name} failed: {result.error}")
                 if result.retry_suggested:
-                    logger.info("Retrying in 2 seconds...")
+                    logger.info("[THOUGHT] Retrying in 2 seconds...")
                     time.sleep(2.0)
                 else:
                     # If fatal failure, abort?
                     # Or loop and try again?
-                    logger.error("Fatal experiment failure. Aborting.")
+                    logger.error("[THOUGHT] Fatal experiment failure. Aborting.")
                     break
 
             time.sleep(1.0)
@@ -231,8 +231,8 @@ class DiscoveryBrain:
         try:
             config = self.context.build_config()
             config.save()
-            logger.info("Robot Configuration Saved to pid_config.json")
-            logger.info("I am ready to be an adult. Run me without --discover.")
+            logger.info("[LEARNED] Robot Configuration Saved to pid_config.json")
+            logger.info("[THOUGHT] I am ready to be an adult. Run me without --discover.")
         except Exception as e:
             logger.error(f"Failed to graduate: {e}")
 
