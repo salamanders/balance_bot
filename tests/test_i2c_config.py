@@ -47,19 +47,19 @@ def test_hardware_init_with_bus():
         mock_pz_class.assert_called_once_with(bus_number=0)
         assert hw.motor_i2c_bus == 0
 
-def test_hardware_init_default_bus():
-    """Test that RobotHardware initializes mpu6050 with default bus 1."""
+def test_hardware_init_skip_if_none():
+    """Test that RobotHardware skips init if buses are None."""
     # Reset mocks
     mock_mpu_class.reset_mock()
     mock_pz_class.reset_mock()
 
     with patch.dict(os.environ, {}, clear=True):
-        hw = RobotHardware(motor_l=0, motor_r=1)
+        hw = RobotHardware(motor_l=0, motor_r=1, motor_i2c_bus=None, imu_i2c_bus=None)
 
-        # Verify mpu6050 was called with bus=1 (default)
-        mock_mpu_class.assert_called_once_with(0x68, bus=1)
-        assert hw.imu_i2c_bus == 1
+        # Verify mpu6050 was NOT called
+        mock_mpu_class.assert_not_called()
+        assert hw.imu_i2c_bus is None
 
-        # Verify PiconZero was called with bus=1 (default)
-        mock_pz_class.assert_called_once_with(bus_number=1)
-        assert hw.motor_i2c_bus == 1
+        # Verify PiconZero was NOT called
+        mock_pz_class.assert_not_called()
+        assert hw.motor_i2c_bus is None

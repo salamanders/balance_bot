@@ -1,6 +1,10 @@
 import time
 import sys
-import smbus
+try:
+    import smbus
+except ImportError:
+    smbus = None
+
 from typing import Callable
 from .diagnostics import run_diagnostics
 from .config import RobotConfig
