@@ -307,21 +307,15 @@ class WiringCheck:
         # 1. Read Gravity (Vertical Axis)
         print("  Measuring Gravity (Vertical)...")
         time.sleep(0.5)
-        accel_sum = {"x": 0.0, "y": 0.0, "z": 0.0}
+        accel_sum = Vector3(0.0, 0.0, 0.0)
         samples = 50
         for _ in range(samples):
             a, _ = self.hw.read_imu_raw()
             # a is Vector3
-            accel_sum['x'] += a.x
-            accel_sum['y'] += a.y
-            accel_sum['z'] += a.z
+            accel_sum += a
             time.sleep(0.01)
 
-        avg_back = Vector3(
-            accel_sum['x'] / samples,
-            accel_sum['y'] / samples,
-            accel_sum['z'] / samples
-        )
+        avg_back = accel_sum / samples
 
         # Dominant axis in static position is Gravity (Vertical)
         vert, _, _ = analyze_dominance(dict(avg_back.items()), "Vertical (Gravity)")
@@ -343,22 +337,16 @@ class WiringCheck:
         print("\n  Now TIP ROBOT FORWARD to Front Wheel.")
         input("Press Enter to measure FRONT position...")
 
-        accel_sum_front = {"x": 0.0, "y": 0.0, "z": 0.0}
+        accel_sum_front = Vector3(0.0, 0.0, 0.0)
         for _ in range(samples):
             a, _ = self.hw.read_imu_raw()
-            accel_sum_front['x'] += a.x
-            accel_sum_front['y'] += a.y
-            accel_sum_front['z'] += a.z
+            accel_sum_front += a
             time.sleep(0.01)
 
-        avg_front = Vector3(
-            accel_sum_front['x'] / samples,
-            accel_sum_front['y'] / samples,
-            accel_sum_front['z'] / samples
-        )
+        avg_front = accel_sum_front / samples
 
         # Cross Product: Back x Front -> Pitch Axis Vector
-        axis_vec = cross_product(avg_back, avg_front)
+        axis_vec = avg_back.cross(avg_front)
 
         # Verify that our calculated pitch axis matches the cross product magnitude
         detected_pitch, _, _ = analyze_dominance({k: abs(v) for k, v in axis_vec.items()}, "Pitch Axis (CrossProd)")
@@ -586,7 +574,7 @@ class WiringCheck:
             print("  Measuring Gravity for Reference...")
             accel, _ = self.hw.read_imu_raw()
             # Gravity points DOWN. Up Vector = -Gravity.
-            up_vector = Vector3(-accel.x, -accel.y, -accel.z)
+            up_vector = -accel
 
             # 2. Spin Command
             # Drive Ch0 Forward, Ch1 Backward.
@@ -614,16 +602,15 @@ class WiringCheck:
                 continue
 
             # Average Gyro Vector
-            avg_gyro = Vector3(
-                sum(g.x for g in raw_gyro_samples) / len(raw_gyro_samples),
-                sum(g.y for g in raw_gyro_samples) / len(raw_gyro_samples),
-                sum(g.z for g in raw_gyro_samples) / len(raw_gyro_samples)
-            )
+            gyro_sum = Vector3(0.0, 0.0, 0.0)
+            for g in raw_gyro_samples:
+                gyro_sum += g
+            avg_gyro = gyro_sum / len(raw_gyro_samples)
 
             # 3. Calculate Dot Product: Up . Omega
             # If Positive: Rotation is CCW (Left) around Up.
             # If Negative: Rotation is CW (Right) around Up.
-            dot_prod = (up_vector.x * avg_gyro.x) + (up_vector.y * avg_gyro.y) + (up_vector.z * avg_gyro.z)
+            dot_prod = up_vector.dot(avg_gyro)
 
             print(f"  Dot Product (Up . Gyro): {dot_prod:.2f}")
 

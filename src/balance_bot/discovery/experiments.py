@@ -150,7 +150,7 @@ class ExpMeditation(Experiment):
         # Ensure motors are off (implied by init)
 
         # Collect samples
-        accel_sum = {"x": 0.0, "y": 0.0, "z": 0.0}
+        accel_sum = Vector3(0.0, 0.0, 0.0)
         samples = 50
 
         # Simple stability check
@@ -163,13 +163,12 @@ class ExpMeditation(Experiment):
         for _ in range(samples):
             try:
                 a, g = hardware.read_imu_raw()
-                accel_sum['x'] += a.x
-                accel_sum['y'] += a.y
-                accel_sum['z'] += a.z
+                accel_sum += a
 
                 # Check stability via gyro noise
                 if last_g:
-                    delta = abs(g.x - last_g.x) + abs(g.y - last_g.y) + abs(g.z - last_g.z)
+                    diff = g - last_g
+                    delta = abs(diff.x) + abs(diff.y) + abs(diff.z)
                     total_delta += delta
                 last_g = g
 
@@ -177,11 +176,7 @@ class ExpMeditation(Experiment):
             except Exception as e:
                 return ExperimentResult(success=False, error=f"IMU Read Error: {e}", retry_suggested=True)
 
-        avg_gravity = Vector3(
-            accel_sum['x'] / samples,
-            accel_sum['y'] / samples,
-            accel_sum['z'] / samples
-        )
+        avg_gravity = accel_sum / samples
 
         avg_noise = total_delta / samples
         is_stable = avg_noise < 10.0 # Threshold for raw gyro noise?
@@ -286,10 +281,10 @@ class ExpCrunch(Experiment):
         sum_back = Vector3(0,0,0)
         for _ in range(samples):
             a, _ = hardware.read_imu_raw()
-            sum_back = Vector3(sum_back.x+a.x, sum_back.y+a.y, sum_back.z+a.z)
+            sum_back += a
             time.sleep(0.01)
 
-        avg_back = Vector3(sum_back.x/samples, sum_back.y/samples, sum_back.z/samples)
+        avg_back = sum_back / samples
 
         # 2. Prompt for "Crunch" (Tip Forward)
         # Since we want to be autonomous, can we do this via motor lurch?
@@ -328,9 +323,9 @@ class ExpCrunch(Experiment):
         sum_end = Vector3(0,0,0)
         for _ in range(samples):
              a, _ = hardware.read_imu_raw()
-             sum_end = Vector3(sum_end.x+a.x, sum_end.y+a.y, sum_end.z+a.z)
+             sum_end += a
              time.sleep(0.01)
-        avg_end = Vector3(sum_end.x/samples, sum_end.y/samples, sum_end.z/samples)
+        avg_end = sum_end / samples
 
 
         # Find dominant Gyro Axis
@@ -345,25 +340,20 @@ class ExpCrunch(Experiment):
 
         # Determine Polarity (Invert) via Sensor Fusion
         # Calculate Delta Accel (Observed Acceleration Change)
-        delta_accel = Vector3(
-             avg_end.x - avg_back.x,
-             avg_end.y - avg_back.y,
-             avg_end.z - avg_back.z
-        )
+        delta_accel = avg_end - avg_back
 
         # Calculate Avg Gyro
-        avg_gyro_vec = Vector3(
-             sum(g.x for g in gyro_vectors)/len(gyro_vectors),
-             sum(g.y for g in gyro_vectors)/len(gyro_vectors),
-             sum(g.z for g in gyro_vectors)/len(gyro_vectors)
-        )
+        gyro_sum = Vector3(0,0,0)
+        for g in gyro_vectors:
+            gyro_sum += g
+        avg_gyro_vec = gyro_sum / len(gyro_vectors)
 
         # Gravity Vector (known)
         grav = context.get(Atom.GRAVITY_VECTOR)
 
         # Cross Product: Gravity x Delta_Accel gives the rotation vector observed by Accel
         # (Assuming Delta_Accel is due to rotation relative to Gravity)
-        observed_rot = cross_product(grav, delta_accel)
+        observed_rot = grav.cross(delta_accel)
 
         # Compare signs on the Pitch Axis
         obs_val = getattr(observed_rot, pitch_axis_name)
@@ -576,18 +566,17 @@ class ExpPirouette(Experiment):
             time.sleep(0.01)
         hardware.stop()
 
-        avg_gyro = Vector3(
-            sum(g.x for g in gyro_samples)/len(gyro_samples),
-            sum(g.y for g in gyro_samples)/len(gyro_samples),
-            sum(g.z for g in gyro_samples)/len(gyro_samples)
-        )
+        gyro_sum = Vector3(0,0,0)
+        for g in gyro_samples:
+            gyro_sum += g
+        avg_gyro = gyro_sum / len(gyro_samples)
 
         # Up Vector is opposite of Gravity
         grav = context.get(Atom.GRAVITY_VECTOR)
-        up = Vector3(-grav.x, -grav.y, -grav.z)
+        up = -grav
 
         # Dot Product
-        dot = (up.x * avg_gyro.x) + (up.y * avg_gyro.y) + (up.z * avg_gyro.z)
+        dot = up.dot(avg_gyro)
         logger.info(f"[SENSORY] Spin Value: {dot:.1f}")
 
         if abs(dot) < 10.0:

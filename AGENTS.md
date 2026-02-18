@@ -4,6 +4,7 @@
 4. Keep the code concise.  Make it modern.  Use the latest python functions to make it more readable.
 5. The src/balance_bot/hardware/piconzero.py file has extra functions (lights, sensors, etc). That is fine. Leave the extra code alone, only worry about the motor controlling code.
 6. The emulator can't know what a real motor would do, so don't try to optimize calls to hardware that are untestable. Feel free to optimize other things, but the final I/O with the hardware has to stay constant. 
+7. **Vector3**: Always use `balance_bot.utils.Vector3` for 3D spatial data. It is an immutable `NamedTuple` with full arithmetic support. Do not use dictionaries or raw tuples for vectors.
 
 ## Features
 
