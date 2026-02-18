@@ -55,6 +55,40 @@ class Vector3(NamedTuple):
     def from_dict(d: dict[str, float]) -> "Vector3":
         return Vector3(d["x"], d["y"], d["z"])
 
+    def __add__(self, other: "Vector3") -> "Vector3":
+        return Vector3(self.x + other.x, self.y + other.y, self.z + other.z)
+
+    def __sub__(self, other: "Vector3") -> "Vector3":
+        return Vector3(self.x - other.x, self.y - other.y, self.z - other.z)
+
+    def __mul__(self, scalar: float) -> "Vector3":
+        return Vector3(self.x * scalar, self.y * scalar, self.z * scalar)
+
+    def __rmul__(self, scalar: float) -> "Vector3":
+        return self.__mul__(scalar)
+
+    def __truediv__(self, scalar: float) -> "Vector3":
+        if scalar == 0:
+            raise ZeroDivisionError("Vector division by zero")
+        return Vector3(self.x / scalar, self.y / scalar, self.z / scalar)
+
+    def __neg__(self) -> "Vector3":
+        return Vector3(-self.x, -self.y, -self.z)
+
+    @property
+    def magnitude(self) -> float:
+        return math.sqrt(self.x**2 + self.y**2 + self.z**2)
+
+    def dot(self, other: "Vector3") -> float:
+        return self.x * other.x + self.y * other.y + self.z * other.z
+
+    def cross(self, other: "Vector3") -> "Vector3":
+        return Vector3(
+            self.y * other.z - self.z * other.y,
+            self.z * other.x - self.x * other.z,
+            self.x * other.y - self.y * other.x
+        )
+
 
 class ComplementaryFilter:
     """
@@ -228,6 +262,11 @@ def cross_product(a: Vector3, b: Vector3) -> Vector3:
     :param b: Second vector (Vector3 or object with x,y,z attributes).
     :return: Cross product vector (Vector3).
     """
+    # Prefer method if available (it is now)
+    if hasattr(a, "cross") and callable(a.cross):
+        return a.cross(b)
+
+    # Fallback for duck-typed objects (if any still exist)
     return Vector3(
         a.y * b.z - a.z * b.y,
         a.z * b.x - a.x * b.z,
@@ -236,7 +275,7 @@ def cross_product(a: Vector3, b: Vector3) -> Vector3:
 
 
 def analyze_dominance(
-    data: dict[str, float],
+    data: Union[dict[str, float], Vector3],
     label: str,
     expected_axis: str = None,
     threshold: float = 1.5,
@@ -244,12 +283,15 @@ def analyze_dominance(
     """
     Analyzes a dictionary of axis values to find the dominant signal.
 
-    :param data: Dictionary of axis values (e.g. {'x': 100, 'y': 10}).
+    :param data: Dictionary of axis values (e.g. {'x': 100, 'y': 10}) or Vector3.
     :param label: Name of the test for logging.
     :param expected_axis: (Optional) The axis expected to be dominant.
     :param threshold: Minimum ratio between winner and runner-up.
     :return: Tuple (winner_axis, ratio, is_success)
     """
+    if isinstance(data, Vector3):
+        data = data._asdict()
+
     sorted_items = sorted(data.items(), key=lambda x: abs(x[1]), reverse=True)
     winner, winner_val = sorted_items[0]
     runner, runner_val = sorted_items[1]
