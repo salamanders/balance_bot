@@ -54,11 +54,11 @@ def test_calibrate_orientation(wc_fixture):
 
     # Mock input to avoid waiting
     with patch("builtins.input") as mock_input:
-        wc.wait_for_stability = MagicMock()
+        original_hw_mock = wc.hw
         wc.calibrate_static_orientation()
 
         # We expect wait_for_stability instead of the first input
-        wc.wait_for_stability.assert_called_once()
+        original_hw_mock.wait_for_stability.assert_called_once()
         # We expect input only for the second interaction (tipping forward)
         assert mock_input.call_count == 1
 

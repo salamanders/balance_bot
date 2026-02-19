@@ -100,8 +100,20 @@ def main() -> None:
 
             # 5. Report
             client = JulesClient()
-            client.report_crash(str(e), tb, logs, state, libs)
-            print("Crash report submitted to Jules. Check your dashboard for the new session.")
+            success, prompt = client.report_crash(str(e), tb, logs, state, libs)
+
+            if success:
+                print("Crash report submitted to Jules. Check your dashboard for the new session.")
+            else:
+                try:
+                    import datetime
+                    ts = datetime.datetime.now().strftime("%Y%m%d_%H%M%S")
+                    filename = f"exception_report_{ts}.md"
+                    with open(filename, "w") as f:
+                        f.write(prompt)
+                    print(f"Crash report saved locally to {filename} (Jules upload failed).")
+                except Exception as write_err:
+                     print(f"Failed to write local crash report: {write_err}")
 
         # Always re-raise to exit with error
         raise

@@ -32,10 +32,10 @@ class TestAutonomousConfig(unittest.TestCase):
         self.check.config.gyro_yaw_invert = False
 
         # Mock drive_and_measure to avoid actual sleep
-        self.check.drive_and_measure = MagicMock(return_value=[])
+        # self.check.hw.drive_and_measure needs to be mocked per test
 
         # Mock wait_for_stability to avoid blocking or IMU errors
-        self.check.wait_for_stability = MagicMock()
+        self.check.hw.wait_for_stability = MagicMock()
 
     def test_deduce_left_right_ccw_spin(self):
         """
@@ -96,9 +96,10 @@ class TestAutonomousConfig(unittest.TestCase):
         self.check.config.motor_trim = 0.0
 
         # Mock drive_and_measure to return Pos Yaw
-        sample = MagicMock()
-        sample.yaw_rate = 10.0
-        self.check.drive_and_measure.return_value = [sample] * 10
+        res = MagicMock()
+        res.samples = [MagicMock()]
+        res.avg_yaw_rate = 10.0
+        self.check.hw.drive_and_measure.return_value = res
 
         # Mock init_hw to do nothing
         self.check.init_hw = MagicMock()
@@ -119,9 +120,10 @@ class TestAutonomousConfig(unittest.TestCase):
         """
         self.check.config.motor_trim = 0.0
 
-        sample = MagicMock()
-        sample.yaw_rate = -10.0
-        self.check.drive_and_measure.return_value = [sample] * 10
+        res = MagicMock()
+        res.samples = [MagicMock()]
+        res.avg_yaw_rate = -10.0
+        self.check.hw.drive_and_measure.return_value = res
 
         self.check.init_hw = MagicMock()
 
@@ -141,12 +143,12 @@ class TestAutonomousConfig(unittest.TestCase):
         # 1. 10.0 (High) -> Trim becomes 0.05
         # 2. 1.0 (Low/Converged) -> Stop
 
-        s1 = MagicMock(); s1.yaw_rate = 10.0
-        s2 = MagicMock(); s2.yaw_rate = 1.0
+        res1 = MagicMock(); res1.samples = [MagicMock()]; res1.avg_yaw_rate = 10.0
+        res2 = MagicMock(); res2.samples = [MagicMock()]; res2.avg_yaw_rate = 1.0
 
-        self.check.drive_and_measure.side_effect = [
-            [s1]*10,
-            [s2]*10
+        self.check.hw.drive_and_measure.side_effect = [
+            res1,
+            res2
         ]
 
         self.check.init_hw = MagicMock()

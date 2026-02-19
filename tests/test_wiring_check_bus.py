@@ -88,35 +88,21 @@ def test_discover_buses_found(wc_fixture):
 def test_find_min_power_success(wc_fixture):
     wc, mock_hw, _ = wc_fixture
 
-    # State
-    state = {'pwm': 0, 'calls': 0}
+    # We need drive_and_measure to return a MeasureResult mock
+    # The loop starts at pwm=10, step=5.
+    # 10: Fail
+    # 15: Fail
+    # 20: Success
 
-    def set_motors_se(l, r):
-        state['pwm'] = l
-        state['calls'] = 0 # Reset for new PWM attempt
+    def drive_side_effect(l, r, duration):
+        res = MagicMock()
+        if l >= 20:
+             res.max_rate = 20.0 # Success
+        else:
+             res.max_rate = 0.0 # Failure
+        return res
 
-    mock_hw.set_motors.side_effect = set_motors_se
-
-    zero_reading = MagicMock()
-    zero_reading.pitch_rate = 0.0
-    zero_reading.yaw_rate = 0.0
-    zero_reading.roll_rate = 0.0
-
-    big_reading = MagicMock()
-    big_reading.pitch_rate = 100.0
-    big_reading.yaw_rate = 0.0
-    big_reading.roll_rate = 0.0
-
-    def read_imu_converted_se():
-        state['calls'] += 1
-
-        # Subsequent calls are checks.
-        if state['pwm'] == 20:
-            return big_reading # Big change
-
-        return zero_reading
-
-    mock_hw.read_imu_converted.side_effect = read_imu_converted_se
+    mock_hw.drive_and_measure.side_effect = drive_side_effect
 
     wc.find_min_power()
 
@@ -124,7 +110,7 @@ def test_find_min_power_success(wc_fixture):
 
     # Verify sequence
     # Should have called 10, 15, 20
-    calls = [c[0][0] for c in mock_hw.set_motors.call_args_list]
+    calls = [c[0][0] for c in mock_hw.drive_and_measure.call_args_list]
     assert 10 in calls
     assert 15 in calls
     assert 20 in calls
@@ -134,11 +120,9 @@ def test_find_min_power_failure(wc_fixture):
     wc, mock_hw, _ = wc_fixture
 
     # Always return static
-    zero_reading = MagicMock()
-    zero_reading.pitch_rate = 0.0
-    zero_reading.yaw_rate = 0.0
-    zero_reading.roll_rate = 0.0
-    mock_hw.read_imu_converted.return_value = zero_reading
+    mock_res = MagicMock()
+    mock_res.max_rate = 0.0
+    mock_hw.drive_and_measure.return_value = mock_res
 
     with patch("sys.exit", side_effect=SystemExit) as mock_exit:
         with pytest.raises(SystemExit):
@@ -146,5 +130,5 @@ def test_find_min_power_failure(wc_fixture):
 
         mock_exit.assert_called_with(1)
         # Should have tried up to 100
-        calls = [c[0][0] for c in mock_hw.set_motors.call_args_list]
+        calls = [c[0][0] for c in mock_hw.drive_and_measure.call_args_list]
         assert 100 in calls
