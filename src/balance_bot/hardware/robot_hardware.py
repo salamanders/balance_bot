@@ -546,19 +546,36 @@ class RobotHardware:
 
             time.sleep(0.05)
 
+    def execute_maneuver(self, steps: list[tuple[float, float, float]], sample_interval: float = 0.01) -> MeasureResult:
+        """
+        Execute a sequence of motor commands and collect IMU readings throughout.
+
+        :param steps: List of (left_power, right_power, duration) tuples.
+        :param sample_interval: Time between IMU samples.
+        :return: MeasureResult containing total duration and all samples.
+        """
+        samples = []
+        total_duration = 0.0
+
+        try:
+            for left, right, duration in steps:
+                self.set_motors(left, right)
+                step_start = time.time()
+
+                # Run for the duration of this step
+                while time.time() - step_start < duration:
+                    samples.append(self.read_imu_converted())
+                    time.sleep(sample_interval)
+
+                total_duration += duration
+        finally:
+            self.stop()
+
+        return MeasureResult(duration=total_duration, samples=samples)
+
     def drive_and_measure(self, left_power: float, right_power: float, duration: float, sample_interval: float = 0.01) -> MeasureResult:
         """
         Drive motors for a duration and collect IMU readings.
         Returns a MeasureResult object containing samples and stats.
         """
-        samples = []
-        try:
-            self.set_motors(left_power, right_power)
-            start = time.time()
-            while time.time() - start < duration:
-                samples.append(self.read_imu_converted())
-                time.sleep(sample_interval)
-        finally:
-            self.stop()
-
-        return MeasureResult(duration=duration, samples=samples)
+        return self.execute_maneuver([(left_power, right_power, duration)], sample_interval)

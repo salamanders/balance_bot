@@ -125,21 +125,24 @@ class TestWiringTrainingWheels(unittest.TestCase):
         # CCW Spin around Z (Up) -> Positive Z Gyro
         gyro_sample = Vector3(0, 0, 50.0) # 50 deg/s CCW
 
-        # We need to mock the manual loop in deduce_left_right_autonomous
-        # The loop calls read_imu_raw multiple times.
-        # We'll just return the gyro_sample every time.
-        self.hw_mock.read_imu_raw.return_value = (Vector3(0,0,-1), gyro_sample)
+        # Mock execute_maneuver return value
+        sample = MagicMock(spec=IMUReading)
+        sample.gyro_raw = gyro_sample
+
+        self.hw_mock.execute_maneuver.return_value = MeasureResult(
+            duration=1.5,
+            samples=[sample, sample]
+        )
 
         # Run
-        # We need to break the infinite loop if it fails, but here we expect success on first try.
-        with patch("time.time", side_effect=[0, 0.1, 2.0, 3.0]): # Simulate time passing
+        with patch("time.sleep"): # Ignore wait
             self.wc.deduce_left_right_autonomous()
 
-        # Verify "The Arc" Power usage (One high, one 50%)
-        # set_motors called with (High, High*0.5) or similar
-        # We expect Ch0 to be High, Ch1 to be Medium.
-        args, _ = self.hw_mock.set_motors.call_args
-        p_left, p_right = args
+        # Verify "The Arc" Power usage via execute_maneuver
+        self.hw_mock.execute_maneuver.assert_called_once()
+        steps = self.hw_mock.execute_maneuver.call_args[0][0]
+        p_left, p_right, _ = steps[0]
+
         # We don't know exact values, but one should be ~2x the other
         self.assertTrue(p_left > p_right * 1.5 or p_right > p_left * 1.5, f"Motors not in Arc configuration: {p_left}, {p_right}")
 
@@ -163,7 +166,16 @@ class TestWiringTrainingWheels(unittest.TestCase):
         gyro_sample = Vector3(0, 0, -50.0) # CW
         self.hw_mock.read_imu_raw.return_value = (Vector3(0,0,-1), gyro_sample)
 
-        with patch("time.time", side_effect=[0, 0.1, 2.0, 3.0]):
+        # Mock execute_maneuver
+        sample = MagicMock(spec=IMUReading)
+        sample.gyro_raw = gyro_sample
+
+        self.hw_mock.execute_maneuver.return_value = MeasureResult(
+            duration=1.5,
+            samples=[sample, sample]
+        )
+
+        with patch("time.sleep"):
             self.wc.deduce_left_right_autonomous()
 
         self.assertEqual(self.wc.config.motor_l, 0)
