@@ -1,4 +1,5 @@
 import os
+import time
 import logging
 from typing import Protocol, runtime_checkable, Any
 from dataclasses import dataclass
@@ -34,6 +35,43 @@ class IMUReading:
     yaw_rate: float
     roll_angle: float
     roll_rate: float
+
+
+@dataclass(frozen=True)
+class MeasureResult:
+    """
+    Result of a drive-and-measure maneuver.
+    Encapsulates raw samples and derived statistics.
+    """
+    duration: float
+    samples: list[IMUReading]
+
+    @property
+    def avg_yaw_rate(self) -> float:
+        if not self.samples:
+            return 0.0
+        return sum(s.yaw_rate for s in self.samples) / len(self.samples)
+
+    @property
+    def abs_avg_yaw_rate(self) -> float:
+        if not self.samples:
+            return 0.0
+        return sum(abs(s.yaw_rate) for s in self.samples) / len(self.samples)
+
+    @property
+    def max_rate(self) -> float:
+        if not self.samples:
+            return 0.0
+        return max(
+            (abs(s.pitch_rate) + abs(s.yaw_rate) + abs(s.roll_rate))
+            for s in self.samples
+        )
+
+    @property
+    def final_pitch(self) -> float:
+        if not self.samples:
+            return 0.0
+        return self.samples[-1].pitch_angle
 
 
 @runtime_checkable
@@ -463,3 +501,60 @@ class RobotHardware:
             return "CRASHED"
         else:
             return "FALLING"
+
+    def wait_for_stability(self, duration: float = 2.0, threshold: float = 2.0) -> None:
+        """
+        Wait for the robot to be stable (gyro rates low) for a duration.
+        Blocks until the condition is met.
+        """
+        logger.info(f"Waiting for stability (rates < {threshold} deg/s) for {duration}s...")
+
+        start_stable_time = None
+        last_log = 0.0
+
+        while True:
+            # Read sensors
+            try:
+                reading = self.read_imu_converted()
+            except RuntimeError:
+                # Re-raise if config is missing, as we can't measure stability
+                raise
+            except Exception as e:
+                logger.warning(f"  [Error reading IMU] {e}")
+                time.sleep(0.1)
+                continue
+
+            # Calculate total rate magnitude
+            rate = abs(reading.pitch_rate) + abs(reading.yaw_rate) + abs(reading.roll_rate)
+
+            if rate < threshold:
+                if start_stable_time is None:
+                    start_stable_time = time.time()
+                elif time.time() - start_stable_time >= duration:
+                    logger.info("  [STABLE] Robot is still.")
+                    return
+            else:
+                if start_stable_time is not None:
+                    start_stable_time = None
+                    if time.time() - last_log > 1.0:
+                        logger.debug(f"  [MOVING] Rate {rate:.1f} > {threshold}. Waiting...")
+                        last_log = time.time()
+
+            time.sleep(0.05)
+
+    def drive_and_measure(self, left_power: float, right_power: float, duration: float, sample_interval: float = 0.01) -> MeasureResult:
+        """
+        Drive motors for a duration and collect IMU readings.
+        Returns a MeasureResult object containing samples and stats.
+        """
+        samples = []
+        try:
+            self.set_motors(left_power, right_power)
+            start = time.time()
+            while time.time() - start < duration:
+                samples.append(self.read_imu_converted())
+                time.sleep(sample_interval)
+        finally:
+            self.stop()
+
+        return MeasureResult(duration=duration, samples=samples)

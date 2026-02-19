@@ -76,66 +76,6 @@ class WiringCheck:
             self.hw.stop()
             self.hw.cleanup()
 
-    def wait_for_stability(self, duration: float = 2.0, threshold: float = 2.0):
-        """
-        Wait for the robot to be stable (gyro rates low) for a duration.
-        Blocks until the condition is met.
-        """
-        print(f"Waiting for stability (rates < {threshold} deg/s) for {duration}s...")
-
-        start_stable_time = None
-        last_log = 0.0
-
-        while True:
-            try:
-                # We need HW to read sensors
-                if not self.hw:
-                    self.init_hw()
-
-                reading = self.hw.read_imu_converted()
-
-                # Calculate total rate magnitude (sum of abs rates is a simple metric)
-                rate = abs(reading.pitch_rate) + abs(reading.yaw_rate) + abs(reading.roll_rate)
-
-                if rate < threshold:
-                    if start_stable_time is None:
-                        start_stable_time = time.time()
-                    elif time.time() - start_stable_time >= duration:
-                        print("  [STABLE] Robot is still.")
-                        return
-                else:
-                    if start_stable_time is not None:
-                        # Reset if movement detected
-                        start_stable_time = None
-                        if time.time() - last_log > 1.0:
-                            print(f"  [MOVING] Rate {rate:.1f} > {threshold}. Waiting...")
-                            last_log = time.time()
-
-                time.sleep(0.05)
-
-            except KeyboardInterrupt:
-                raise
-            except Exception as e:
-                # Handle occasional I2C read errors gracefully
-                print(f"  [Error reading IMU] {e}")
-                time.sleep(0.1)
-
-    def drive_and_measure(self, left_power: float, right_power: float, duration: float, sample_interval: float = 0.01) -> list[IMUReading]:
-        """
-        Drive motors for a duration and collect IMU readings.
-        Returns a list of IMUReading objects collected during the drive.
-        """
-        samples = []
-        try:
-            self.hw.set_motors(left_power, right_power)
-            start = time.time()
-            while time.time() - start < duration:
-                samples.append(self.hw.read_imu_converted())
-                time.sleep(sample_interval)
-        finally:
-            self.hw.stop()
-        return samples
-
     def run(self):
         """
         Main Knowledge Dependency Loop.
@@ -237,7 +177,7 @@ class WiringCheck:
 
         self.cleanup()
 
-    # --- Tier 1: Hardware Connectivity ---
+    # --- Phase 1: Hardware Connectivity ---
     def _scan_for_device(self, name: str, check_fn) -> int | None:
         """
         Scans I2C buses for a device using a callback.
@@ -264,7 +204,7 @@ class WiringCheck:
 
     def discover_buses(self):
         """
-        Scan I2C buses [0, 1, 2, 3] for PiconZero (0x22) and MPU6050 (0x68).
+        Scan I2C buses [1, 3, 0, 2] for PiconZero (0x22) and MPU6050 (0x68).
         """
         print("Scanning I2C Buses...")
 
@@ -293,7 +233,7 @@ class WiringCheck:
 
         self.config.imu_i2c_bus = found_imu
 
-    # --- Tier 2: The Physical World (Sensors) ---
+    # --- Phase 2: The Physical World (Sensors) ---
     def calibrate_static_orientation(self):
         """
         Map Physical Axes (X, Y, Z) to Logical Axes (Vertical, Forward, Pitch).
@@ -302,7 +242,7 @@ class WiringCheck:
         print(">>> Calibrating Orientation <<<")
         print("Please place the robot on the FLOOR.")
         print("Ensure motors are OFF and it is resting on the BACK training wheel.")
-        self.wait_for_stability(duration=2.0)
+        self.hw.wait_for_stability(duration=2.0)
 
         # 1. Read Gravity (Vertical Axis)
         print("  Measuring Gravity (Vertical)...")
@@ -382,7 +322,7 @@ class WiringCheck:
         print(f"  -> Forward Axis: {forward_axis.upper()} (Invert: {self.config.accel_forward_invert})")
 
 
-    # --- Tier 3a: Friction Threshold ---
+    # --- Phase 3a: Friction Threshold ---
     def find_min_power(self):
         """
         Find minimum PWM to overcome friction.
@@ -398,35 +338,24 @@ class WiringCheck:
             print(f"  Testing PWM {pwm}...")
 
             # Pulse and Measure
-            samples = self.drive_and_measure(pwm, pwm, 0.2)
+            result = self.hw.drive_and_measure(pwm, pwm, 0.2)
             time.sleep(0.5) # Wait for stop
 
             # Check for motion (Gyro Rate > Threshold)
             # We look for ANY significant rotation on ANY axis.
             # Using 10 deg/s as a safe threshold for "moved".
-            motion_detected = False
-            if samples:
-                # Compare max rate seen to threshold
-                max_rate = max(
-                    (abs(s.pitch_rate) + abs(s.yaw_rate) + abs(s.roll_rate))
-                    for s in samples
-                )
-                if max_rate > 10.0:
-                    motion_detected = True
-
-            if motion_detected:
+            if result.max_rate > 10.0:
                 print(f"  [FOUND] Motion detected at PWM {pwm}.")
                 self.config.min_power_visible = pwm
                 found = True
                 break
 
             pwm += step
-
         if not found:
              print("  [FAILURE] Robot did not move even at PWM 100.")
              sys.exit(1)
 
-    # --- Tier 3b: Phasing ---
+    # --- Phase 3b: Phasing ---
     def align_motors_phase(self):
         """
         Ensure motors spin together (Straight), not opposite (Spin).
@@ -446,14 +375,10 @@ class WiringCheck:
             power = self.config.min_power_visible + 10
             print(f"  Pulse Drive with PWM {power}...")
 
-            samples = self.drive_and_measure(power, power, 0.5)
+            result = self.hw.drive_and_measure(power, power, 0.5)
             time.sleep(1.0)
 
-            if not samples:
-                avg_yaw = 0.0
-            else:
-                yaw_sum = sum(abs(s.yaw_rate) for s in samples)
-                avg_yaw = yaw_sum / len(samples)
+            avg_yaw = result.abs_avg_yaw_rate
 
             print(f"  -> Avg Yaw Rate: {avg_yaw:.1f} deg/s")
 
@@ -473,7 +398,7 @@ class WiringCheck:
         print("  [FAILURE] Could not align motor phases after multiple attempts.")
         sys.exit(1)
 
-    # --- Tier 3c: Direction ---
+    # --- Phase 4: Sense of Forward (Pitch Axis & Polarity) ---
     def determine_motor_direction(self):
         """
         Ensure Positive Power = "Stand Up" (Reduce Lean).
@@ -516,10 +441,10 @@ class WiringCheck:
             power = (self.config.min_power_visible + 20) * direction_sign
             print(f"  Pulsing {power} (Positive=Forward Check)...")
 
-            samples = self.drive_and_measure(power, power, 0.3)
+            result = self.hw.drive_and_measure(power, power, 0.3)
             time.sleep(1.0)
 
-            end_pitch = samples[-1].pitch_angle if samples else start_pitch
+            end_pitch = result.final_pitch if result.samples else start_pitch
 
             print(f"  End Pitch: {end_pitch:.1f}")
 
@@ -552,7 +477,7 @@ class WiringCheck:
         print("  [FAILURE] Could not determine motor direction after multiple attempts.")
         sys.exit(1)
 
-    # --- Tier 4: The Human Anchor ---
+    # --- Phase 5: Absolute Identity (Left/Right via Right-Hand Rule) ---
     def deduce_left_right_autonomous(self):
         """
         Identify Left vs Right Motor using Gyroscope Physics (Right-Hand Rule).
@@ -561,7 +486,7 @@ class WiringCheck:
         """
         print(">>> Autonomous Left/Right Verification & Yaw Calibration <<<")
         print("I am going to spin to determine my physical identity.")
-        self.wait_for_stability()
+        self.hw.wait_for_stability()
 
         attempts = 0
         while attempts < 3:
@@ -698,15 +623,15 @@ class WiringCheck:
         print("  [FAILURE] Could not deduce Left/Right after multiple attempts.")
         sys.exit(1)
 
-    # --- Tier 4.5: The Stride (Trim) ---
+    # --- Phase 6: The Stride (Motor Trimming) ---
     def calibrate_motor_trim(self):
         """
         Calibrate Motor Trim to ensure straight driving.
-        Phase 4.5.
+        Phase 6.
         """
         print(">>> Motor Trim Calibration <<<")
         print("I will drive straight and measure drift.")
-        self.wait_for_stability()
+        self.hw.wait_for_stability()
 
         # We will adjust trim until Yaw Rate is small.
         # Max attempts
@@ -716,13 +641,13 @@ class WiringCheck:
 
             power = self.config.min_power_visible + 15
             # Drive Straight
-            samples = self.drive_and_measure(power, power, 1.0)
+            result = self.hw.drive_and_measure(power, power, 1.0)
 
-            if not samples:
+            if not result.samples:
                 continue
 
             # Average Yaw Rate
-            avg_yaw = sum(s.yaw_rate for s in samples) / len(samples)
+            avg_yaw = result.avg_yaw_rate
             print(f"    Avg Yaw Drift: {avg_yaw:.2f} deg/s")
 
             if abs(avg_yaw) < 2.0:
@@ -745,14 +670,14 @@ class WiringCheck:
 
         print("  [WARNING] Could not perfectly trim motors. Saving best effort.")
 
-    # --- Tier 5: Dynamics ---
+    # --- Phase 7: Kick-Up Dynamics ---
     def _wait_for_start_condition(self, check_fn: Callable[[float], bool] | None, msg: str):
         """
         Wait for stability and a specific pitch condition.
         """
         print(msg)
         while True:
-            self.wait_for_stability(duration=1.0)
+            self.hw.wait_for_stability(duration=1.0)
 
             if check_fn is None:
                 return
@@ -915,13 +840,10 @@ class WiringCheck:
         print("  [Check 1] Drive Straight...")
         power = self.config.min_power_visible + 10
 
-        samples = self.drive_and_measure(power, power, 1.0)
+        result = self.hw.drive_and_measure(power, power, 1.0)
         time.sleep(0.5)
 
-        if not samples:
-            avg_yaw = 0.0
-        else:
-            avg_yaw = sum(abs(s.yaw_rate) for s in samples) / len(samples)
+        avg_yaw = result.abs_avg_yaw_rate
 
         print(f"    Avg Yaw Rate: {avg_yaw:.1f} deg/s")
 
@@ -934,12 +856,9 @@ class WiringCheck:
         print("  [Check 2] Turn Right (Clockwise)...")
         # Command L+, R-
 
-        samples = self.drive_and_measure(power, -power, 1.0)
+        result = self.hw.drive_and_measure(power, -power, 1.0)
 
-        if not samples:
-            avg_yaw_signed = 0.0
-        else:
-            avg_yaw_signed = sum(s.yaw_rate for s in samples) / len(samples)
+        avg_yaw_signed = result.avg_yaw_rate
 
         print(f"    Avg Yaw Rate (Signed): {avg_yaw_signed:.1f} deg/s")
 
