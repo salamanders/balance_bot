@@ -55,10 +55,45 @@ def test_calibrate_orientation(wc_fixture):
     # Mock input to avoid waiting
     with patch("builtins.input") as mock_input:
         original_hw_mock = wc.hw
-        wc.calibrate_static_orientation()
 
-        # We expect wait_for_stability instead of the first input
-        original_hw_mock.wait_for_stability.assert_called_once()
+        # Configure the return value for the NEW instance created inside calibrate_static_orientation
+        # Because calibrate_static_orientation calls init_hw(), which creates a new RobotHardware()
+        # The 'patch("balance_bot.wiring_check.RobotHardware")' fixture mocks the CLASS constructor.
+        # We need to configure the instance returned by that constructor.
+
+        # We can do this by getting the return value of the class mock
+        # But here wc_fixture has already run.
+        # We need to patch RobotHardware in this scope to configure it?
+        # No, wc_fixture already patched it.
+        # But we don't have access to the mock class from here directly unless we change the fixture.
+
+        # Easier fix: The code calls self.hw.read_imu_converted().
+        # self.hw is replaced by init_hw().
+        # init_hw() calls RobotHardware().
+        # We want RobotHardware().read_imu_converted().pitch_angle to be a float.
+
+        # Let's patch the RobotHardware class AGAIN in this scope to get a handle on it
+        with patch("balance_bot.wiring_check.RobotHardware") as MockHWClass:
+            # Configure the instance returned
+            mock_instance = MockHWClass.return_value
+            mock_instance.read_imu_converted.return_value.pitch_angle = 30.0
+
+            # We also need to preserve the read_imu_raw side effect which is critical for the logic
+            # The test setup put side_effect on 'wc.hw'.
+            # If init_hw() replaces wc.hw with mock_instance, we need mock_instance to have that side_effect.
+            mock_instance.read_imu_raw.side_effect = side_effect
+
+            # Also mock wait_for_stability on the new instance
+            mock_instance.wait_for_stability = MagicMock()
+
+            # The function uses self.hw.wait_for_stability BEFORE init_hw.
+            # That calls wc.hw (the original one).
+
+            wc.calibrate_static_orientation()
+
+        # We expect wait_for_stability on the ORIGINAL mock (before init_hw)
+        # Called twice: once for Back, once for Front
+        assert original_hw_mock.wait_for_stability.call_count == 2
         # We expect input only for the second interaction (tipping forward)
         assert mock_input.call_count == 1
 

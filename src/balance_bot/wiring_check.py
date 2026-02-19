@@ -237,45 +237,32 @@ class WiringCheck:
     def calibrate_static_orientation(self):
         """
         Map Physical Axes (X, Y, Z) to Logical Axes (Vertical, Forward, Pitch).
-        Requirement: Robot on floor, resting on one training wheel.
+        Requirement: Robot on floor, resting on one training wheel, then the other.
+        Resilient to asymmetric training wheels or steep leans.
         """
         print(">>> Calibrating Orientation <<<")
         print("Please place the robot on the FLOOR.")
         print("Ensure motors are OFF and it is resting on the BACK training wheel.")
-        self.hw.wait_for_stability(duration=2.0)
+        self.hw.wait_for_stability(duration=1.5)
 
-        # 1. Read Gravity (Vertical Axis)
-        print("  Measuring Gravity (Vertical)...")
+        # 1. Read Back Rest Gravity
+        print("  Measuring Gravity (Back Position)...")
         time.sleep(0.5)
-        accel_sum = Vector3(0.0, 0.0, 0.0)
-        samples = 50
+        samples = 100  # Increased for noise resilience
+        accel_sum_back = Vector3(0.0, 0.0, 0.0)
+
         for _ in range(samples):
             a, _ = self.hw.read_imu_raw()
-            # a is Vector3
-            accel_sum += a
+            accel_sum_back += a
             time.sleep(0.01)
 
-        avg_back = accel_sum / samples
+        avg_back = accel_sum_back / samples
+        print(f"  [DEBUG] Avg Back Vector: {avg_back}")
 
-        # Dominant axis in static position is Gravity (Vertical)
-        vert, _, _ = analyze_dominance(dict(avg_back.items()), "Vertical (Gravity)")
-        self.config.accel_vertical_axis = Axis(vert)
-        self.config.accel_vertical_invert = avg_back[vert] < 0
-        print(f"  -> Vertical Axis: {vert.upper()} (Invert: {self.config.accel_vertical_invert})")
-
-        # 2. Read Lean (Forward Axis)
-        sorted_axes = sorted(avg_back.items(), key=lambda x: abs(x[1]), reverse=True)
-        # 0 is Vertical. 1 is Forward. 2 is Pitch (Axle).
-        forward_axis = sorted_axes[1][0]
-        pitch_axis = sorted_axes[2][0]
-
-        self.config.accel_forward_axis = Axis(forward_axis)
-        print(f"  -> Forward Axis Candidate: {forward_axis.upper()}")
-        print(f"  -> Pitch Axis Candidate: {pitch_axis.upper()}")
-
-        # 3. Determine Pitch Axis Orientation (Using Cross Product)
+        # 2. Read Front Rest Gravity
         print("\n  Now TIP ROBOT FORWARD to Front Wheel.")
         input("Press Enter to measure FRONT position...")
+        self.hw.wait_for_stability(duration=1.0)
 
         accel_sum_front = Vector3(0.0, 0.0, 0.0)
         for _ in range(samples):
@@ -284,48 +271,123 @@ class WiringCheck:
             time.sleep(0.01)
 
         avg_front = accel_sum_front / samples
+        print(f"  [DEBUG] Avg Front Vector: {avg_front}")
 
-        # Cross Product: Back x Front -> Pitch Axis Vector
-        axis_vec = avg_back.cross(avg_front)
+        # 3. Determine Pitch Axis via Cross Product (Normal to the motion plane)
+        # Back x Front gives the axis of rotation (Pitch)
+        pitch_vec = avg_back.cross(avg_front)
 
-        # Verify that our calculated pitch axis matches the cross product magnitude
-        detected_pitch, _, _ = analyze_dominance({k: abs(v) for k, v in axis_vec.items()}, "Pitch Axis (CrossProd)")
+        # Analyze dominance for Pitch Axis
+        pitch_axis_name, pitch_magnitude, _ = analyze_dominance(
+            {k: abs(v) for k, v in pitch_vec.items()},
+            "Pitch Axis (CrossProd)"
+        )
 
-        if detected_pitch != pitch_axis:
-             print(f"  [WARNING] Cross product suggested {detected_pitch} but magnitude suggested {pitch_axis}. Trusting Cross Product.")
-             pitch_axis = detected_pitch
+        if pitch_magnitude < 1.1:
+            print("  [WARNING] Pitch axis unclear. Did the robot actually move?")
 
-        self.config.gyro_pitch_axis = Axis(pitch_axis)
-        val = axis_vec[pitch_axis]
-        self.config.gyro_pitch_invert = val < 0
+        self.config.gyro_pitch_axis = Axis(pitch_axis_name)
+        # Determine Pitch Invert: We define Pitch such that Tipping Forward (Back->Front) is POSITIVE rate?
+        # No, usually Pitch Up (Back) is positive angle?
+        # Convention: Forward lean is Positive Pitch? No, usually Back is Negative, Forward is Positive.
+        # Gyro Rate: Right Hand Rule around Pitch Axis.
+        # If we rotate from Back to Front, we are rotating in ONE direction.
+        # Let's trust cross product sign for axis direction relative to the plane.
+        # But we need consistent polarity. We'll verify polarity in 'determine_motor_direction'.
+        # For now, just pick the sign of the cross product vector.
+        self.config.gyro_pitch_invert = pitch_vec[pitch_axis_name] < 0
+        print(f"  -> Pitch Axis: {pitch_axis_name.upper()} (Invert: {self.config.gyro_pitch_invert})")
 
-        print(f"  -> Pitch Axis: {pitch_axis.upper()} (Invert: {self.config.gyro_pitch_invert})")
+        # 4. Determine Vertical and Forward Axes
+        # Vertical should be the dominant component of Gravity when 'Back' (assuming lean < 45 deg).
+        # But we must exclude the Pitch Axis from consideration.
 
-        # Deduce Yaw and Roll
+        candidates = {k: abs(v) for k, v in avg_back.items() if k != pitch_axis_name}
+        vert_axis_name, _, _ = analyze_dominance(candidates, "Vertical Axis (Gravity)")
+
+        self.config.accel_vertical_axis = Axis(vert_axis_name)
+        # Invert if gravity component is negative (Gravity points DOWN, so Sensor Up sees +1g usually? No, Sensor measures reaction force +1g Up? No, measures Gravity -1g?)
+        # Standard accelerometer: +1g on Z when Z is pointing Up.
+        # So if avg_back[vert] is positive, that axis is pointing Up.
+        # We want 'accel_vertical' to represent Up.
+        # So if value is negative, we invert it?
+        # Wait. RobotHardware expects accel_vertical to be +1g when Up.
+        self.config.accel_vertical_invert = avg_back[vert_axis_name] < 0
+        print(f"  -> Vertical Axis: {vert_axis_name.upper()} (Invert: {self.config.accel_vertical_invert})")
+
+        # Forward Axis is the remaining one
         all_axes = {'x', 'y', 'z'}
-        used = {vert, pitch_axis}
+        used = {pitch_axis_name, vert_axis_name}
         remaining = list(all_axes - used)
-        if len(remaining) == 1:
-            # Gyro Yaw is rotation around Vertical Axis
-            self.config.gyro_yaw_axis = Axis(vert)
-            # Gyro Roll Axis is rotation around Forward Axis
-            self.config.gyro_roll_axis = Axis(forward_axis)
-        else:
-            print("  [ERROR] Axis deduction logic failed.")
 
-        # Reload HW with new sensor config
-        self.init_hw()
+        if not remaining:
+            print("  [CRITICAL ERROR] Axis deduction failed. Overlapping axes.")
+            sys.exit(1)
 
-        # Deduce Forward Axis Inversion
-        delta_fwd = avg_front[forward_axis] - avg_back[forward_axis]
+        forward_axis_name = remaining[0]
+        self.config.accel_forward_axis = Axis(forward_axis_name)
+
+        # Deduce Forward Inversion
+        # Change in Forward Axis component should be positive when moving Back -> Front?
+        # Back -> Front means moving 'Forward'.
+        # Gravity vector rotates.
+        # We'll rely on delta.
+        delta_fwd = avg_front[forward_axis_name] - avg_back[forward_axis_name]
+        # When tipping forward, the forward axis should see change.
+        # Polarity is tricky without visualizing.
+        # We will assume 'Forward' means nose down?
+        # Let's stick to the heuristic: Delta < 0 means invert?
+        # The previous code used: delta_fwd < 0. Let's keep it but note it might be wrong.
         self.config.accel_forward_invert = delta_fwd < 0
-        print(f"  -> Forward Axis: {forward_axis.upper()} (Invert: {self.config.accel_forward_invert})")
+        print(f"  -> Forward Axis: {forward_axis_name.upper()} (Invert: {self.config.accel_forward_invert})")
+
+        # Deduce Gyro Yaw/Roll (Standard mapping relative to Vertical/Forward)
+        self.config.gyro_yaw_axis = Axis(vert_axis_name)
+        self.config.gyro_roll_axis = Axis(forward_axis_name)
+
+        # 5. Calculate and Store Rest Angles
+        # Now that we have the axes, we can calculate the actual pitch angles for the two positions.
+        self.init_hw() # Re-init with new axes
+
+        # We can't use read_imu_converted directly on the averages because they are raw.
+        # But we can reconstruct Vector3 for the averages and pass them through logic.
+        # Or easier: just read fresh samples now that we are in position (Front).
+        # We are currently at FRONT position.
+
+        print("  Measuring Rest Angles...")
+        curr_front_reading = self.hw.read_imu_converted()
+        angle_front = curr_front_reading.pitch_angle
+
+        # We need to ask user to put it back to Back position to measure Back Angle?
+        # Or we can calculate it from avg_back using the known axes.
+
+        # Calculate Back Angle from avg_back
+        # Map raw avg_back to logical axes
+        fwd_val_back = getattr(avg_back, forward_axis_name)
+        if self.config.accel_forward_invert: fwd_val_back = -fwd_val_back
+
+        vert_val_back = getattr(avg_back, vert_axis_name)
+        if self.config.accel_vertical_invert: vert_val_back = -vert_val_back
+
+        from .utils import calculate_pitch
+        angle_back = calculate_pitch(fwd_val_back, vert_val_back)
+
+        self.config.rest_angle_forward = angle_front
+        self.config.rest_angle_backward = angle_back
+
+        print(f"  -> Calibrated Rest Angles: Back={angle_back:.1f}, Front={angle_front:.1f}")
+
+        # Validate Spread
+        spread = angle_front - angle_back
+        if spread < 10.0:
+            print(f"  [WARNING] Rest angle spread is very small ({spread:.1f}). Is the robot balanced on a point?")
 
 
     # --- Phase 3a: Friction Threshold ---
     def find_min_power(self):
         """
         Find minimum PWM to overcome friction.
+        Uses statistical analysis to avoid noise triggers.
         """
         print(">>> Finding Minimum Power <<<")
         print("Ensuring robot is on the floor...")
@@ -337,14 +399,19 @@ class WiringCheck:
         while pwm <= 100:
             print(f"  Testing PWM {pwm}...")
 
-            # Pulse and Measure
-            result = self.hw.drive_and_measure(pwm, pwm, 0.2)
+            # Pulse and Measure (Longer pulse for better signal)
+            result = self.hw.drive_and_measure(pwm, pwm, 0.3)
             time.sleep(0.5) # Wait for stop
 
-            # Check for motion (Gyro Rate > Threshold)
-            # We look for ANY significant rotation on ANY axis.
-            # Using 10 deg/s as a safe threshold for "moved".
-            if result.max_rate > 10.0:
+            # Check for motion
+            # Robust Check: Average magnitude of Gyro should be high, not just max peak (which could be a bump).
+            # But short pulse means we might only move briefly.
+            # Let's check max_rate > 15 deg/s (increased from 10).
+
+            rate = result.max_rate
+            print(f"    Max Rate: {rate:.1f} deg/s")
+
+            if rate > 15.0:
                 print(f"  [FOUND] Motion detected at PWM {pwm}.")
                 self.config.min_power_visible = pwm
                 found = True
@@ -627,17 +694,19 @@ class WiringCheck:
     def calibrate_motor_trim(self):
         """
         Calibrate Motor Trim to ensure straight driving.
-        Phase 6.
+        Adaptive logic handles mismatched motors (up to 30%).
         """
         print(">>> Motor Trim Calibration <<<")
         print("I will drive straight and measure drift.")
         self.hw.wait_for_stability()
 
         # We will adjust trim until Yaw Rate is small.
-        # Max attempts
-        for attempt in range(10):
+        max_attempts = 15
+
+        for attempt in range(max_attempts):
             self.init_hw()
-            print(f"  [Attempt {attempt+1}] Trim: {self.config.motor_trim:.3f}")
+            current_trim = self.config.motor_trim
+            print(f"  [Attempt {attempt+1}/{max_attempts}] Trim: {current_trim:.3f}")
 
             power = self.config.min_power_visible + 15
             # Drive Straight
@@ -654,19 +723,28 @@ class WiringCheck:
                 print("  [SUCCESS] Drift is negligible.")
                 return
 
-            # Adjust Trim
-            # If Yaw > 0 (Turning Left), Right Motor is Stronger.
-            # We want to INCREASE trim (Positive Trim reduces Right Motor).
-            # Gain: How much trim per deg/s?
-            # Start gentle. 0.005 per deg/s?
-            # If Drift is 10 deg/s, 0.05 change.
-            correction = avg_yaw * 0.005
+            # Adaptive Gain
+            # If error is large (>10 deg/s), take bigger steps.
+            # If Yaw > 0 (Left Turn), Right is stronger -> Increase Trim.
+            base_gain = 0.005
+            if abs(avg_yaw) > 10.0:
+                gain = 0.015 # 3x faster
+            else:
+                gain = base_gain
 
-            self.config.motor_trim += correction
+            correction = avg_yaw * gain
 
-            # Clamp Trim
-            self.config.motor_trim = max(-0.3, min(0.3, self.config.motor_trim))
-            print(f"    -> New Trim: {self.config.motor_trim:.3f}")
+            # Apply Correction
+            new_trim = current_trim + correction
+
+            # Check bounds (Clamp to +/- 0.4 now, slightly wider range)
+            new_trim = max(-0.4, min(0.4, new_trim))
+
+            if abs(new_trim - current_trim) < 0.001 and abs(avg_yaw) > 5.0:
+                 print("  [WARNING] Trim saturated or not moving.")
+
+            self.config.motor_trim = new_trim
+            print(f"    -> Correction: {correction:+.4f} -> New Trim: {self.config.motor_trim:.3f}")
 
         print("  [WARNING] Could not perfectly trim motors. Saving best effort.")
 
@@ -771,14 +849,34 @@ class WiringCheck:
     def find_flop_thresholds(self):
         """
         Discover Kick-Up Power for both directions using Dynamic Momentum.
+        Uses calibrated rest angles for robust start detection.
         """
         print(">>> Dynamic Kick-Up Calibration (Roll & Slam) <<<")
         self.init_hw()
 
+        # Robust Start Conditions using Calibrated Rest Angles
+        # If not calibrated (None), fallback to default -10/10
+        rest_back = self.config.rest_angle_backward if self.config.rest_angle_backward is not None else -10.0
+        rest_front = self.config.rest_angle_forward if self.config.rest_angle_forward is not None else 10.0
+
+        # Start Tolerance: We expect to be CLOSE to the rest angle (e.g. within 10 degrees),
+        # but definitely on the correct side of vertical.
+        # Back Condition: Pitch < (rest_back + tolerance). Since rest_back is usually negative, e.g. -30.
+        # We want Pitch < -10 at least.
+
+        # We'll use a safer check: "Is it leaning roughly as much as the training wheel?"
+        # Condition: It is definitely leaning back ( < -5) AND close to rest_back.
+
+        def check_back(p):
+            return p < (rest_back + 10.0) and p < -5.0
+
+        def check_front(p):
+            return p > (rest_front - 10.0) and p > 5.0
+
         # Define Tests: (Direction, Start Check Msg, Start Check Fn, Config Attr)
         tests = [
-            ("BACK", "Place robot on BACK wheel.", lambda p: p < -10, "kickup_power_forward"),
-            ("FRONT", "Place robot on FRONT wheel.", lambda p: p > 10, "kickup_power_backward")
+            ("BACK", "Place robot on BACK wheel.", check_back, "kickup_power_forward"),
+            ("FRONT", "Place robot on FRONT wheel.", check_front, "kickup_power_backward")
         ]
 
         for direction, msg, check_fn, config_attr in tests:

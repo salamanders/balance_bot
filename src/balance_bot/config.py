@@ -375,6 +375,10 @@ class RobotConfig:
     min_power_visible: int = 0  # 0 indicates unknown
     motor_trim: float = 0.0     # Positive = Scale Right (Right is stronger); Negative = Scale Left (Left is stronger)
 
+    # Calibrated Rest Angles (Asymmetric Training Wheels)
+    rest_angle_forward: Optional[float] = None
+    rest_angle_backward: Optional[float] = None
+
     # Discovery Flags
     motor_phasing_verified: bool = False
     motor_direction_verified: bool = False
@@ -473,6 +477,8 @@ class RobotConfig:
         self.accel_vertical_invert = False
         self.accel_forward_axis = None
         self.accel_forward_invert = False
+        self.rest_angle_forward = None
+        self.rest_angle_backward = None
         self.min_power_visible = 0
         self.motor_phasing_verified = False
         self.motor_direction_verified = False

@@ -106,11 +106,11 @@ class TestAutonomousConfig(unittest.TestCase):
 
         self.check.calibrate_motor_trim()
 
-        # Expected: 10 attempts.
+        # Expected: 15 attempts (New logic).
         # Each attempt adds 10.0 * 0.005 = 0.05.
-        # 10 * 0.05 = 0.5.
-        # Clamped to 0.3.
-        self.assertAlmostEqual(self.check.config.motor_trim, 0.3)
+        # 15 * 0.05 = 0.75.
+        # Clamped to 0.4 (New logic).
+        self.assertAlmostEqual(self.check.config.motor_trim, 0.4)
 
     def test_calibrate_motor_trim_right_drift(self):
         """
@@ -129,8 +129,8 @@ class TestAutonomousConfig(unittest.TestCase):
 
         self.check.calibrate_motor_trim()
 
-        # -0.5 clamped to -0.3
-        self.assertAlmostEqual(self.check.config.motor_trim, -0.3)
+        # -0.75 clamped to -0.4
+        self.assertAlmostEqual(self.check.config.motor_trim, -0.4)
 
     def test_calibrate_motor_trim_converges(self):
         """
