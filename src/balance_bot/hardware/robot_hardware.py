@@ -1,7 +1,7 @@
 import os
 import time
 import logging
-from typing import Protocol, runtime_checkable, Any
+from typing import Protocol, runtime_checkable, Any, Optional
 from dataclasses import dataclass
 
 from ..utils import clamp, calculate_pitch, Vector3
@@ -35,6 +35,8 @@ class IMUReading:
     yaw_rate: float
     roll_angle: float
     roll_rate: float
+    accel_raw: Optional[Vector3] = None
+    gyro_raw: Optional[Vector3] = None
 
 
 @dataclass(frozen=True)
@@ -417,7 +419,9 @@ class RobotHardware:
             pitch_rate=gyro_rate,
             yaw_rate=yaw_rate,
             roll_angle=roll_angle,
-            roll_rate=roll_rate
+            roll_rate=roll_rate,
+            accel_raw=accel,
+            gyro_raw=gyro
         )
 
     def set_motor_retries(self, retries: int) -> None:

@@ -508,38 +508,78 @@ class WiringCheck:
             power = (self.config.min_power_visible + 20) * direction_sign
             print(f"  Pulsing {power} (Positive=Forward Check)...")
 
-            result = self.hw.drive_and_measure(power, power, 0.3)
+            # We need raw samples for Accel Check
+            result = self.hw.drive_and_measure(power, power, 0.4)
             time.sleep(1.0)
 
             end_pitch = result.final_pitch if result.samples else start_pitch
-
             print(f"  End Pitch: {end_pitch:.1f}")
 
-            # Check Physics
+            # Check Physics 1: Tilt Change (Kick Up)
             started_leaning = abs(start_pitch)
             ended_leaning = abs(end_pitch)
+            delta_lean = started_leaning - ended_leaning
 
-            # Did we move towards upright (0)?
-            # If start=-30, upright=0.
-            # If end=-20, abs(-20) < abs(-30) -> Improved.
-            # If end=-40, abs(-40) > abs(-30) -> Worsened.
+            # Improved (Positive Delta) = Stood Up
+            # Worsened (Negative Delta) = Dug In
 
-            # Note: We need significant movement to be sure.
-            if abs(started_leaning - ended_leaning) < 2.0:
-                print("  [WARNING] Movement too small to determine direction. Retrying...")
-                continue
+            # Check Physics 2: Linear Acceleration (The Attempt)
+            # If robot is stuck on training wheels, tilt won't change, but it will ACCELERATE forward.
+            # Forward Axis is self.config.accel_forward_axis
+            avg_accel_fwd = 0.0
+            if result.samples:
+                # Calculate average forward acceleration from raw samples
+                fwd_axis_name = self.config.accel_forward_axis.value
+                invert = self.config.accel_forward_invert
 
-            if ended_leaning < started_leaning:
+                # Sum raw values
+                total_fwd = sum(getattr(s.accel_raw, fwd_axis_name) for s in result.samples)
+                avg_raw = total_fwd / len(result.samples)
+
+                # Apply inversion
+                avg_accel_fwd = -avg_raw if invert else avg_raw
+
+            print(f"  Delta Lean: {delta_lean:.1f}, Avg Fwd Accel: {avg_accel_fwd:.2f}")
+
+            # Decision Logic
+            # Case A: Significant Tilt Improvement
+            if delta_lean > 2.0:
                 print("  [SUCCESS] Robot moved towards upright (Stood Up). Direction is Correct.")
                 self.config.motor_direction_verified = True
                 return
+
+            # Case B: Significant Tilt Worsening
+            elif delta_lean < -2.0:
+                 print("  [FAILURE] Robot dug in (Leaned More). Direction is Inverted.")
+                 print("  -> ACTION: Inverting BOTH motors to fix direction.")
+                 self.config.motor_l_invert = not self.config.motor_l_invert
+                 self.config.motor_r_invert = not self.config.motor_r_invert
+                 continue
+
+            # Case C: No Tilt Change (Stuck on wheels?), check Accel
             else:
-                print("  [FAILURE] Robot dug in (Leaned More). Direction is Inverted.")
-                print("  -> ACTION: Inverting BOTH motors to fix direction.")
-                self.config.motor_l_invert = not self.config.motor_l_invert
-                self.config.motor_r_invert = not self.config.motor_r_invert
-                # Loop back to verify
-                continue
+                print("  [WARNING] Tilt did not change significantly. Checking Linear Acceleration...")
+                # Threshold for Accel? Gravity is ~1.0 (or 9.8 depending on unit).
+                # MPU6050 raw is usually normalized to g's in RobotHardware?
+                # Let's check RobotHardware units.
+                # Assuming g's. 0.1g is detectable.
+
+                if avg_accel_fwd > 0.15:
+                    print("  [SUCCESS] Detected Forward Acceleration. Direction is Correct.")
+                    self.config.motor_direction_verified = True
+                    return
+                elif avg_accel_fwd < -0.15:
+                    print("  [FAILURE] Detected Backward Acceleration. Direction is Inverted.")
+                    print("  -> ACTION: Inverting BOTH motors to fix direction.")
+                    self.config.motor_l_invert = not self.config.motor_l_invert
+                    self.config.motor_r_invert = not self.config.motor_r_invert
+                    continue
+                else:
+                    print("  [WARNING] Neither Tilt nor Acceleration was conclusive. Retrying with higher power...")
+                    # Loop will retry. Maybe we should bump power?
+                    # The loop uses min_power + 20. Maybe increase min_power_visible temporarily?
+                    # Or just retry.
+                    continue
 
         print("  [FAILURE] Could not determine motor direction after multiple attempts.")
         sys.exit(1)
@@ -568,19 +608,20 @@ class WiringCheck:
             # Gravity points DOWN. Up Vector = -Gravity.
             up_vector = -accel
 
-            # 2. Spin Command
-            # Drive Ch0 Forward, Ch1 Backward.
-            # If Ch0=Left, Ch1=Right -> Right Turn (CW).
-            # If Ch0=Right, Ch1=Left -> Left Turn (CCW).
-            power = self.config.min_power_visible + 15
-            print(f"  Spinning with Power {power}...")
+            # 2. Arc Command ("The Arc")
+            # Drive Ch0 High, Ch1 Low (but same sign).
+            # This reduces drag on training wheels compared to spinning in place.
+            power_high = self.config.min_power_visible + 20
+            power_low = power_high * 0.5
+
+            print(f"  Driving Arc (Ch0={power_high:.0f}, Ch1={power_low:.0f})...")
 
             # We need Raw Gyro data to do the Dot Product
             # drive_and_measure returns converted readings.
             # We'll do a manual drive loop to get raw data.
             raw_gyro_samples = []
             try:
-                self.hw.set_motors(power, -power)
+                self.hw.set_motors(power_high, power_low)
                 start = time.time()
                 while time.time() - start < 1.5:
                     _, g = self.hw.read_imu_raw()
@@ -622,16 +663,18 @@ class WiringCheck:
                  continue
 
             # 4. Deduce Motor Mapping
+            # We commanded (Ch0=High, Ch1=Low).
+            # If Ch0=Left, Ch1=Right -> Left is Outer -> Turn Right (CW).
+            # If Ch0=Right, Ch1=Left -> Right is Outer -> Turn Left (CCW).
+
             if dot_prod > 0:
-                # CCW Spin (Left).
-                # To spin Left: Right Motor Fwd, Left Motor Back.
-                # We commanded: Ch0 (Fwd), Ch1 (Back).
-                # Therefore: Ch0 is Right, Ch1 is Left.
-                print("  -> Detected Counter-Clockwise (Left) Spin.")
+                # CCW Turn (Left).
+                # Means Right Motor was Outer (High).
+                # So Ch0 is Right.
+                print("  -> Detected Counter-Clockwise (Left) Turn.")
                 print("  -> Deduction: Ch0 is Right, Ch1 is Left.")
 
                 # Check current config
-                # If config says L=0, R=1, it is WRONG.
                 # We want L=1, R=0.
                 if self.config.motor_l == 0:
                     print("  -> ACTION: Swapping Channels to Correct Mapping.")
@@ -640,14 +683,14 @@ class WiringCheck:
                     print("  -> Mapping is already correct.")
 
             else:
-                # CW Spin (Right).
-                # To spin Right: Left Motor Fwd, Right Motor Back.
-                # We commanded: Ch0 (Fwd), Ch1 (Back).
-                # Therefore: Ch0 is Left, Ch1 is Right.
-                print("  -> Detected Clockwise (Right) Spin.")
+                # CW Turn (Right).
+                # Means Left Motor was Outer (High).
+                # So Ch0 is Left.
+                print("  -> Detected Clockwise (Right) Turn.")
                 print("  -> Deduction: Ch0 is Left, Ch1 is Right.")
 
                 # Check current config
+                # We want L=0, R=1.
                 if self.config.motor_l == 1:
                      print("  -> ACTION: Swapping Channels to Correct Mapping.")
                      self.config.motor_l, self.config.motor_r = self.config.motor_r, self.config.motor_l
@@ -952,9 +995,13 @@ class WiringCheck:
 
         # 2. Verify Right Turn
         print("  [Check 2] Turn Right (Clockwise)...")
-        # Command L+, R-
+        # Command L+, R- (Spin) -> Changed to Arc (L+, R_low) to avoid drag
 
-        result = self.hw.drive_and_measure(power, -power, 1.0)
+        power_high = self.config.min_power_visible + 15
+        power_low = power_high * 0.5
+
+        # Turn Right -> Drive Left Motor (High), Right Motor (Low)
+        result = self.hw.drive_and_measure(power_high, power_low, 1.0)
 
         avg_yaw_signed = result.avg_yaw_rate
 
