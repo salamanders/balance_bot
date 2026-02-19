@@ -30,32 +30,21 @@ def main() -> None:
         os.environ["ALLOW_MOCK_FALLBACK"] = "1"
 
     try:
-        if args.reset_brain:
-            from .discovery.knowledge_graph import DiscoveryContext
-            DiscoveryContext().forget_all()
-            if not args.discover:
+        if args.reset_brain or args.force:
+            from .config import RobotConfig
+            print("Resetting Robot Memory...")
+            cfg = RobotConfig.load()
+            cfg.reset_hardware_map()
+            cfg.save()
+            print("Brain reset complete.")
+            # If we are not discovering or checking wiring, we are done.
+            if not args.discover and not args.check_wiring:
                 return
 
-        if args.discover:
-            from .discovery.knowledge_graph import DiscoveryContext
-            from .discovery.baby_brain import DiscoveryBrain
-            from .discovery.types import Atom
-
+        if args.discover or args.check_wiring:
             try:
-                ctx = DiscoveryContext()
-                # Check if we already graduated
-                if ctx.has_atom(Atom.TRIM_CALIBRATION) and not args.force:
-                     print("I already know how to walk. Use --force to relearn.")
-                     return
-
-                brain = DiscoveryBrain(ctx)
-                brain.think()
-            except KeyboardInterrupt:
-                pass
-            return
-
-        if args.check_wiring:
-            try:
+                # WiringCheck handles incremental discovery automatically.
+                # If reset_hardware_map was called, it starts from scratch.
                 WiringCheck().run()
             except KeyboardInterrupt:
                 pass

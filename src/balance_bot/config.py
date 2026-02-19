@@ -455,6 +455,27 @@ class RobotConfig:
             **config_kwargs,
         )
 
+    def reset_hardware_map(self) -> None:
+        """Reset all discovered hardware mappings to force re-discovery."""
+        self.motor_i2c_bus = None
+        self.imu_i2c_bus = None
+        self.gyro_pitch_axis = None
+        self.gyro_pitch_invert = False
+        self.gyro_yaw_axis = None
+        self.gyro_yaw_invert = False
+        self.gyro_roll_axis = None
+        self.gyro_roll_invert = False
+        self.accel_vertical_axis = None
+        self.accel_vertical_invert = False
+        self.accel_forward_axis = None
+        self.accel_forward_invert = False
+        self.min_power_visible = 0
+        self.motor_phasing_verified = False
+        self.motor_direction_verified = False
+        self.motor_channels_verified = False
+        self.motor_trim_verified = False
+        self.balance_verified = False
+
     def save(self) -> None:
         """Serialize and save the current configuration to disk."""
         try:
