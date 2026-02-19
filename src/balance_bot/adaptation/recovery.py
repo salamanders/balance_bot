@@ -1,5 +1,5 @@
 import logging
-from ..config import STARTUP_RAMP_SPEED
+from ..config import STARTUP_RAMP_SPEED, ControlConfig
 
 logger = logging.getLogger(__name__)
 
@@ -9,9 +9,10 @@ class RecoveryManager:
     Implements a 'Soft Start' ramp to prevent violent jerks when picking up the robot.
     """
 
-    def __init__(self):
+    def __init__(self, config: ControlConfig = None):
         self.recovering = False
         self.ramp_setpoint = 0.0
+        self.config = config if config else ControlConfig()
 
     def update(self, is_crashed: bool, current_pitch: float, current_kp: float) -> float | None:
         """
@@ -34,7 +35,7 @@ class RecoveryManager:
             # We just woke up.
             # Logic from old main.py:
             # If Kp is high (normal operation) and we are leaning significantly, assume we were just picked up.
-            if current_kp >= 1.0 and abs(current_pitch) > 5.0:
+            if current_kp >= self.config.soft_recovery_kp_threshold and abs(current_pitch) > self.config.upright_threshold:
                 logger.info(f"-> Starting Soft Recovery from {current_pitch:.1f} deg")
                 self.recovering = True
                 self.ramp_setpoint = current_pitch
@@ -56,7 +57,7 @@ class RecoveryManager:
 
             # Check completion
             # If ramp is near zero and robot is near zero
-            if abs(self.ramp_setpoint) < 0.1 and abs(current_pitch) < 5.0:
+            if abs(self.ramp_setpoint) < 0.1 and abs(current_pitch) < self.config.upright_threshold:
                 logger.info("-> Recovery Complete.")
                 self.recovering = False
                 return None

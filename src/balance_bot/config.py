@@ -247,6 +247,9 @@ class ControlConfig:
         * Purpose: Scales manual turn input to motor differential.
         * Limits: 10.0 to 50.0.
         * Impact: Higher = sharper, faster turns; Lower = slower turns.
+    :param soft_recovery_kp_threshold: Minimum Kp to trigger soft recovery logic.
+        * UOM: Dimensionless
+        * Purpose: Avoid triggering recovery when in learning/low-gain mode.
     """
     yaw_correction_factor: float = 0.5
     upright_threshold: float = 5.0
@@ -255,6 +258,7 @@ class ControlConfig:
     kickup_power_backward: float = 0.0  # Power to kick up from Front (Pos Pitch) -> Back
     max_tilt_angle: float = 10.0        # Maximum tilt angle commanded by velocity input (degrees)
     turn_gain: float = 30.0             # Gain for manual turn commands
+    soft_recovery_kp_threshold: float = 1.0 # Minimum Kp to trigger soft recovery logic
 
 
 @dataclass(frozen=True)
