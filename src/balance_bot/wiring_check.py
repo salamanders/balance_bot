@@ -616,19 +616,10 @@ class WiringCheck:
 
             print(f"  Driving Arc (Ch0={power_high:.0f}, Ch1={power_low:.0f})...")
 
-            # We need Raw Gyro data to do the Dot Product
-            # drive_and_measure returns converted readings.
-            # We'll do a manual drive loop to get raw data.
-            raw_gyro_samples = []
-            try:
-                self.hw.set_motors(power_high, power_low)
-                start = time.time()
-                while time.time() - start < 1.5:
-                    _, g = self.hw.read_imu_raw()
-                    raw_gyro_samples.append(g)
-                    time.sleep(0.01)
-            finally:
-                self.hw.stop()
+            # We need Raw Gyro data to do the Dot Product.
+            # execute_maneuver returns IMUReading which contains raw data.
+            result = self.hw.execute_maneuver([(power_high, power_low, 1.5)])
+            raw_gyro_samples = [s.gyro_raw for s in result.samples if s.gyro_raw]
 
             if not raw_gyro_samples:
                 print("  [WARNING] No gyro samples collected. Retrying...")
@@ -840,23 +831,11 @@ class WiringCheck:
 
         print(f"  [Action] Roll {setup_p:.1f} (0.3s) -> Slam {kick_p:.1f} (0.4s)...")
 
-        samples = []
-        try:
-            # Phase 1: Setup (Roll)
-            self.hw.set_motors(setup_p, setup_p)
-            start = time.time()
-            while time.time() - start < 0.3:
-                samples.append(self.hw.read_imu_converted())
-                time.sleep(0.01)
-
-            # Phase 2: Kick (Slam)
-            self.hw.set_motors(kick_p, kick_p)
-            start = time.time()
-            while time.time() - start < 0.4:
-                samples.append(self.hw.read_imu_converted())
-                time.sleep(0.01)
-        finally:
-            self.hw.stop()
+        result = self.hw.execute_maneuver([
+            (setup_p, setup_p, 0.3),
+            (kick_p, kick_p, 0.4)
+        ])
+        samples = result.samples
 
         # Coast & Check
         time.sleep(1.0)

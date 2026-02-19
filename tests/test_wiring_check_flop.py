@@ -105,59 +105,46 @@ def test_attempt_dynamic_flop_physics(wc_fixture):
     # The loop runs set_motors once, then loops reading IMU.
     # Then runs set_motors(kick), loops reading IMU.
 
-    # We can patch time.time to jump forward.
-    start_time = 1000.0
+    # Test BACK kick (Should use Negative Power for kick)
+    # _attempt_dynamic_flop calls self.hw.execute_maneuver(steps)
+    # We just verify the steps passed to it.
 
-    with patch("time.time", side_effect=[
-        start_time,          # start = time.time() (Phase 1)
-        start_time + 0.31,   # check < 0.3 -> False (Exit Phase 1)
-        start_time + 1.0,    # start = time.time() (Phase 2)
-        start_time + 1.41,   # check < 0.4 -> False (Exit Phase 2)
-        start_time + 2.0,    # time.time() in coast check
-    ]), patch("time.sleep"):
+    # We need to mock return value of execute_maneuver to have samples, otherwise it might crash
+    mock_hw.execute_maneuver.return_value = MagicMock(samples=[])
 
-        # Test BACK kick (Should use Negative Power for kick)
-        mock_hw.set_motors.reset_mock()
+    with patch("time.sleep"): # To speed up coast check
         wc._attempt_dynamic_flop("BACK", 50.0)
 
-        calls = mock_hw.set_motors.call_args_list
-        assert len(calls) >= 2
+    mock_hw.execute_maneuver.assert_called_once()
+    steps = mock_hw.execute_maneuver.call_args[0][0]
 
-        # Call 0: Setup (Roll Forward -> Positive)
-        setup_args = calls[0][0]
-        assert setup_args[0] > 0, "Back setup should be positive roll"
+    # Steps: [(setup, setup, 0.3), (kick, kick, 0.4)]
+    assert len(steps) == 2
 
-        # Call 1: Kick (Kick Up -> Backward Wheels -> Negative)
-        kick_args = calls[1][0]
-        assert kick_args[0] < 0, "Back kick should be negative power"
-        assert kick_args[0] == -50.0
+    # Step 0: Setup (Roll Forward -> Positive)
+    setup_p = steps[0][0]
+    assert setup_p > 0, "Back setup should be positive roll"
+    assert steps[0][2] == 0.3 # Duration
 
-        # Test FRONT kick (Should use Positive Power for kick)
-        # Reset time mocks if needed, but side_effect is consumed.
-        # Let's just create a new context or rely on side_effect len.
-        # Actually side_effect is consumed.
-        pass
+    # Step 1: Kick (Kick Up -> Backward Wheels -> Negative)
+    kick_p = steps[1][0]
+    assert kick_p < 0, "Back kick should be negative power"
+    assert kick_p == -50.0
+    assert steps[1][2] == 0.4 # Duration
 
-    # Re-run for FRONT with fresh time mocks
-    with patch("time.time", side_effect=[
-        start_time,          # start = time.time() (Phase 1)
-        start_time + 0.31,   # check < 0.3 -> False (Exit Phase 1)
-        start_time + 1.0,    # start = time.time() (Phase 2)
-        start_time + 1.41,   # check < 0.4 -> False (Exit Phase 2)
-        start_time + 2.0,    # time.time() in coast check
-    ]), patch("time.sleep"):
-
-        mock_hw.set_motors.reset_mock()
+    # Test FRONT kick
+    mock_hw.execute_maneuver.reset_mock()
+    with patch("time.sleep"):
         wc._attempt_dynamic_flop("FRONT", 50.0)
 
-        calls = mock_hw.set_motors.call_args_list
-        assert len(calls) >= 2
+    mock_hw.execute_maneuver.assert_called_once()
+    steps = mock_hw.execute_maneuver.call_args[0][0]
 
-        # Call 0: Setup (Roll Backward -> Negative)
-        setup_args = calls[0][0]
-        assert setup_args[0] < 0, "Front setup should be negative roll"
+    # Step 0: Setup (Roll Backward -> Negative)
+    setup_p = steps[0][0]
+    assert setup_p < 0, "Front setup should be negative roll"
 
-        # Call 1: Kick (Kick Up -> Forward Wheels -> Positive)
-        kick_args = calls[1][0]
-        assert kick_args[0] > 0, "Front kick should be positive power"
-        assert kick_args[0] == 50.0
+    # Step 1: Kick (Kick Up -> Forward Wheels -> Positive)
+    kick_p = steps[1][0]
+    assert kick_p > 0, "Front kick should be positive power"
+    assert kick_p == 50.0
