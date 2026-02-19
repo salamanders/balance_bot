@@ -30,18 +30,22 @@ class TestAgentStartup(unittest.TestCase):
         self.mock_tuner_instance = self.mock_tuner_cls.return_value
         self.mock_tuner_instance.get_current_scale.return_value = 1.0
 
+        # Patch RecoveryManager explicitly so we can verify calls
+        self.recovery_patcher = patch("balance_bot.behavior.agent.RecoveryManager")
+        self.mock_recovery_cls = self.recovery_patcher.start()
+
         # Patch others to avoid side effects
         patch("balance_bot.behavior.agent.setup_logging").start()
         patch("balance_bot.behavior.agent.LedController").start()
         patch("balance_bot.behavior.agent.BalancePointFinder").start()
         patch("balance_bot.behavior.agent.BatteryEstimator").start()
-        patch("balance_bot.behavior.agent.RecoveryManager").start()
 
         # Configure common mocks
         self.mock_config_file.exists.return_value = True
 
         self.mock_config_instance = MagicMock()
         self.mock_config_instance.pid = MagicMock()
+        self.mock_config_instance.control = MagicMock() # Ensure control config exists
         # Ensure we have target_angle
         self.mock_config_instance.pid.target_angle = 0.0
         self.mock_config_instance.loop_time = 0.01
@@ -50,6 +54,14 @@ class TestAgentStartup(unittest.TestCase):
 
     def tearDown(self):
         patch.stopall()
+
+    def test_recovery_manager_initialized_with_config(self):
+        """Test that RecoveryManager is initialized with control config."""
+        # Act
+        agent = Agent()
+
+        # Assert
+        self.mock_recovery_cls.assert_called_once_with(self.mock_config_instance.control)
 
     def test_normal_run_on_back_triggers_kickup(self):
         # Arrange

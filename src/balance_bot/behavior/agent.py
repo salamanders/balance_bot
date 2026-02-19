@@ -66,7 +66,7 @@ class Agent:
         self.tuner.reset_aggression(self.first_run or self.force_tune)
         self.balance_finder = BalancePointFinder(self.config.tuner)
         self.battery = BatteryEstimator(self.config.battery)
-        self.recovery = RecoveryManager()
+        self.recovery = RecoveryManager(self.config.control)
 
         # Tier 3
         self.led = LedController(self.config.led)
