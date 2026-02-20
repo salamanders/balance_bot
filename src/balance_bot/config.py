@@ -111,9 +111,6 @@ class SystemTiming(BaseModel):
     battery_log_interval: float = 5.0
 
 
-SYSTEM_TIMING = SystemTiming()
-
-
 @contextmanager
 def temp_pid_overrides(pid_params: PIDParams, **overrides):
     """
@@ -145,6 +142,7 @@ class RobotConfig(BaseModel):
     tuner: TunerConfig = Field(default_factory=TunerConfig)
     led: LedConfig = Field(default_factory=LedConfig)
     control: ControlConfig = Field(default_factory=ControlConfig)
+    timing: SystemTiming = Field(default_factory=SystemTiming)
     motor_l: int = 0
     motor_r: int = 1
     motor_l_invert: bool = False
