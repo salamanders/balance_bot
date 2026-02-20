@@ -11,9 +11,9 @@ logger = logging.getLogger(__name__)
 CONFIG_FILE = Path("pid_config.json")
 
 # Angle Thresholds (Degrees)
-BALANCING_THRESHOLD = 20.0      # Normal operating range (+/-)
-REST_ANGLE_MIN = 30.0           # Minimum angle to be considered "resting" on strut
-REST_ANGLE_MAX = 50.0           # Maximum angle for resting (strut height)
+BALANCING_THRESHOLD = 15.0      # Normal operating range (+/-)
+REST_ANGLE_MIN = 15.0           # Minimum angle to be considered "resting" on strut (covers ~20 deg)
+REST_ANGLE_MAX = 55.0           # Maximum angle for resting (strut height)
 
 # Startup / Recovery
 STARTUP_RAMP_SPEED = 0.5        # Degrees per loop cycle to adjust setpoint during startup
