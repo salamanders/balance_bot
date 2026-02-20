@@ -6,6 +6,10 @@ This robot is a homebrew project built with bottom-tier hardware. The motors may
 might be uneven, and the structural integrity relies on zip-ties, duct tape, chewing gum, and a can-do attitude. The IMU
 might be mounted at a completely bizarre angle.
 
+**Crucially, the robot is equipped with Front and Back Training Wheels (Bumpers).** These allow it to rest safely at an
+angle (approx. 20°) without crashing. This defines the robot's existence: it is either **Resting** (safe, on a bumper),
+**Balancing** (precarious, upright), or **Crashed** (rare failure, face-planted beyond the bumpers).
+
 Because the physical form is unpredictable and the robot must operate autonomously, we cannot rely on hardcoded
 constants, and **human intervention is a failure of logic.**
 
@@ -42,14 +46,14 @@ verify the fix worked before proceeding.
 
 ## Phase 2: The Sense of Down (Gravity)
 
-* **What do I know?** My sensors work and I can read them. I am resting statically on the floor, leaning on either a
-  front or back kickstand/training wheel.
+* **What do I know?** My sensors work and I can read them. I am resting statically on a physical bumper (front or back).
 * **What am I uncertain of?** How is my IMU mounted? Which way is Down?
 * **Action:** Ensure motors are strictly OFF. Take 100 readings from the 3-axis Accelerometer over 1 second and average
   the vectors.
 * **Deduction:** Gravity dominates static acceleration. The normalized unit vector of this average reading is exactly
   the **Down Vector ($\vec{D}$)** in my arbitrary internal 3D coordinate space. Its inverse is the **Up
   Vector ($\vec{U}$)**.
+    * *Note: The robot is TILTED in this state. This is normal.*
 
 > **Implementation Status:** Implemented.
 > **Code Correlation:** `src/balance_bot/wiring_check.py` in `calibrate_static_orientation` method.
@@ -80,20 +84,20 @@ verify the fix worked before proceeding.
 
 ## Phase 4: The Sense of Forward (Pitch Axis & Polarity)
 
-* **What do I know?** $\vec{D}$ (Down), `min_pwm`, and that my motors push together. I am leaning at an angle.
+* **What do I know?** $\vec{D}$ (Down), `min_pwm`, and that my motors push together. I am leaning on a bumper.
 * **What am I uncertain of?** Which motor polarity means "Forward" (driving *under* the center of mass to stand up)?
   Which IMU axis measures my Pitch?
 * **Action:**
-    1. **Orientation:** Lean the robot **FORWARD** (on its front face/kickstand). This is critical: Positive Power is defined
+    1. **Orientation:** Lean the robot **FORWARD** (rest on its front bumper). This is critical: Positive Power is defined
        as the direction that stands the robot up *from a forward lean*.
     2. **Pulse:** Apply a brief, strong pulse (+50%) to *both* motors in the Positive direction. Observe the Accelerometer
        and Gyroscope.
 * **Deduction:**
     * The Gyro rotation vector during this lurch is definitively the **Pitch Axis ($\vec{P}$)**.
     * Look at the angle between the Up vector and the accelerometer.
-    * If the pitch angle *decreases* (the chassis moves toward vertical from the front), the wheels drove *under* the
+    * If the pitch angle *decreases* (the chassis moves toward vertical from the front bumper), the wheels drove *under* the
       leaning center of mass. This is exactly what "Forward" means for a balancing robot. Positive = Forward.
-    * If the pitch angle *increases* (the chassis slams harder into the ground), the wheels drove *away* from the center
+    * If the pitch angle *increases* (the chassis slams harder into the bumper), the wheels drove *away* from the center
       of mass (Backward).
         * **Fix:** Invert *both* global motor polarities in software. **Re-run the test** to verify positive PWM causes
           the robot to pitch up.
@@ -153,8 +157,8 @@ verify the fix worked before proceeding.
 * **What do I know?** I am perfectly physically mapped and trimmed.
 * **What am I uncertain of?** Because of battery placement and zip-ties, my physical Center of Mass (CoM) probably isn't
   perfectly aligned with the wheel axles. If I try to balance at an angle of 0.0°, I might constantly drift.
-* **Action:** Engage the 100Hz PID balance loop and execute a "Kick-Up" to stand. Attempt to hover in place with a
-  `target_angle = 0.0°`.
+* **Action:** Engage the 100Hz PID balance loop and execute a "Kick-Up" maneuver to transition from Resting (on bumper)
+  to Balancing. Attempt to hover in place with a `target_angle = 0.0°`.
 * **Deduction:**
     * While balancing, monitor the Integral (I) term of the PID, or the average motor PWM over a 3-second rolling
       window.
