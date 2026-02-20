@@ -8,7 +8,7 @@ sys.modules["mpu6050"] = MagicMock()
 
 # Now we can import safely
 from balance_bot.wiring_check import WiringCheck
-from balance_bot.config import RobotConfig
+from balance_bot.config import RobotConfig, PIDParams
 from balance_bot.utils import Vector3
 from balance_bot.enums import Axis
 
@@ -16,7 +16,7 @@ class TestAutonomousConfig(unittest.TestCase):
     def setUp(self):
         # Patch RobotConfig.load to return a fresh config
         with patch('balance_bot.config.RobotConfig.load') as mock_load:
-            mock_load.return_value = RobotConfig(pid=MagicMock())
+            mock_load.return_value = RobotConfig(pid=PIDParams())
             self.check = WiringCheck()
 
         # Mock HW
@@ -56,6 +56,14 @@ class TestAutonomousConfig(unittest.TestCase):
             (Vector3(0, 0, -1.0), Vector3(0, 0, 0)), # Gravity
         ] + [spin_sample] * 200 # Spin samples
 
+        # Mock execute_maneuver to return the spin samples
+        res = MagicMock()
+        # Create samples that appear to have gyro_raw
+        s = MagicMock()
+        s.gyro_raw = spin_sample[1] # The gyro part
+        res.samples = [s] * 10
+        self.check.hw.execute_maneuver.return_value = res
+
         with patch('builtins.input', return_value=''):
             self.check.deduce_left_right_autonomous()
 
@@ -79,6 +87,13 @@ class TestAutonomousConfig(unittest.TestCase):
         self.check.hw.read_imu_raw.side_effect = [
             (Vector3(0, 0, -1.0), Vector3(0, 0, 0)), # Gravity
         ] + [spin_sample] * 200 # Spin samples
+
+        # Mock execute_maneuver
+        res = MagicMock()
+        s = MagicMock()
+        s.gyro_raw = spin_sample[1]
+        res.samples = [s] * 10
+        self.check.hw.execute_maneuver.return_value = res
 
         with patch('builtins.input', return_value=''):
             self.check.deduce_left_right_autonomous()
