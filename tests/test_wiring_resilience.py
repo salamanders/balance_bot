@@ -7,35 +7,25 @@ import math
 sys.modules["smbus"] = MagicMock()
 sys.modules["piconzero"] = MagicMock()
 
-from src.balance_bot.wiring_check import WiringCheck
-from src.balance_bot.utils import Vector3
-from src.balance_bot.enums import Axis
-from src.balance_bot.config import RobotConfig
-from src.balance_bot.hardware.robot_hardware import MeasureResult, IMUReading
+from balance_bot.wiring_check import WiringCheck
+from balance_bot.utils import Vector3
+from balance_bot.enums import Axis
+from balance_bot.config import RobotConfig, PIDParams
+from balance_bot.hardware.robot_hardware import MeasureResult, IMUReading
 
 class TestWiringResilience(unittest.TestCase):
 
     def setUp(self):
-        # Reset Config singleton-ish behavior by mocking load
-        self.mock_config = MagicMock(spec=RobotConfig)
+        # Use real config instead of mock to avoid Pydantic spec issues
+        self.mock_config = RobotConfig(pid=PIDParams())
         self.mock_config.motor_i2c_bus = 1
         self.mock_config.imu_i2c_bus = 1
         self.mock_config.motor_trim = 0.0
-        # Add the new fields
-        self.mock_config.rest_angle_forward = None
-        self.mock_config.rest_angle_backward = None
-        # Mock other needed fields
-        self.mock_config.accel_vertical_axis = None
-        self.mock_config.accel_forward_axis = None
-        self.mock_config.gyro_pitch_axis = None
-        self.mock_config.accel_vertical_invert = False
-        self.mock_config.accel_forward_invert = False
-        self.mock_config.gyro_pitch_invert = False
         self.mock_config.min_power_visible = 20
 
-    @patch("src.balance_bot.wiring_check.RobotHardware")
-    @patch("src.balance_bot.wiring_check.input", side_effect=lambda x: None) # skip input prompts
-    @patch("src.balance_bot.wiring_check.time.sleep", side_effect=lambda x: None) # skip sleep
+    @patch("balance_bot.wiring_check.RobotHardware")
+    @patch("balance_bot.wiring_check.input", side_effect=lambda x: None) # skip input prompts
+    @patch("balance_bot.wiring_check.time.sleep", side_effect=lambda x: None) # skip sleep
     def test_asymmetric_rest_angles(self, mock_sleep, mock_input, MockHW):
         # Setup Mock Hardware Instance
         hw_instance = MockHW.return_value
@@ -128,8 +118,8 @@ class TestWiringResilience(unittest.TestCase):
         # Close to -10.
         self.assertAlmostEqual(wc.config.rest_angle_backward, -9.84, places=1)
 
-    @patch("src.balance_bot.wiring_check.RobotHardware")
-    @patch("src.balance_bot.wiring_check.time.sleep", side_effect=lambda x: None)
+    @patch("balance_bot.wiring_check.RobotHardware")
+    @patch("balance_bot.wiring_check.time.sleep", side_effect=lambda x: None)
     def test_adaptive_trim_calibration(self, mock_sleep, MockHW):
         hw_instance = MockHW.return_value
         wc = WiringCheck()

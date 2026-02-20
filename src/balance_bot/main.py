@@ -3,7 +3,6 @@ import sys
 import argparse
 import traceback
 import importlib.metadata
-from dataclasses import asdict
 from .wiring_check import WiringCheck
 from .behavior.agent import Agent
 from .utils import setup_logging, get_captured_logs
@@ -86,7 +85,7 @@ def main() -> None:
                 try:
                     # 'bot' is an Agent instance
                     agent_inst = locals()["bot"]
-                    state = asdict(agent_inst.config)
+                    state = agent_inst.config.model_dump()
                     # Add runtime info
                     state["runtime_ticks"] = agent_inst.ticks
                 except Exception:

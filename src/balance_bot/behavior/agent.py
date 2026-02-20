@@ -3,8 +3,6 @@ import time
 import logging
 import json
 import concurrent.futures
-from dataclasses import asdict
-
 from ..config import (
     CONFIG_FILE,
     RobotConfig,
@@ -249,7 +247,7 @@ class Agent:
                     if self.config_dirty and (time.monotonic() - self.last_save_time > SYSTEM_TIMING.save_interval):
                         # Asynchronous Configuration Save
                         try:
-                            config_snapshot = asdict(self.config)
+                            config_snapshot = self.config.model_dump()
                             # Only capture snapshot in main thread; serialize in background
                             self.io_executor.submit(self._save_config_worker, config_snapshot)
 
