@@ -189,9 +189,9 @@ Kick-Up maneuver based on established facts, and balances flawlessly.
 > **Implementation Status:** Implemented.
 > **Code Correlation:** `src/balance_bot/config.py` in `RobotConfig.save`.
 
+---
 
-
-## Appendix: Finding the True Balance Point (Deep Dive)
+# Appendix A: Finding the True Balance Point (Deep Dive)
 
 ## Problem Statement
 
@@ -235,3 +235,44 @@ Once enough samples are collected (defined by `balance_check_interval`), the ave
 *   **Max Deviation Clamp**: The target angle is clamped to a safe range (e.g., +/- 10 degrees) to prevent dangerous tilts.
 *   **Slow Learning**: The learning rate is small to ensure stability and avoid oscillation.
 *   **Persistence**: The calibrated `target_angle` is saved to `pid_config.json` via the `Agent`'s configuration saving mechanism, allowing the robot to "learn" its balance point over multiple sessions.
+
+---
+
+# Appendix B: Future Architecture (The "Proprioceptive Toddler" Protocol)
+
+This section outlines a design philosophy for a more "agentic" version of the wiring check, treating the robot as an autonomous agent building a **Knowledge Graph**.
+
+## 1. Philosophy: "Motor Babbling" & Graph Traversal
+
+A toddler does not follow a checklist to learn to walk. They lie on the floor, twitch a muscle, feel a sensation, and associate the two. They build a mental model of their body through **Motor Babbling** (random/semi-random actuation to observe sensor response).
+
+The proposed architecture is a **Dependency-Driven Discovery Engine**.
+
+* **Knowledge Atoms:** Discrete units of fact (e.g., `IMU_BUS_ID`, `GRAVITY_VECTOR`, `MOTOR_DEADBAND`).
+* **Experiments:** Small, atomic actions that require specific *Input Atoms* and produce *Output Atoms*.
+* **The Loop:** The robot continuously looks at what it knows, finds an experiment whose prerequisites are met, runs it, and adds the result to its knowledge base.
+
+## 2. The Knowledge Ontology (The "Atoms")
+
+These are the specific facts the robot can "know." The state is considered "Complete" when all Critical Atoms are populated.
+
+| Knowledge Atom | Type | Description | Dependency |
+| --- | --- | --- | --- |
+| `HardwareBus` | `int` | The I2C bus ID for motors/IMU. | *None* |
+| `GravityVector` | `Vector3` | Which raw axis points "Down"? | `HardwareBus` |
+| `StaticStability` | `bool` | Is the robot sitting still? | `HardwareBus` |
+| `MotorPresence` | `bool` | Do I have motors connected? | `HardwareBus` |
+| `FrictionThreshold` | `float` | PWM required to cause *any* vibration (Stiction). | `MotorPresence` |
+| `PitchAxis` | `Axis` | Which Gyro axis changes when I lurch? | `GravityVector`, `FrictionThreshold` |
+| `MotorPhasing` | `bool` | Do motors 0 and 1 spin together or fight? | `PitchAxis` |
+| `MotorPolarity` | `int` | Does +PWM make me pitch *up* (stand) or *down* (faceplant)? | `PitchAxis`, `MotorPhasing` |
+| `ChassisHandedness` | `Map` | Which motor channel is Left vs Right? | `MotorPolarity`, `GravityVector` |
+| `TrimCalibration` | `float` | Factor to make straight drive actually straight. | `ChassisHandedness` |
+
+## 3. Handling "Trauma" (Failure Modes)
+
+In a linear script, a failure is an exit. In a Discovery engine, a failure is **Data**.
+
+* **Ambiguity:** If "The Crunch" results in equal vibration on X and Y axes, the robot doesn't crash. It retries with higher power.
+* **Contradiction:** If "The Pirouette" says Motor 0 is Left, but a later validation check implies Motor 0 is Right, the robot invalidates the `ChassisHandedness` node and re-runs the experiment.
+* **The "Fall" Event:** If at any point the robot tips past `CRASH_ANGLE` (e.g., during "The Attempt"), the logic pauses. It waits for the human to reset it (Proprioception: "I am crashed"). Once upright, it resumes exactly where it left off, effectively "remembering" that the previous attempt knocked it over.

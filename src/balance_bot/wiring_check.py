@@ -5,7 +5,7 @@ try:
 except ImportError:
     smbus = None
 
-from typing import Callable
+from typing import Callable, Any
 from .diagnostics import run_diagnostics
 from .config import RobotConfig
 from .hardware.robot_hardware import RobotHardware, IMUReading
@@ -178,7 +178,7 @@ class WiringCheck:
         self.cleanup()
 
     # --- Phase 1: Hardware Connectivity ---
-    def _scan_for_device(self, name: str, check_fn) -> int | None:
+    def _scan_candidates(self, name: str, check_fn: Callable[[Any], bool]) -> int | None:
         """
         Scans I2C buses for a device using a callback.
         Returns the bus ID if found, else None.
@@ -202,6 +202,13 @@ class WiringCheck:
                 pass
         return None
 
+    def _scan_or_die(self, name: str, check_fn: Callable[[Any], bool]) -> int:
+        bus = self._scan_candidates(name, check_fn)
+        if bus is None:
+            print(f"  [FAILURE] Could not find {name} on any bus.")
+            sys.exit(1)
+        return bus
+
     def discover_buses(self):
         """
         Scan I2C buses [1, 3, 0, 2] for PiconZero (0x22) and MPU6050 (0x68).
@@ -213,33 +220,17 @@ class WiringCheck:
             bus.read_byte_data(0x22, 0)
             return True
 
-        found_motor = self._scan_for_device("PiconZero (Motors)", check_motor)
-
-        if found_motor is None:
-            print("  [FAILURE] Could not find PiconZero (0x22) on any bus.")
-            sys.exit(1)
-
-        self.config.motor_i2c_bus = found_motor
+        self.config.motor_i2c_bus = self._scan_or_die("PiconZero (Motors)", check_motor)
 
         # 2. Find IMU (0x68)
         def check_imu(bus):
             return bus.read_byte_data(0x68, 0x75) == 0x68
 
-        found_imu = self._scan_for_device("MPU6050 (IMU)", check_imu)
-
-        if found_imu is None:
-            print("  [FAILURE] Could not find MPU6050 (0x68) on any bus.")
-            sys.exit(1)
-
-        self.config.imu_i2c_bus = found_imu
+        self.config.imu_i2c_bus = self._scan_or_die("MPU6050 (IMU)", check_imu)
 
     # --- Phase 2: The Physical World (Sensors) ---
-    def calibrate_static_orientation(self):
-        """
-        Map Physical Axes (X, Y, Z) to Logical Axes (Vertical, Forward, Pitch).
-        Requirement: Robot on floor, resting on one training wheel, then the other.
-        Resilient to asymmetric training wheels or steep leans.
-        """
+    def _measure_gravity_vectors(self) -> tuple[Vector3, Vector3]:
+        """Measure gravity vector at Back and Front resting positions."""
         print(">>> Calibrating Orientation <<<")
         print("Please place the robot on the FLOOR.")
         print("Ensure motors are OFF and it is resting on the BACK training wheel.")
@@ -248,7 +239,7 @@ class WiringCheck:
         # 1. Read Back Rest Gravity
         print("  Measuring Gravity (Back Position)...")
         time.sleep(0.5)
-        samples = 100  # Increased for noise resilience
+        samples = 100
         accel_sum_back = Vector3(0.0, 0.0, 0.0)
 
         for _ in range(samples):
@@ -272,12 +263,13 @@ class WiringCheck:
 
         avg_front = accel_sum_front / samples
         print(f"  [DEBUG] Avg Front Vector: {avg_front}")
+        return avg_back, avg_front
 
+    def _deduce_axes(self, avg_back: Vector3, avg_front: Vector3):
+        """Deduce Pitch, Vertical, and Forward axes from gravity vectors."""
         # 3. Determine Pitch Axis via Cross Product (Normal to the motion plane)
-        # Back x Front gives the axis of rotation (Pitch)
         pitch_vec = avg_back.cross(avg_front)
 
-        # Analyze dominance for Pitch Axis
         pitch_axis_name, pitch_magnitude, _ = analyze_dominance(
             {k: abs(v) for k, v in pitch_vec.items()},
             "Pitch Axis (CrossProd)"
@@ -287,35 +279,19 @@ class WiringCheck:
             print("  [WARNING] Pitch axis unclear. Did the robot actually move?")
 
         self.config.gyro_pitch_axis = Axis(pitch_axis_name)
-        # Determine Pitch Invert: We define Pitch such that Tipping Forward (Back->Front) is POSITIVE rate?
-        # No, usually Pitch Up (Back) is positive angle?
-        # Convention: Forward lean is Positive Pitch? No, usually Back is Negative, Forward is Positive.
-        # Gyro Rate: Right Hand Rule around Pitch Axis.
-        # If we rotate from Back to Front, we are rotating in ONE direction.
-        # Let's trust cross product sign for axis direction relative to the plane.
-        # But we need consistent polarity. We'll verify polarity in 'determine_motor_direction'.
-        # For now, just pick the sign of the cross product vector.
         self.config.gyro_pitch_invert = pitch_vec[pitch_axis_name] < 0
         print(f"  -> Pitch Axis: {pitch_axis_name.upper()} (Invert: {self.config.gyro_pitch_invert})")
 
-        # 4. Determine Vertical and Forward Axes
-        # Vertical should be the dominant component of Gravity when 'Back' (assuming lean < 45 deg).
-        # But we must exclude the Pitch Axis from consideration.
-
+        # 4. Determine Vertical Axis
         candidates = {k: abs(v) for k, v in avg_back.items() if k != pitch_axis_name}
         vert_axis_name, _, _ = analyze_dominance(candidates, "Vertical Axis (Gravity)")
 
         self.config.accel_vertical_axis = Axis(vert_axis_name)
-        # Invert if gravity component is negative (Gravity points DOWN, so Sensor Up sees +1g usually? No, Sensor measures reaction force +1g Up? No, measures Gravity -1g?)
-        # Standard accelerometer: +1g on Z when Z is pointing Up.
-        # So if avg_back[vert] is positive, that axis is pointing Up.
-        # We want 'accel_vertical' to represent Up.
-        # So if value is negative, we invert it?
-        # Wait. RobotHardware expects accel_vertical to be +1g when Up.
+        # Invert if gravity component is negative
         self.config.accel_vertical_invert = avg_back[vert_axis_name] < 0
         print(f"  -> Vertical Axis: {vert_axis_name.upper()} (Invert: {self.config.accel_vertical_invert})")
 
-        # Forward Axis is the remaining one
+        # 5. Determine Forward Axis
         all_axes = {'x', 'y', 'z'}
         used = {pitch_axis_name, vert_axis_name}
         remaining = list(all_axes - used)
@@ -328,46 +304,32 @@ class WiringCheck:
         self.config.accel_forward_axis = Axis(forward_axis_name)
 
         # Deduce Forward Inversion
-        # Change in Forward Axis component should be positive when moving Back -> Front?
-        # Back -> Front means moving 'Forward'.
-        # Gravity vector rotates.
-        # We'll rely on delta.
         delta_fwd = avg_front[forward_axis_name] - avg_back[forward_axis_name]
-        # When tipping forward, the forward axis should see change.
-        # Polarity is tricky without visualizing.
-        # We will assume 'Forward' means nose down?
-        # Let's stick to the heuristic: Delta < 0 means invert?
-        # The previous code used: delta_fwd < 0. Let's keep it but note it might be wrong.
         self.config.accel_forward_invert = delta_fwd < 0
         print(f"  -> Forward Axis: {forward_axis_name.upper()} (Invert: {self.config.accel_forward_invert})")
 
-        # Deduce Gyro Yaw/Roll (Standard mapping relative to Vertical/Forward)
+        # Deduce Gyro Yaw/Roll
         self.config.gyro_yaw_axis = Axis(vert_axis_name)
         self.config.gyro_roll_axis = Axis(forward_axis_name)
 
-        # 5. Calculate and Store Rest Angles
-        # Now that we have the axes, we can calculate the actual pitch angles for the two positions.
-        self.init_hw() # Re-init with new axes
-
-        # We can't use read_imu_converted directly on the averages because they are raw.
-        # But we can reconstruct Vector3 for the averages and pass them through logic.
-        # Or easier: just read fresh samples now that we are in position (Front).
-        # We are currently at FRONT position.
+    def _calculate_rest_angles(self, avg_back: Vector3):
+        """Calculate and store rest angles based on deduced axes."""
+        # Re-init hardware with new axes configuration
+        self.init_hw()
 
         print("  Measuring Rest Angles...")
+        # Currently at FRONT position
         curr_front_reading = self.hw.read_imu_converted()
         angle_front = curr_front_reading.pitch_angle
 
-        # We need to ask user to put it back to Back position to measure Back Angle?
-        # Or we can calculate it from avg_back using the known axes.
+        # Calculate Back Angle from avg_back using known axes
+        fwd_val_back = getattr(avg_back, self.config.accel_forward_axis.value)
+        if self.config.accel_forward_invert:
+            fwd_val_back = -fwd_val_back
 
-        # Calculate Back Angle from avg_back
-        # Map raw avg_back to logical axes
-        fwd_val_back = getattr(avg_back, forward_axis_name)
-        if self.config.accel_forward_invert: fwd_val_back = -fwd_val_back
-
-        vert_val_back = getattr(avg_back, vert_axis_name)
-        if self.config.accel_vertical_invert: vert_val_back = -vert_val_back
+        vert_val_back = getattr(avg_back, self.config.accel_vertical_axis.value)
+        if self.config.accel_vertical_invert:
+            vert_val_back = -vert_val_back
 
         from .utils import calculate_pitch
         angle_back = calculate_pitch(fwd_val_back, vert_val_back)
@@ -377,10 +339,17 @@ class WiringCheck:
 
         print(f"  -> Calibrated Rest Angles: Back={angle_back:.1f}, Front={angle_front:.1f}")
 
-        # Validate Spread
         spread = angle_front - angle_back
         if spread < 10.0:
             print(f"  [WARNING] Rest angle spread is very small ({spread:.1f}). Is the robot balanced on a point?")
+
+    def calibrate_static_orientation(self):
+        """
+        Map Physical Axes (X, Y, Z) to Logical Axes.
+        """
+        avg_back, avg_front = self._measure_gravity_vectors()
+        self._deduce_axes(avg_back, avg_front)
+        self._calculate_rest_angles(avg_back)
 
 
     # --- Phase 3a: Friction Threshold ---
@@ -868,6 +837,49 @@ class WiringCheck:
         else:
             return "FAIL_POWER"
 
+    def _run_kickup_test(self, direction: str, check_fn: Callable[[float], bool], config_attr: str, msg: str):
+        """Run kick-up test for a single direction."""
+        print(f"\n[Test] Kick-Up from {direction}")
+
+        # Start loop
+        power = self.config.min_power_visible + 10  # Start conservative? Or 20?
+        power = max(20, power)
+        alignment_retries = 0
+
+        # Ensure we start in position
+        self._wait_for_start_condition(check_fn, msg)
+
+        while power <= 100:
+            print(f"  Trying Power {power}...")
+
+            result = self._attempt_dynamic_flop(direction, power)
+
+            if result == "SUCCESS":
+                print(f"  [SUCCESS] Flopped at {power}.")
+                setattr(self.config.control, config_attr, power)
+                self.config.save()
+                break
+
+            elif result == "FAIL_ALIGNMENT":
+                print("  [DETECTED DRIFT] Robot is not moving straight. Pausing to re-align.")
+                if alignment_retries < 3:
+                    alignment_retries += 1
+                    self.calibrate_motor_trim()
+                    self.config.save()  # Save the new trim
+                    print(f"  [RETRY] Retrying Power {power} with new trim...")
+                    self._wait_for_start_condition(check_fn, "Reset position...")
+                    # Continue loop with SAME power
+                    continue
+                else:
+                    print("  [WARNING] Alignment failed too many times. Ignoring drift.")
+                    # Treat as FAIL_POWER -> Increment
+
+            # FAIL_POWER or alignment gave up
+            print("  [FAIL] Did not flop.")
+            power += 5
+            if power <= 100:
+                self._wait_for_start_condition(check_fn, "Reset position...")
+
     def find_flop_thresholds(self):
         """
         Discover Kick-Up Power for both directions using Dynamic Momentum.
@@ -881,69 +893,14 @@ class WiringCheck:
         rest_back = self.config.rest_angle_backward if self.config.rest_angle_backward is not None else -10.0
         rest_front = self.config.rest_angle_forward if self.config.rest_angle_forward is not None else 10.0
 
-        # Start Tolerance: We expect to be CLOSE to the rest angle (e.g. within 10 degrees),
-        # but definitely on the correct side of vertical.
-        # Back Condition: Pitch < (rest_back + tolerance). Since rest_back is usually negative, e.g. -30.
-        # We want Pitch < -10 at least.
-
-        # We'll use a safer check: "Is it leaning roughly as much as the training wheel?"
-        # Condition: It is definitely leaning back ( < -5) AND close to rest_back.
-
         def check_back(p):
             return p < (rest_back + 10.0) and p < -5.0
 
         def check_front(p):
             return p > (rest_front - 10.0) and p > 5.0
 
-        # Define Tests: (Direction, Start Check Msg, Start Check Fn, Config Attr)
-        tests = [
-            ("BACK", "Place robot on BACK wheel.", check_back, "kickup_power_forward"),
-            ("FRONT", "Place robot on FRONT wheel.", check_front, "kickup_power_backward")
-        ]
-
-        for direction, msg, check_fn, config_attr in tests:
-            print(f"\n[Test] Kick-Up from {direction}")
-
-            # Start loop
-            power = self.config.min_power_visible + 10 # Start conservative? Or 20?
-            power = max(20, power)
-            alignment_retries = 0
-
-            # Ensure we start in position
-            self._wait_for_start_condition(check_fn, msg)
-
-            while power <= 100:
-                print(f"  Trying Power {power}...")
-
-                result = self._attempt_dynamic_flop(direction, power)
-
-                if result == "SUCCESS":
-                    print(f"  [SUCCESS] Flopped at {power}.")
-                    setattr(self.config.control, config_attr, power)
-                    self.config.save()
-                    break
-
-                elif result == "FAIL_ALIGNMENT":
-                    print("  [DETECTED DRIFT] Robot is not moving straight. Pausing to re-align.")
-                    if alignment_retries < 3:
-                        alignment_retries += 1
-                        self.calibrate_motor_trim()
-                        self.config.save() # Save the new trim
-                        print(f"  [RETRY] Retrying Power {power} with new trim...")
-                        self._wait_for_start_condition(check_fn, "Reset position...")
-                        # Continue loop with SAME power
-                        continue
-                    else:
-                        print("  [WARNING] Alignment failed too many times. Ignoring drift.")
-                        # Treat as FAIL_POWER -> Increment
-                        power += 5
-                        self._wait_for_start_condition(check_fn, "Reset position...")
-
-                else: # FAIL_POWER
-                    print("  [FAIL] Did not flop.")
-                    power += 5
-                    if power <= 100:
-                        self._wait_for_start_condition(check_fn, "Reset position...")
+        self._run_kickup_test("BACK", check_back, "kickup_power_forward", "Place robot on BACK wheel.")
+        self._run_kickup_test("FRONT", check_front, "kickup_power_backward", "Place robot on FRONT wheel.")
 
     # --- Tier 6: Final Verification ---
     def verify_final_configuration(self):
