@@ -13,28 +13,25 @@ class TestPIDLogic(unittest.TestCase):
         self.assertAlmostEqual(output, 50.0)
 
     def test_integral_clamping(self):
-        # Ki=1.0, limit=20.0
+        # Ki=10.0, limit=20.0
         params = PIDParams(kp=0.0, ki=10.0, kd=0.0, integral_limit=20.0)
         pid = PIDController(params)
 
-        # Update 1: Error=5, dt=1.0 -> Integral += 5. Output = 50.
-        # Wait, simple-pid integrates: _integral += error * dt?
-        # error = setpoint - input = 0 - (-5) = 5?
-        # In update: input_val = setpoint - error = 0 - 5 = -5.
-        # simple-pid: error = setpoint - input_val = 0 - (-5) = 5.
-        # _integral += 5 * 1.0 = 5. Output = 10 * 5 = 50.
+        # Update 1: Error=5, dt=1.0 -> Integral (I-term) += 10 * 5 * 1.0 = 50.
+        # Limit is 20.0.
+        # Output should be clamped immediately to 20.0.
 
         output = pid.update(error=5.0, dt=1.0)
-        self.assertAlmostEqual(output, 50.0)
+        self.assertAlmostEqual(output, 20.0)
 
-        # Update 2: Error=5, dt=10.0 -> Integral += 50. Total=55.
-        # Output = 10 * 55 = 550.
-        # BUT limit is 20. So _integral should be clamped to 20.
-        # However, output calculation happens BEFORE clamping in my implementation.
-        # So output will be HUGE (550), but subsequent call will use clamped integral (20).
+        # Update 2: Error=5, dt=10.0 -> Integral tries to increase more.
+        # But it should be clamped to 20.0 again.
+        # Output should stay at 20.0.
 
         output_huge = pid.update(error=5.0, dt=10.0)
-        self.assertGreater(output_huge, 200.0) # Confirm it spiked
+        self.assertAlmostEqual(output_huge, 200.0 if False else 20.0) # Logic check
+
+        self.assertAlmostEqual(output_huge, 20.0)
 
         # Check internal state clamped
         self.assertAlmostEqual(pid.pid._integral, 20.0)

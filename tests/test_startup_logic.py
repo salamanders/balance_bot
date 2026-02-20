@@ -46,6 +46,11 @@ class TestAgentStartup(unittest.TestCase):
         self.mock_config_instance = MagicMock()
         self.mock_config_instance.pid = MagicMock()
         self.mock_config_instance.control = MagicMock() # Ensure control config exists
+        self.mock_config_instance.timing = MagicMock() # Add timing mock
+        self.mock_config_instance.timing.setup_wait = 0.1
+        self.mock_config_instance.timing.battery_log_interval = 1.0 # Also used
+        self.mock_config_instance.timing.save_interval = 1.0 # Also used
+
         # Ensure we have target_angle
         self.mock_config_instance.pid.target_angle = 0.0
         self.mock_config_instance.loop_time = 0.01

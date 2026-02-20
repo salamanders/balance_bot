@@ -7,7 +7,6 @@ from ..config import (
     CONFIG_FILE,
     RobotConfig,
     PIDParams,
-    SYSTEM_TIMING,
 )
 from ..utils import RateLimiter, LogThrottler, setup_logging, check_force_calibration_flag
 from ..reflex.balance_core import BalanceCore, MotionRequest, TuningParams
@@ -68,7 +67,7 @@ class Agent:
 
         # Tier 3
         self.led = LedController(self.config.led)
-        self.battery_logger = LogThrottler(SYSTEM_TIMING.battery_log_interval)
+        self.battery_logger = LogThrottler(self.config.timing.battery_log_interval)
 
         # State
         self.running = True
@@ -94,7 +93,7 @@ class Agent:
             logger.info("-> Warming up sensors...")
             self.led.signal_setup()
             start_wait = time.monotonic()
-            while time.monotonic() - start_wait < SYSTEM_TIMING.setup_wait:
+            while time.monotonic() - start_wait < self.config.timing.setup_wait:
                 # We must spin the core to settle the filter
                 self.core.update(MotionRequest(), self._zero_tuning, self.config.loop_time)
                 self.led.update()
@@ -244,7 +243,7 @@ class Agent:
                 # Very simple "Wait" behavior for now.
                 if self.ticks % 10 == 0:
                     self.led.update()
-                    if self.config_dirty and (time.monotonic() - self.last_save_time > SYSTEM_TIMING.save_interval):
+                    if self.config_dirty and (time.monotonic() - self.last_save_time > self.config.timing.save_interval):
                         # Asynchronous Configuration Save
                         try:
                             config_snapshot = self.config.model_dump()
