@@ -51,7 +51,6 @@ def main() -> None:
 
         try:
             bot = Agent()
-            bot.init()
             bot.run()
         finally:
             # Emergency Stop / Cleanup if bot was initialized
