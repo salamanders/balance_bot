@@ -14,6 +14,7 @@ class MotionRequest:
     """
     velocity: float = 0.0  # -1.0 to 1.0 (Forward/Backward)
     turn_rate: float = 0.0  # -1.0 to 1.0 (Left/Right)
+    enable_control: bool = True  # If False, disables PID and sets motors to 0 (Idle/Parked)
 
 
 @dataclass(frozen=True)
@@ -115,7 +116,20 @@ class BalanceCore:
             reading.pitch_angle, reading.pitch_rate, loop_delta_time
         )
 
-        # 3. Apply Tuning (Tier 2 Adaptation)
+        # 3. Check for Control Disable (Idle / Resting)
+        if not motion.enable_control:
+            # Explicitly Idle: Reset PID integrators and Stop Motors.
+            self.pid.reset()
+            self.hw.stop()
+            return BalanceTelemetry(
+                pitch_angle=self.pitch,
+                pitch_rate=reading.pitch_rate,
+                yaw_rate=reading.yaw_rate,
+                motor_output=0.0,
+                crashed=False
+            )
+
+        # 4. Apply Tuning (Tier 2 Adaptation)
         # We update the PID controller's params dynamically
         # Ideally, we wouldn't mutate this every frame if it's slow,
         # but Python property assignment is fast enough.
@@ -123,7 +137,7 @@ class BalanceCore:
         self.pid.params.ki = tuning.ki
         self.pid.params.kd = tuning.kd
 
-        # 4. Calculate Targets
+        # 5. Calculate Targets
         # Map Velocity (-1 to 1) to Target Angle (-MAX to MAX)
         # Note: To move Forward (Positive Velocity), we must lean Forward (Positive Angle).
         # (Assumes Positive Pitch = Leaning Forward)
@@ -135,7 +149,7 @@ class BalanceCore:
             + velocity_tilt               # Intentional tilt
         )
 
-        # 5. Safety Cutoff
+        # 6. Safety Cutoff
         if abs(self.pitch) > self.config.crash_angle:
             self.hw.stop()
             self.pid.reset()  # Reset integral windup on crash
@@ -147,14 +161,14 @@ class BalanceCore:
                 crashed=True
             )
 
-        # 6. Calculate Control Output
+        # 7. Calculate Control Output
         error = self.pitch - target_angle
 
         pid_output = self.pid.update(
             error, loop_delta_time, measurement_rate=reading.pitch_rate
         )
 
-        # 7. Apply Turning
+        # 8. Apply Turning
         # Turn Correction: Add offset to motors to rotate.
         # We also use Yaw Rate damping to make turns smoother?
         # For now, simple differential drive.
@@ -178,7 +192,7 @@ class BalanceCore:
         left_motor = pid_output + total_turn
         right_motor = pid_output - total_turn
 
-        # 8. Actuate
+        # 9. Actuate
         # Apply Battery Compensation
         if battery_compensation > 0:
             left_motor /= battery_compensation

@@ -100,7 +100,9 @@ class Agent:
             dt = self.config.loop_time
             while time.perf_counter() - start_wait < self.config.timing.setup_wait:
                 # We must spin the core to settle the filter
-                self.core.update(MotionRequest(), self._zero_tuning, dt)
+                self.core.update(
+                    MotionRequest(enable_control=False), self._zero_tuning, dt
+                )
                 self.led.update()
                 dt = rate.sleep()
 
@@ -161,7 +163,19 @@ class Agent:
                 self.ticks += 1
 
                 # Default Motion Request (Velocity 0)
-                motion_req = MotionRequest(velocity=0.0, turn_rate=0.0)
+                # Check for Resting State (Parking)
+                # If we are resting on a bumper and not commanded to move, disable control.
+                enable_control = True
+                posture = self.core.hw.get_posture_state()
+                if posture == "RESTING":
+                    # Check if we are still (not tumbling)
+                    p_rate = abs(last_telemetry.pitch_rate) if last_telemetry else 0.0
+                    if p_rate < 10.0:
+                        enable_control = False
+
+                motion_req = MotionRequest(
+                    velocity=0.0, turn_rate=0.0, enable_control=enable_control
+                )
 
                 # --- PREPARE INPUTS (Adaptation Phase) ---
                 # Use data from the PREVIOUS frame to adjust parameters for THIS frame.
@@ -173,90 +187,100 @@ class Agent:
                 target_offset = 0.0
 
                 if last_telemetry:
-                    # 1. Recovery Logic
-                    # Returns an absolute target angle if recovering, or None.
-                    rec_target = self.recovery.update(
-                        last_telemetry.crashed, last_telemetry.pitch_angle, tune_kp
-                    )
-
-                    if rec_target is not None:
-                        # Convert Absolute Target -> Offset
-                        target_offset = rec_target - self.config.pid.target_angle
-
-                    # 2. Continuous Tuning (Every tick or subsampled?)
-                    # Tuner expects to run every tick to fill its buffer
-                    # Error = Pitch - Target
-                    # Note: We use the target from LAST frame (approximation)
-                    curr_error = (
-                        last_telemetry.pitch_angle - self.config.pid.target_angle
-                    )
-
-                    # Only tune if not recovering
-                    if rec_target is None:
-                        adj = self.tuner.update(curr_error)
-                        if adj.kp != 0 or adj.ki != 0 or adj.kd != 0:
-                            self.config.pid.kp = max(0.1, self.config.pid.kp + adj.kp)
-                            self.config.pid.ki = max(0.0, self.config.pid.ki + adj.ki)
-                            self.config.pid.kd = max(0.0, self.config.pid.kd + adj.kd)
-                            self.config_dirty = True
-                            logger.info(
-                                f"-> Tuned: P={self.config.pid.kp:.2f} I={self.config.pid.ki:.3f} D={self.config.pid.kd:.2f}"
-                            )
-                            # Update local vars
-                            tune_kp = self.config.pid.kp
-                            tune_ki = self.config.pid.ki
-                            tune_kd = self.config.pid.kd
-
-                    # 3. Balance Point Finding
-                    # Runs only when balanced AND NOT MOVING
-                    if (
-                        not last_telemetry.crashed
-                        and rec_target is None
-                        and motion_req.velocity == 0.0
-                        and motion_req.turn_rate == 0.0
-                    ):
-                        # Hyper-Learning Logic
-                        if not self.config.balance_verified:
-                            aggression = 10.0
-                        else:
-                            aggression = 1.0
-
-                        # Compensate motor output for battery to get "effort"
-                        effort = (
-                            last_telemetry.motor_output
-                            / self.battery.compensation_factor
-                        )
-                        bal_adj = self.balance_finder.update(
-                            effort, last_telemetry.pitch_rate, aggression=aggression
+                    # Only run adaptation if control is enabled
+                    if enable_control:
+                        # 1. Recovery Logic
+                        # Returns an absolute target angle if recovering, or None.
+                        rec_target = self.recovery.update(
+                            last_telemetry.crashed, last_telemetry.pitch_angle, tune_kp
                         )
 
-                        if bal_adj != 0:
-                            new_target = self.config.pid.target_angle + bal_adj
-                            limit = self.config.tuner.balance_max_deviation
-                            if (
-                                abs(new_target) <= limit
-                            ):  # Simplified check assuming 0 center
-                                self.config.pid.target_angle = new_target
+                        if rec_target is not None:
+                            # Convert Absolute Target -> Offset
+                            target_offset = rec_target - self.config.pid.target_angle
+
+                        # 2. Continuous Tuning (Every tick or subsampled?)
+                        # Tuner expects to run every tick to fill its buffer
+                        # Error = Pitch - Target
+                        # Note: We use the target from LAST frame (approximation)
+                        curr_error = (
+                            last_telemetry.pitch_angle - self.config.pid.target_angle
+                        )
+
+                        # Only tune if not recovering
+                        if rec_target is None:
+                            adj = self.tuner.update(curr_error)
+                            if adj.kp != 0 or adj.ki != 0 or adj.kd != 0:
+                                self.config.pid.kp = max(
+                                    0.1, self.config.pid.kp + adj.kp
+                                )
+                                self.config.pid.ki = max(
+                                    0.0, self.config.pid.ki + adj.ki
+                                )
+                                self.config.pid.kd = max(
+                                    0.0, self.config.pid.kd + adj.kd
+                                )
                                 self.config_dirty = True
                                 logger.info(
-                                    f"-> Balance Corrected: Target={new_target:.2f}"
+                                    f"-> Tuned: P={self.config.pid.kp:.2f} I={self.config.pid.ki:.3f} D={self.config.pid.kd:.2f}"
                                 )
+                                # Update local vars
+                                tune_kp = self.config.pid.kp
+                                tune_ki = self.config.pid.ki
+                                tune_kd = self.config.pid.kd
 
-                                # Graduation Logic
-                                # If we are in Hyper Mode, and the adjustment becomes small, or we survive N seconds...
-                                # For simplicity: Assume if we found an adjustment, we are getting closer.
-                                # Real Graduation: When average motor output is near 0.
+                        # 3. Balance Point Finding
+                        # Runs only when balanced AND NOT MOVING
+                        if (
+                            not last_telemetry.crashed
+                            and rec_target is None
+                            and motion_req.velocity == 0.0
+                            and motion_req.turn_rate == 0.0
+                        ):
+                            # Hyper-Learning Logic
+                            if not self.config.balance_verified:
+                                aggression = 10.0
+                            else:
+                                aggression = 1.0
+
+                            # Compensate motor output for battery to get "effort"
+                            effort = (
+                                last_telemetry.motor_output
+                                / self.battery.compensation_factor
+                            )
+                            bal_adj = self.balance_finder.update(
+                                effort, last_telemetry.pitch_rate, aggression=aggression
+                            )
+
+                            if bal_adj != 0:
+                                new_target = self.config.pid.target_angle + bal_adj
+                                limit = self.config.tuner.balance_max_deviation
                                 if (
-                                    not self.config.balance_verified
-                                    and abs(effort) < 10.0
-                                ):
-                                    logger.info(
-                                        ">>> Balance Stabilized! Saving to Config."
-                                    )
-                                    self.config.balance_verified = True
+                                    abs(new_target) <= limit
+                                ):  # Simplified check assuming 0 center
+                                    self.config.pid.target_angle = new_target
                                     self.config_dirty = True
+                                    logger.info(
+                                        f"-> Balance Corrected: Target={new_target:.2f}"
+                                    )
 
-                    # 4. Battery Estimation
+                                    # Graduation Logic
+                                    if (
+                                        not self.config.balance_verified
+                                        and abs(effort) < 10.0
+                                    ):
+                                        logger.info(
+                                            ">>> Balance Stabilized! Saving to Config."
+                                        )
+                                        self.config.balance_verified = True
+                                        self.config_dirty = True
+                    else:
+                        # Control Disabled (Resting/Idle)
+                        # Do not run Tuner/BalanceFinder/Recovery updates to avoid polluting state with "resting" data.
+                        pass
+
+                    # 4. Battery Estimation (Always run to track usage/voltage drops even if idle?)
+                    # Actually, if idle, output is 0.
                     ang_accel = (last_telemetry.pitch_rate - last_pitch_rate) / dt
                     last_pitch_rate = last_telemetry.pitch_rate
 
