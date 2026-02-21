@@ -228,8 +228,8 @@ adjust these values in the cited files.
 * **I2C Addresses**: Assumes MPU-6050 is at `0x68` and Picon Zero HAT is at `0x22`.
     * *Citation*: [src/balance_bot/hardware/robot_hardware.py](src/balance_bot/hardware/robot_hardware.py) (
       MPU), [src/balance_bot/hardware/piconzero.py](src/balance_bot/hardware/piconzero.py) (PiconZero `I2C_ADDRESS`).
-* **Motor Channels**: Assumes Left Motor is Channel 0 and Right Motor is Channel 1.
-    * *Citation*: [src/balance_bot/config.py](src/balance_bot/config.py) (`motor_l`, `motor_r` in `RobotConfig`).
+* **Motor Channels**: Assumes motors are connected to PiconZero Motor A (0) and Motor B (1). The specific Left/Right mapping is autonomously discovered.
+    * *Citation*: [src/balance_bot/wiring_check.py](src/balance_bot/wiring_check.py) (Discovery logic).
 * **Motor Input Range**: Assumes motor driver accepts values from -100 to 100.
     * *Citation*: [src/balance_bot/hardware/robot_hardware.py](src/balance_bot/hardware/robot_hardware.py) (
       `MOTOR_MIN_OUTPUT`, `MOTOR_MAX_OUTPUT`).

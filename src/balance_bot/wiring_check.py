@@ -116,6 +116,14 @@ class WiringCheck:
             if self.hw is None:
                 self.init_hw()
 
+            # Check for unset motors before we try to move them
+            if c.motor_l is None or c.motor_r is None:
+                print("-> [INFO] Motor channels not set. Assuming default candidates (0, 1) for discovery.")
+                c.motor_l = 0
+                c.motor_r = 1
+                # Re-init HW with these new defaults
+                self.init_hw()
+
             # 3a. Friction Threshold
             if c.min_power_visible == 0:
                 print("-> [MISSING] Minimum Power Threshold (Friction).")
