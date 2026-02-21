@@ -1,46 +1,89 @@
-# Python library for 4tronix Picon Zero
-# Refactored for Python 3 and code deduplication.
-
 import smbus
 import time
+from typing import Callable, Any
 
-bus = smbus.SMBus(1)  # For modern Raspberry Pi (Rev 2+)
-pzaddr = 0x22  # I2C address of Picon Zero
+class PiconZero:
+    """
+    Driver for 4tronix Picon Zero Motor HAT.
+    Implements the MotorDriver protocol.
+    Replaces the legacy module-based piconzero driver and adapter.
+    """
+    I2C_ADDRESS = 0x22
+    CMD_RESET = 20
 
-# Definitions of Commands to Picon Zero
-RESET = 20
+    def __init__(self, bus_number: int = 1):
+        self.bus_number = bus_number
+        self.retries = 10
+        self.debug = False
+        self.bus = None
+        self._open_bus()
 
-# General variables
-DEBUG = False
-RETRIES = 10   # max number of retries for I2C calls
+    def _open_bus(self):
+        """Open or re-open the I2C bus."""
+        if self.bus:
+            try:
+                self.bus.close()
+            except Exception:
+                pass
+        self.bus = smbus.SMBus(self.bus_number)
 
-def _retry(func, name):
-    """Internal helper to retry I2C operations."""
-    for _ in range(RETRIES):
+    def _retry(self, func: Callable[[], Any], name: str) -> Any:
+        """Internal helper to retry I2C operations."""
+        for _ in range(self.retries):
+            try:
+                return func()
+            except Exception:
+                if self.debug:
+                    print(f"Error in {name}(), retrying")
+                time.sleep(0.005)
+        raise OSError(f"PiconZero {name}() failed after {self.retries} retries")
+
+    def init(self, debug: bool = False) -> None:
+        """Initialize the motor driver hardware."""
+        self.debug = debug
+        self._retry(lambda: self.bus.write_byte_data(self.I2C_ADDRESS, self.CMD_RESET, 0), "init")
+        time.sleep(0.1)
+        if self.debug:
+            print("PiconZero Debug is", self.debug)
+
+    def cleanup(self) -> None:
+        """Release hardware resources."""
+        # Reset the board
         try:
-            return func()
-        except Exception:
-            if DEBUG:
-                print(f"Error in {name}(), retrying")
-            time.sleep(0.005)
-    raise OSError(f"PiconZero {name}() failed after retries")
+            self._retry(lambda: self.bus.write_byte_data(self.I2C_ADDRESS, self.CMD_RESET, 0), "cleanup")
+        except OSError:
+            pass # Best effort cleanup
+        time.sleep(0.001)
+        if self.bus:
+            try:
+                self.bus.close()
+            except Exception:
+                pass
 
-def setMotor(motor, value):
-    if 0 <= motor <= 1 and -128 <= value < 128:
-        _retry(lambda: bus.write_byte_data(pzaddr, motor, value), "setMotor")
+    def stop(self) -> None:
+        """Stop all motors immediately."""
+        self.set_motor(0, 0)
+        self.set_motor(1, 0)
 
-def stop():
-    setMotor(0, 0)
-    setMotor(1, 0)
+    def set_retries(self, retries: int) -> None:
+        """Set the number of I2C retries."""
+        self.retries = retries
 
-def init(debug=False):
-    global DEBUG
-    DEBUG = debug
-    _retry(lambda: bus.write_byte_data(pzaddr, RESET, 0), "init")
-    time.sleep(0.1)
-    if DEBUG:
-        print("Debug is", DEBUG)
+    def set_motor(self, motor: int, value: int) -> None:
+        """
+        Set speed for a specific motor.
+        :param motor: Motor channel index (0 or 1).
+        :param value: Speed (-100 to 100).
+        """
+        if 0 <= motor <= 1 and -128 <= value < 128:
+            self._retry(lambda: self.bus.write_byte_data(self.I2C_ADDRESS, motor, value), "set_motor")
 
-def cleanup():
-    _retry(lambda: bus.write_byte_data(pzaddr, RESET, 0), "cleanup")
-    time.sleep(0.001)
+    def set_motors(self, motor_0_val: int, motor_1_val: int) -> None:
+        """
+        Set speed for both motors.
+        The module doesn't support block write for motors, so we call set_motor twice.
+        :param motor_0_val: Speed for Motor 0 (-100 to 100).
+        :param motor_1_val: Speed for Motor 1 (-100 to 100).
+        """
+        self.set_motor(0, motor_0_val)
+        self.set_motor(1, motor_1_val)

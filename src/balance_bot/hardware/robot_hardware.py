@@ -270,7 +270,7 @@ class RobotHardware:
         try:
             # 1. Attempt Imports
             try:
-                from .piconzero_adapter import PiconZeroAdapter
+                from .piconzero import PiconZero
                 from mpu6050 import mpu6050
             except (ImportError, OSError) as e:
                 logger.error(f"CRITICAL: Required libraries not found or failed to load: {e}")
@@ -279,7 +279,7 @@ class RobotHardware:
             # 2. Attempt PiconZero (if bus known)
             if self.motor_i2c_bus is not None:
                 try:
-                    self.pz = PiconZeroAdapter(bus_number=self.motor_i2c_bus)
+                    self.pz = PiconZero(bus_number=self.motor_i2c_bus)
                 except (OSError, PermissionError, FileNotFoundError) as e:
                     logger.error(f"CRITICAL: PiconZero Init Failed on Bus {self.motor_i2c_bus}: {e}")
                     report = get_i2c_failure_report(self.motor_i2c_bus, 0x22, "PiconZero")
