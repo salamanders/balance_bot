@@ -87,11 +87,6 @@ class Agent:
         # Pre-allocated zero tuning params for waiting/measuring loops
         self._zero_tuning = TuningParams(0.0, 0.0, 0.0, 0.0)
 
-    def init(self) -> None:
-        """Initialize hardware and signal readiness."""
-        # Core init happens in __init__ currently, but we can verify here?
-        pass
-
     def run(self) -> None:
         """
         Main Event Loop.
