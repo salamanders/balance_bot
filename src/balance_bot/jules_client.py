@@ -9,6 +9,7 @@ logger = logging.getLogger(__name__)
 
 JULES_API_BASE = "https://jules.googleapis.com/v1alpha"
 SOURCE_NAME = "sources/github/salamanders/balance_bot"
+DEFAULT_TIMEOUT = 30.0
 
 class JulesClient:
     """
@@ -40,7 +41,7 @@ class JulesClient:
         req = urllib.request.Request(url, data=body, headers=headers, method=method)
 
         try:
-            with urllib.request.urlopen(req) as response:
+            with urllib.request.urlopen(req, timeout=DEFAULT_TIMEOUT) as response:
                 if response.status >= 300:
                     raise RuntimeError(f"Jules API Error: {response.status} {response.reason}")
                 return json.loads(response.read().decode("utf-8"))
