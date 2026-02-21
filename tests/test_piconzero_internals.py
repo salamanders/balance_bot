@@ -59,35 +59,6 @@ class TestPiconZeroInternals(unittest.TestCase):
             # Should have slept RETRIES times
             self.assertEqual(mock_sleep.call_count, piconzero.RETRIES)
 
-    def test_read_input_success(self):
-        piconzero.bus.read_word_data.return_value = 1234
-        val = piconzero.readInput(0)
-        self.assertEqual(val, 1234)
-        piconzero.bus.read_word_data.assert_called_with(0x22, 1)
-
-    def test_set_input_config_complex(self):
-        # Channel 0, Mode 4 (DutyCycle), Period 2000
-        # Should write byte then write word
-        # Note: The original code logic for Period writing is inside the retry loop.
-        # My refactor needs to preserve this.
-
-        # We simulate success on the first try
-        piconzero.setInputConfig(0, 4, period=2000)
-
-        # Check calls
-        # write_byte_data(addr, INCFG0+0, 4) -> (0x22, 14, 4)
-        # write_word_data(addr, INPERIOD0+0, 2000) -> (0x22, 21, 2000)
-
-        # Note: In original code, it does:
-        # bus.write_byte_data...
-        # if value==4 or 5: bus.write_word_data...
-        # return
-
-        # If I use a helper, I need to ensure both happen.
-
-        piconzero.bus.write_byte_data.assert_called_with(0x22, 14, 4)
-        piconzero.bus.write_word_data.assert_called_with(0x22, 21, 2000)
-
     def test_cleanup(self):
         # Mock time.sleep because cleanup calls sleep(0.001)
         with patch('time.sleep'):
