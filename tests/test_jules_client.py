@@ -51,6 +51,23 @@ class TestJulesClient(unittest.TestCase):
         self.assertEqual(req.headers["X-goog-api-key"], "test_key")
 
     @patch("urllib.request.urlopen")
+    def test_make_request_timeout(self, mock_urlopen):
+        client = JulesClient(api_key="test_key")
+
+        # Mock response
+        mock_response = MagicMock()
+        mock_response.status = 200
+        mock_response.read.return_value = json.dumps({"status": "ok"}).encode("utf-8")
+        mock_urlopen.return_value.__enter__.return_value = mock_response
+
+        client._make_request("GET", "test_endpoint")
+
+        # Verify timeout is passed to urlopen
+        args, kwargs = mock_urlopen.call_args
+        from balance_bot.jules_client import DEFAULT_TIMEOUT
+        self.assertEqual(kwargs["timeout"], DEFAULT_TIMEOUT)
+
+    @patch("urllib.request.urlopen")
     def test_make_request_missing_key(self, mock_urlopen):
         # Init without key
         with patch.dict(os.environ, {}, clear=True):
