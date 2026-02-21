@@ -172,8 +172,8 @@ class RobotHardware:
 
     def __init__(
         self,
-        motor_l: int = 0,
-        motor_r: int = 1,
+        motor_l: int | None = None,
+        motor_r: int | None = None,
         invert_l: bool = False,
         invert_r: bool = False,
         gyro_axis: Axis | None = None,
@@ -464,16 +464,18 @@ class RobotHardware:
         val_1 = 0
 
         # Assign Left Motor Value
-        if self.motor_l == 0:
-            val_0 = left_val
-        elif self.motor_l == 1:
-            val_1 = left_val
+        if self.motor_l is not None:
+            if self.motor_l == 0:
+                val_0 = left_val
+            elif self.motor_l == 1:
+                val_1 = left_val
 
         # Assign Right Motor Value
-        if self.motor_r == 0:
-            val_0 = right_val
-        elif self.motor_r == 1:
-            val_1 = right_val
+        if self.motor_r is not None:
+            if self.motor_r == 0:
+                val_0 = right_val
+            elif self.motor_r == 1:
+                val_1 = right_val
 
         self.pz.set_motors(val_0, val_1)
 

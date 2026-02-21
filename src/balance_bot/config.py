@@ -143,8 +143,8 @@ class RobotConfig(BaseModel):
     led: LedConfig = Field(default_factory=LedConfig)
     control: ControlConfig = Field(default_factory=ControlConfig)
     timing: SystemTiming = Field(default_factory=SystemTiming)
-    motor_l: int = 0
-    motor_r: int = 1
+    motor_l: Optional[int] = None
+    motor_r: Optional[int] = None
     motor_l_invert: bool = False
     motor_r_invert: bool = False
     gyro_pitch_axis: Optional[Axis] = None
@@ -205,6 +205,8 @@ class RobotConfig(BaseModel):
 
     def reset_hardware_map(self) -> None:
         """Reset all discovered hardware mappings to force re-discovery."""
+        self.motor_l = None
+        self.motor_r = None
         self.motor_i2c_bus = None
         self.imu_i2c_bus = None
         self.gyro_pitch_axis = None
