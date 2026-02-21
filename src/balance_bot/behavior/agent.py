@@ -8,7 +8,12 @@ from ..config import (
     RobotConfig,
     PIDParams,
 )
-from ..utils import RateLimiter, LogThrottler, setup_logging, check_force_calibration_flag
+from ..utils import (
+    RateLimiter,
+    LogThrottler,
+    setup_logging,
+    check_force_calibration_flag,
+)
 from ..reflex.balance_core import BalanceCore, MotionRequest, TuningParams
 from ..adaptation.recovery import RecoveryManager
 from ..adaptation.tuner import ContinuousTuner, BalancePointFinder
@@ -17,6 +22,7 @@ from .leds import LedController
 from ..enums import Orientation, Direction
 
 logger = logging.getLogger(__name__)
+
 
 class Agent:
     """
@@ -42,7 +48,9 @@ class Agent:
                 if self.config.balance_verified:
                     logger.info(">>> Production Mode: Balance Verified.")
                 else:
-                    logger.info(">>> Discovery Mode: Balance NOT Verified. (Hyper-Learning Enabled)")
+                    logger.info(
+                        ">>> Discovery Mode: Balance NOT Verified. (Hyper-Learning Enabled)"
+                    )
                 self.first_run = False
             else:
                 logger.info(">>> No Config Found. Starting in FIRST RUN MODE.")
@@ -92,38 +100,49 @@ class Agent:
             # 1. Warmup
             logger.info("-> Warming up sensors...")
             self.led.signal_setup()
-            start_wait = time.monotonic()
-            while time.monotonic() - start_wait < self.config.timing.setup_wait:
+            start_wait = time.perf_counter()
+            rate = RateLimiter(1.0 / self.config.loop_time)
+            dt = self.config.loop_time
+            while time.perf_counter() - start_wait < self.config.timing.setup_wait:
                 # We must spin the core to settle the filter
-                self.core.update(MotionRequest(), self._zero_tuning, self.config.loop_time)
+                self.core.update(MotionRequest(), self._zero_tuning, dt)
                 self.led.update()
-                time.sleep(self.config.loop_time)
+                dt = rate.sleep()
 
             # 2. Calibration / Startup
             # Note: WiringCheck now handles all discovery. We just need to stand up.
             if self.first_run or check_force_calibration_flag():
-                logger.info(">>> First Run / Force Calib detected. Assuming WiringCheck passed.")
+                logger.info(
+                    ">>> First Run / Force Calib detected. Assuming WiringCheck passed."
+                )
                 pass
 
             # Normal Startup: Check if we need to Kick Up
             # If we are resting on either wheel (Pitch > 10 or < -10), kick up.
             if abs(self.core.pitch) > 10.0:
-                logger.info(f">>> Resting on Wheel (Pitch={self.core.pitch:.1f}). Initiating Kick-Up.")
+                logger.info(
+                    f">>> Resting on Wheel (Pitch={self.core.pitch:.1f}). Initiating Kick-Up."
+                )
                 try:
                     # Start with saved kickup power
                     # If Pitch < 0 (Back), we kick Back->Front (Forward Power)
                     # If Pitch > 0 (Front), we kick Front->Back (Backward Power)
-                    pwr = self.config.control.kickup_power_forward if self.core.pitch < 0 else self.config.control.kickup_power_backward
+                    pwr = (
+                        self.config.control.kickup_power_forward
+                        if self.core.pitch < 0
+                        else self.config.control.kickup_power_backward
+                    )
                     self._incremental_kickup(
-                        self.config.pid.target_angle,
-                        start_power=pwr
+                        self.config.pid.target_angle, start_power=pwr
                     )
                 except Exception as e:
                     logger.error(f"Kick-Up Failed: {e}")
                     return
 
             # 3. Main Loop
-            logger.info(f"-> Starting Control Loop. Aggression: {self.tuner.get_current_scale():.2f}")
+            logger.info(
+                f"-> Starting Control Loop. Aggression: {self.tuner.get_current_scale():.2f}"
+            )
 
             # Optimize I2C retries for high-frequency loop (Fail Fast)
             logger.info("-> Optimizing I2C Retries for Real-Time Loop (1 Retry)")
@@ -132,6 +151,8 @@ class Agent:
             self.led.signal_ready()
 
             rate = RateLimiter(1.0 / self.config.loop_time)
+            # Start with nominal dt
+            dt = self.config.loop_time
 
             # Internal State tracking for Adaptation
             last_pitch_rate = 0.0
@@ -160,9 +181,7 @@ class Agent:
                     # 1. Recovery Logic
                     # Returns an absolute target angle if recovering, or None.
                     rec_target = self.recovery.update(
-                        last_telemetry.crashed,
-                        last_telemetry.pitch_angle,
-                        tune_kp
+                        last_telemetry.crashed, last_telemetry.pitch_angle, tune_kp
                     )
 
                     if rec_target is not None:
@@ -173,7 +192,9 @@ class Agent:
                     # Tuner expects to run every tick to fill its buffer
                     # Error = Pitch - Target
                     # Note: We use the target from LAST frame (approximation)
-                    curr_error = last_telemetry.pitch_angle - self.config.pid.target_angle
+                    curr_error = (
+                        last_telemetry.pitch_angle - self.config.pid.target_angle
+                    )
 
                     # Only tune if not recovering
                     if rec_target is None:
@@ -206,49 +227,71 @@ class Agent:
                             aggression = 1.0
 
                         # Compensate motor output for battery to get "effort"
-                        effort = last_telemetry.motor_output / self.battery.compensation_factor
-                        bal_adj = self.balance_finder.update(effort, last_telemetry.pitch_rate, aggression=aggression)
+                        effort = (
+                            last_telemetry.motor_output
+                            / self.battery.compensation_factor
+                        )
+                        bal_adj = self.balance_finder.update(
+                            effort, last_telemetry.pitch_rate, aggression=aggression
+                        )
 
                         if bal_adj != 0:
                             new_target = self.config.pid.target_angle + bal_adj
                             limit = self.config.tuner.balance_max_deviation
-                            if abs(new_target) <= limit: # Simplified check assuming 0 center
+                            if (
+                                abs(new_target) <= limit
+                            ):  # Simplified check assuming 0 center
                                 self.config.pid.target_angle = new_target
                                 self.config_dirty = True
-                                logger.info(f"-> Balance Corrected: Target={new_target:.2f}")
+                                logger.info(
+                                    f"-> Balance Corrected: Target={new_target:.2f}"
+                                )
 
                                 # Graduation Logic
                                 # If we are in Hyper Mode, and the adjustment becomes small, or we survive N seconds...
                                 # For simplicity: Assume if we found an adjustment, we are getting closer.
                                 # Real Graduation: When average motor output is near 0.
-                                if not self.config.balance_verified and abs(effort) < 10.0:
-                                    logger.info(">>> Balance Stabilized! Saving to Config.")
+                                if (
+                                    not self.config.balance_verified
+                                    and abs(effort) < 10.0
+                                ):
+                                    logger.info(
+                                        ">>> Balance Stabilized! Saving to Config."
+                                    )
                                     self.config.balance_verified = True
                                     self.config_dirty = True
 
                     # 4. Battery Estimation
-                    ang_accel = (last_telemetry.pitch_rate - last_pitch_rate) / self.config.loop_time
+                    ang_accel = (last_telemetry.pitch_rate - last_pitch_rate) / dt
                     last_pitch_rate = last_telemetry.pitch_rate
 
                     comp_factor = self.battery.update(
-                        last_telemetry.motor_output,
-                        ang_accel,
-                        self.config.loop_time
+                        last_telemetry.motor_output, ang_accel, dt
                     )
 
-                    if comp_factor < self.config.control.low_battery_log_threshold and self.battery_logger.should_log():
-                         logger.warning(f"-> Low Battery? Compensating: {int(comp_factor * 100)}%")
+                    if (
+                        comp_factor < self.config.control.low_battery_log_threshold
+                        and self.battery_logger.should_log()
+                    ):
+                        logger.warning(
+                            f"-> Low Battery? Compensating: {int(comp_factor * 100)}%"
+                        )
 
                 # --- TIER 3: BEHAVIOR (Cognition) ---
                 # Very simple "Wait" behavior for now.
                 if self.ticks % 10 == 0:
                     self.led.update()
-                    if self.config_dirty and (time.monotonic() - self.last_save_time > self.config.timing.save_interval):
+                    if self.config_dirty and (
+                        time.monotonic() - self.last_save_time
+                        > self.config.timing.save_interval
+                    ):
                         # Asynchronous Configuration Save
                         try:
                             config_snapshot = self.config.model_dump()
                             # Only capture snapshot in main thread; serialize in background
-                            self.io_executor.submit(self._save_config_worker, config_snapshot)
+                            self.io_executor.submit(
+                                self._save_config_worker, config_snapshot
+                            )
 
                             self.last_save_time = time.monotonic()
                             self.config_dirty = False
@@ -265,11 +308,11 @@ class Agent:
                 last_telemetry = self.core.update(
                     motion_req,
                     tuning_params,
-                    self.config.loop_time,
-                    battery_compensation=self.battery.compensation_factor
+                    dt,
+                    battery_compensation=self.battery.compensation_factor,
                 )
 
-                rate.sleep()
+                dt = rate.sleep()
 
         except KeyboardInterrupt:
             logger.info("Keyboard Interrupt.")
@@ -290,30 +333,36 @@ class Agent:
         except Exception as e:
             logger.error(f"Error saving config asynchronously: {e}")
 
-    def _wait_for_settle(self, duration: float = 1.0, rate_threshold: float = 10.0) -> None:
+    def _wait_for_settle(
+        self, duration: float = 1.0, rate_threshold: float = 10.0
+    ) -> None:
         """Wait for the robot to settle (low pitch rate)."""
         logger.info("-> Waiting for settle...")
-        end_time = time.monotonic() + duration
+        end_time = time.perf_counter() + duration
+        rate = RateLimiter(1.0 / self.config.loop_time)
+        dt = self.config.loop_time
         while True:
             # Keep filter alive
-            telemetry = self.core.update(MotionRequest(), self._zero_tuning, self.config.loop_time)
+            telemetry = self.core.update(MotionRequest(), self._zero_tuning, dt)
 
-            if time.monotonic() > end_time:
+            if time.perf_counter() > end_time:
                 # Check rate
                 if abs(telemetry.pitch_rate) < rate_threshold:
                     break
                 else:
                     # Extend wait if still moving
-                    end_time = time.monotonic() + 0.5
+                    end_time = time.perf_counter() + 0.5
 
-            time.sleep(self.config.loop_time)
+            dt = rate.sleep()
 
     def _sleep_with_update(self, duration: float) -> None:
         """Sleep for duration while keeping the core filter updated."""
-        end_time = time.monotonic() + duration
-        while time.monotonic() < end_time:
-            self.core.update(MotionRequest(), self._zero_tuning, self.config.loop_time)
-            time.sleep(self.config.loop_time)
+        end_time = time.perf_counter() + duration
+        rate = RateLimiter(1.0 / self.config.loop_time)
+        dt = self.config.loop_time
+        while time.perf_counter() < end_time:
+            self.core.update(MotionRequest(), self._zero_tuning, dt)
+            dt = rate.sleep()
 
     def _incremental_kickup(self, target_angle: float, start_power: float) -> None:
         """
@@ -330,9 +379,15 @@ class Agent:
         start_pitch = self.core.pitch
         kick_direction = Direction.BACKWARD if start_pitch < 0 else Direction.FORWARD
 
-        start_label = Orientation.BACK.upper() if kick_direction == Direction.BACKWARD else Orientation.FRONT.upper()
+        start_label = (
+            Orientation.BACK.upper()
+            if kick_direction == Direction.BACKWARD
+            else Orientation.FRONT.upper()
+        )
 
-        logger.info(f"-> Starting Incremental Kick-Up from {start_label}. Target: {target_angle:.2f}")
+        logger.info(
+            f"-> Starting Incremental Kick-Up from {start_label}. Target: {target_angle:.2f}"
+        )
 
         while power <= max_power:
             self._wait_for_settle()
@@ -359,12 +414,15 @@ class Agent:
                 self._wait_for_settle()
 
                 # Re-evaluate direction just in case, though we stick to original plan
-                if (kick_direction == Direction.BACKWARD and self.core.pitch > -10) or \
-                   (kick_direction == Direction.FORWARD and self.core.pitch < 10):
-                       logger.warning("-> Reposition failed or confused. Retrying loop.")
-                       continue
+                if (kick_direction == Direction.BACKWARD and self.core.pitch > -10) or (
+                    kick_direction == Direction.FORWARD and self.core.pitch < 10
+                ):
+                    logger.warning("-> Reposition failed or confused. Retrying loop.")
+                    continue
 
-            logger.info(f"-> Kick-Up Attempt: Power {power:.1f} Direction {kick_direction}")
+            logger.info(
+                f"-> Kick-Up Attempt: Power {power:.1f} Direction {kick_direction}"
+            )
 
             # 1. Lift
             # Drive in the kick_direction
@@ -375,7 +433,7 @@ class Agent:
 
             # 2. Catch (Enter PID Loop)
             logger.info("-> Attempting Catch...")
-            catch_start = time.monotonic()
+            catch_start = time.perf_counter()
             caught = False
 
             # Use a slightly stiff PID for the catch
@@ -383,13 +441,15 @@ class Agent:
                 kp=self.config.pid.kp * 1.5,
                 ki=self.config.pid.ki,
                 kd=self.config.pid.kd * 2.0,
-                target_angle_offset=0
+                target_angle_offset=0,
             )
 
             # We want to run this catch loop for enough time to stabilize
-            while time.monotonic() - catch_start < 2.5:
+            rate = RateLimiter(1.0 / self.config.loop_time)
+            dt = self.config.loop_time
+            while time.perf_counter() - catch_start < 2.5:
                 # We are now in a mini control loop
-                telem = self.core.update(MotionRequest(), catch_params, self.config.loop_time)
+                telem = self.core.update(MotionRequest(), catch_params, dt)
 
                 # Check if stable
                 error = abs(telem.pitch_angle - target_angle)
@@ -401,11 +461,11 @@ class Agent:
                 # Note: We started at Back (-40ish). If we are back there, we failed.
                 # If we went to Front (> 40), we failed.
                 if abs(telem.pitch_angle - target_angle) > 40.0:
-                     # Allow some initial swing, but if we stay crashed...
-                     # For now, just let the PID try its best.
-                     pass
+                    # Allow some initial swing, but if we stay crashed...
+                    # For now, just let the PID try its best.
+                    pass
 
-                time.sleep(self.config.loop_time)
+                dt = rate.sleep()
 
             # Check result after catch attempt
             final_error = abs(self.core.pitch - target_angle)
@@ -414,7 +474,7 @@ class Agent:
                 caught = True
 
             if caught:
-                return # Success!
+                return  # Success!
 
             self.core.hw.stop()
             logger.info("-> Catch Failed. Retrying...")

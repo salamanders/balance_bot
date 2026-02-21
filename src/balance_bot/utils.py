@@ -19,7 +19,9 @@ class LogCaptureHandler(logging.Handler):
         super().__init__()
         self.buffer = deque(maxlen=capacity)
         self.setFormatter(
-            logging.Formatter("%(asctime)s [%(levelname)s] %(message)s", datefmt="%H:%M:%S")
+            logging.Formatter(
+                "%(asctime)s [%(levelname)s] %(message)s", datefmt="%H:%M:%S"
+            )
         )
 
     def emit(self, record):
@@ -86,7 +88,7 @@ class Vector3(NamedTuple):
         return Vector3(
             self.y * other.z - self.z * other.y,
             self.z * other.x - self.x * other.z,
-            self.x * other.y - self.y * other.x
+            self.x * other.y - self.y * other.x,
         )
 
 
@@ -126,7 +128,11 @@ class RateLimiter:
     """
     Loop Frequency Regulator.
     Ensures the control loop runs at a consistent predictable speed (e.g. 100Hz).
+    Uses a hybrid sleep/busy-wait strategy for sub-millisecond precision.
     """
+
+    # Threshold for switching from time.sleep to busy-wait (seconds)
+    BUSY_WAIT_THRESHOLD = 0.0015  # 1.5ms
 
     def __init__(self, frequency: float):
         """
@@ -134,20 +140,41 @@ class RateLimiter:
         :param frequency: Target frequency in Hz.
         """
         self.period = 1.0 / frequency
-        self.next_time = time.monotonic()
+        self.next_time = time.perf_counter()
+        self.last_wake = self.next_time
 
-    def sleep(self) -> None:
+    def sleep(self) -> float:
         """
         Sleep for the remainder of the current period.
+        :return: The actual time elapsed since the last sleep ended (delta time).
         """
         self.next_time += self.period
-        sleep_time = self.next_time - time.monotonic()
+        now = time.perf_counter()
+
+        # If we are lagging, reset next_time to avoid catch-up bursts.
+        if now > self.next_time:
+            self.next_time = now
+
+        # Hybrid sleep: use time.sleep for the bulk of the time
+        sleep_time = self.next_time - time.perf_counter() - self.BUSY_WAIT_THRESHOLD
         if sleep_time > 0:
             time.sleep(sleep_time)
 
+        # Busy-wait for high precision
+        while time.perf_counter() < self.next_time:
+            pass
+
+        # Calculate actual dt
+        final_now = time.perf_counter()
+        dt = final_now - self.last_wake
+        self.last_wake = final_now
+
+        return dt
+
     def reset(self) -> None:
         """Reset the internal timer to current time (e.g., after a pause)."""
-        self.next_time = time.monotonic()
+        self.next_time = time.perf_counter()
+        self.last_wake = self.next_time
 
 
 class LogThrottler:
