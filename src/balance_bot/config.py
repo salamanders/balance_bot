@@ -162,7 +162,7 @@ class RobotConfig(BaseModel):
     loop_time: float = 0.01
 
     # Operational Parameters
-    crash_angle: float = 60.0
+    crash_angle: float = 50.0
     complementary_alpha: float = 0.98
     vibration_threshold: int = 10
     imu_max_retries: int = 5
