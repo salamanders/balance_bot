@@ -175,7 +175,7 @@ verify the fix worked before proceeding.
 ## Output & Persistence
 
 Upon successful completion of Phase 7, the robot has achieved total self-awareness. It flashes the Pi's status LED
-rapidly in a success pattern and writes a `config.json` file to disk containing:
+rapidly in a success pattern and writes a `pid_config.json` file to disk containing:
 
 1. Validated `i2c_bus` IDs and `sensor_addresses`.
 2. `axis_map`: The vector matrices defining the Up/Down and Pitch axes.
@@ -183,8 +183,10 @@ rapidly in a success pattern and writes a `config.json` file to disk containing:
 4. `hardware_limits`: The discovered `min_pwm` deadbands and `motor_trim` ratio.
 5. `dynamics`: The `balance_point_offset`.
 
-**On all future bootups:** The robot detects `config.json`, bypasses the Tabula Rasa protocol entirely, performs a
+**On all future bootups:** The robot detects `pid_config.json`, bypasses the Tabula Rasa protocol entirely, performs a
 Kick-Up maneuver based on established facts, and balances flawlessly.
+
+The configuration is managed using `pydantic` models for robust validation and serialization.
 
 > **Implementation Status:** Implemented.
 > **Code Correlation:** `src/balance_bot/config.py` in `RobotConfig.save`.
@@ -276,3 +278,12 @@ In a linear script, a failure is an exit. In a Discovery engine, a failure is **
 * **Ambiguity:** If "The Crunch" results in equal vibration on X and Y axes, the robot doesn't crash. It retries with higher power.
 * **Contradiction:** If "The Pirouette" says Motor 0 is Left, but a later validation check implies Motor 0 is Right, the robot invalidates the `ChassisHandedness` node and re-runs the experiment.
 * **The "Fall" Event:** If at any point the robot tips past `CRASH_ANGLE` (e.g., during "The Attempt"), the logic pauses. It waits for the human to reset it (Proprioception: "I am crashed"). Once upright, it resumes exactly where it left off, effectively "remembering" that the previous attempt knocked it over.
+
+---
+
+# Appendix C: Architectural Simplifications
+
+To ensure code quality and reduce boilerplate, the project utilizes:
+
+1.  **Pydantic:** Used for `RobotConfig` and all sub-configs (`PIDParams`, `BatteryConfig`, etc.). This replaces manual JSON parsing and validation with robust, typed models.
+2.  **Simple-PID:** The `pid.py` module wraps the industry-standard `simple-pid` library. It adds domain-specific logic like Gyro-based Derivative terms and Integral Clamping, while delegating the core math to the library.

@@ -4,8 +4,7 @@ import logging
 from typing import Protocol, runtime_checkable, Any, Optional
 from dataclasses import dataclass
 
-from ..utils import clamp, calculate_pitch, Vector3
-from ..diagnostics import get_i2c_failure_report
+from ..utils import clamp, calculate_pitch, Vector3, get_i2c_failure_report
 from ..config import (
     BALANCING_THRESHOLD,
     REST_ANGLE_MIN,

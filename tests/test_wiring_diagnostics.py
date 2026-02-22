@@ -1,24 +1,24 @@
 from unittest.mock import patch, MagicMock
-from balance_bot.diagnostics import get_i2c_failure_report
+from balance_bot.utils import get_i2c_failure_report
 
-@patch("balance_bot.diagnostics.Path.exists")
+@patch("balance_bot.utils.Path.exists")
 def test_bus_not_exist(mock_exists):
     mock_exists.return_value = False
     report = get_i2c_failure_report(1, 0x22, "TestDevice")
     assert "CRITICAL FAILURE: I2C Bus 1" in report
     assert "does not exist" in report
 
-@patch("balance_bot.diagnostics.Path.exists")
-@patch("balance_bot.diagnostics.os.access")
+@patch("balance_bot.utils.Path.exists")
+@patch("balance_bot.utils.os.access")
 def test_permission_denied(mock_access, mock_exists):
     mock_exists.return_value = True
     mock_access.return_value = False
     report = get_i2c_failure_report(1, 0x22, "TestDevice")
     assert "CRITICAL FAILURE: Permission denied" in report
 
-@patch("balance_bot.diagnostics.Path.exists")
-@patch("balance_bot.diagnostics.os.access")
-@patch("balance_bot.diagnostics.subprocess.run")
+@patch("balance_bot.utils.Path.exists")
+@patch("balance_bot.utils.os.access")
+@patch("balance_bot.utils.subprocess.run")
 def test_device_detected_but_failed(mock_run, mock_access, mock_exists):
     mock_exists.return_value = True
     mock_access.return_value = True
@@ -31,9 +31,9 @@ def test_device_detected_but_failed(mock_run, mock_access, mock_exists):
     report = get_i2c_failure_report(1, 0x22, "TestDevice")
     assert "CONFUSION: Device TestDevice (0x22) IS detected" in report
 
-@patch("balance_bot.diagnostics.Path.exists")
-@patch("balance_bot.diagnostics.os.access")
-@patch("balance_bot.diagnostics.subprocess.run")
+@patch("balance_bot.utils.Path.exists")
+@patch("balance_bot.utils.os.access")
+@patch("balance_bot.utils.subprocess.run")
 def test_device_not_detected(mock_run, mock_access, mock_exists):
     mock_exists.return_value = True
     mock_access.return_value = True
