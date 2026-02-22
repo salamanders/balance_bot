@@ -6,11 +6,16 @@ except ImportError:
     smbus = None
 
 from typing import Callable, Any
-from .diagnostics import run_diagnostics
 from .config import RobotConfig
 from .hardware.robot_hardware import RobotHardware, IMUReading
 from .enums import Axis
-from .utils import analyze_dominance, cross_product, Vector3
+from .utils import (
+    analyze_dominance,
+    cross_product,
+    Vector3,
+    get_i2c_failure_report,
+    run_diagnostics
+)
 
 
 class WiringCheck:
@@ -182,6 +187,18 @@ class WiringCheck:
         bus = self._scan_candidates(name, check_fn)
         if bus is None:
             print(f"  [FAILURE] Could not find {name} on any bus.")
+
+            # Use improved diagnostics for the likely bus (1 or 3)
+            # Default to checking both or giving a hint
+            print("  [DIAGNOSTIC] Analyzing potential causes...")
+            # We don't know the address here easily unless passed, but we can guess based on name
+            addr = 0x22 if "PiconZero" in name else 0x68
+
+            # Check likely buses
+            for b in [1, 3]:
+                print(f"  --- Bus {b} Report ---")
+                print(get_i2c_failure_report(b, addr, name))
+
             sys.exit(1)
         return bus
 
