@@ -7,7 +7,7 @@ from ..enums import Axis
 from .pid import PIDController
 
 
-@dataclass(frozen=True)
+@dataclass(slots=True)
 class MotionRequest:
     """
     Tier 3 -> Tier 1 Command Interface.

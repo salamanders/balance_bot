@@ -87,6 +87,12 @@ class Agent:
 
         # Pre-allocated zero tuning params for waiting/measuring loops
         self._zero_tuning = TuningParams(0.0, 0.0, 0.0, 0.0)
+        self._zero_motion_enabled = MotionRequest(
+            velocity=0.0, turn_rate=0.0, enable_control=True
+        )
+        self._zero_motion_disabled = MotionRequest(
+            velocity=0.0, turn_rate=0.0, enable_control=False
+        )
 
     def run(self) -> None:
         """
@@ -102,7 +108,7 @@ class Agent:
             while time.perf_counter() - start_wait < self.config.timing.setup_wait:
                 # We must spin the core to settle the filter
                 self.core.update(
-                    MotionRequest(enable_control=False), self._zero_tuning, dt
+                    self._zero_motion_disabled, self._zero_tuning, dt
                 )
                 self.led.update()
                 dt = rate.sleep()
@@ -159,6 +165,9 @@ class Agent:
 
             # Pre-allocate TuningParams for high-frequency reuse
             tuning_params = TuningParams(0.0, 0.0, 0.0, 0.0)
+            motion_req = MotionRequest(
+                velocity=0.0, turn_rate=0.0, enable_control=True
+            )
 
             while self.running:
                 self.ticks += 1
@@ -174,9 +183,9 @@ class Agent:
                     if p_rate < 10.0:
                         enable_control = False
 
-                motion_req = MotionRequest(
-                    velocity=0.0, turn_rate=0.0, enable_control=enable_control
-                )
+                motion_req.velocity = 0.0
+                motion_req.turn_rate = 0.0
+                motion_req.enable_control = enable_control
 
                 # --- PREPARE INPUTS (Adaptation Phase) ---
                 # Use data from the PREVIOUS frame to adjust parameters for THIS frame.
@@ -364,7 +373,9 @@ class Agent:
         dt = self.config.loop_time
         while True:
             # Keep filter alive
-            telemetry = self.core.update(MotionRequest(), self._zero_tuning, dt)
+            telemetry = self.core.update(
+                self._zero_motion_enabled, self._zero_tuning, dt
+            )
 
             if time.perf_counter() > end_time:
                 # Check rate
@@ -382,7 +393,7 @@ class Agent:
         rate = RateLimiter(1.0 / self.config.loop_time)
         dt = self.config.loop_time
         while time.perf_counter() < end_time:
-            self.core.update(MotionRequest(), self._zero_tuning, dt)
+            self.core.update(self._zero_motion_enabled, self._zero_tuning, dt)
             dt = rate.sleep()
 
     def _incremental_kickup(self, target_angle: float, start_power: float) -> None:
@@ -470,7 +481,7 @@ class Agent:
             dt = self.config.loop_time
             while time.perf_counter() - catch_start < 2.5:
                 # We are now in a mini control loop
-                telem = self.core.update(MotionRequest(), catch_params, dt)
+                telem = self.core.update(self._zero_motion_enabled, catch_params, dt)
 
                 # Check if stable
                 error = abs(telem.pitch_angle - target_angle)
