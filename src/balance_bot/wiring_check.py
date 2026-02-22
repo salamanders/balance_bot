@@ -780,15 +780,6 @@ class WiringCheck:
         final_reading = self.hw.read_imu_converted()
         final_pitch = final_reading.pitch_angle
 
-        # check success
-        if check_success(final_pitch):
-             # Even if successful, check alignment briefly?
-             # No, if it worked, it worked. But let's be safe.
-             pass
-        else:
-             # If it failed to flip, we still check alignment to see if that was the cause.
-             pass
-
         # Alignment Check
         if not samples:
             avg_yaw = 0.0
