@@ -49,7 +49,7 @@ class TestWiringResilience(unittest.TestCase):
         from balance_bot.wiring_check import WiringCheck
         from balance_bot.utils import Vector3
         from balance_bot.enums import Axis
-        from balance_bot.hardware.robot_hardware import IMUReading
+        from balance_bot.hardware.robot_hardware import IMUReading, MeasureResult
 
         # Setup Mock Hardware Instance
         hw_instance = MockHW.return_value
@@ -57,8 +57,17 @@ class TestWiringResilience(unittest.TestCase):
         vec_back = Vector3(0.0, -0.17, 0.98)
         vec_front = Vector3(0.0, 0.5, 0.86)
 
-        samples = [vec_back] * 110 + [vec_front] * 110
-        hw_instance.read_imu_raw.side_effect = lambda: (samples.pop(0), Vector3(0,0,0))
+        # Mock drive_and_measure for gravity vector measurement
+        # We need it to return MeasureResult with samples containing accel_raw
+        r_back = MagicMock(spec=IMUReading)
+        r_back.accel_raw = vec_back
+        res_back = MeasureResult(duration=1.0, samples=[r_back]*50)
+
+        r_front = MagicMock(spec=IMUReading)
+        r_front.accel_raw = vec_front
+        res_front = MeasureResult(duration=1.0, samples=[r_front]*50)
+
+        hw_instance.drive_and_measure.side_effect = [res_back, res_front]
 
         mock_reading_front = MagicMock(spec=IMUReading)
         mock_reading_front.pitch_angle = 30.0

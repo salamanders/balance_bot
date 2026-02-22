@@ -200,6 +200,13 @@ class RobotHardware:
                 return Axis.X  # Fallback
         return None
 
+    def _get_axis_value(self, vector: Vector3, axis: Axis | None, invert: bool) -> float:
+        """Helper to extract and optionally invert a vector component."""
+        if axis is None:
+            return 0.0
+        val = getattr(vector, axis.value)
+        return -val if invert else val
+
     def _init_hardware(self) -> None:
         """
         Initialize hardware components.
@@ -314,40 +321,27 @@ class RobotHardware:
         accel, gyro = self.read_imu_raw()
 
         # Get raw values based on config
-        accel_forward = getattr(accel, self.config.accel_forward_axis.value)
-        accel_vertical = getattr(accel, self.config.accel_vertical_axis.value)
-        gyro_rate = getattr(gyro, self.config.gyro_pitch_axis.value)
-
-        # Apply inversions
-        if self.config.accel_forward_invert:
-            accel_forward = -accel_forward
-        if self.config.accel_vertical_invert:
-            accel_vertical = -accel_vertical
+        accel_forward = self._get_axis_value(
+            accel, self.config.accel_forward_axis, self.config.accel_forward_invert
+        )
+        accel_vertical = self._get_axis_value(
+            accel, self.config.accel_vertical_axis, self.config.accel_vertical_invert
+        )
 
         # Calculate Accelerometer Angle
         # calculate_pitch(y, z) assumes y is forward, z is vertical.
         acc_angle = calculate_pitch(accel_forward, accel_vertical)
 
-        # Apply Gyro Inversion
-        if self.config.gyro_pitch_invert:
-            gyro_rate = -gyro_rate
-
-        # Yaw rate
-        # Default to 0.0 if not configured
-        if self.config.gyro_yaw_axis:
-            yaw_rate = getattr(gyro, self.config.gyro_yaw_axis.value)
-            if self.config.gyro_yaw_invert:
-                yaw_rate = -yaw_rate
-        else:
-            yaw_rate = 0.0
-
-        # Roll rate
-        if self.config.gyro_roll_axis:
-            roll_rate = getattr(gyro, self.config.gyro_roll_axis.value)
-            if self.config.gyro_roll_invert:
-                roll_rate = -roll_rate
-        else:
-            roll_rate = 0.0
+        # Gyro Rates
+        gyro_rate = self._get_axis_value(
+            gyro, self.config.gyro_pitch_axis, self.config.gyro_pitch_invert
+        )
+        yaw_rate = self._get_axis_value(
+            gyro, self.config.gyro_yaw_axis, self.config.gyro_yaw_invert
+        )
+        roll_rate = self._get_axis_value(
+            gyro, self.config.gyro_roll_axis, self.config.gyro_roll_invert
+        )
 
         # Roll Angle (Approximate from Accel)
         if self.accel_roll_axis:
