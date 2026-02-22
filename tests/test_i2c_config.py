@@ -39,15 +39,16 @@ def test_hardware_init_with_bus():
 
         # Ensure not in mock mode
         with patch.dict(os.environ, {}, clear=True):
-            hw = RobotHardware(motor_l=0, motor_r=1, motor_i2c_bus=0, imu_i2c_bus=3)
+            config = RobotConfig(pid=PIDParams(), motor_l=0, motor_r=1, motor_i2c_bus=0, imu_i2c_bus=3)
+            hw = RobotHardware(config)
 
             # Verify mpu6050 was called with bus=3
             mock_mpu_class.assert_called_once_with(0x68, bus=3)
-            assert hw.imu_i2c_bus == 3
+            assert hw.config.imu_i2c_bus == 3
 
             # Verify PiconZero was called with bus=0
             mock_pz_class.assert_called_once_with(bus_number=0)
-            assert hw.motor_i2c_bus == 0
+            assert hw.config.motor_i2c_bus == 0
 
 def test_hardware_init_skip_if_none():
     """Test that RobotHardware skips init if buses are None."""
@@ -71,12 +72,13 @@ def test_hardware_init_skip_if_none():
         from balance_bot.hardware.robot_hardware import RobotHardware
 
         with patch.dict(os.environ, {}, clear=True):
-            hw = RobotHardware(motor_l=0, motor_r=1, motor_i2c_bus=None, imu_i2c_bus=None)
+            config = RobotConfig(pid=PIDParams(), motor_l=0, motor_r=1, motor_i2c_bus=None, imu_i2c_bus=None)
+            hw = RobotHardware(config)
 
             # Verify mpu6050 was NOT called
             mock_mpu_class.assert_not_called()
-            assert hw.imu_i2c_bus is None
+            assert hw.config.imu_i2c_bus is None
 
             # Verify PiconZero was NOT called
             mock_pz_class.assert_not_called()
-            assert hw.motor_i2c_bus is None
+            assert hw.config.motor_i2c_bus is None

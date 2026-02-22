@@ -1,5 +1,6 @@
 import pytest
 from unittest.mock import MagicMock
+from balance_bot.config import RobotConfig, PIDParams
 from balance_bot.hardware.robot_hardware import RobotHardware
 from balance_bot.utils import Vector3
 
@@ -11,7 +12,8 @@ def test_imu_resilience_zero_order_hold(monkeypatch):
     # Force mock mode to avoid import errors for hardware libs
     monkeypatch.setenv("ALLOW_MOCK_FALLBACK", "1")
 
-    hw = RobotHardware(0, 1)
+    config = RobotConfig(pid=PIDParams(), motor_l=0, motor_r=1)
+    hw = RobotHardware(config)
     # Replaces the internal sensor with a MagicMock for control
     hw.sensor = MagicMock()
 
