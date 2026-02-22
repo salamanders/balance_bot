@@ -39,18 +39,23 @@ def test_calibrate_orientation(wc_fixture):
     # We'll just make read_imu_raw return back_vec initially, then front_vec
     # call_count increments every call.
 
-    # Reset mock to count from 0
-    wc.hw.read_imu_raw.reset_mock()
+    # Configure drive_and_measure to return samples
+    from balance_bot.hardware.robot_hardware import MeasureResult, IMUReading
 
-    def side_effect():
-        # First 50 calls are for Back
-        # Then some logic runs
-        # Then 50 calls for Front
-        if wc.hw.read_imu_raw.call_count <= 55:
-             return back_vec, Vector3(0,0,0)
-        return front_vec, Vector3(0,0,0)
+    # Create IMUReadings with accel_raw
+    reading_back = MagicMock(spec=IMUReading)
+    reading_back.accel_raw = back_vec
+    reading_back.pitch_angle = 30.0
 
-    wc.hw.read_imu_raw.side_effect = side_effect
+    reading_front = MagicMock(spec=IMUReading)
+    reading_front.accel_raw = front_vec
+    reading_front.pitch_angle = 30.0
+
+    # We need separate results for the two calls
+    res_back = MeasureResult(duration=1.0, samples=[reading_back]*50)
+    res_front = MeasureResult(duration=1.0, samples=[reading_front]*50)
+
+    wc.hw.drive_and_measure.side_effect = [res_back, res_front]
 
     # Mock input to avoid waiting
     with patch("builtins.input") as mock_input:
