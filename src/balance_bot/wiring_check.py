@@ -24,51 +24,20 @@ class WiringCheck:
         self.config = RobotConfig.load()
         self.hw = None
 
-        # Temporary runtime state
-        self.temp_motor_l = 0
-        self.temp_motor_r = 1
-        self.temp_invert_l = False
-        self.temp_invert_r = False
-
     def init_hw(self):
         """
         Initialize hardware with current known config.
         If config is incomplete, fills in safe defaults for discovery.
         """
         if self.hw:
-            try:
-                self.hw.stop()
-                self.hw.cleanup()
-            except Exception:
-                pass
+            return
 
         # We need buses to be discovered first
         if self.config.motor_i2c_bus is None or self.config.imu_i2c_bus is None:
             # Cannot init HW without buses.
             return
 
-        # Use Config values or Safe Defaults
-        # Note: RobotHardware requires Axis enums, but config might be None.
-        self.hw = RobotHardware(
-            motor_l=self.config.motor_l,
-            motor_r=self.config.motor_r,
-            invert_l=self.config.motor_l_invert,
-            invert_r=self.config.motor_r_invert,
-            # Sensors: Default to Z/Y/X if unknown, just to allow raw reading
-            gyro_axis=self.config.gyro_pitch_axis or Axis.X,
-            gyro_invert=self.config.gyro_pitch_invert,
-            gyro_yaw_axis=self.config.gyro_yaw_axis or Axis.Z,
-            gyro_yaw_invert=self.config.gyro_yaw_invert,
-            gyro_roll_axis=self.config.gyro_roll_axis or Axis.Y,
-            gyro_roll_invert=self.config.gyro_roll_invert,
-            accel_vertical_axis=self.config.accel_vertical_axis or Axis.Z,
-            accel_vertical_invert=self.config.accel_vertical_invert,
-            accel_forward_axis=self.config.accel_forward_axis or Axis.Y,
-            accel_forward_invert=self.config.accel_forward_invert,
-            motor_i2c_bus=self.config.motor_i2c_bus,
-            imu_i2c_bus=self.config.imu_i2c_bus,
-            motor_trim=self.config.motor_trim,
-        )
+        self.hw = RobotHardware(self.config)
         self.hw.init()
 
     def cleanup(self):
@@ -121,7 +90,6 @@ class WiringCheck:
                 print("-> [INFO] Motor channels not set. Assuming default candidates (0, 1) for discovery.")
                 c.motor_l = 0
                 c.motor_r = 1
-                # Re-init HW with these new defaults
                 self.init_hw()
 
             # 3a. Friction Threshold
@@ -322,9 +290,6 @@ class WiringCheck:
 
     def _calculate_rest_angles(self, avg_back: Vector3):
         """Calculate and store rest angles based on deduced axes."""
-        # Re-init hardware with new axes configuration
-        self.init_hw()
-
         print("  Measuring Rest Angles...")
         # Currently at FRONT position
         curr_front_reading = self.hw.read_imu_converted()
@@ -413,7 +378,6 @@ class WiringCheck:
         while attempts < max_attempts:
             attempts += 1
             print(f"  [Attempt {attempts}] Checking Phasing...")
-            self.init_hw()
 
             # Test 1: Drive with current config
             power = self.config.min_power_visible + 10
@@ -458,7 +422,6 @@ class WiringCheck:
         while attempts < max_attempts:
             attempts += 1
             print(f"  [Attempt {attempts}] Checking Direction...")
-            self.init_hw()
 
             # 1. Measure Start Pitch
             imu = self.hw.read_imu_converted()
@@ -575,7 +538,6 @@ class WiringCheck:
         attempts = 0
         while attempts < 3:
             attempts += 1
-            self.init_hw()
 
             # 1. Establish Up Vector (Opposite of Gravity)
             # We need to know which way is Up in the Raw Sensor Frame.
@@ -715,7 +677,6 @@ class WiringCheck:
         max_attempts = 15
 
         for attempt in range(max_attempts):
-            self.init_hw()
             current_trim = self.config.motor_trim
             print(f"  [Attempt {attempt+1}/{max_attempts}] Trim: {current_trim:.3f}")
 
@@ -894,7 +855,6 @@ class WiringCheck:
         Uses calibrated rest angles for robust start detection.
         """
         print(">>> Dynamic Kick-Up Calibration (Roll & Slam) <<<")
-        self.init_hw()
 
         # Robust Start Conditions using Calibrated Rest Angles
         # If not calibrated (None), fallback to default -10/10
@@ -918,7 +878,6 @@ class WiringCheck:
         1. Drive Straight: Verify Yaw Rate is low, Accel/Pitch reflects movement.
         2. Turn Right: Verify Yaw Rate is Negative (or matches convention).
         """
-        self.init_hw()
         print("  Running Autonomous Verification...")
 
         # 1. Verify Straight Drive

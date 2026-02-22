@@ -10,6 +10,7 @@ from ..config import (
     BALANCING_THRESHOLD,
     REST_ANGLE_MIN,
     REST_ANGLE_MAX,
+    RobotConfig,
 )
 from ..enums import Axis
 
@@ -170,83 +171,13 @@ class RobotHardware:
      - Convert raw sensor data into useful engineering units (Degrees, Deg/s).
     """
 
-    def __init__(
-        self,
-        motor_l: int | None = None,
-        motor_r: int | None = None,
-        invert_l: bool = False,
-        invert_r: bool = False,
-        gyro_axis: Axis | None = None,
-        gyro_invert: bool = False,
-        gyro_yaw_axis: Axis | None = None,
-        gyro_yaw_invert: bool = False,
-        gyro_roll_axis: Axis | None = None,
-        gyro_roll_invert: bool = False,
-        accel_vertical_axis: Axis | None = None,
-        accel_vertical_invert: bool = False,
-        accel_forward_axis: Axis | None = None,
-        accel_forward_invert: bool = False,
-        motor_i2c_bus: int | None = None,
-        imu_i2c_bus: int | None = None,
-        crash_angle: float = 60.0,
-        imu_max_retries: int = 5,
-        motor_trim: float = 0.0,
-    ):
+    def __init__(self, config: RobotConfig):
         """
         Initialize the robot hardware abstraction.
-
-        :param motor_l: Left motor channel index.
-        :param motor_r: Right motor channel index.
-        :param invert_l: Whether to invert left motor direction.
-        :param invert_r: Whether to invert right motor direction.
-        :param gyro_axis: Axis used for pitch rotation.
-        :param gyro_invert: Whether to invert gyro reading sign.
-        :param gyro_yaw_axis: Axis used for yaw rotation.
-        :param gyro_yaw_invert: Whether to invert yaw reading sign.
-        :param gyro_roll_axis: Axis used for roll rotation.
-        :param gyro_roll_invert: Whether to invert roll reading sign.
-        :param accel_vertical_axis: Axis corresponding to gravity.
-        :param accel_vertical_invert: Invert vertical axis sign.
-        :param accel_forward_axis: Axis corresponding to forward motion.
-        :param accel_forward_invert: Invert forward axis sign.
-        :param motor_i2c_bus: I2C bus number for Motor Driver.
-        :param imu_i2c_bus: I2C bus number for IMU.
-        :param crash_angle: Angle to consider as CRASHED state.
-        :param imu_max_retries: Max consecutive IMU failures before raising error.
-        :param motor_trim: Motor output scaling (Pos=Reduce Right, Neg=Reduce Left).
+        :param config: The shared RobotConfig object.
         """
-        self.motor_l = motor_l
-        self.motor_r = motor_r
-        self.invert_l = invert_l
-        self.invert_r = invert_r
-        self.gyro_axis = gyro_axis
-        self.gyro_invert = gyro_invert
-        self.gyro_yaw_axis = gyro_yaw_axis
-        self.gyro_yaw_invert = gyro_yaw_invert
-        self.gyro_roll_axis = gyro_roll_axis
-        self.gyro_roll_invert = gyro_roll_invert
-        self.accel_vertical_axis = accel_vertical_axis
-        self.accel_vertical_invert = accel_vertical_invert
-        self.accel_forward_axis = accel_forward_axis
-        self.accel_forward_invert = accel_forward_invert
-        self.motor_i2c_bus = motor_i2c_bus
-        self.imu_i2c_bus = imu_i2c_bus
-        self.crash_angle = crash_angle
-        self.imu_max_retries = imu_max_retries
-        self.motor_trim = motor_trim
+        self.config = config
         self._imu_consecutive_errors = 0
-
-        # Deduce Accel Roll Axis (The one not used by Vertical or Forward)
-        if accel_vertical_axis and accel_forward_axis:
-            axes = {Axis.X, Axis.Y, Axis.Z}
-            used = {accel_vertical_axis, accel_forward_axis}
-            remaining = axes - used
-            if remaining:
-                self.accel_roll_axis = list(remaining)[0]
-            else:
-                self.accel_roll_axis = Axis.X  # Fallback
-        else:
-            self.accel_roll_axis = None
 
         # Store the "last known good" value
         self._last_accel = Vector3(0.0, 0.0, 0.0)
@@ -256,6 +187,19 @@ class RobotHardware:
         self.sensor: IMUDriver | None = None
 
         self._init_hardware()
+
+    @property
+    def accel_roll_axis(self) -> Axis | None:
+        """Deduce Accel Roll Axis (The one not used by Vertical or Forward)"""
+        if self.config.accel_vertical_axis and self.config.accel_forward_axis:
+            axes = {Axis.X, Axis.Y, Axis.Z}
+            used = {self.config.accel_vertical_axis, self.config.accel_forward_axis}
+            remaining = axes - used
+            if remaining:
+                return list(remaining)[0]
+            else:
+                return Axis.X  # Fallback
+        return None
 
     def _init_hardware(self) -> None:
         """
@@ -277,30 +221,30 @@ class RobotHardware:
                 raise e
 
             # 2. Attempt PiconZero (if bus known)
-            if self.motor_i2c_bus is not None:
+            if self.config.motor_i2c_bus is not None:
                 try:
-                    self.pz = PiconZero(bus_number=self.motor_i2c_bus)
+                    self.pz = PiconZero(bus_number=self.config.motor_i2c_bus)
                 except (OSError, PermissionError, FileNotFoundError) as e:
-                    logger.error(f"CRITICAL: PiconZero Init Failed on Bus {self.motor_i2c_bus}: {e}")
-                    report = get_i2c_failure_report(self.motor_i2c_bus, 0x22, "PiconZero")
+                    logger.error(f"CRITICAL: PiconZero Init Failed on Bus {self.config.motor_i2c_bus}: {e}")
+                    report = get_i2c_failure_report(self.config.motor_i2c_bus, 0x22, "PiconZero")
                     logger.error(report)
                     raise e
             else:
                 logger.info("Skipping PiconZero init (Bus Unknown)")
 
             # 3. Attempt MPU6050 (if bus known)
-            if self.imu_i2c_bus is not None:
+            if self.config.imu_i2c_bus is not None:
                 try:
-                    self.sensor = MPU6050Adapter(mpu6050(0x68, bus=self.imu_i2c_bus))
+                    self.sensor = MPU6050Adapter(mpu6050(0x68, bus=self.config.imu_i2c_bus))
                 except OSError as e:
-                    logger.error(f"CRITICAL: MPU6050 Init Failed on Bus {self.imu_i2c_bus}: {e}")
-                    report = get_i2c_failure_report(self.imu_i2c_bus, 0x68, "MPU6050")
+                    logger.error(f"CRITICAL: MPU6050 Init Failed on Bus {self.config.imu_i2c_bus}: {e}")
+                    report = get_i2c_failure_report(self.config.imu_i2c_bus, 0x68, "MPU6050")
                     logger.error(report)
                     raise e
             else:
                 logger.info("Skipping MPU6050 init (Bus Unknown)")
 
-            logger.info(f"Hardware initialized (Partial). PiconZero={self.motor_i2c_bus}, MPU6050={self.imu_i2c_bus}.")
+            logger.info(f"Hardware initialized (Partial). PiconZero={self.config.motor_i2c_bus}, MPU6050={self.config.imu_i2c_bus}.")
 
         except (ImportError, OSError, PermissionError, FileNotFoundError) as e:
              # Check for Fallback (if initialization failed)
@@ -348,7 +292,7 @@ class RobotHardware:
 
         except OSError:
             self._imu_consecutive_errors += 1
-            if self._imu_consecutive_errors > self.imu_max_retries:
+            if self._imu_consecutive_errors > self.config.imu_max_retries:
                 logger.error(f"IMU Failed {self._imu_consecutive_errors} times in a row. Raising Error.")
                 raise
 
@@ -362,23 +306,23 @@ class RobotHardware:
         Read IMU and calculate pitch/rates based on config.
         """
         if (
-            self.accel_forward_axis is None
-            or self.accel_vertical_axis is None
-            or self.gyro_axis is None
+            self.config.accel_forward_axis is None
+            or self.config.accel_vertical_axis is None
+            or self.config.gyro_pitch_axis is None
         ):
             raise RuntimeError("IMU axes not configured. Use read_imu_raw() instead.")
 
         accel, gyro = self.read_imu_raw()
 
         # Get raw values based on config
-        accel_forward = getattr(accel, self.accel_forward_axis.value)
-        accel_vertical = getattr(accel, self.accel_vertical_axis.value)
-        gyro_rate = getattr(gyro, self.gyro_axis.value)
+        accel_forward = getattr(accel, self.config.accel_forward_axis.value)
+        accel_vertical = getattr(accel, self.config.accel_vertical_axis.value)
+        gyro_rate = getattr(gyro, self.config.gyro_pitch_axis.value)
 
         # Apply inversions
-        if self.accel_forward_invert:
+        if self.config.accel_forward_invert:
             accel_forward = -accel_forward
-        if self.accel_vertical_invert:
+        if self.config.accel_vertical_invert:
             accel_vertical = -accel_vertical
 
         # Calculate Accelerometer Angle
@@ -386,22 +330,22 @@ class RobotHardware:
         acc_angle = calculate_pitch(accel_forward, accel_vertical)
 
         # Apply Gyro Inversion
-        if self.gyro_invert:
+        if self.config.gyro_pitch_invert:
             gyro_rate = -gyro_rate
 
         # Yaw rate
         # Default to 0.0 if not configured
-        if self.gyro_yaw_axis:
-            yaw_rate = getattr(gyro, self.gyro_yaw_axis.value)
-            if self.gyro_yaw_invert:
+        if self.config.gyro_yaw_axis:
+            yaw_rate = getattr(gyro, self.config.gyro_yaw_axis.value)
+            if self.config.gyro_yaw_invert:
                 yaw_rate = -yaw_rate
         else:
             yaw_rate = 0.0
 
         # Roll rate
-        if self.gyro_roll_axis:
-            roll_rate = getattr(gyro, self.gyro_roll_axis.value)
-            if self.gyro_roll_invert:
+        if self.config.gyro_roll_axis:
+            roll_rate = getattr(gyro, self.config.gyro_roll_axis.value)
+            if self.config.gyro_roll_invert:
                 roll_rate = -roll_rate
         else:
             roll_rate = 0.0
@@ -445,14 +389,14 @@ class RobotHardware:
         # Apply Motor Trim (Compensation for mismatched motors)
         # Trim > 0: Scale down Right Motor (Right is stronger)
         # Trim < 0: Scale down Left Motor (Left is stronger)
-        if self.motor_trim > 0:
-            right *= (1.0 - self.motor_trim)
-        elif self.motor_trim < 0:
-            left *= (1.0 - abs(self.motor_trim))
+        if self.config.motor_trim > 0:
+            right *= (1.0 - self.config.motor_trim)
+        elif self.config.motor_trim < 0:
+            left *= (1.0 - abs(self.config.motor_trim))
 
-        if self.invert_l:
+        if self.config.motor_l_invert:
             left = -left
-        if self.invert_r:
+        if self.config.motor_r_invert:
             right = -right
 
         # Use helper clamp, cast to int for driver
@@ -464,17 +408,17 @@ class RobotHardware:
         val_1 = 0
 
         # Assign Left Motor Value
-        if self.motor_l is not None:
-            if self.motor_l == 0:
+        if self.config.motor_l is not None:
+            if self.config.motor_l == 0:
                 val_0 = left_val
-            elif self.motor_l == 1:
+            elif self.config.motor_l == 1:
                 val_1 = left_val
 
         # Assign Right Motor Value
-        if self.motor_r is not None:
-            if self.motor_r == 0:
+        if self.config.motor_r is not None:
+            if self.config.motor_r == 0:
                 val_0 = right_val
-            elif self.motor_r == 1:
+            elif self.config.motor_r == 1:
                 val_1 = right_val
 
         self.pz.set_motors(val_0, val_1)
@@ -503,7 +447,7 @@ class RobotHardware:
             return "BALANCED"
         elif REST_ANGLE_MIN < pitch < REST_ANGLE_MAX:
             return "RESTING"
-        elif pitch > self.crash_angle:
+        elif pitch > self.config.crash_angle:
             return "CRASHED"
         else:
             return "FALLING"
