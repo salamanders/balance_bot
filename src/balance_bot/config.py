@@ -109,6 +109,7 @@ class SystemTiming(BaseModel):
     calibration_pause: float = 1.0
     save_interval: float = 30.0
     battery_log_interval: float = 5.0
+    tuning_log_interval: float = 1.0
 
 
 @contextmanager

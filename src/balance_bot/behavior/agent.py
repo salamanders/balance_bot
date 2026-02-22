@@ -76,6 +76,7 @@ class Agent:
         # Tier 3
         self.led = LedController(self.config.led)
         self.battery_logger = LogThrottler(self.config.timing.battery_log_interval)
+        self.tuning_logger = LogThrottler(self.config.timing.tuning_log_interval)
 
         # State
         self.running = True
@@ -221,9 +222,10 @@ class Agent:
                                     0.0, self.config.pid.kd + adj.kd
                                 )
                                 self.config_dirty = True
-                                logger.info(
-                                    f"-> Tuned: P={self.config.pid.kp:.2f} I={self.config.pid.ki:.3f} D={self.config.pid.kd:.2f}"
-                                )
+                                if self.tuning_logger.should_log():
+                                    logger.info(
+                                        f"-> Tuned: P={self.config.pid.kp:.2f} I={self.config.pid.ki:.3f} D={self.config.pid.kd:.2f}"
+                                    )
                                 # Update local vars
                                 tune_kp = self.config.pid.kp
                                 tune_ki = self.config.pid.ki
