@@ -3,7 +3,7 @@ import unittest
 from unittest.mock import MagicMock, patch
 
 # Mock Hardware Libraries BEFORE importing balance_bot modules
-sys.modules["smbus"] = MagicMock()
+sys.modules["smbus2"] = MagicMock()
 sys.modules["mpu6050"] = MagicMock()
 
 # Now we can import safely

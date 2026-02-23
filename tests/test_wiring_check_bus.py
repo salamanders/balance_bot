@@ -2,11 +2,11 @@ import sys
 import pytest
 from unittest.mock import MagicMock, patch, call
 
-# Mock smbus before import if missing
+# Mock smbus2 before import if missing
 try:
-    import smbus
+    import smbus2 as smbus
 except ImportError:
-    sys.modules['smbus'] = MagicMock()
+    sys.modules['smbus2'] = MagicMock()
 
 from balance_bot.wiring_check import WiringCheck
 
@@ -78,6 +78,7 @@ def test_discover_buses_found(wc_fixture):
         if bus_id == 2: return bus2
         raise OSError("Bus Error")
 
+    # smbus2.SMBus is the constructor
     mock_smbus.SMBus.side_effect = smbus_side_effect
 
     wc.discover_buses()

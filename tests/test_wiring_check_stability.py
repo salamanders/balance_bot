@@ -3,9 +3,9 @@ import pytest
 from unittest.mock import MagicMock, patch, call
 import time
 
-# Mock smbus before import if missing
-if 'smbus' not in sys.modules:
-    sys.modules['smbus'] = MagicMock()
+# Mock smbus2 before import if missing
+if 'smbus2' not in sys.modules:
+    sys.modules['smbus2'] = MagicMock()
 
 from balance_bot.wiring_check import WiringCheck
 from balance_bot.hardware.robot_hardware import IMUReading

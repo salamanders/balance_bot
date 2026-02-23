@@ -7,12 +7,12 @@ from unittest.mock import MagicMock, call, patch
 if "balance_bot.hardware.piconzero" in sys.modules:
     del sys.modules["balance_bot.hardware.piconzero"]
 
-# Mock smbus before importing piconzero (for non-Pi systems)
-if "smbus" not in sys.modules:
+# Mock smbus2 before importing piconzero (for non-Pi systems)
+if "smbus2" not in sys.modules:
     try:
-        import smbus
+        import smbus2
     except ImportError:
-        sys.modules["smbus"] = MagicMock()
+        sys.modules["smbus2"] = MagicMock()
 
 # Add src to path
 import os
