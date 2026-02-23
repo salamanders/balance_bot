@@ -99,6 +99,7 @@ class ControlConfig(BaseModel):
     max_tilt_angle: float = 10.0
     turn_gain: float = 30.0
     soft_recovery_kp_threshold: float = 1.0
+    backlash_pulse_time: float = 0.0
 
 
 class SystemTiming(BaseModel):
@@ -179,6 +180,7 @@ class RobotConfig(BaseModel):
     motor_direction_verified: bool = False
     motor_channels_verified: bool = False
     motor_trim_verified: bool = False
+    backlash_verified: bool = False
 
     # The baton pass from Wiring Check to Agent
     balance_verified: bool = False
@@ -227,6 +229,7 @@ class RobotConfig(BaseModel):
         self.motor_direction_verified = False
         self.motor_channels_verified = False
         self.motor_trim_verified = False
+        self.backlash_verified = False
         self.balance_verified = False
 
     def save(self) -> None:

@@ -98,6 +98,10 @@ class WiringCheck:
              lambda c: not c.motor_trim_verified,
              lambda: (self.calibrate_motor_trim(), setattr(self.config, 'motor_trim_verified', True))),
 
+            ("Mechanical Backlash",
+             lambda c: not c.backlash_verified,
+             self.measure_backlash),
+
             ("Kick-Up Dynamics",
              lambda c: c.control.kickup_power_forward == 0.0,
              self.find_flop_thresholds)
@@ -687,6 +691,57 @@ class WiringCheck:
             print(f"    -> Correction: {correction:+.4f} -> New Trim: {self.config.motor_trim:.3f}")
 
         print("  [WARNING] Could not perfectly trim motors. Saving best effort.")
+
+    # --- Phase 6b: Mechanical Backlash ---
+    def measure_backlash(self):
+        """
+        Measure gear slop by pushing gears forward, then timing how long
+        reverse power takes to actually move the chassis.
+        """
+        print(">>> Measuring Mechanical Backlash (Gear Slop) <<<")
+        self.hw.wait_for_stability(duration=1.0)
+
+        test_power = self.config.min_power_visible + 10
+
+        # Step 1: Engage gears FORWARD
+        print("  Engaging gears forward...")
+        self.hw.set_motors(test_power, test_power)
+        time.sleep(0.3)
+        self.hw.stop()
+        self.hw.wait_for_stability(duration=1.0)
+
+        # Step 2: Slam REVERSE and time the dead zone
+        print("  Reversing and timing IMU response...")
+        start_time = time.time()
+        self.hw.set_motors(-test_power, -test_power)
+
+        slop_time = 0.0
+        while True:
+            reading = self.hw.read_imu_converted()
+
+            # If the chassis pitch rate spikes, the wheels have finally caught
+            if abs(reading.pitch_rate) > 5.0:
+                slop_time = time.time() - start_time
+                break
+
+            # Timeout safety
+            if time.time() - start_time > 1.0:
+                print("  [WARNING] Could not detect movement. Assuming max slop.")
+                slop_time = 0.2
+                break
+
+            time.sleep(0.005)
+
+        self.hw.stop()
+
+        # Subtract ~0.02s to account for basic chassis inertia (so we don't overcompensate)
+        compensated_slop = max(0.0, slop_time - 0.02)
+
+        print(f"  [SUCCESS] Backlash crossing takes ~{compensated_slop:.3f} seconds.")
+
+        # Save it
+        self.config.control.backlash_pulse_time = compensated_slop
+        self.config.backlash_verified = True
 
     # --- Phase 7: Kick-Up Dynamics ---
     def _wait_for_start_condition(self, check_fn: Callable[[float], bool] | None, msg: str):
