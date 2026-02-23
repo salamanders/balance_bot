@@ -58,8 +58,8 @@ def test_hardware_init_with_bus():
             # Fix: Check config
             assert hw.config.motor_i2c_bus == 0
 
-def test_hardware_init_skip_if_none():
-    """Test that RobotHardware skips init if buses are None."""
+def test_hardware_init_uses_defaults_if_none():
+    """Test that RobotHardware uses defaults if buses are None."""
     # Setup Mocks
     mock_mpu_pkg = MagicMock()
     mock_mpu_class = MagicMock()
@@ -89,12 +89,12 @@ def test_hardware_init_skip_if_none():
 
             hw = RobotHardware(config)
 
-            # Verify mpu6050 was NOT called
-            mock_mpu_class.assert_not_called()
+            # Verify mpu6050 was called with default bus 1
+            mock_mpu_class.assert_called_once_with(0x68, bus=1)
             # Fix: Check config
-            assert hw.config.imu_i2c_bus is None
+            assert hw.config.imu_i2c_bus == 1
 
-            # Verify PiconZero was NOT called
-            mock_pz_class.assert_not_called()
+            # Verify PiconZero was called with default bus 1
+            mock_pz_class.assert_called_once_with(bus_number=1)
             # Fix: Check config
-            assert hw.config.motor_i2c_bus is None
+            assert hw.config.motor_i2c_bus == 1
