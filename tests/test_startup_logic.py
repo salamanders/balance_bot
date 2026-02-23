@@ -70,6 +70,7 @@ class TestAgentStartup(unittest.TestCase):
 
     def test_normal_run_on_back_triggers_kickup(self):
         # Arrange
+        self.mock_config_instance.timing.setup_wait = 0.0 # Skip warmup loop
         self.mock_config_file.exists.return_value = True # Saved config
 
         agent = Agent()
@@ -79,16 +80,34 @@ class TestAgentStartup(unittest.TestCase):
         self.mock_core_instance.pitch = -40.0
 
         agent._incremental_kickup = MagicMock()
-        agent.running = False
+        agent.running = True
 
-        # Act
-        agent.run()
+        # We need the loop to run at least twice:
+        # 1. IDLE -> Detect Pitch -> Transition to KICKUP
+        # 2. KICKUP -> Call _incremental_kickup
+
+        call_count = 0
+        def stop_loop():
+            nonlocal call_count
+            call_count += 1
+            if call_count >= 2:
+                agent.running = False
+            return 0.01
+
+        with patch('balance_bot.behavior.agent.RateLimiter') as mock_rate:
+            mock_rate.return_value.sleep.side_effect = stop_loop
+            # Also mock core.update to return None or dummy telemetry so loop doesn't crash
+            agent.core.update.return_value = MagicMock()
+
+            # Act
+            agent.run()
 
         # Assert
         agent._incremental_kickup.assert_called_once()
 
     def test_normal_run_upright_skips_kickup(self):
         # Arrange
+        self.mock_config_instance.timing.setup_wait = 0.0 # Skip warmup
         self.mock_config_file.exists.return_value = True
 
         agent = Agent()
@@ -98,10 +117,23 @@ class TestAgentStartup(unittest.TestCase):
         self.mock_core_instance.pitch = 0.0
 
         agent._incremental_kickup = MagicMock()
-        agent.running = False
+        agent.running = True
 
-        # Act
-        agent.run()
+        # Run loop once: IDLE -> BALANCING (if upright)
+        call_count = 0
+        def stop_loop():
+            nonlocal call_count
+            call_count += 1
+            if call_count >= 1:
+                agent.running = False
+            return 0.01
+
+        with patch('balance_bot.behavior.agent.RateLimiter') as mock_rate:
+            mock_rate.return_value.sleep.side_effect = stop_loop
+            agent.core.update.return_value = MagicMock()
+
+            # Act
+            agent.run()
 
         # Assert
         agent._incremental_kickup.assert_not_called()
