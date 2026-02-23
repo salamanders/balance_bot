@@ -33,11 +33,11 @@ def main() -> None:
 
     try:
         if args.reset_brain or args.force:
-            from .config import RobotConfig
+            from .configuration import HardwareConfig, LearningState
             print("Resetting Robot Memory...")
-            cfg = RobotConfig.load()
-            cfg.reset_hardware_map()
-            cfg.save()
+            # Reset by overwriting with defaults
+            HardwareConfig().save()
+            LearningState().save()
             print("Brain reset complete.")
             # If we are not discovering or checking wiring, we are done.
             if not args.discover and not args.check_wiring:
@@ -46,7 +46,7 @@ def main() -> None:
         if args.discover or args.check_wiring:
             try:
                 # WiringCheck handles incremental discovery automatically.
-                # If reset_hardware_map was called, it starts from scratch.
+                # If reset_brain was called, it starts from scratch.
                 WiringCheck(watchdog=watchdog).run()
             except KeyboardInterrupt:
                 if watchdog.triggered:
@@ -95,9 +95,11 @@ def main() -> None:
                 try:
                     # 'bot' is an Agent instance
                     agent_inst = locals()["bot"]
-                    state = agent_inst.config.model_dump()
-                    # Add runtime info
-                    state["runtime_ticks"] = agent_inst.ticks
+                    state = {
+                        "hardware": agent_inst.hw_config.model_dump(),
+                        "learning": agent_inst.learning_state.model_dump(),
+                        "runtime_ticks": agent_inst.ticks
+                    }
                 except Exception:
                     state["serialization_error"] = "Could not serialize bot config"
 

@@ -1,7 +1,7 @@
 import pytest
 from unittest.mock import MagicMock
 from balance_bot.hardware.robot_hardware import RobotHardware
-from balance_bot.config import RobotConfig, PIDParams
+from balance_bot.configuration import RobotConfig, PIDParams
 from balance_bot.utils import Vector3
 
 def test_imu_resilience_zero_order_hold(monkeypatch):

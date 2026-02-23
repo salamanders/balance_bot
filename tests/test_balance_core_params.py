@@ -1,7 +1,7 @@
 import pytest
 from unittest.mock import MagicMock
 from balance_bot.reflex.balance_core import BalanceCore, MotionRequest, TuningParams, BalanceTelemetry
-from balance_bot.config import RobotConfig, PIDParams
+from balance_bot.configuration import RobotConfig, PIDParams
 
 def test_balance_core_update_with_mutable_tuning_params():
     # Setup

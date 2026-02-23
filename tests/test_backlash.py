@@ -1,6 +1,6 @@
 import pytest
 from unittest.mock import MagicMock, patch
-from src.balance_bot.config import RobotConfig, ControlConfig, PIDParams
+from src.balance_bot.configuration import RobotConfig, ControlConfig, PIDParams
 from src.balance_bot.reflex.balance_core import BalanceCore, MotionRequest, TuningParams
 
 @pytest.fixture
