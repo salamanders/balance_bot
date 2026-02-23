@@ -458,17 +458,16 @@ class RobotHardware:
         while True:
             # Read sensors
             try:
-                reading = self.read_imu_converted()
-            except RuntimeError:
-                # Re-raise if config is missing, as we can't measure stability
-                raise
+                # Use RAW data to avoid dependency on config (allows calibration)
+                accel, gyro = self.read_imu_raw()
             except Exception as e:
                 logger.warning(f"  [Error reading IMU] {e}")
                 time.sleep(0.1)
                 continue
 
-            # Calculate total rate magnitude
-            rate = abs(reading.pitch_rate) + abs(reading.yaw_rate) + abs(reading.roll_rate)
+            # Calculate total rate magnitude from raw gyro (assumed deg/s or similar scale)
+            # This is robust even if axes are not yet configured.
+            rate = abs(gyro.x) + abs(gyro.y) + abs(gyro.z)
 
             if rate < threshold:
                 if start_stable_time is None:
