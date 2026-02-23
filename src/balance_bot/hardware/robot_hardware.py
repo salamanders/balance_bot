@@ -211,6 +211,20 @@ class RobotHardware:
         """
         Initialize hardware components.
         """
+        # Inject Defaults if missing (Safe Baseline)
+        if self.config.motor_i2c_bus is None:
+            self.config.motor_i2c_bus = 1
+        if self.config.imu_i2c_bus is None:
+            self.config.imu_i2c_bus = 1
+
+        # Sensor Defaults (Z=Vert, Y=Fwd, X=Pitch is standard)
+        if self.config.gyro_pitch_axis is None:
+            self.config.gyro_pitch_axis = Axis.X
+        if self.config.accel_vertical_axis is None:
+            self.config.accel_vertical_axis = Axis.Z
+        if self.config.accel_forward_axis is None:
+            self.config.accel_forward_axis = Axis.Y
+
         # If running in explicit mock mode via env var, do that first.
         if os.environ.get("ALLOW_MOCK_FALLBACK"):
             logger.warning("Hardware Init: Mock Mode Requested via Environment.")

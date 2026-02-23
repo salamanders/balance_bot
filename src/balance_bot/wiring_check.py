@@ -76,6 +76,7 @@ class WiringCheck:
              lambda: (print("-> [INFO] Setting default motors (0,1)."),
                       setattr(self.config, 'motor_l', 0),
                       setattr(self.config, 'motor_r', 1),
+                      self.config.save(),
                       self.init_hw())),
 
             ("Friction Threshold",
