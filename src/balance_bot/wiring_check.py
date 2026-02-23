@@ -203,7 +203,7 @@ class WiringCheck:
 
     def _verify_with_retries(self, name: str, test_fn: Callable[[], Any],
                              check_fn: Callable[[Any], bool | str],
-                             max_attempts: int = 3) -> None:
+                             max_attempts: int = 3, fail_fatal: bool = True) -> bool:
         """
         Generic verification loop with retries.
         check_fn should return True (Pass), False (Fail/Retry),
@@ -217,7 +217,7 @@ class WiringCheck:
             outcome = check_fn(result)
             if outcome is True or outcome == "PASS":
                 print(f"  [SUCCESS] {name} Verified.")
-                return
+                return True
 
             if outcome == "FAIL_FATAL":
                 break
@@ -226,7 +226,9 @@ class WiringCheck:
             print(f"  [RETRY] {name} check failed/ambiguous.")
 
         print(f"  [FAILURE] Could not verify {name} after {max_attempts} attempts.")
-        sys.exit(1)
+        if fail_fatal:
+            sys.exit(1)
+        return False
 
     def _find_threshold(self, name: str, start: float, step: float, limit: float,
                         action_fn: Callable[[float], Any],
@@ -373,13 +375,8 @@ class WiringCheck:
         angle_front = curr_front_reading.pitch_angle
 
         # Calculate Back Angle from avg_back using known axes
-        fwd_val_back = getattr(avg_back, self.config.accel_forward_axis.value)
-        if self.config.accel_forward_invert:
-            fwd_val_back = -fwd_val_back
-
-        vert_val_back = getattr(avg_back, self.config.accel_vertical_axis.value)
-        if self.config.accel_vertical_invert:
-            vert_val_back = -vert_val_back
+        fwd_val_back = self.hw.get_axis_value(avg_back, self.config.accel_forward_axis, self.config.accel_forward_invert)
+        vert_val_back = self.hw.get_axis_value(avg_back, self.config.accel_vertical_axis, self.config.accel_vertical_invert)
 
         from .utils import calculate_pitch
         angle_back = calculate_pitch(fwd_val_back, vert_val_back)
@@ -517,34 +514,24 @@ class WiringCheck:
         print("I am going to spin to determine my physical identity.")
         self.hw.wait_for_stability()
 
-        attempts = 0
-        while attempts < 3:
-            attempts += 1
-
+        def test():
             # 1. Establish Up Vector (Opposite of Gravity)
-            # We need to know which way is Up in the Raw Sensor Frame.
-            # Re-read static gravity to be sure.
             print("  Measuring Gravity for Reference...")
             accel, _ = self.hw.read_imu_raw()
-            # Gravity points DOWN. Up Vector = -Gravity.
-            up_vector = -accel
+            up_vector = -accel  # Gravity points DOWN. Up Vector = -Gravity.
 
             # 2. Arc Command ("The Arc")
             # Drive Ch0 High, Ch1 Low (but same sign).
-            # This reduces drag on training wheels compared to spinning in place.
             power_high = self.config.min_power_visible + 20
             power_low = power_high * 0.5
-
             print(f"  Driving Arc (Ch0={power_high:.0f}, Ch1={power_low:.0f})...")
 
-            # We need Raw Gyro data to do the Dot Product.
-            # execute_maneuver returns IMUReading which contains raw data.
             result = self.hw.execute_maneuver([(power_high, power_low, 1.5)])
             raw_gyro_samples = [s.gyro_raw for s in result.samples if s.gyro_raw]
 
             if not raw_gyro_samples:
-                print("  [WARNING] No gyro samples collected. Retrying...")
-                continue
+                print("  [WARNING] No gyro samples collected.")
+                return None
 
             # Average Gyro Vector
             gyro_sum = Vector3(0.0, 0.0, 0.0)
@@ -553,56 +540,29 @@ class WiringCheck:
             avg_gyro = gyro_sum / len(raw_gyro_samples)
 
             # 3. Calculate Dot Product: Up . Omega
-            # If Positive: Rotation is CCW (Left) around Up.
-            # If Negative: Rotation is CW (Right) around Up.
             dot_prod = up_vector.dot(avg_gyro)
-
             print(f"  Dot Product (Up . Gyro): {dot_prod:.2f}")
 
-            if abs(dot_prod) < 500: # Threshold depends on units. Raw gyro is usually LSBs or deg/s.
-                # Assuming deg/s, 500 is very fast?
-                # Raw units from MPU6050 might be large integers or scaled floats.
-                # If floats (deg/s): 20 deg/s is significant.
-                # Let's check typical magnitudes. If raw is deg/s, 20 is good.
-                # If raw is LSB (e.g. 16384/g), it's huge.
-                # MPU6050Adapter returns Vector3.from_dict.
-                # mpu6050 library usually returns degrees/second for gyro.
-                pass
-
-            # Robustness check
             if abs(dot_prod) < 10.0:
-                 print("  [WARNING] Spin rate too low to determine direction. Retrying...")
-                 continue
+                 print("  [WARNING] Spin rate too low to determine direction.")
+                 return None
+
+            return (dot_prod, avg_gyro)
+
+        def verify(data):
+            if data is None: return False
+            dot_prod, avg_gyro = data
 
             # 4. Deduce Motor Mapping
-            # We commanded (Ch0=High, Ch1=Low).
-            # If Ch0=Left, Ch1=Right -> Left is Outer -> Turn Right (CW).
-            # If Ch0=Right, Ch1=Left -> Right is Outer -> Turn Left (CCW).
-
             if dot_prod > 0:
-                # CCW Turn (Left).
-                # Means Right Motor was Outer (High).
-                # So Ch0 is Right.
-                print("  -> Detected Counter-Clockwise (Left) Turn.")
-                print("  -> Deduction: Ch0 is Right, Ch1 is Left.")
-
-                # Check current config
-                # We want L=1, R=0.
+                print("  -> Detected Counter-Clockwise (Left) Turn. (Ch0 is Right).")
                 if self.config.motor_l == 0:
                     print("  -> ACTION: Swapping Channels to Correct Mapping.")
                     self.config.motor_l, self.config.motor_r = self.config.motor_r, self.config.motor_l
                 else:
                     print("  -> Mapping is already correct.")
-
             else:
-                # CW Turn (Right).
-                # Means Left Motor was Outer (High).
-                # So Ch0 is Left.
-                print("  -> Detected Clockwise (Right) Turn.")
-                print("  -> Deduction: Ch0 is Left, Ch1 is Right.")
-
-                # Check current config
-                # We want L=0, R=1.
+                print("  -> Detected Clockwise (Right) Turn. (Ch0 is Left).")
                 if self.config.motor_l == 1:
                      print("  -> ACTION: Swapping Channels to Correct Mapping.")
                      self.config.motor_l, self.config.motor_r = self.config.motor_r, self.config.motor_l
@@ -610,27 +570,16 @@ class WiringCheck:
                     print("  -> Mapping is already correct.")
 
             # 5. Deduce Gyro Yaw Polarity
-            # We want Positive Yaw Rate for CCW (Left) Spin.
-            # We detected the physical spin direction via Dot Product.
-            # Now let's see what the "Converted" Yaw Rate says with current config.
-            # We need to re-calc the yaw rate from raw data using current config flags.
-
-            # Re-read config flags
+            # Re-read config flags (since they might have changed if we wanted to support dynamic axis remapping, but here we just check polarity)
             yaw_axis = self.config.gyro_yaw_axis
             yaw_invert = self.config.gyro_yaw_invert
 
-            # Calc average raw yaw component
             raw_yaw_component = getattr(avg_gyro, yaw_axis.value)
-
-            # Apply current invert
             current_yaw_rate = -raw_yaw_component if yaw_invert else raw_yaw_component
 
             print(f"  Current Config Yaw Rate: {current_yaw_rate:.1f}")
 
-            # If Dot Prod > 0 (CCW), we WANT Positive Yaw Rate.
-            # If Dot Prod < 0 (CW), we WANT Negative Yaw Rate.
-
-            # Check agreement
+            # Check agreement: CCW (>0) should imply Pos Yaw. CW (<0) should imply Neg Yaw.
             if (dot_prod > 0 and current_yaw_rate < 0) or \
                (dot_prod < 0 and current_yaw_rate > 0):
                 print("  -> Gyro Yaw Polarity is Inverted relative to reality.")
@@ -640,10 +589,9 @@ class WiringCheck:
                 print("  -> Gyro Yaw Polarity is Correct.")
 
             self.config.motor_channels_verified = True
-            return
+            return True
 
-        print("  [FAILURE] Could not deduce Left/Right after multiple attempts.")
-        sys.exit(1)
+        self._verify_with_retries("Left/Right Identity", test, verify, fail_fatal=True)
 
     # --- Phase 6: The Stride (Motor Trimming) ---
     def calibrate_motor_trim(self):
@@ -655,52 +603,41 @@ class WiringCheck:
         print("I will drive straight and measure drift.")
         self.hw.wait_for_stability()
 
-        # We will adjust trim until Yaw Rate is small.
-        max_attempts = 15
-
-        for attempt in range(max_attempts):
+        def test():
             current_trim = self.config.motor_trim
-            print(f"  [Attempt {attempt+1}/{max_attempts}] Trim: {current_trim:.3f}")
-
+            print(f"  [Info] Testing Trim: {current_trim:.3f}")
             power = self.config.min_power_visible + 15
             # Drive Straight
-            result = self.hw.drive_and_measure(power, power, 1.0)
+            return self.hw.drive_and_measure(power, power, 1.0)
 
-            if not result.samples:
-                continue
+        def verify(result):
+            if not result.samples: return False # Retry
 
-            # Average Yaw Rate
             avg_yaw = result.avg_yaw_rate
             print(f"    Avg Yaw Drift: {avg_yaw:.2f} deg/s")
 
             if abs(avg_yaw) < 2.0:
                 print("  [SUCCESS] Drift is negligible.")
-                return
+                return True
 
             # Adaptive Gain
-            # If error is large (>10 deg/s), take bigger steps.
-            # If Yaw > 0 (Left Turn), Right is stronger -> Increase Trim.
             base_gain = 0.005
-            if abs(avg_yaw) > 10.0:
-                gain = 0.015 # 3x faster
-            else:
-                gain = base_gain
-
+            gain = 0.015 if abs(avg_yaw) > 10.0 else base_gain
             correction = avg_yaw * gain
 
             # Apply Correction
-            new_trim = current_trim + correction
-
-            # Check bounds (Clamp to +/- 0.4 now, slightly wider range)
-            new_trim = max(-0.4, min(0.4, new_trim))
+            current_trim = self.config.motor_trim
+            new_trim = max(-0.4, min(0.4, current_trim + correction))
 
             if abs(new_trim - current_trim) < 0.001 and abs(avg_yaw) > 5.0:
                  print("  [WARNING] Trim saturated or not moving.")
 
             self.config.motor_trim = new_trim
             print(f"    -> Correction: {correction:+.4f} -> New Trim: {self.config.motor_trim:.3f}")
+            return False # Force Retry
 
-        print("  [WARNING] Could not perfectly trim motors. Saving best effort.")
+        if not self._verify_with_retries("Motor Trim", test, verify, max_attempts=15, fail_fatal=False):
+             print("  [WARNING] Could not perfectly trim motors. Saving best effort.")
 
     # --- Phase 6b: Mechanical Backlash ---
     def measure_backlash(self):

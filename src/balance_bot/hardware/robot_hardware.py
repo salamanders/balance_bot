@@ -204,12 +204,21 @@ class RobotHardware:
                 return Axis.X  # Fallback
         return None
 
-    def _get_axis_value(self, vector: Vector3, axis: Axis | None, invert: bool) -> float:
+    def get_axis_value(self, vector: Vector3, axis: Axis | None, invert: bool) -> float:
         """Helper to extract and optionally invert a vector component."""
         if axis is None:
             return 0.0
         val = getattr(vector, axis.value)
         return -val if invert else val
+
+    def get_mapped_value(self, vector: Vector3, config_name: str) -> float:
+        """
+        Helper to extract a value based on a config prefix.
+        e.g. config_name="accel_forward" -> uses self.config.accel_forward_axis
+        """
+        axis = getattr(self.config, f"{config_name}_axis")
+        invert = getattr(self.config, f"{config_name}_invert")
+        return self.get_axis_value(vector, axis, invert)
 
     def _init_hardware(self) -> None:
         """
@@ -351,27 +360,17 @@ class RobotHardware:
         accel, gyro = self.read_imu_raw()
 
         # Get raw values based on config
-        accel_forward = self._get_axis_value(
-            accel, self.config.accel_forward_axis, self.config.accel_forward_invert
-        )
-        accel_vertical = self._get_axis_value(
-            accel, self.config.accel_vertical_axis, self.config.accel_vertical_invert
-        )
+        accel_forward = self.get_mapped_value(accel, "accel_forward")
+        accel_vertical = self.get_mapped_value(accel, "accel_vertical")
 
         # Calculate Accelerometer Angle
         # calculate_pitch(y, z) assumes y is forward, z is vertical.
         acc_angle = calculate_pitch(accel_forward, accel_vertical)
 
         # Gyro Rates
-        gyro_rate = self._get_axis_value(
-            gyro, self.config.gyro_pitch_axis, self.config.gyro_pitch_invert
-        )
-        yaw_rate = self._get_axis_value(
-            gyro, self.config.gyro_yaw_axis, self.config.gyro_yaw_invert
-        )
-        roll_rate = self._get_axis_value(
-            gyro, self.config.gyro_roll_axis, self.config.gyro_roll_invert
-        )
+        gyro_rate = self.get_mapped_value(gyro, "gyro_pitch")
+        yaw_rate = self.get_mapped_value(gyro, "gyro_yaw")
+        roll_rate = self.get_mapped_value(gyro, "gyro_roll")
 
         # Roll Angle (Approximate from Accel)
         if self.accel_roll_axis:
