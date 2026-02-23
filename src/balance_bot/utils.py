@@ -447,10 +447,10 @@ def check_i2c_tools():
             print(f"ERROR running i2cdetect on Bus {bus_id}: {e}")
 
 def check_i2c_library():
-    """Check if Python smbus library can open the bus."""
-    print("\nChecking smbus Access...")
+    """Check if Python smbus2 library can open the bus."""
+    print("\nChecking smbus2 Access...")
     try:
-        import smbus
+        import smbus2 as smbus
         for bus_id in [1, 3]:
             try:
                 # Try to open the bus
@@ -459,19 +459,27 @@ def check_i2c_library():
                     bus.close()
                 except AttributeError:
                     pass
-                print(f"SUCCESS: smbus.SMBus({bus_id}) opened successfully.")
+                print(f"SUCCESS: smbus2.SMBus({bus_id}) opened successfully.")
             except Exception as e:
-                print(f"INFO: Could not open smbus.SMBus({bus_id}): {e}")
+                print(f"INFO: Could not open smbus2.SMBus({bus_id}): {e}")
                 if bus_id == 1:
                      print("Hint: Check permissions (e.g. 'sudo usermod -aG i2c $USER') and reboot.")
     except ImportError:
-         print("FAILURE: 'smbus' package not installed.")
+         print("FAILURE: 'smbus2' package not installed.")
 
 def check_imports():
     """Check if required Python packages are installed."""
     print("\nChecking Python Imports...")
 
-    modules = ["smbus", "mpu6050"]
+    # Shim smbus for mpu6050 check
+    try:
+        import sys
+        import smbus2
+        sys.modules['smbus'] = smbus2
+    except ImportError:
+        pass
+
+    modules = ["smbus2", "mpu6050"]
 
     for mod in modules:
         try:

@@ -1,7 +1,7 @@
 import time
 import sys
 try:
-    import smbus
+    import smbus2 as smbus
 except ImportError:
     smbus = None
 
@@ -150,6 +150,7 @@ class WiringCheck:
         candidates = [1, 3, 0, 2]
         for bus_id in candidates:
             try:
+                # smbus2 handles bus opening gracefully
                 bus = smbus.SMBus(bus_id)
                 try:
                     if check_fn(bus):

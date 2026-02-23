@@ -220,6 +220,11 @@ class RobotHardware:
         try:
             # 1. Attempt Imports
             try:
+                # Shim smbus for mpu6050
+                import sys
+                import smbus2
+                sys.modules['smbus'] = smbus2
+
                 from .piconzero import PiconZero
                 from mpu6050 import mpu6050
             except (ImportError, OSError) as e:

@@ -1,8 +1,8 @@
 import sys
 from unittest.mock import MagicMock, patch
 
-# Mock smbus and mpu6050 before importing anything else
-sys.modules["smbus"] = MagicMock()
+# Mock smbus2 and mpu6050 before importing anything else
+sys.modules["smbus2"] = MagicMock()
 sys.modules["mpu6050"] = MagicMock()
 
 import json

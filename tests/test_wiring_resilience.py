@@ -9,6 +9,7 @@ class TestWiringResilience(unittest.TestCase):
         # Patch modules to mock hardware dependencies
         self.modules_patcher = patch.dict(sys.modules, {
             'smbus': MagicMock(),
+            'smbus2': MagicMock(),
             'balance_bot.hardware.piconzero': MagicMock(),
             # We might need to mock mpu6050 if RobotHardware imports it
             'mpu6050': MagicMock()

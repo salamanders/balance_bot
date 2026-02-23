@@ -7,12 +7,12 @@ import os
 if "balance_bot.hardware.piconzero" in sys.modules:
     del sys.modules["balance_bot.hardware.piconzero"]
 
-# Mock smbus before importing any module that uses it
-if "smbus" not in sys.modules:
+# Mock smbus2 before importing any module that uses it
+if "smbus2" not in sys.modules:
     try:
-        import smbus
+        import smbus2
     except ImportError:
-        sys.modules["smbus"] = MagicMock()
+        sys.modules["smbus2"] = MagicMock()
 
 # Ensure src is in path
 sys.path.insert(0, os.path.abspath('src'))
