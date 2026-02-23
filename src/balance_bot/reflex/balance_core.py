@@ -1,8 +1,10 @@
 from dataclasses import dataclass
+from typing import Optional
 
 from ..config import RobotConfig
 from ..hardware.robot_hardware import RobotHardware
 from ..utils import ComplementaryFilter
+from ..watchdog import SurvivalWatchdog
 from .pid import PIDController
 
 
@@ -56,10 +58,10 @@ class BalanceCore:
      - Safety (Hard-coded limits).
     """
 
-    def __init__(self, config: RobotConfig):
+    def __init__(self, config: RobotConfig, watchdog: Optional[SurvivalWatchdog] = None):
         self.config = config
 
-        self.hw = RobotHardware(self.config)
+        self.hw = RobotHardware(self.config, watchdog=watchdog)
         self.hw.init()
 
         # Control

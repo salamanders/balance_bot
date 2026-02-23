@@ -6,6 +6,7 @@ from .wiring_check import WiringCheck
 from .behavior.agent import Agent
 from .utils import setup_logging, get_captured_logs
 from .jules_client import JulesClient
+from .watchdog import SurvivalWatchdog
 
 
 def main() -> None:
@@ -27,6 +28,9 @@ def main() -> None:
     if args.allow_mocks:
         os.environ["ALLOW_MOCK_FALLBACK"] = "1"
 
+    # Spawn the survival instinct with a 20-second frustration limit
+    watchdog = SurvivalWatchdog(timeout=20.0)
+
     try:
         if args.reset_brain or args.force:
             from .config import RobotConfig
@@ -43,14 +47,22 @@ def main() -> None:
             try:
                 # WiringCheck handles incremental discovery automatically.
                 # If reset_hardware_map was called, it starts from scratch.
-                WiringCheck().run()
+                WiringCheck(watchdog=watchdog).run()
             except KeyboardInterrupt:
+                if watchdog.triggered:
+                    raise RuntimeError("Watchdog Panic! WiringCheck was stuck.") from None
                 pass
             return
 
         try:
-            bot = Agent()
+            bot = Agent(watchdog=watchdog)
             bot.run()
+        except KeyboardInterrupt:
+            # Agent catches its own KeyboardInterrupt, but if it re-raises it (due to watchdog),
+            # we catch it here.
+            if watchdog.triggered:
+                raise RuntimeError("Watchdog Panic! Agent was stuck.") from None
+            pass
         finally:
             # Emergency Stop / Cleanup if bot was initialized
             # This catches crashes that happen before bot.run() (e.g. init)
@@ -114,6 +126,8 @@ def main() -> None:
 
         # Always re-raise to exit with error
         raise
+    finally:
+        watchdog.stop()
 
 if __name__ == "__main__":
     main()
