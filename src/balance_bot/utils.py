@@ -7,7 +7,7 @@ import os
 import importlib
 from pathlib import Path
 from collections import deque
-from typing import NamedTuple, Union
+from typing import NamedTuple, Union, Callable, Any
 
 logger = logging.getLogger(__name__)
 
@@ -507,3 +507,110 @@ def run_diagnostics():
     check_i2c_tools()
     print("\nDiagnostics Complete.")
     print("========================")
+
+# --- Hardware Discovery Helpers ---
+
+def scan_i2c_candidates(name: str, check_fn: Callable[[Any], bool]) -> int | None:
+    """
+    Scans I2C buses for a device using a callback.
+    Returns the bus ID if found, else None.
+    """
+    try:
+        import smbus2 as smbus
+    except ImportError:
+        return None
+
+    candidates = [1, 3, 0, 2]
+    for bus_id in candidates:
+        try:
+            # smbus2 handles bus opening gracefully
+            bus = smbus.SMBus(bus_id)
+            try:
+                if check_fn(bus):
+                    print(f"  [FOUND] {name} on Bus {bus_id}")
+                    return bus_id
+            except OSError:
+                pass
+            finally:
+                try:
+                    bus.close()
+                except Exception:
+                    pass
+        except Exception:
+            pass
+    return None
+
+def scan_i2c_or_die(name: str, check_fn: Callable[[Any], bool]) -> int:
+    """
+    Scans I2C buses, prints diagnostics on failure, and exits.
+    """
+    bus = scan_i2c_candidates(name, check_fn)
+    if bus is None:
+        print(f"  [FAILURE] Could not find {name} on any bus.")
+
+        # Use improved diagnostics for the likely bus (1 or 3)
+        print("  [DIAGNOSTIC] Analyzing potential causes...")
+        addr = 0x22 if "PiconZero" in name else 0x68
+
+        # Check likely buses
+        for b in [1, 3]:
+            print(f"  --- Bus {b} Report ---")
+            print(get_i2c_failure_report(b, addr, name))
+
+        sys.exit(1)
+    return bus
+
+def verify_with_retries(name: str, test_fn: Callable[[], Any],
+                         check_fn: Callable[[Any], bool | str],
+                         max_attempts: int = 3) -> None:
+    """
+    Generic verification loop with retries.
+    check_fn should return True (Pass), False (Fail/Retry),
+    or a string "FAIL_FATAL" / "FAIL_RETRY".
+    """
+    print(f">>> Verifying {name} <<<")
+    for i in range(max_attempts):
+        print(f"  [Attempt {i+1}] Checking {name}...")
+        result = test_fn()
+
+        outcome = check_fn(result)
+        if outcome is True or outcome == "PASS":
+            print(f"  [SUCCESS] {name} Verified.")
+            return
+
+        if outcome == "FAIL_FATAL":
+            break
+
+        # If outcome is False or "FAIL_RETRY", loop continues
+        print(f"  [RETRY] {name} check failed/ambiguous.")
+
+    print(f"  [FAILURE] Could not verify {name} after {max_attempts} attempts.")
+    sys.exit(1)
+
+def find_threshold(name: str, start: float, step: float, limit: float,
+                    action_fn: Callable[[float], Any],
+                    check_fn: Callable[[Any], bool],
+                    fail_action: Callable[[Any], bool] = None) -> float:
+    """
+    Find a threshold value by incrementing.
+    fail_action: Optional callback on failure. Return True to retry SAME level.
+    """
+    print(f">>> Finding Threshold: {name} <<<")
+    val = start
+    while val <= limit:
+        print(f"  Testing {val}...")
+        result = action_fn(val)
+
+        if check_fn(result):
+            print(f"  [FOUND] {name} at {val}.")
+            return val
+
+        retry_same = False
+        if fail_action:
+            retry_same = fail_action(result)
+
+        if not retry_same:
+            val += step
+
+    print(f"  [FAILURE] Could not find {name} within limit {limit}.")
+    sys.exit(1)

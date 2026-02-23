@@ -8,6 +8,25 @@
 6. The emulator can't know what a real motor would do, so don't try to optimize calls to hardware that are untestable. Feel free to optimize other things, but the final I/O with the hardware has to stay constant. 
 7. **Vector3**: Always use `balance_bot.utils.Vector3` for 3D spatial data. It is an immutable `NamedTuple` with full arithmetic support. Do not use dictionaries or raw tuples for vectors.
 
+## Code Quality Standards
+
+### Type Hinting
+Ensure all function signatures have standard Python type hints. If a complex type is used (like a dictionary of sensor data), use typing or dataclasses to define it explicitly.
+
+### Modernize
+* Replace "magic number" limits and hacky logic with min(), max(), or clamp functions.
+* Use f-strings over concatenation.
+* Be careful with blocking calls that might slow down the control loop.
+
+### Config Extraction
+If you see physics constants (PID values, motor limits, wait times) hardcoded in logic functions, move them to a CONSTANTS section at the top of the file or a dedicated configuration object.
+
+### Descriptive Naming
+Rename single-letter variables (e.g., x, t, v) to descriptive terms relevant to self-balancing robotics (e.g., tilt_angle, loop_delta_time, velocity_target) unless they are standard loop iterators like i.
+
+### Docstrings
+Ensure every function has a docstring explaining inputs, outputs, and side effects (especially important for hardware GPIO calls). Docs should clearly show "why this code has clean separation of concerns from other code"
+
 ## The Physical Reality
 
 **Important:** The robot is a two-wheeled self-balancing robot with a Segway-like topology (wheels side-by-side).

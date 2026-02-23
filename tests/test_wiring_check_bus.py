@@ -12,7 +12,8 @@ from balance_bot.wiring_check import WiringCheck
 
 @pytest.fixture
 def wc_fixture():
-    with patch("balance_bot.wiring_check.smbus") as mock_smbus_module, \
+    # We need to mock smbus2.SMBus globally because utils.py imports it locally
+    with patch("smbus2.SMBus") as mock_smbus_constructor, \
          patch("balance_bot.wiring_check.RobotHardware") as mock_rh_cls, \
          patch("balance_bot.wiring_check.RobotConfig") as MockConfig:
 
@@ -39,7 +40,7 @@ def wc_fixture():
         # Inject mock hw directly because init_hw might fail without buses
         wc.hw = mock_hw
 
-        yield wc, mock_hw, mock_smbus_module
+        yield wc, mock_hw, mock_smbus_constructor
 
 def test_discover_buses_found(wc_fixture):
     wc, mock_hw, mock_smbus = wc_fixture
@@ -79,7 +80,7 @@ def test_discover_buses_found(wc_fixture):
         raise OSError("Bus Error")
 
     # smbus2.SMBus is the constructor
-    mock_smbus.SMBus.side_effect = smbus_side_effect
+    mock_smbus.side_effect = smbus_side_effect
 
     wc.discover_buses()
 
