@@ -12,7 +12,7 @@ from balance_bot.wiring_check import WiringCheck
 
 @pytest.fixture
 def wc_fixture():
-    with patch("balance_bot.wiring_check.smbus") as mock_smbus_module, \
+    with patch("balance_bot.utils.smbus") as mock_smbus_module, \
          patch("balance_bot.wiring_check.RobotHardware") as mock_rh_cls, \
          patch("balance_bot.wiring_check.RobotConfig") as MockConfig:
 

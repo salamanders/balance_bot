@@ -12,7 +12,7 @@ from balance_bot.enums import Axis
 
 @pytest.fixture
 def wc_fixture():
-    with patch("balance_bot.wiring_check.smbus"), \
+    with patch("balance_bot.utils.smbus"), \
          patch("balance_bot.wiring_check.RobotHardware"), \
          patch("balance_bot.wiring_check.RobotConfig") as MockConfig:
 

@@ -74,6 +74,12 @@ class TestWiringResilience(unittest.TestCase):
         mock_reading_front.pitch_angle = 30.0
         hw_instance.read_imu_converted.return_value = mock_reading_front
 
+        # Configure get_axis_value side effect to perform real calculation
+        def get_axis_value_side_effect(vec, axis, invert):
+            val = getattr(vec, axis.value)
+            return -val if invert else val
+        hw_instance.get_axis_value.side_effect = get_axis_value_side_effect
+
         wc = WiringCheck()
         wc.config = self.mock_config
         wc.hw = hw_instance

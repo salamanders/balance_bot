@@ -1,9 +1,5 @@
 import time
 import sys
-try:
-    import smbus2 as smbus
-except ImportError:
-    smbus = None
 
 from typing import Callable, Any, Optional
 from .config import RobotConfig
@@ -15,7 +11,11 @@ from .utils import (
     cross_product,
     Vector3,
     get_i2c_failure_report,
-    run_diagnostics
+    run_diagnostics,
+    scan_i2c_candidates,
+    scan_i2c_or_die,
+    verify_with_retries,
+    find_threshold
 )
 
 
@@ -147,51 +147,6 @@ class WiringCheck:
         print(f"  Trim: {c.motor_trim:.3f}")
         print(f"  KickUp: Fwd={c.control.kickup_power_forward:.1f}, Bwd={c.control.kickup_power_backward:.1f}")
 
-    # --- Phase 1: Hardware Connectivity ---
-    def _scan_candidates(self, name: str, check_fn: Callable[[Any], bool]) -> int | None:
-        """
-        Scans I2C buses for a device using a callback.
-        Returns the bus ID if found, else None.
-        """
-        candidates = [1, 3, 0, 2]
-        for bus_id in candidates:
-            try:
-                # smbus2 handles bus opening gracefully
-                bus = smbus.SMBus(bus_id)
-                try:
-                    if check_fn(bus):
-                        print(f"  [FOUND] {name} on Bus {bus_id}")
-                        return bus_id
-                except OSError:
-                    pass
-                finally:
-                    try:
-                        bus.close()
-                    except Exception:
-                        pass
-            except Exception:
-                pass
-        return None
-
-    def _scan_or_die(self, name: str, check_fn: Callable[[Any], bool]) -> int:
-        bus = self._scan_candidates(name, check_fn)
-        if bus is None:
-            print(f"  [FAILURE] Could not find {name} on any bus.")
-
-            # Use improved diagnostics for the likely bus (1 or 3)
-            # Default to checking both or giving a hint
-            print("  [DIAGNOSTIC] Analyzing potential causes...")
-            # We don't know the address here easily unless passed, but we can guess based on name
-            addr = 0x22 if "PiconZero" in name else 0x68
-
-            # Check likely buses
-            for b in [1, 3]:
-                print(f"  --- Bus {b} Report ---")
-                print(get_i2c_failure_report(b, addr, name))
-
-            sys.exit(1)
-        return bus
-
     def _drive_and_wait(self, left: float, right: float, duration: float,
                         wait_stable: bool = True) -> Any:
         """Helper to drive, measure, and wait."""
@@ -200,66 +155,6 @@ class WiringCheck:
         result = self.hw.drive_and_measure(left, right, duration)
         time.sleep(0.5)
         return result
-
-    def _verify_with_retries(self, name: str, test_fn: Callable[[], Any],
-                             check_fn: Callable[[Any], bool | str],
-                             max_attempts: int = 3, fail_fatal: bool = True) -> bool:
-        """
-        Generic verification loop with retries.
-        check_fn should return True (Pass), False (Fail/Retry),
-        or a string "FAIL_FATAL" / "FAIL_RETRY".
-        """
-        print(f">>> Verifying {name} <<<")
-        for i in range(max_attempts):
-            print(f"  [Attempt {i+1}] Checking {name}...")
-            result = test_fn()
-
-            outcome = check_fn(result)
-            if outcome is True or outcome == "PASS":
-                print(f"  [SUCCESS] {name} Verified.")
-                return True
-
-            if outcome == "FAIL_FATAL":
-                break
-
-            # If outcome is False or "FAIL_RETRY", loop continues
-            print(f"  [RETRY] {name} check failed/ambiguous.")
-
-        print(f"  [FAILURE] Could not verify {name} after {max_attempts} attempts.")
-        if fail_fatal:
-            sys.exit(1)
-        return False
-
-    def _find_threshold(self, name: str, start: float, step: float, limit: float,
-                        action_fn: Callable[[float], Any],
-                        check_fn: Callable[[Any], bool],
-                        fail_action: Callable[[Any], bool] = None) -> float:
-        """
-        Find a threshold value by incrementing.
-        fail_action: Optional callback on failure. Return True to retry SAME level.
-        """
-        print(f">>> Finding Threshold: {name} <<<")
-        val = start
-        while val <= limit:
-            if self.watchdog:
-                self.watchdog.heartbeat()
-
-            print(f"  Testing {val}...")
-            result = action_fn(val)
-
-            if check_fn(result):
-                print(f"  [FOUND] {name} at {val}.")
-                return val
-
-            retry_same = False
-            if fail_action:
-                retry_same = fail_action(result)
-
-            if not retry_same:
-                val += step
-
-        print(f"  [FAILURE] Could not find {name} within limit {limit}.")
-        sys.exit(1)
 
     def _measure_gravity_with_hardware(self) -> Vector3:
         """Measure gravity using hardware abstraction."""
@@ -289,13 +184,13 @@ class WiringCheck:
             bus.read_byte_data(0x22, 0)
             return True
 
-        self.config.motor_i2c_bus = self._scan_or_die("PiconZero (Motors)", check_motor)
+        self.config.motor_i2c_bus = scan_i2c_or_die("PiconZero (Motors)", check_motor)
 
         # 2. Find IMU (0x68)
         def check_imu(bus):
             return bus.read_byte_data(0x68, 0x75) == 0x68
 
-        self.config.imu_i2c_bus = self._scan_or_die("MPU6050 (IMU)", check_imu)
+        self.config.imu_i2c_bus = scan_i2c_or_die("MPU6050 (IMU)", check_imu)
 
     # --- Phase 2: The Physical World (Sensors) ---
     def _measure_gravity_vectors(self) -> tuple[Vector3, Vector3]:
@@ -415,7 +310,8 @@ class WiringCheck:
             print(f"    Max Rate: {rate:.1f} deg/s")
             return rate > 15.0
 
-        found = self._find_threshold("Minimum Power", 10, 5, 100, action, check)
+        heartbeat_fn = self.watchdog.heartbeat if self.watchdog else None
+        found = find_threshold("Minimum Power", 10, 5, 100, action, check, heartbeat_fn=heartbeat_fn)
         self.config.min_power_visible = found
 
     # --- Phase 3b: Phasing ---
@@ -439,7 +335,7 @@ class WiringCheck:
             self.config.motor_phasing_verified = True
             return True
 
-        self._verify_with_retries("Motor Phasing", test, verify)
+        verify_with_retries("Motor Phasing", test, verify)
 
     # --- Phase 4: Sense of Forward (Pitch Axis & Polarity) ---
     def determine_motor_direction(self):
@@ -501,7 +397,7 @@ class WiringCheck:
             print("  [WARNING] Inconclusive.")
             return False
 
-        self._verify_with_retries("Motor Direction", test, verify)
+        verify_with_retries("Motor Direction", test, verify)
 
     # --- Phase 5: Absolute Identity (Left/Right via Right-Hand Rule) ---
     def deduce_left_right_autonomous(self):
@@ -591,7 +487,7 @@ class WiringCheck:
             self.config.motor_channels_verified = True
             return True
 
-        self._verify_with_retries("Left/Right Identity", test, verify, fail_fatal=True)
+        verify_with_retries("Left/Right Identity", test, verify, fail_fatal=True)
 
     # --- Phase 6: The Stride (Motor Trimming) ---
     def calibrate_motor_trim(self):
@@ -636,7 +532,7 @@ class WiringCheck:
             print(f"    -> Correction: {correction:+.4f} -> New Trim: {self.config.motor_trim:.3f}")
             return False # Force Retry
 
-        if not self._verify_with_retries("Motor Trim", test, verify, max_attempts=15, fail_fatal=False):
+        if not verify_with_retries("Motor Trim", test, verify, max_attempts=15, fail_fatal=False):
              print("  [WARNING] Could not perfectly trim motors. Saving best effort.")
 
     # --- Phase 6b: Mechanical Backlash ---
@@ -798,7 +694,8 @@ class WiringCheck:
             return False # Increment power
 
         start_p = max(20, self.config.min_power_visible + 10)
-        found = self._find_threshold(f"KickUp {direction}", start_p, 5, 100, action, check, fail)
+        heartbeat_fn = self.watchdog.heartbeat if self.watchdog else None
+        found = find_threshold(f"KickUp {direction}", start_p, 5, 100, action, check, fail, heartbeat_fn=heartbeat_fn)
 
         if found:
             setattr(self.config.control, config_attr, found)
