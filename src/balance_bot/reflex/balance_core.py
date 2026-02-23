@@ -84,6 +84,8 @@ class BalanceCore:
 
         # State
         self.pitch = 0.0
+        self.last_motor_sign = 1
+        self.backlash_timer = 0.0
 
     def set_i2c_retries(self, retries: int) -> None:
         """Set the I2C retry count for the motor driver."""
@@ -188,6 +190,22 @@ class BalanceCore:
 
         left_motor = pid_output + total_turn
         right_motor = pid_output - total_turn
+
+        # 8a. Backlash Compensation
+        current_sign = 1 if pid_output > 0 else -1
+
+        if current_sign != self.last_motor_sign and abs(pid_output) > 2.0:
+            # We just crossed zero! Start the slop-clearing timer
+            self.backlash_timer = self.config.control.backlash_pulse_time
+            self.last_motor_sign = current_sign
+
+        if self.backlash_timer > 0:
+            # While in the dead-zone, inject a "Kick" to skip the slop.
+            # We use a higher power (e.g., 40) to traverse it quickly.
+            kick_power = 40.0 * current_sign
+            left_motor = kick_power
+            right_motor = kick_power
+            self.backlash_timer -= loop_delta_time
 
         # 9. Actuate
         # Apply Battery Compensation
