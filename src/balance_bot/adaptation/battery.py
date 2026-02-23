@@ -1,4 +1,4 @@
-from ..config import BatteryConfig
+from ..configuration import BatteryConfig
 from ..utils import clamp
 
 

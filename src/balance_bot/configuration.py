@@ -9,7 +9,8 @@ from pydantic import BaseModel, Field
 from .enums import Axis
 
 logger = logging.getLogger(__name__)
-CONFIG_FILE = Path("pid_config.json")
+HARDWARE_CONFIG_FILE = Path("hardware_config.json")
+LEARNING_STATE_FILE = Path("learning_state.json")
 
 # Angle Thresholds (Degrees)
 BALANCING_THRESHOLD = 15.0      # Normal operating range (+/-)
@@ -89,16 +90,22 @@ class LedConfig(BaseModel):
 
 class ControlConfig(BaseModel):
     """
-    General Control Logic Parameters.
+    General Control Logic Parameters (Immutable constants).
     """
     yaw_correction_factor: float = 0.5
     upright_threshold: float = 5.0
     low_battery_log_threshold: float = 0.95
-    kickup_power_forward: float = 0.0
-    kickup_power_backward: float = 0.0
     max_tilt_angle: float = 10.0
     turn_gain: float = 30.0
     soft_recovery_kp_threshold: float = 1.0
+
+
+class LearnedControlParams(BaseModel):
+    """
+    Mutable control parameters learned via calibration.
+    """
+    kickup_power_forward: float = 0.0
+    kickup_power_backward: float = 0.0
     backlash_pulse_time: float = 0.0
 
 
@@ -134,116 +141,118 @@ def temp_pid_overrides(pid_params: PIDParams, **overrides):
             setattr(pid_params, k, v)
 
 
-class RobotConfig(BaseModel):
+class HardwareConfig(BaseModel):
     """
-    Master Configuration Object.
-    Aggregates all sub-configs and hardware mapping.
+    Immutable Hardware Configuration.
+    Contains physical mappings, constants, and system settings.
+    This file is rarely changed after initial setup/wiring check.
     """
-    pid: PIDParams
-    battery: BatteryConfig = Field(default_factory=BatteryConfig)
-    tuner: TunerConfig = Field(default_factory=TunerConfig)
-    led: LedConfig = Field(default_factory=LedConfig)
-    control: ControlConfig = Field(default_factory=ControlConfig)
-    timing: SystemTiming = Field(default_factory=SystemTiming)
+    # Mapping
     motor_l: Optional[int] = None
     motor_r: Optional[int] = None
     motor_l_invert: bool = False
     motor_r_invert: bool = False
+
     gyro_pitch_axis: Optional[Axis] = None
     gyro_pitch_invert: bool = False
     gyro_yaw_axis: Optional[Axis] = None
     gyro_yaw_invert: bool = False
     gyro_roll_axis: Optional[Axis] = None
     gyro_roll_invert: bool = False
+
     accel_vertical_axis: Optional[Axis] = None
     accel_vertical_invert: bool = False
     accel_forward_axis: Optional[Axis] = None
     accel_forward_invert: bool = False
+
     motor_i2c_bus: Optional[int] = None
     imu_i2c_bus: Optional[int] = None
-    loop_time: float = 0.01
 
-    # Operational Parameters
+    # System Constants
+    loop_time: float = 0.01
     crash_angle: float = 50.0
     complementary_alpha: float = 0.98
     vibration_threshold: int = 10
     imu_max_retries: int = 5
-    min_power_visible: int = 0
-    motor_trim: float = 0.0
+    min_power_visible: int = 0  # Discovered during WiringCheck, but physically tied to motor type
 
-    # Calibrated Rest Angles
-    rest_angle_forward: Optional[float] = None
-    rest_angle_backward: Optional[float] = None
+    # Sub-Configs (Immutable)
+    battery: BatteryConfig = Field(default_factory=BatteryConfig)
+    tuner: TunerConfig = Field(default_factory=TunerConfig)
+    led: LedConfig = Field(default_factory=LedConfig)
+    control: ControlConfig = Field(default_factory=ControlConfig)
+    timing: SystemTiming = Field(default_factory=SystemTiming)
 
-    # Gyro Bias Calibration
-    gyro_bias_x: float = 0.0
-    gyro_bias_y: float = 0.0
-    gyro_bias_z: float = 0.0
-
-    # Discovery Flags
+    # Verification Flags (Tied to Hardware Setup)
+    # If hardware changes, these become invalid, so they belong here.
     motor_phasing_verified: bool = False
     motor_direction_verified: bool = False
     motor_channels_verified: bool = False
     motor_trim_verified: bool = False
     backlash_verified: bool = False
 
-    # The baton pass from Wiring Check to Agent
+    class Config:
+        frozen = True  # Enforce Immutability
+
+    @classmethod
+    def load(cls) -> "HardwareConfig":
+        """Load hardware configuration from disk."""
+        if HARDWARE_CONFIG_FILE.exists():
+            try:
+                content = HARDWARE_CONFIG_FILE.read_text()
+                if not content.strip():
+                    return cls()
+                return cls.model_validate_json(content)
+            except Exception as e:
+                logger.error(f"Error loading HardwareConfig: {e}. Using defaults.")
+        return cls()
+
+    def save(self) -> None:
+        """Serialize and save to disk."""
+        try:
+            HARDWARE_CONFIG_FILE.write_text(self.model_dump_json(indent=4))
+            logger.info("HardwareConfig saved.")
+        except OSError as e:
+            logger.error(f"Error saving HardwareConfig: {e}")
+
+
+class LearningState(BaseModel):
+    """
+    Mutable Learning State.
+    Contains parameters that evolve over time: PID, Calibration, Tuning.
+    This file is updated frequently.
+    """
+    pid: PIDParams = Field(default_factory=PIDParams)
+    control: LearnedControlParams = Field(default_factory=LearnedControlParams)
+
+    # Calibration Data
+    rest_angle_forward: Optional[float] = None
+    rest_angle_backward: Optional[float] = None
+    gyro_bias_x: float = 0.0
+    gyro_bias_y: float = 0.0
+    gyro_bias_z: float = 0.0
+    motor_trim: float = 0.0
+
+    # State Flags
     balance_verified: bool = False
 
     @classmethod
-    def load(cls) -> "RobotConfig":
-        """
-        Load configuration from disk.
-        """
-        if CONFIG_FILE.exists():
+    def load(cls) -> "LearningState":
+        """Load learning state from disk."""
+        if LEARNING_STATE_FILE.exists():
             try:
-                # Use model_validate_json for automatic parsing and validation
-                content = CONFIG_FILE.read_text()
-                # Handle empty or malformed files gracefully by falling back to default
+                content = LEARNING_STATE_FILE.read_text()
                 if not content.strip():
-                    return cls(pid=PIDParams())
-
-                # We try strict validation first
+                    return cls()
                 return cls.model_validate_json(content)
             except Exception as e:
-                logger.error(f"Error loading config: {e}. Using defaults.")
-
-        # Default fallback
-        return cls(pid=PIDParams())
-
-    def reset_hardware_map(self) -> None:
-        """Reset all discovered hardware mappings to force re-discovery."""
-        self.motor_l = None
-        self.motor_r = None
-        self.motor_i2c_bus = None
-        self.imu_i2c_bus = None
-        self.gyro_pitch_axis = None
-        self.gyro_pitch_invert = False
-        self.gyro_yaw_axis = None
-        self.gyro_yaw_invert = False
-        self.gyro_roll_axis = None
-        self.gyro_roll_invert = False
-        self.accel_vertical_axis = None
-        self.accel_vertical_invert = False
-        self.accel_forward_axis = None
-        self.accel_forward_invert = False
-        self.rest_angle_forward = None
-        self.rest_angle_backward = None
-        self.gyro_bias_x = 0.0
-        self.gyro_bias_y = 0.0
-        self.gyro_bias_z = 0.0
-        self.min_power_visible = 0
-        self.motor_phasing_verified = False
-        self.motor_direction_verified = False
-        self.motor_channels_verified = False
-        self.motor_trim_verified = False
-        self.backlash_verified = False
-        self.balance_verified = False
+                logger.error(f"Error loading LearningState: {e}. Using defaults.")
+        return cls()
 
     def save(self) -> None:
-        """Serialize and save the current configuration to disk."""
+        """Serialize and save to disk."""
         try:
-            CONFIG_FILE.write_text(self.model_dump_json(indent=4))
-            logger.info("Config saved.")
+            LEARNING_STATE_FILE.write_text(self.model_dump_json(indent=4))
+            # logger.info("LearningState saved.") # Reduce spam for frequent saves
         except OSError as e:
-            logger.error(f"Error saving config: {e}")
+            logger.error(f"Error saving LearningState: {e}")

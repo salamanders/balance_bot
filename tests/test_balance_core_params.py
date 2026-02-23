@@ -1,14 +1,17 @@
 import pytest
 from unittest.mock import MagicMock
 from balance_bot.reflex.balance_core import BalanceCore, MotionRequest, TuningParams, BalanceTelemetry
-from balance_bot.config import RobotConfig, PIDParams
+from balance_bot.configuration import HardwareConfig, LearningState, PIDParams
 
 def test_balance_core_update_with_mutable_tuning_params():
     # Setup
-    config = RobotConfig(pid=PIDParams(kp=1.0, ki=0.0, kd=0.0))
+    hw_config = HardwareConfig()
+    learning_state = LearningState(pid=PIDParams(kp=1.0, ki=0.0, kd=0.0))
 
     # Mock Hardware inside BalanceCore
     # We use monkeypatch to avoid hardware init issues
+    # Note: RobotHardware __init__ now takes hw_config and learning_state
+    # The lambda signature needs to match the call inside BalanceCore: RobotHardware(self.hw_config, self.learning_state, ...)
     with pytest.MonkeyPatch.context() as m:
         # Mock init to avoid I2C bus checks
         m.setattr("balance_bot.hardware.robot_hardware.RobotHardware.__init__", lambda self, *args, **kwargs: None)
@@ -19,14 +22,19 @@ def test_balance_core_update_with_mutable_tuning_params():
         dummy_reading.pitch_angle = 5.0
         dummy_reading.pitch_rate = 0.0
         dummy_reading.yaw_rate = 0.0
+
+        # We need to mock the instance method, but since we mocked __init__, `core.hw` will be initialized but methods on it won't be mocked unless we assign them.
+        # But wait, `BalanceCore` calls `self.hw.read_imu_converted`. `self.hw` is an instance.
+        # If we mocked the *class* method `read_imu_converted`, all instances get it.
         m.setattr("balance_bot.hardware.robot_hardware.RobotHardware.read_imu_converted", lambda self: dummy_reading)
 
         # Mock motor setting
         m.setattr("balance_bot.hardware.robot_hardware.RobotHardware.set_motors", lambda self, left, right: None)
         m.setattr("balance_bot.hardware.robot_hardware.RobotHardware.stop", lambda self: None)
+        m.setattr("balance_bot.hardware.robot_hardware.RobotHardware.set_motor_retries", lambda self, retries: None)
 
         # Initialize Core
-        core = BalanceCore(config)
+        core = BalanceCore(hw_config, learning_state)
 
         # Test Data
         motion = MotionRequest()

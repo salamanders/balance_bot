@@ -3,7 +3,7 @@ from collections import deque
 from itertools import pairwise
 from typing import NamedTuple
 
-from ..config import TunerConfig
+from ..configuration import TunerConfig
 
 
 class TuningAdjustment(NamedTuple):

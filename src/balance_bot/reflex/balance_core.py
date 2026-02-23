@@ -1,7 +1,7 @@
 from dataclasses import dataclass
 from typing import Optional
 
-from ..config import RobotConfig
+from ..configuration import HardwareConfig, LearningState
 from ..hardware.robot_hardware import RobotHardware
 from ..utils import ComplementaryFilter
 from ..watchdog import SurvivalWatchdog
@@ -58,15 +58,16 @@ class BalanceCore:
      - Safety (Hard-coded limits).
     """
 
-    def __init__(self, config: RobotConfig, watchdog: Optional[SurvivalWatchdog] = None):
-        self.config = config
+    def __init__(self, hw_config: HardwareConfig, learning_state: LearningState, watchdog: Optional[SurvivalWatchdog] = None):
+        self.hw_config = hw_config
+        self.learning_state = learning_state
 
-        self.hw = RobotHardware(self.config, watchdog=watchdog)
+        self.hw = RobotHardware(self.hw_config, self.learning_state, watchdog=watchdog)
         self.hw.init()
 
         # Control
-        self.pid = PIDController(config.pid)
-        self.filter = ComplementaryFilter(config.complementary_alpha)
+        self.pid = PIDController(self.learning_state.pid)
+        self.filter = ComplementaryFilter(self.hw_config.complementary_alpha)
 
         # State
         self.pitch = 0.0
@@ -126,16 +127,16 @@ class BalanceCore:
         # Map Velocity (-1 to 1) to Target Angle (-MAX to MAX)
         # Note: To move Forward (Positive Velocity), we must lean Forward (Positive Angle).
         # (Assumes Positive Pitch = Leaning Forward)
-        velocity_tilt = motion.velocity * self.config.control.max_tilt_angle
+        velocity_tilt = motion.velocity * self.hw_config.control.max_tilt_angle
 
         target_angle = (
-            self.config.pid.target_angle  # Base mechanical setpoint
+            self.learning_state.pid.target_angle  # Base mechanical setpoint
             + tuning.target_angle_offset  # Adaptation offset
             + velocity_tilt               # Intentional tilt
         )
 
         # 6. Safety Cutoff
-        if abs(self.pitch) > self.config.crash_angle:
+        if abs(self.pitch) > self.hw_config.crash_angle:
             self.hw.stop()
             self.pid.reset()  # Reset integral windup on crash
             return BalanceTelemetry(
@@ -160,17 +161,12 @@ class BalanceCore:
         # We assume positive turn_rate = Right Turn.
         # To turn Right, Left Motor > Right Motor.
 
-        # Implementation from original main.py:
-        # turn_correction = -reading.yaw_rate * yaw_correction_factor
-        # That was for stabilization (resist turning).
-        # Here we want to CAUSE turning.
-
         # Let's combine Intentional Turn + Stabilization.
         # Intentional: motion.turn_rate * Gain
         # Stabilization: -reading.yaw_rate * CorrectionFactor
 
-        turn_cmd = motion.turn_rate * self.config.control.turn_gain
-        yaw_damping = -reading.yaw_rate * self.config.control.yaw_correction_factor
+        turn_cmd = motion.turn_rate * self.hw_config.control.turn_gain
+        yaw_damping = -reading.yaw_rate * self.hw_config.control.yaw_correction_factor
 
         total_turn = turn_cmd + yaw_damping
 
@@ -182,7 +178,7 @@ class BalanceCore:
 
         if current_sign != self.last_motor_sign and abs(pid_output) > 2.0:
             # We just crossed zero! Start the slop-clearing timer
-            self.backlash_timer = self.config.control.backlash_pulse_time
+            self.backlash_timer = self.learning_state.control.backlash_pulse_time
             self.last_motor_sign = current_sign
 
         if self.backlash_timer > 0:

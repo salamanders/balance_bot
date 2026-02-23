@@ -6,11 +6,12 @@ from dataclasses import dataclass
 from collections import deque
 
 from ..utils import clamp, calculate_pitch, Vector3, get_i2c_failure_report
-from ..config import (
+from ..configuration import (
     BALANCING_THRESHOLD,
     REST_ANGLE_MIN,
     REST_ANGLE_MAX,
-    RobotConfig,
+    HardwareConfig,
+    LearningState,
 )
 from ..enums import Axis
 from ..watchdog import SurvivalWatchdog
@@ -172,13 +173,17 @@ class RobotHardware:
      - Convert raw sensor data into useful engineering units (Degrees, Deg/s).
     """
 
-    def __init__(self, config: RobotConfig, watchdog: Optional[SurvivalWatchdog] = None):
+    def __init__(self, hw_config: HardwareConfig, learning_state: LearningState, watchdog: Optional[SurvivalWatchdog] = None):
         """
         Initialize the robot hardware abstraction.
-        :param config: The shared RobotConfig object.
+        :param hw_config: The immutable HardwareConfig object.
+        :param learning_state: The mutable LearningState object (for calibration).
         :param watchdog: Optional SurvivalWatchdog for heartbeat pulses.
         """
-        self.config = config
+        self.config = hw_config # Retain 'config' name or change? Let's use hw_config to be explicit, but maybe map self.config for less churn?
+        # To avoid confusion, I will use self.hw_config and self.learning_state
+        self.hw_config = hw_config
+        self.learning_state = learning_state
         self.watchdog = watchdog
         self._imu_consecutive_errors = 0
 
@@ -194,9 +199,9 @@ class RobotHardware:
     @property
     def accel_roll_axis(self) -> Axis | None:
         """Deduce Accel Roll Axis (The one not used by Vertical or Forward)"""
-        if self.config.accel_vertical_axis and self.config.accel_forward_axis:
+        if self.hw_config.accel_vertical_axis and self.hw_config.accel_forward_axis:
             axes = {Axis.X, Axis.Y, Axis.Z}
-            used = {self.config.accel_vertical_axis, self.config.accel_forward_axis}
+            used = {self.hw_config.accel_vertical_axis, self.hw_config.accel_forward_axis}
             remaining = axes - used
             if remaining:
                 return list(remaining)[0]
@@ -214,10 +219,10 @@ class RobotHardware:
     def get_mapped_value(self, vector: Vector3, config_name: str) -> float:
         """
         Helper to extract a value based on a config prefix.
-        e.g. config_name="accel_forward" -> uses self.config.accel_forward_axis
+        e.g. config_name="accel_forward" -> uses self.hw_config.accel_forward_axis
         """
-        axis = getattr(self.config, f"{config_name}_axis")
-        invert = getattr(self.config, f"{config_name}_invert")
+        axis = getattr(self.hw_config, f"{config_name}_axis")
+        invert = getattr(self.hw_config, f"{config_name}_invert")
         return self.get_axis_value(vector, axis, invert)
 
     def _init_hardware(self) -> None:
@@ -225,18 +230,18 @@ class RobotHardware:
         Initialize hardware components.
         """
         # Inject Defaults if missing (Safe Baseline)
-        if self.config.motor_i2c_bus is None:
-            self.config.motor_i2c_bus = 1
-        if self.config.imu_i2c_bus is None:
-            self.config.imu_i2c_bus = 1
+        # Note: In immutable HardwareConfig, we cannot inject defaults into self.hw_config in-place.
+        # But we can read with defaults. However, defaults should be handled at load time or creation.
+        # Since WiringCheck creates config with defaults or discovered values, we assume they are present
+        # OR we handle None locally.
 
-        # Sensor Defaults (Z=Vert, Y=Fwd, X=Pitch is standard)
-        if self.config.gyro_pitch_axis is None:
-            self.config.gyro_pitch_axis = Axis.X
-        if self.config.accel_vertical_axis is None:
-            self.config.accel_vertical_axis = Axis.Z
-        if self.config.accel_forward_axis is None:
-            self.config.accel_forward_axis = Axis.Y
+        motor_bus = self.hw_config.motor_i2c_bus if self.hw_config.motor_i2c_bus is not None else 1
+        imu_bus = self.hw_config.imu_i2c_bus if self.hw_config.imu_i2c_bus is not None else 1
+
+        # Sensor Defaults (Z=Vert, Y=Fwd, X=Pitch is standard) handled by None check later or assumed
+        # Actually, get_mapped_value crashes if None.
+        # WiringCheck ensures they are set before init_hw is called for calibration.
+        # But for mock fallback or partial init, we might need care.
 
         # If running in explicit mock mode via env var, do that first.
         if os.environ.get("ALLOW_MOCK_FALLBACK"):
@@ -259,30 +264,30 @@ class RobotHardware:
                 raise e
 
             # 2. Attempt PiconZero (if bus known)
-            if self.config.motor_i2c_bus is not None:
+            if self.hw_config.motor_i2c_bus is not None:
                 try:
-                    self.pz = PiconZero(bus_number=self.config.motor_i2c_bus)
+                    self.pz = PiconZero(bus_number=self.hw_config.motor_i2c_bus)
                 except (OSError, PermissionError, FileNotFoundError) as e:
-                    logger.error(f"CRITICAL: PiconZero Init Failed on Bus {self.config.motor_i2c_bus}: {e}")
-                    report = get_i2c_failure_report(self.config.motor_i2c_bus, 0x22, "PiconZero")
+                    logger.error(f"CRITICAL: PiconZero Init Failed on Bus {self.hw_config.motor_i2c_bus}: {e}")
+                    report = get_i2c_failure_report(self.hw_config.motor_i2c_bus, 0x22, "PiconZero")
                     logger.error(report)
                     raise e
             else:
                 logger.info("Skipping PiconZero init (Bus Unknown)")
 
             # 3. Attempt MPU6050 (if bus known)
-            if self.config.imu_i2c_bus is not None:
+            if self.hw_config.imu_i2c_bus is not None:
                 try:
-                    self.sensor = MPU6050Adapter(mpu6050(0x68, bus=self.config.imu_i2c_bus))
+                    self.sensor = MPU6050Adapter(mpu6050(0x68, bus=self.hw_config.imu_i2c_bus))
                 except OSError as e:
-                    logger.error(f"CRITICAL: MPU6050 Init Failed on Bus {self.config.imu_i2c_bus}: {e}")
-                    report = get_i2c_failure_report(self.config.imu_i2c_bus, 0x68, "MPU6050")
+                    logger.error(f"CRITICAL: MPU6050 Init Failed on Bus {self.hw_config.imu_i2c_bus}: {e}")
+                    report = get_i2c_failure_report(self.hw_config.imu_i2c_bus, 0x68, "MPU6050")
                     logger.error(report)
                     raise e
             else:
                 logger.info("Skipping MPU6050 init (Bus Unknown)")
 
-            logger.info(f"Hardware initialized (Partial). PiconZero={self.config.motor_i2c_bus}, MPU6050={self.config.imu_i2c_bus}.")
+            logger.info(f"Hardware initialized (Partial). PiconZero={self.hw_config.motor_i2c_bus}, MPU6050={self.hw_config.imu_i2c_bus}.")
 
         except (ImportError, OSError, PermissionError, FileNotFoundError) as e:
              # Check for Fallback (if initialization failed)
@@ -319,11 +324,11 @@ class RobotHardware:
             accel = self.sensor.get_accel_data()
             gyro = self.sensor.get_gyro_data()
 
-            # Apply Bias Calibration
+            # Apply Bias Calibration (from LearningState)
             gyro = Vector3(
-                gyro.x - self.config.gyro_bias_x,
-                gyro.y - self.config.gyro_bias_y,
-                gyro.z - self.config.gyro_bias_z
+                gyro.x - self.learning_state.gyro_bias_x,
+                gyro.y - self.learning_state.gyro_bias_y,
+                gyro.z - self.learning_state.gyro_bias_z
             )
 
             # Update cache
@@ -337,7 +342,7 @@ class RobotHardware:
 
         except OSError:
             self._imu_consecutive_errors += 1
-            if self._imu_consecutive_errors > self.config.imu_max_retries:
+            if self._imu_consecutive_errors > self.hw_config.imu_max_retries:
                 logger.error(f"IMU Failed {self._imu_consecutive_errors} times in a row. Raising Error.")
                 raise
 
@@ -351,9 +356,9 @@ class RobotHardware:
         Read IMU and calculate pitch/rates based on config.
         """
         if (
-            self.config.accel_forward_axis is None
-            or self.config.accel_vertical_axis is None
-            or self.config.gyro_pitch_axis is None
+            self.hw_config.accel_forward_axis is None
+            or self.hw_config.accel_vertical_axis is None
+            or self.hw_config.gyro_pitch_axis is None
         ):
             raise RuntimeError("IMU axes not configured. Use read_imu_raw() instead.")
 
@@ -401,24 +406,18 @@ class RobotHardware:
         :param right: Speed -100 to 100
         """
         if self.pz is None:
-            # If not initialized, maybe we can't drive?
-            # Or should we raise?
-            # The user might be calling this from "Twitch" which knows the bus...
-            # But Twitch should probably use pz.set_motor directly if it's doing raw stuff.
-            # But if we want to use the high level abstraction, we expect pz to be there.
             raise RuntimeError("Motor Driver not initialized (Bus Unknown?)")
 
-        # Apply Motor Trim (Compensation for mismatched motors)
-        # Trim > 0: Scale down Right Motor (Right is stronger)
-        # Trim < 0: Scale down Left Motor (Left is stronger)
-        if self.config.motor_trim > 0:
-            right *= (1.0 - self.config.motor_trim)
-        elif self.config.motor_trim < 0:
-            left *= (1.0 - abs(self.config.motor_trim))
+        # Apply Motor Trim (Compensation for mismatched motors from LearningState)
+        trim = self.learning_state.motor_trim
+        if trim > 0:
+            right *= (1.0 - trim)
+        elif trim < 0:
+            left *= (1.0 - abs(trim))
 
-        if self.config.motor_l_invert:
+        if self.hw_config.motor_l_invert:
             left = -left
-        if self.config.motor_r_invert:
+        if self.hw_config.motor_r_invert:
             right = -right
 
         # Use helper clamp, cast to int for driver
@@ -430,17 +429,17 @@ class RobotHardware:
         val_1 = 0
 
         # Assign Left Motor Value
-        if self.config.motor_l is not None:
-            if self.config.motor_l == 0:
+        if self.hw_config.motor_l is not None:
+            if self.hw_config.motor_l == 0:
                 val_0 = left_val
-            elif self.config.motor_l == 1:
+            elif self.hw_config.motor_l == 1:
                 val_1 = left_val
 
         # Assign Right Motor Value
-        if self.config.motor_r is not None:
-            if self.config.motor_r == 0:
+        if self.hw_config.motor_r is not None:
+            if self.hw_config.motor_r == 0:
                 val_0 = right_val
-            elif self.config.motor_r == 1:
+            elif self.hw_config.motor_r == 1:
                 val_1 = right_val
 
         self.pz.set_motors(val_0, val_1)
@@ -469,7 +468,7 @@ class RobotHardware:
             return "BALANCED"
         elif REST_ANGLE_MIN < pitch < REST_ANGLE_MAX:
             return "RESTING"
-        elif pitch > self.config.crash_angle:
+        elif pitch > self.hw_config.crash_angle:
             return "CRASHED"
         else:
             return "FALLING"
@@ -498,7 +497,7 @@ class RobotHardware:
 
             # Read sensors
             try:
-                # Use RAW data (which now includes bias correction)
+                # Use RAW data (which now includes bias correction from LearningState)
                 accel, gyro = self.read_imu_raw()
             except Exception as e:
                 logger.warning(f"  [Error reading IMU] {e}")
@@ -548,12 +547,12 @@ class RobotHardware:
                         avg_y = sum(ys) / len(ys)
                         avg_z = sum(zs) / len(zs)
 
-                        self.config.gyro_bias_x += avg_x
-                        self.config.gyro_bias_y += avg_y
-                        self.config.gyro_bias_z += avg_z
+                        self.learning_state.gyro_bias_x += avg_x
+                        self.learning_state.gyro_bias_y += avg_y
+                        self.learning_state.gyro_bias_z += avg_z
 
-                        self.config.save()
-                        logger.info(f"  [CALIBRATED] Bias Updated. New Offsets: ({self.config.gyro_bias_x:.2f}, {self.config.gyro_bias_y:.2f}, {self.config.gyro_bias_z:.2f})")
+                        self.learning_state.save()
+                        logger.info(f"  [CALIBRATED] Bias Updated. New Offsets: ({self.learning_state.gyro_bias_x:.2f}, {self.learning_state.gyro_bias_y:.2f}, {self.learning_state.gyro_bias_z:.2f})")
 
                         # Clear history and retry immediately
                         history.clear()

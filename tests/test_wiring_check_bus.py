@@ -14,13 +14,28 @@ from balance_bot.wiring_check import WiringCheck
 def wc_fixture():
     with patch("balance_bot.wiring_check.smbus") as mock_smbus_module, \
          patch("balance_bot.wiring_check.RobotHardware") as mock_rh_cls, \
-         patch("balance_bot.wiring_check.RobotConfig") as MockConfig:
+         patch("balance_bot.wiring_check.HardwareConfig") as MockHwConfig, \
+         patch("balance_bot.wiring_check.LearningState") as MockLearningState:
 
-        config_inst = MagicMock()
-        config_inst.motor_i2c_bus = None # Start unknown
-        config_inst.imu_i2c_bus = None
-        config_inst.min_power_visible = 0
-        MockConfig.load.return_value = config_inst
+        # Mock Hardware Config
+        hw_config_inst = MagicMock()
+        hw_config_inst.motor_i2c_bus = None # Start unknown
+        hw_config_inst.imu_i2c_bus = None
+        hw_config_inst.min_power_visible = 0
+
+        # Support model_copy(update=...)
+        def model_copy_side_effect(update=None, **kwargs):
+            if update:
+                for k, v in update.items():
+                    setattr(hw_config_inst, k, v)
+            return hw_config_inst
+        hw_config_inst.model_copy.side_effect = model_copy_side_effect
+
+        MockHwConfig.load.return_value = hw_config_inst
+
+        # Mock Learning State
+        learning_state_inst = MagicMock()
+        MockLearningState.load.return_value = learning_state_inst
 
         # Setup RobotHardware Mock Instance
         mock_hw = mock_rh_cls.return_value
@@ -45,27 +60,16 @@ def test_discover_buses_found(wc_fixture):
     wc, mock_hw, mock_smbus = wc_fixture
 
     # Setup SMBus Mocks
-    # Bus 1 has PiconZero (0x22)
-    # Bus 3 has MPU6050 (0x68)
-
-    # We need separate Mock objects for each bus call
     bus1 = MagicMock()
     bus3 = MagicMock()
     bus0 = MagicMock()
     bus2 = MagicMock()
 
     # Configure Bus 1: Has 0x22 (read_byte_data succeeds), No 0x68 (read_byte_data fails)
-    # Note: side_effect must return value or raise Exception
-    def bus1_read(addr, reg):
-        if addr == 0x22: return 0
-        raise OSError("Not Found")
-    bus1.read_byte_data.side_effect = bus1_read
+    bus1.read_byte_data.side_effect = lambda addr, reg: 0 if addr == 0x22 else (_ for _ in ()).throw(OSError("Not Found"))
 
     # Configure Bus 3: Has 0x68 (read_byte_data succeeds for 0x75), No 0x22
-    def bus3_read(addr, reg):
-        if addr == 0x68 and reg == 0x75: return 0x68
-        raise OSError("Not Found")
-    bus3.read_byte_data.side_effect = bus3_read
+    bus3.read_byte_data.side_effect = lambda addr, reg: 0x68 if (addr == 0x68 and reg == 0x75) else (_ for _ in ()).throw(OSError("Not Found"))
 
     # Bus 0, 2: Nothing
     bus0.read_byte_data.side_effect = OSError("Not Found")
@@ -79,12 +83,21 @@ def test_discover_buses_found(wc_fixture):
         raise OSError("Bus Error")
 
     # smbus2.SMBus is the constructor
+    # We need to mock the MODULE level attribute if we patched the module
+    # But in WiringCheck it does `import smbus2 as smbus`.
+    # And we patched `balance_bot.wiring_check.smbus`.
+    # So `wc.smbus` refers to our mock.
+
     mock_smbus.SMBus.side_effect = smbus_side_effect
 
     wc.discover_buses()
 
-    assert wc.config.motor_i2c_bus == 1
-    assert wc.config.imu_i2c_bus == 3
+    # Verify updates
+    # The code calls _update_hw_config(motor_i2c_bus=..., imu_i2c_bus=...)
+    # This calls model_copy(update=...)
+    # Our mock side effect updates the instance in place for verification convenience.
+    assert wc.hw_config.motor_i2c_bus == 1
+    assert wc.hw_config.imu_i2c_bus == 3
 
 def test_find_min_power_success(wc_fixture):
     wc, mock_hw, _ = wc_fixture
@@ -95,7 +108,7 @@ def test_find_min_power_success(wc_fixture):
     # 15: Fail
     # 20: Success
 
-    def drive_side_effect(l, r, duration):
+    def drive_side_effect(l, r, duration, wait_stable=True):
         res = MagicMock()
         if l >= 20:
              res.max_rate = 20.0 # Success
@@ -107,7 +120,7 @@ def test_find_min_power_success(wc_fixture):
 
     wc.find_min_power()
 
-    assert wc.config.min_power_visible == 20
+    assert wc.hw_config.min_power_visible == 20
 
     # Verify sequence
     # Should have called 10, 15, 20

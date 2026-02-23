@@ -7,6 +7,7 @@ from .behavior.agent import Agent
 from .utils import setup_logging, get_captured_logs
 from .jules_client import JulesClient
 from .watchdog import SurvivalWatchdog
+from .configuration import HARDWARE_CONFIG_FILE, LEARNING_STATE_FILE
 
 
 def main() -> None:
@@ -33,11 +34,23 @@ def main() -> None:
 
     try:
         if args.reset_brain or args.force:
-            from .config import RobotConfig
             print("Resetting Robot Memory...")
-            cfg = RobotConfig.load()
-            cfg.reset_hardware_map()
-            cfg.save()
+            # Instead of modifying existing config, we wipe the files.
+            # This forces WiringCheck or Agent to start fresh.
+            if HARDWARE_CONFIG_FILE.exists():
+                try:
+                    HARDWARE_CONFIG_FILE.unlink()
+                    print(f"Deleted {HARDWARE_CONFIG_FILE}")
+                except Exception as e:
+                    print(f"Error deleting hardware config: {e}")
+
+            if LEARNING_STATE_FILE.exists():
+                try:
+                    LEARNING_STATE_FILE.unlink()
+                    print(f"Deleted {LEARNING_STATE_FILE}")
+                except Exception as e:
+                    print(f"Error deleting learning state: {e}")
+
             print("Brain reset complete.")
             # If we are not discovering or checking wiring, we are done.
             if not args.discover and not args.check_wiring:
@@ -95,7 +108,13 @@ def main() -> None:
                 try:
                     # 'bot' is an Agent instance
                     agent_inst = locals()["bot"]
-                    state = agent_inst.config.model_dump()
+
+                    # Merge both configs for report
+                    hw_dump = agent_inst.hw_config.model_dump()
+                    learn_dump = agent_inst.learning_state.model_dump()
+                    state = {**hw_dump, **learn_dump} # Flattened view
+                    state["_source"] = "merged_configs"
+
                     # Add runtime info
                     state["runtime_ticks"] = agent_inst.ticks
                 except Exception:

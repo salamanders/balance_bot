@@ -1,5 +1,5 @@
 from simple_pid import PID
-from ..config import PIDParams
+from ..configuration import PIDParams
 from ..utils import clamp
 
 
