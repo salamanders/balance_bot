@@ -1,5 +1,5 @@
 import json
-from balance_bot.config import RobotConfig, ControlConfig
+from balance_bot.configuration import HardwareConfig, ControlConfig
 
 def test_control_config_mutable():
     """Verify ControlConfig is no longer frozen."""
@@ -21,14 +21,14 @@ def test_kickup_power_persistence(tmp_path, monkeypatch):
     monkeypatch.chdir(tmp_path)
 
     # create config with custom kickup power
-    cfg = RobotConfig.load() # defaults
+    cfg = HardwareConfig.load() # defaults
     cfg.control.kickup_power_forward = 45.5
     cfg.control.kickup_power_backward = 70.0
 
     cfg.save()
 
     # Reload
-    new_cfg = RobotConfig.load()
+    new_cfg = HardwareConfig.load()
     assert new_cfg.control.kickup_power_forward == 45.5
     assert new_cfg.control.kickup_power_backward == 70.0
 

@@ -8,15 +8,15 @@ sys.modules["mpu6050"] = MagicMock()
 
 # Now we can import safely
 from balance_bot.wiring_check import WiringCheck
-from balance_bot.config import RobotConfig, PIDParams
+from balance_bot.configuration import HardwareConfig, LearningState
 from balance_bot.utils import Vector3
 from balance_bot.enums import Axis
 
 class TestAutonomousConfig(unittest.TestCase):
     def setUp(self):
-        # Patch RobotConfig.load to return a fresh config
-        with patch('balance_bot.config.RobotConfig.load') as mock_load:
-            mock_load.return_value = RobotConfig(pid=PIDParams())
+        # Patch HardwareConfig.load to return a fresh config
+        with patch('balance_bot.config.HardwareConfig.load') as mock_load:
+            mock_load.return_value = HardwareConfig(pid=LearningState())
             self.check = WiringCheck()
 
         # Mock HW

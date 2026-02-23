@@ -1,6 +1,7 @@
 import sys
 import pytest
 from unittest.mock import MagicMock, patch, call
+from dataclasses import replace
 
 # Mock smbus2 before import if missing
 try:
@@ -9,18 +10,17 @@ except ImportError:
     sys.modules['smbus2'] = MagicMock()
 
 from balance_bot.wiring_check import WiringCheck
+from balance_bot.configuration import HardwareConfig
 
 @pytest.fixture
 def wc_fixture():
     with patch("balance_bot.wiring_check.smbus") as mock_smbus_module, \
          patch("balance_bot.wiring_check.RobotHardware") as mock_rh_cls, \
-         patch("balance_bot.wiring_check.RobotConfig") as MockConfig:
+         patch("balance_bot.wiring_check.HardwareConfig.load") as mock_load:
 
-        config_inst = MagicMock()
-        config_inst.motor_i2c_bus = None # Start unknown
-        config_inst.imu_i2c_bus = None
-        config_inst.min_power_visible = 0
-        MockConfig.load.return_value = config_inst
+        # Use real config object so dataclasses.replace works
+        config_inst = HardwareConfig()
+        mock_load.return_value = config_inst
 
         # Setup RobotHardware Mock Instance
         mock_hw = mock_rh_cls.return_value

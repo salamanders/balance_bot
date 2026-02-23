@@ -1,12 +1,12 @@
 import unittest
 from unittest.mock import MagicMock, patch, PropertyMock
 import time
-from src.balance_bot.behavior.agent import Agent, BotState, RobotConfig
+from src.balance_bot.behavior.agent import Agent, BotState, HardwareConfig
 
 class TestAgentStateMachine(unittest.TestCase):
     def setUp(self):
         # Patch dependencies before Agent init
-        self.config_patcher = patch('src.balance_bot.behavior.agent.RobotConfig')
+        self.config_patcher = patch('src.balance_bot.behavior.agent.HardwareConfig')
         self.core_patcher = patch('src.balance_bot.behavior.agent.BalanceCore')
         self.tuner_patcher = patch('src.balance_bot.behavior.agent.ContinuousTuner')
         self.finder_patcher = patch('src.balance_bot.behavior.agent.BalancePointFinder')

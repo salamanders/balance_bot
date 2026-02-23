@@ -20,8 +20,8 @@ class TestAgentStartup(unittest.TestCase):
         self.mock_core_instance = self.mock_core_cls.return_value
         self.mock_core_instance.update.return_value = MagicMock()
 
-        # Patch RobotConfig
-        self.robot_config_patcher = patch("balance_bot.behavior.agent.RobotConfig")
+        # Patch HardwareConfig
+        self.robot_config_patcher = patch("balance_bot.behavior.agent.HardwareConfig")
         self.mock_robot_config_cls = self.robot_config_patcher.start()
 
         # Patch ContinuousTuner

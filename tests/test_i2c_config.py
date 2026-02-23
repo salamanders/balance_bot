@@ -1,17 +1,17 @@
 import os
 import sys
 from unittest.mock import patch, MagicMock
-from balance_bot.config import RobotConfig, PIDParams
+from balance_bot.configuration import HardwareConfig, LearningState
 
 def test_config_i2c_bus_default():
     """Test that i2c buses default to None (defer to hardware default)."""
-    config = RobotConfig(pid=PIDParams())
+    config = HardwareConfig(pid=LearningState())
     assert config.motor_i2c_bus is None
     assert config.imu_i2c_bus is None
 
 def test_config_i2c_bus_load_separate():
     """Test that distinct buses can be loaded from config."""
-    config = RobotConfig(pid=PIDParams(), motor_i2c_bus=0, imu_i2c_bus=3)
+    config = HardwareConfig(pid=LearningState(), motor_i2c_bus=0, imu_i2c_bus=3)
     assert config.motor_i2c_bus == 0
     assert config.imu_i2c_bus == 3
 
@@ -40,7 +40,7 @@ def test_hardware_init_with_bus():
         # Ensure not in mock mode
         with patch.dict(os.environ, {}, clear=True):
             # Fix: Create config and pass it
-            config = RobotConfig(pid=PIDParams())
+            config = HardwareConfig(pid=LearningState())
             config.motor_l = 0
             config.motor_r = 1
             config.motor_i2c_bus = 0
@@ -81,7 +81,7 @@ def test_hardware_init_uses_defaults_if_none():
 
         with patch.dict(os.environ, {}, clear=True):
             # Fix: Create config with None
-            config = RobotConfig(pid=PIDParams())
+            config = HardwareConfig(pid=LearningState())
             config.motor_l = 0
             config.motor_r = 1
             config.motor_i2c_bus = None

@@ -14,7 +14,7 @@ from balance_bot.enums import Axis
 def wc_fixture():
     with patch("balance_bot.wiring_check.smbus"), \
          patch("balance_bot.wiring_check.RobotHardware"), \
-         patch("balance_bot.wiring_check.RobotConfig") as MockConfig:
+         patch("balance_bot.wiring_check.HardwareConfig") as MockConfig:
 
         wc = WiringCheck()
         wc.hw = MagicMock()

@@ -1,5 +1,5 @@
 from balance_bot.adaptation.tuner import BalancePointFinder
-from balance_bot.config import TunerConfig
+from balance_bot.configuration import TunerConfig
 
 def test_balance_finder_no_adjustment():
     config = TunerConfig(

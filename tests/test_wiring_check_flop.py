@@ -16,7 +16,7 @@ from balance_bot.hardware.robot_hardware import IMUReading
 def wc_fixture():
     with patch("balance_bot.wiring_check.smbus") as mock_smbus_module, \
          patch("balance_bot.wiring_check.RobotHardware") as mock_rh_cls, \
-         patch("balance_bot.wiring_check.RobotConfig") as MockConfig:
+         patch("balance_bot.wiring_check.HardwareConfig") as MockConfig:
 
         config_inst = MagicMock()
         config_inst.motor_i2c_bus = 1

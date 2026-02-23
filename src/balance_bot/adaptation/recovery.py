@@ -1,5 +1,5 @@
 import logging
-from ..config import STARTUP_RAMP_SPEED, ControlConfig
+from ..configuration import STARTUP_RAMP_SPEED, ControlConfig
 
 logger = logging.getLogger(__name__)
 

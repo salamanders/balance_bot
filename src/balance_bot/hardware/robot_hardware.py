@@ -5,11 +5,11 @@ from typing import Protocol, runtime_checkable, Any, Optional
 from dataclasses import dataclass
 
 from ..utils import clamp, calculate_pitch, Vector3, get_i2c_failure_report
-from ..config import (
+from ..configuration import (
     BALANCING_THRESHOLD,
     REST_ANGLE_MIN,
     REST_ANGLE_MAX,
-    RobotConfig,
+    HardwareConfig,
 )
 from ..enums import Axis
 
@@ -23,12 +23,6 @@ MOTOR_MAX_OUTPUT = 100
 class IMUReading:
     """
     Immutable data structure for converted IMU readings.
-
-    :param pitch_angle: Calculated pitch angle in degrees (Zero = Upright).
-    :param pitch_rate: Angular velocity around pitch axis in deg/s.
-    :param yaw_rate: Angular velocity around yaw (vertical) axis in deg/s.
-    :param roll_angle: Calculated roll angle in degrees.
-    :param roll_rate: Angular velocity around roll axis in deg/s.
     """
     pitch_angle: float
     pitch_rate: float
@@ -43,7 +37,6 @@ class IMUReading:
 class MeasureResult:
     """
     Result of a drive-and-measure maneuver.
-    Encapsulates raw samples and derived statistics.
     """
     duration: float
     samples: list[IMUReading]
@@ -78,102 +71,40 @@ class MeasureResult:
 
 @runtime_checkable
 class MotorDriver(Protocol):
-    """
-    Protocol for motor driver implementations.
-    Allows swapping between real hardware (PiconZero) and Mocks.
-    """
-
-    def init(self) -> None:
-        """Initialize the motor driver hardware."""
-        ...
-
-    def cleanup(self) -> None:
-        """Release hardware resources."""
-        ...
-
-    def stop(self) -> None:
-        """Stop all motors immediately."""
-        ...
-
-    def set_retries(self, retries: int) -> None:
-        """Set the number of I2C retries."""
-        ...
-
-    def set_motor(self, motor: int, value: int) -> None:
-        """
-        Set speed for a specific motor.
-        :param motor: Motor channel index (0 or 1).
-        :param value: Speed (-100 to 100).
-        """
-        ...
-
-    def set_motors(self, motor_0_val: int, motor_1_val: int) -> None:
-        """
-        Set speed for both motors simultaneously using a block write.
-        :param motor_0_val: Speed for Motor 0 (-100 to 100).
-        :param motor_1_val: Speed for Motor 1 (-100 to 100).
-        """
-        ...
+    def init(self) -> None: ...
+    def cleanup(self) -> None: ...
+    def stop(self) -> None: ...
+    def set_retries(self, retries: int) -> None: ...
+    def set_motor(self, motor: int, value: int) -> None: ...
+    def set_motors(self, motor_0_val: int, motor_1_val: int) -> None: ...
 
 
 @runtime_checkable
 class IMUDriver(Protocol):
-    """
-    Protocol for IMU driver implementations.
-    Abstracts specific sensor libraries (e.g. mpu6050).
-    """
-
-    def get_accel_data(self) -> Vector3:
-        """
-        Get raw accelerometer data.
-        :return: Dictionary with x, y, z keys.
-        """
-        ...
-
-    def get_gyro_data(self) -> Vector3:
-        """
-        Get raw gyroscope data.
-        :return: Dictionary with x, y, z keys.
-        """
-        ...
+    def get_accel_data(self) -> Vector3: ...
+    def get_gyro_data(self) -> Vector3: ...
 
 
 class MPU6050Adapter:
-    """
-    Adapter for the mpu6050 library class to match IMUDriver protocol.
-    """
-
     def __init__(self, sensor_instance: Any):
-        """
-        Initialize the adapter.
-        :param sensor_instance: Instance of mpu6050 class.
-        """
         self.sensor = sensor_instance
 
     def get_accel_data(self) -> Vector3:
-        """Get accelerometer data."""
         return Vector3.from_dict(self.sensor.get_accel_data())
 
     def get_gyro_data(self) -> Vector3:
-        """Get gyroscope data."""
         return Vector3.from_dict(self.sensor.get_gyro_data())
 
 
 class RobotHardware:
     """
     Hardware Abstraction Layer (HAL) for the Robot.
-
-    Responsibilities:
-     - Initialize Motor and IMU drivers (Real or Mock).
-     - Abstract away I2C bus management.
-     - Remap sensor axes (X/Y/Z) to logical axes (Pitch/Vertical/Forward).
-     - Convert raw sensor data into useful engineering units (Degrees, Deg/s).
     """
 
-    def __init__(self, config: RobotConfig):
+    def __init__(self, config: HardwareConfig):
         """
         Initialize the robot hardware abstraction.
-        :param config: The shared RobotConfig object.
+        :param config: The shared HardwareConfig object.
         """
         self.config = config
         self._imu_consecutive_errors = 0
@@ -185,20 +116,38 @@ class RobotHardware:
         self.pz: MotorDriver | None = None
         self.sensor: IMUDriver | None = None
 
+        # Resolve defaults locally to ensure runtime safety even with incomplete config
+        self.motor_i2c_bus = self.config.motor_i2c_bus if self.config.motor_i2c_bus is not None else 1
+        self.imu_i2c_bus = self.config.imu_i2c_bus if self.config.imu_i2c_bus is not None else 1
+
+        self.gyro_pitch_axis = self.config.gyro_pitch_axis or Axis.X
+        self.gyro_pitch_invert = self.config.gyro_pitch_invert
+
+        self.gyro_yaw_axis = self.config.gyro_yaw_axis or Axis.Z
+        self.gyro_yaw_invert = self.config.gyro_yaw_invert
+
+        self.gyro_roll_axis = self.config.gyro_roll_axis or Axis.Y
+        self.gyro_roll_invert = self.config.gyro_roll_invert
+
+        self.accel_vertical_axis = self.config.accel_vertical_axis or Axis.Z
+        self.accel_vertical_invert = self.config.accel_vertical_invert
+
+        self.accel_forward_axis = self.config.accel_forward_axis or Axis.Y
+        self.accel_forward_invert = self.config.accel_forward_invert
+
         self._init_hardware()
 
     @property
     def accel_roll_axis(self) -> Axis | None:
         """Deduce Accel Roll Axis (The one not used by Vertical or Forward)"""
-        if self.config.accel_vertical_axis and self.config.accel_forward_axis:
-            axes = {Axis.X, Axis.Y, Axis.Z}
-            used = {self.config.accel_vertical_axis, self.config.accel_forward_axis}
-            remaining = axes - used
-            if remaining:
-                return list(remaining)[0]
-            else:
-                return Axis.X  # Fallback
-        return None
+        # Use local resolved attributes
+        axes = {Axis.X, Axis.Y, Axis.Z}
+        used = {self.accel_vertical_axis, self.accel_forward_axis}
+        remaining = axes - used
+        if remaining:
+            return list(remaining)[0]
+        else:
+            return Axis.X  # Fallback
 
     def _get_axis_value(self, vector: Vector3, axis: Axis | None, invert: bool) -> float:
         """Helper to extract and optionally invert a vector component."""
@@ -211,20 +160,6 @@ class RobotHardware:
         """
         Initialize hardware components.
         """
-        # Inject Defaults if missing (Safe Baseline)
-        if self.config.motor_i2c_bus is None:
-            self.config.motor_i2c_bus = 1
-        if self.config.imu_i2c_bus is None:
-            self.config.imu_i2c_bus = 1
-
-        # Sensor Defaults (Z=Vert, Y=Fwd, X=Pitch is standard)
-        if self.config.gyro_pitch_axis is None:
-            self.config.gyro_pitch_axis = Axis.X
-        if self.config.accel_vertical_axis is None:
-            self.config.accel_vertical_axis = Axis.Z
-        if self.config.accel_forward_axis is None:
-            self.config.accel_forward_axis = Axis.Y
-
         # If running in explicit mock mode via env var, do that first.
         if os.environ.get("ALLOW_MOCK_FALLBACK"):
             logger.warning("Hardware Init: Mock Mode Requested via Environment.")
@@ -245,31 +180,25 @@ class RobotHardware:
                 logger.error(f"CRITICAL: Required libraries not found or failed to load: {e}")
                 raise e
 
-            # 2. Attempt PiconZero (if bus known)
-            if self.config.motor_i2c_bus is not None:
-                try:
-                    self.pz = PiconZero(bus_number=self.config.motor_i2c_bus)
-                except (OSError, PermissionError, FileNotFoundError) as e:
-                    logger.error(f"CRITICAL: PiconZero Init Failed on Bus {self.config.motor_i2c_bus}: {e}")
-                    report = get_i2c_failure_report(self.config.motor_i2c_bus, 0x22, "PiconZero")
-                    logger.error(report)
-                    raise e
-            else:
-                logger.info("Skipping PiconZero init (Bus Unknown)")
+            # 2. Attempt PiconZero
+            try:
+                self.pz = PiconZero(bus_number=self.motor_i2c_bus)
+            except (OSError, PermissionError, FileNotFoundError) as e:
+                logger.error(f"CRITICAL: PiconZero Init Failed on Bus {self.motor_i2c_bus}: {e}")
+                report = get_i2c_failure_report(self.motor_i2c_bus, 0x22, "PiconZero")
+                logger.error(report)
+                raise e
 
-            # 3. Attempt MPU6050 (if bus known)
-            if self.config.imu_i2c_bus is not None:
-                try:
-                    self.sensor = MPU6050Adapter(mpu6050(0x68, bus=self.config.imu_i2c_bus))
-                except OSError as e:
-                    logger.error(f"CRITICAL: MPU6050 Init Failed on Bus {self.config.imu_i2c_bus}: {e}")
-                    report = get_i2c_failure_report(self.config.imu_i2c_bus, 0x68, "MPU6050")
-                    logger.error(report)
-                    raise e
-            else:
-                logger.info("Skipping MPU6050 init (Bus Unknown)")
+            # 3. Attempt MPU6050
+            try:
+                self.sensor = MPU6050Adapter(mpu6050(0x68, bus=self.imu_i2c_bus))
+            except OSError as e:
+                logger.error(f"CRITICAL: MPU6050 Init Failed on Bus {self.imu_i2c_bus}: {e}")
+                report = get_i2c_failure_report(self.imu_i2c_bus, 0x68, "MPU6050")
+                logger.error(report)
+                raise e
 
-            logger.info(f"Hardware initialized (Partial). PiconZero={self.config.motor_i2c_bus}, MPU6050={self.config.imu_i2c_bus}.")
+            logger.info(f"Hardware initialized. PiconZero={self.motor_i2c_bus}, MPU6050={self.imu_i2c_bus}.")
 
         except (ImportError, OSError, PermissionError, FileNotFoundError) as e:
              # Check for Fallback (if initialization failed)
@@ -295,11 +224,9 @@ class RobotHardware:
     def read_imu_raw(self) -> tuple[Vector3, Vector3]:
         """
         Returns raw accelerometer and gyro data.
-        Includes error handling for I2C noise.
-        :return: Tuple of (accel_dict, gyro_dict).
         """
         if self.sensor is None:
-            raise RuntimeError("IMU Sensor not initialized (Bus Unknown?)")
+            raise RuntimeError("IMU Sensor not initialized")
 
         try:
             # Try to read fresh data
@@ -321,51 +248,40 @@ class RobotHardware:
                 logger.error(f"IMU Failed {self._imu_consecutive_errors} times in a row. Raising Error.")
                 raise
 
-            # If I2C fails (noise), return the last known good values
-            # This prevents the robot from crashing or freezing
-            # logger.warning("I2C Glitch - Using stale data")
             return self._last_accel, self._last_gyro
 
     def read_imu_converted(self) -> IMUReading:
         """
         Read IMU and calculate pitch/rates based on config.
         """
-        if (
-            self.config.accel_forward_axis is None
-            or self.config.accel_vertical_axis is None
-            or self.config.gyro_pitch_axis is None
-        ):
-            raise RuntimeError("IMU axes not configured. Use read_imu_raw() instead.")
-
         accel, gyro = self.read_imu_raw()
 
-        # Get raw values based on config
+        # Get raw values based on local attributes (resolved defaults)
         accel_forward = self._get_axis_value(
-            accel, self.config.accel_forward_axis, self.config.accel_forward_invert
+            accel, self.accel_forward_axis, self.accel_forward_invert
         )
         accel_vertical = self._get_axis_value(
-            accel, self.config.accel_vertical_axis, self.config.accel_vertical_invert
+            accel, self.accel_vertical_axis, self.accel_vertical_invert
         )
 
         # Calculate Accelerometer Angle
-        # calculate_pitch(y, z) assumes y is forward, z is vertical.
         acc_angle = calculate_pitch(accel_forward, accel_vertical)
 
         # Gyro Rates
         gyro_rate = self._get_axis_value(
-            gyro, self.config.gyro_pitch_axis, self.config.gyro_pitch_invert
+            gyro, self.gyro_pitch_axis, self.gyro_pitch_invert
         )
         yaw_rate = self._get_axis_value(
-            gyro, self.config.gyro_yaw_axis, self.config.gyro_yaw_invert
+            gyro, self.gyro_yaw_axis, self.gyro_yaw_invert
         )
         roll_rate = self._get_axis_value(
-            gyro, self.config.gyro_roll_axis, self.config.gyro_roll_invert
+            gyro, self.gyro_roll_axis, self.gyro_roll_invert
         )
 
         # Roll Angle (Approximate from Accel)
-        if self.accel_roll_axis:
-            accel_roll = getattr(accel, self.accel_roll_axis.value)
-            # Calculate angle of side vector relative to vertical
+        roll_axis = self.accel_roll_axis
+        if roll_axis:
+            accel_roll = getattr(accel, roll_axis.value)
             roll_angle = calculate_pitch(accel_roll, accel_vertical)
         else:
             roll_angle = 0.0
@@ -391,16 +307,9 @@ class RobotHardware:
         :param right: Speed -100 to 100
         """
         if self.pz is None:
-            # If not initialized, maybe we can't drive?
-            # Or should we raise?
-            # The user might be calling this from "Twitch" which knows the bus...
-            # But Twitch should probably use pz.set_motor directly if it's doing raw stuff.
-            # But if we want to use the high level abstraction, we expect pz to be there.
-            raise RuntimeError("Motor Driver not initialized (Bus Unknown?)")
+            raise RuntimeError("Motor Driver not initialized")
 
-        # Apply Motor Trim (Compensation for mismatched motors)
-        # Trim > 0: Scale down Right Motor (Right is stronger)
-        # Trim < 0: Scale down Left Motor (Left is stronger)
+        # Apply Motor Trim
         if self.config.motor_trim > 0:
             right *= (1.0 - self.config.motor_trim)
         elif self.config.motor_trim < 0:
@@ -446,11 +355,6 @@ class RobotHardware:
     def get_posture_state(self) -> str:
         """
         Determine the robot's current posture state based on pitch.
-        States:
-         - BALANCED: Upright within operating range.
-         - RESTING: Leaning on struts/training wheels.
-         - CRASHED: Fallen completely over (hard stop required).
-         - FALLING: In transition (optional).
         """
         reading = self.read_imu_converted()
         pitch = abs(reading.pitch_angle)
@@ -467,7 +371,6 @@ class RobotHardware:
     def wait_for_stability(self, duration: float = 2.0, threshold: float = 2.0) -> None:
         """
         Wait for the robot to be stable (gyro rates low) for a duration.
-        Blocks until the condition is met.
         """
         logger.info(f"Waiting for stability (rates < {threshold} deg/s) for {duration}s...")
 
@@ -475,17 +378,13 @@ class RobotHardware:
         last_log = 0.0
 
         while True:
-            # Read sensors
             try:
-                # Use RAW data to avoid dependency on config (allows calibration)
                 accel, gyro = self.read_imu_raw()
             except Exception as e:
                 logger.warning(f"  [Error reading IMU] {e}")
                 time.sleep(0.1)
                 continue
 
-            # Calculate total rate magnitude from raw gyro (assumed deg/s or similar scale)
-            # This is robust even if axes are not yet configured.
             rate = abs(gyro.x) + abs(gyro.y) + abs(gyro.z)
 
             if rate < threshold:
@@ -506,10 +405,6 @@ class RobotHardware:
     def execute_maneuver(self, steps: list[tuple[float, float, float]], sample_interval: float = 0.01) -> MeasureResult:
         """
         Execute a sequence of motor commands and collect IMU readings throughout.
-
-        :param steps: List of (left_power, right_power, duration) tuples.
-        :param sample_interval: Time between IMU samples.
-        :return: MeasureResult containing total duration and all samples.
         """
         samples = []
         total_duration = 0.0
@@ -519,7 +414,6 @@ class RobotHardware:
                 self.set_motors(left, right)
                 step_start = time.time()
 
-                # Run for the duration of this step
                 while time.time() - step_start < duration:
                     samples.append(self.read_imu_converted())
                     time.sleep(sample_interval)
@@ -531,8 +425,4 @@ class RobotHardware:
         return MeasureResult(duration=total_duration, samples=samples)
 
     def drive_and_measure(self, left_power: float, right_power: float, duration: float, sample_interval: float = 0.01) -> MeasureResult:
-        """
-        Drive motors for a duration and collect IMU readings.
-        Returns a MeasureResult object containing samples and stats.
-        """
         return self.execute_maneuver([(left_power, right_power, duration)], sample_interval)

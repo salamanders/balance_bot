@@ -1,6 +1,6 @@
 from dataclasses import dataclass
 
-from ..config import RobotConfig
+from ..configuration import HardwareConfig, LearningState
 from ..hardware.robot_hardware import RobotHardware
 from ..utils import ComplementaryFilter
 from .pid import PIDController
@@ -56,15 +56,17 @@ class BalanceCore:
      - Safety (Hard-coded limits).
     """
 
-    def __init__(self, config: RobotConfig):
-        self.config = config
+    def __init__(self, hw_config: HardwareConfig, learning_state: LearningState):
+        self.hw_config = hw_config
+        self.learning_state = learning_state
 
-        self.hw = RobotHardware(self.config)
+        self.hw = RobotHardware(self.hw_config)
         self.hw.init()
 
         # Control
-        self.pid = PIDController(config.pid)
-        self.filter = ComplementaryFilter(config.complementary_alpha)
+        # PIDController takes the mutable state object (LearningState) and static limits
+        self.pid = PIDController(learning_state, hw_config.control.integral_limit)
+        self.filter = ComplementaryFilter(hw_config.complementary_alpha)
 
         # State
         self.pitch = 0.0
@@ -114,26 +116,28 @@ class BalanceCore:
 
         # 4. Apply Tuning (Tier 2 Adaptation)
         # We update the PID controller's params dynamically
-        # Ideally, we wouldn't mutate this every frame if it's slow,
-        # but Python property assignment is fast enough.
-        self.pid.params.kp = tuning.kp
-        self.pid.params.ki = tuning.ki
-        self.pid.params.kd = tuning.kd
+        # Since LearningState is mutable and shared with PIDController, updating it here updates PID.
+        self.learning_state.kp = tuning.kp
+        self.learning_state.ki = tuning.ki
+        self.learning_state.kd = tuning.kd
+
+        # Note: target_angle_offset is applied to calculation below, not to LearningState.target_angle directly
+        # because offset is usually transient (from Recovery) or small adjustments.
 
         # 5. Calculate Targets
         # Map Velocity (-1 to 1) to Target Angle (-MAX to MAX)
         # Note: To move Forward (Positive Velocity), we must lean Forward (Positive Angle).
         # (Assumes Positive Pitch = Leaning Forward)
-        velocity_tilt = motion.velocity * self.config.control.max_tilt_angle
+        velocity_tilt = motion.velocity * self.hw_config.control.max_tilt_angle
 
         target_angle = (
-            self.config.pid.target_angle  # Base mechanical setpoint
-            + tuning.target_angle_offset  # Adaptation offset
-            + velocity_tilt               # Intentional tilt
+            self.learning_state.target_angle  # Base mechanical setpoint
+            + tuning.target_angle_offset      # Adaptation offset
+            + velocity_tilt                   # Intentional tilt
         )
 
         # 6. Safety Cutoff
-        if abs(self.pitch) > self.config.crash_angle:
+        if abs(self.pitch) > self.hw_config.crash_angle:
             self.hw.stop()
             self.pid.reset()  # Reset integral windup on crash
             return BalanceTelemetry(
@@ -153,22 +157,8 @@ class BalanceCore:
 
         # 8. Apply Turning
         # Turn Correction: Add offset to motors to rotate.
-        # We also use Yaw Rate damping to make turns smoother?
-        # For now, simple differential drive.
-        # We assume positive turn_rate = Right Turn.
-        # To turn Right, Left Motor > Right Motor.
-
-        # Implementation from original main.py:
-        # turn_correction = -reading.yaw_rate * yaw_correction_factor
-        # That was for stabilization (resist turning).
-        # Here we want to CAUSE turning.
-
-        # Let's combine Intentional Turn + Stabilization.
-        # Intentional: motion.turn_rate * Gain
-        # Stabilization: -reading.yaw_rate * CorrectionFactor
-
-        turn_cmd = motion.turn_rate * self.config.control.turn_gain
-        yaw_damping = -reading.yaw_rate * self.config.control.yaw_correction_factor
+        turn_cmd = motion.turn_rate * self.hw_config.control.turn_gain
+        yaw_damping = -reading.yaw_rate * self.hw_config.control.yaw_correction_factor
 
         total_turn = turn_cmd + yaw_damping
 
@@ -180,12 +170,11 @@ class BalanceCore:
 
         if current_sign != self.last_motor_sign and abs(pid_output) > 2.0:
             # We just crossed zero! Start the slop-clearing timer
-            self.backlash_timer = self.config.control.backlash_pulse_time
+            self.backlash_timer = self.hw_config.control.backlash_pulse_time
             self.last_motor_sign = current_sign
 
         if self.backlash_timer > 0:
             # While in the dead-zone, inject a "Kick" to skip the slop.
-            # We use a higher power (e.g., 40) to traverse it quickly.
             kick_power = 40.0 * current_sign
             left_motor = kick_power
             right_motor = kick_power

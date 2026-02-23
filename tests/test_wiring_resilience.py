@@ -28,16 +28,17 @@ class TestWiringResilience(unittest.TestCase):
                 del sys.modules[m]
 
         # Import dependencies (now safe)
-        from balance_bot.config import RobotConfig, PIDParams
-        self.RobotConfig = RobotConfig
-        self.PIDParams = PIDParams
+        from balance_bot.configuration import HardwareConfig, LearningState
+        self.HardwareConfig = HardwareConfig
+        self.LearningState = LearningState
 
         # Setup mock config
-        self.mock_config = self.RobotConfig(pid=self.PIDParams())
-        self.mock_config.motor_i2c_bus = 1
-        self.mock_config.imu_i2c_bus = 1
-        self.mock_config.motor_trim = 0.0
-        self.mock_config.min_power_visible = 20
+        self.mock_config = self.HardwareConfig(
+            motor_i2c_bus=1,
+            imu_i2c_bus=1,
+            motor_trim=0.0,
+            min_power_visible=20
+        )
 
     def tearDown(self):
         self.modules_patcher.stop()

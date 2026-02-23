@@ -1,12 +1,12 @@
 import unittest
 from unittest.mock import MagicMock
 from balance_bot.reflex.pid import PIDController
-from balance_bot.config import PIDParams
+from balance_bot.configuration import LearningState
 
 class TestPIDLogic(unittest.TestCase):
     def test_proportional(self):
-        params = PIDParams(kp=10.0, ki=0.0, kd=0.0, target_angle=0.0)
-        pid = PIDController(params)
+        state = LearningState(kp=10.0, ki=0.0, kd=0.0, target_angle=0.0)
+        pid = PIDController(state, integral_limit=0.0)
 
         # Error = 5.0. Output should be Kp * Error = 50.0
         output = pid.update(error=5.0, dt=0.1)
@@ -14,8 +14,8 @@ class TestPIDLogic(unittest.TestCase):
 
     def test_integral_clamping(self):
         # Ki=10.0, limit=20.0
-        params = PIDParams(kp=0.0, ki=10.0, kd=0.0, integral_limit=20.0)
-        pid = PIDController(params)
+        state = LearningState(kp=0.0, ki=10.0, kd=0.0, target_angle=0.0)
+        pid = PIDController(state, integral_limit=20.0)
 
         # Update 1: Error=5, dt=1.0 -> Integral (I-term) += 10 * 5 * 1.0 = 50.
         # Limit is 20.0.
@@ -29,7 +29,7 @@ class TestPIDLogic(unittest.TestCase):
         # Output should stay at 20.0.
 
         output_huge = pid.update(error=5.0, dt=10.0)
-        self.assertAlmostEqual(output_huge, 200.0 if False else 20.0) # Logic check
+        # self.assertAlmostEqual(output_huge, 200.0 if False else 20.0) # Logic check
 
         self.assertAlmostEqual(output_huge, 20.0)
 
@@ -46,8 +46,8 @@ class TestPIDLogic(unittest.TestCase):
 
     def test_derivative_on_measurement_gyro(self):
         # Kd=1.0
-        params = PIDParams(kp=0.0, ki=0.0, kd=1.0, target_angle=0.0)
-        pid = PIDController(params)
+        state = LearningState(kp=0.0, ki=0.0, kd=1.0, target_angle=0.0)
+        pid = PIDController(state, integral_limit=20.0)
 
         # Scenario: Angle (Error) is 0. Rate is 10.0.
         # D-term should be -Kd * Rate = -10.0.
@@ -66,8 +66,8 @@ class TestPIDLogic(unittest.TestCase):
 
     def test_derivative_on_error_fallback(self):
         # Kd=1.0
-        params = PIDParams(kp=0.0, ki=0.0, kd=1.0, target_angle=0.0)
-        pid = PIDController(params)
+        state = LearningState(kp=0.0, ki=0.0, kd=1.0, target_angle=0.0)
+        pid = PIDController(state, integral_limit=20.0)
 
         # No measurement_rate passed. Should differentiate error.
         # Update 1: Error=0. Input=0. LastInput=Init(0?). D=0.

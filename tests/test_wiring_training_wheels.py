@@ -17,7 +17,7 @@ class TestWiringTrainingWheels(unittest.TestCase):
         # Patch dependencies
         self.smbus_patch = patch("balance_bot.wiring_check.smbus")
         self.hw_patch = patch("balance_bot.wiring_check.RobotHardware")
-        self.config_patch = patch("balance_bot.wiring_check.RobotConfig")
+        self.config_patch = patch("balance_bot.wiring_check.HardwareConfig")
         self.input_patch = patch("builtins.input")
         self.sleep_patch = patch("time.sleep")
 

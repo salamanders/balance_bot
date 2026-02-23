@@ -1,6 +1,6 @@
 import pytest
 from unittest.mock import MagicMock, patch
-from src.balance_bot.config import RobotConfig, ControlConfig, PIDParams
+from src.balance_bot.config import HardwareConfig, ControlConfig, LearningState
 from src.balance_bot.reflex.balance_core import BalanceCore, MotionRequest, TuningParams
 
 @pytest.fixture
@@ -15,8 +15,8 @@ def mock_hardware():
 
 @pytest.fixture
 def core(mock_hardware):
-    config = RobotConfig(
-        pid=PIDParams(),
+    config = HardwareConfig(
+        pid=LearningState(),
         control=ControlConfig(backlash_pulse_time=0.1) # 100ms pulse
     )
     # Ensure bus config so it doesn't try to auto-detect

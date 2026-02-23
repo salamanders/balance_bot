@@ -3,10 +3,13 @@ import time
 import logging
 import json
 import concurrent.futures
-from ..config import (
-    CONFIG_FILE,
-    RobotConfig,
-    PIDParams,
+from dataclasses import asdict
+
+from ..configuration import (
+    HARDWARE_CONFIG_FILE,
+    LEARNING_STATE_FILE,
+    HardwareConfig,
+    LearningState,
 )
 from ..utils import (
     RateLimiter,
@@ -35,17 +38,20 @@ class Agent:
 
         # 1. Configuration
         self.force_tune = "--tune" in sys.argv
-        self.has_saved_config = CONFIG_FILE.exists()
+        self.has_saved_config = HARDWARE_CONFIG_FILE.exists()
         force_calib = check_force_calibration_flag()
 
         if force_calib:
             logger.info("Forcing calibration: Using default configuration.")
-            self.config = RobotConfig(pid=PIDParams())
+            self.hw_config = HardwareConfig()
+            self.learning_state = LearningState()
             self.first_run = True
         else:
-            self.config = RobotConfig.load()
+            self.hw_config = HardwareConfig.load()
+            self.learning_state = LearningState.load()
+
             if self.has_saved_config:
-                if self.config.balance_verified:
+                if self.learning_state.balance_verified:
                     logger.info(">>> Production Mode: Balance Verified.")
                 else:
                     logger.info(
@@ -58,25 +64,25 @@ class Agent:
 
         if self.first_run:
             # Zero out PID for learning phase
-            self.config.pid.kp = 0.0
-            self.config.pid.ki = 0.0
-            self.config.pid.kd = 0.0
+            self.learning_state.kp = 0.0
+            self.learning_state.ki = 0.0
+            self.learning_state.kd = 0.0
 
         # 2. Subsystems
         # Tier 1
-        self.core = BalanceCore(self.config)
+        self.core = BalanceCore(self.hw_config, self.learning_state)
 
         # Tier 2
-        self.tuner = ContinuousTuner(self.config.tuner)
+        self.tuner = ContinuousTuner(self.hw_config.tuner)
         self.tuner.reset_aggression(self.first_run or self.force_tune)
-        self.balance_finder = BalancePointFinder(self.config.tuner)
-        self.battery = BatteryEstimator(self.config.battery)
-        self.recovery = RecoveryManager(self.config.control)
+        self.balance_finder = BalancePointFinder(self.hw_config.tuner)
+        self.battery = BatteryEstimator(self.hw_config.battery)
+        self.recovery = RecoveryManager(self.hw_config.control)
 
         # Tier 3
-        self.led = LedController(self.config.led)
-        self.battery_logger = LogThrottler(self.config.timing.battery_log_interval)
-        self.tuning_logger = LogThrottler(self.config.timing.tuning_log_interval)
+        self.led = LedController(self.hw_config.led)
+        self.battery_logger = LogThrottler(self.hw_config.timing.battery_log_interval)
+        self.tuning_logger = LogThrottler(self.hw_config.timing.tuning_log_interval)
 
         # State
         self.running = True
@@ -107,9 +113,9 @@ class Agent:
             logger.info("-> Warming up sensors...")
             self.led.signal_setup()
             start_wait = time.perf_counter()
-            rate = RateLimiter(1.0 / self.config.loop_time)
-            dt = self.config.loop_time
-            while time.perf_counter() - start_wait < self.config.timing.setup_wait:
+            rate = RateLimiter(1.0 / self.hw_config.loop_time)
+            dt = self.hw_config.loop_time
+            while time.perf_counter() - start_wait < self.hw_config.timing.setup_wait:
                 # We must spin the core to settle the filter
                 self.core.update(
                     self._zero_motion_disabled, self._zero_tuning, dt
@@ -130,8 +136,8 @@ class Agent:
 
             self.led.signal_ready()
 
-            rate = RateLimiter(1.0 / self.config.loop_time)
-            dt = self.config.loop_time
+            rate = RateLimiter(1.0 / self.hw_config.loop_time)
+            dt = self.hw_config.loop_time
 
             # Internal State tracking for Adaptation
             last_pitch_rate = 0.0
@@ -156,9 +162,9 @@ class Agent:
                 motion_req.turn_rate = 0.0
 
                 # Defaults for Tuning/Recovery (calculated from PREVIOUS frame)
-                tune_kp = self.config.pid.kp
-                tune_ki = self.config.pid.ki
-                tune_kd = self.config.pid.kd
+                tune_kp = self.learning_state.kp
+                tune_ki = self.learning_state.ki
+                tune_kd = self.learning_state.kd
                 target_offset = 0.0
 
                 match self.state:
@@ -188,12 +194,12 @@ class Agent:
                     case BotState.KICKUP:
                         # Execute Kick-Up Sequence (Blocking for now)
                         pwr = (
-                            self.config.control.kickup_power_forward
+                            self.hw_config.control.kickup_power_forward
                             if self.core.pitch < 0
-                            else self.config.control.kickup_power_backward
+                            else self.hw_config.control.kickup_power_backward
                         )
                         success = self._incremental_kickup(
-                            self.config.pid.target_angle, start_power=pwr
+                            self.learning_state.target_angle, start_power=pwr
                         )
 
                         if success:
@@ -210,7 +216,7 @@ class Agent:
                             # because IDLE checks pitch.
 
                         # Since kickup consumed time, reset dt
-                        dt = self.config.loop_time
+                        dt = self.hw_config.loop_time
                         last_telemetry = None # Telemetry is stale
 
                     case BotState.BALANCING:
@@ -220,8 +226,8 @@ class Agent:
                         # We use the LAST known pitch from telemetry if available, else current core.pitch
                         current_pitch = last_telemetry.pitch_angle if last_telemetry else self.core.pitch
 
-                        if abs(current_pitch) > self.config.crash_angle:
-                            logger.warning(f"-> Crash Detected ({current_pitch:.1f} > {self.config.crash_angle}). Transition to CRASHED.")
+                        if abs(current_pitch) > self.hw_config.crash_angle:
+                            logger.warning(f"-> Crash Detected ({current_pitch:.1f} > {self.hw_config.crash_angle}). Transition to CRASHED.")
                             self.core.hw.stop()
                             self.state = BotState.CRASHED
                             self.last_crash_time = time.monotonic()
@@ -237,40 +243,40 @@ class Agent:
                             )
 
                             if rec_target is not None:
-                                target_offset = rec_target - self.config.pid.target_angle
+                                target_offset = rec_target - self.learning_state.target_angle
 
                             # B. Tuning (Only if not recovering)
-                            curr_error = last_telemetry.pitch_angle - self.config.pid.target_angle
+                            curr_error = last_telemetry.pitch_angle - self.learning_state.target_angle
                             if rec_target is None:
                                 adj = self.tuner.update(curr_error)
                                 if adj.kp != 0 or adj.ki != 0 or adj.kd != 0:
-                                    self.config.pid.kp = max(0.1, self.config.pid.kp + adj.kp)
-                                    self.config.pid.ki = max(0.0, self.config.pid.ki + adj.ki)
-                                    self.config.pid.kd = max(0.0, self.config.pid.kd + adj.kd)
+                                    self.learning_state.kp = max(0.1, self.learning_state.kp + adj.kp)
+                                    self.learning_state.ki = max(0.0, self.learning_state.ki + adj.ki)
+                                    self.learning_state.kd = max(0.0, self.learning_state.kd + adj.kd)
                                     self.config_dirty = True
                                     if self.tuning_logger.should_log():
-                                        logger.info(f"-> Tuned: P={self.config.pid.kp:.2f} I={self.config.pid.ki:.3f} D={self.config.pid.kd:.2f}")
-                                    tune_kp, tune_ki, tune_kd = self.config.pid.kp, self.config.pid.ki, self.config.pid.kd
+                                        logger.info(f"-> Tuned: P={self.learning_state.kp:.2f} I={self.learning_state.ki:.3f} D={self.learning_state.kd:.2f}")
+                                    tune_kp, tune_ki, tune_kd = self.learning_state.kp, self.learning_state.ki, self.learning_state.kd
 
                             # C. Balance Finder (Only if balanced and stationary)
                             if (rec_target is None
                                 and motion_req.velocity == 0.0
                                 and motion_req.turn_rate == 0.0):
 
-                                aggression = 10.0 if not self.config.balance_verified else 1.0
+                                aggression = 10.0 if not self.learning_state.balance_verified else 1.0
                                 effort = last_telemetry.motor_output / self.battery.compensation_factor
                                 bal_adj = self.balance_finder.update(effort, last_telemetry.pitch_rate, aggression=aggression)
 
                                 if bal_adj != 0:
-                                    new_target = self.config.pid.target_angle + bal_adj
-                                    if abs(new_target) <= self.config.tuner.balance_max_deviation:
-                                        self.config.pid.target_angle = new_target
+                                    new_target = self.learning_state.target_angle + bal_adj
+                                    if abs(new_target) <= self.hw_config.tuner.balance_max_deviation:
+                                        self.learning_state.target_angle = new_target
                                         self.config_dirty = True
                                         logger.info(f"-> Balance Corrected: Target={new_target:.2f}")
 
-                                        if not self.config.balance_verified and abs(effort) < 10.0:
+                                        if not self.learning_state.balance_verified and abs(effort) < 10.0:
                                             logger.info(">>> Balance Stabilized! Saving to Config.")
-                                            self.config.balance_verified = True
+                                            self.learning_state.balance_verified = True
                                             self.config_dirty = True
 
                     case BotState.CRASHED:
@@ -289,9 +295,10 @@ class Agent:
                 # Check background tasks (Saving)
                 if self.ticks % 10 == 0:
                     self.led.update()
-                    if self.config_dirty and (time.monotonic() - self.last_save_time > self.config.timing.save_interval):
+                    if self.config_dirty and (time.monotonic() - self.last_save_time > self.hw_config.timing.save_interval):
                         try:
-                            config_snapshot = self.config.model_dump()
+                            # Serialize snapshot
+                            config_snapshot = asdict(self.learning_state)
                             self.io_executor.submit(self._save_config_worker, config_snapshot)
                             self.last_save_time = time.monotonic()
                             self.config_dirty = False
@@ -303,7 +310,7 @@ class Agent:
                     ang_accel = (last_telemetry.pitch_rate - last_pitch_rate) / dt
                     last_pitch_rate = last_telemetry.pitch_rate
                     comp_factor = self.battery.update(last_telemetry.motor_output, ang_accel, dt)
-                    if comp_factor < self.config.control.low_battery_log_threshold and self.battery_logger.should_log():
+                    if comp_factor < self.hw_config.control.low_battery_log_threshold and self.battery_logger.should_log():
                         logger.warning(f"-> Low Battery? Compensating: {int(comp_factor * 100)}%")
                 else:
                     # Fallback if no telemetry (e.g. after Kickup)
@@ -331,7 +338,7 @@ class Agent:
             self.core.cleanup()
             self.led.signal_off()
             if self.config_dirty:
-                self.config.save()
+                self.learning_state.save()
             self.io_executor.shutdown(wait=True)
 
     def _save_config_worker(self, config_data: dict) -> None:
@@ -339,7 +346,7 @@ class Agent:
         try:
             # Serialize in background thread
             json_content = json.dumps(config_data, indent=4)
-            CONFIG_FILE.write_text(json_content)
+            LEARNING_STATE_FILE.write_text(json_content)
             logger.info("Config saved (Async).")
         except Exception as e:
             logger.error(f"Error saving config asynchronously: {e}")
@@ -350,8 +357,8 @@ class Agent:
         """Wait for the robot to settle (low pitch rate)."""
         # logger.info("-> Waiting for settle...") # Reduce log spam
         end_time = time.perf_counter() + duration
-        rate = RateLimiter(1.0 / self.config.loop_time)
-        dt = self.config.loop_time
+        rate = RateLimiter(1.0 / self.hw_config.loop_time)
+        dt = self.hw_config.loop_time
         while True:
             # Keep filter alive
             telemetry = self.core.update(
@@ -371,8 +378,8 @@ class Agent:
     def _sleep_with_update(self, duration: float) -> None:
         """Sleep for duration while keeping the core filter updated."""
         end_time = time.perf_counter() + duration
-        rate = RateLimiter(1.0 / self.config.loop_time)
-        dt = self.config.loop_time
+        rate = RateLimiter(1.0 / self.hw_config.loop_time)
+        dt = self.hw_config.loop_time
         while time.perf_counter() < end_time:
             self.core.update(self._zero_motion_enabled, self._zero_tuning, dt)
             dt = rate.sleep()
@@ -441,14 +448,14 @@ class Agent:
                 caught = False
 
                 catch_params = TuningParams(
-                    kp=self.config.pid.kp * 1.5,
-                    ki=self.config.pid.ki,
-                    kd=self.config.pid.kd * 2.0,
+                    kp=self.learning_state.kp * 1.5,
+                    ki=self.learning_state.ki,
+                    kd=self.learning_state.kd * 2.0,
                     target_angle_offset=0,
                 )
 
-                rate = RateLimiter(1.0 / self.config.loop_time)
-                dt = self.config.loop_time
+                rate = RateLimiter(1.0 / self.hw_config.loop_time)
+                dt = self.hw_config.loop_time
                 while time.perf_counter() - catch_start < 2.5:
                     telem = self.core.update(self._zero_motion_enabled, catch_params, dt)
 

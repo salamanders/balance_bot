@@ -1,7 +1,7 @@
 import math
 from unittest.mock import MagicMock
 from balance_bot.hardware.robot_hardware import RobotHardware, IMUReading
-from balance_bot.config import RobotConfig, PIDParams
+from balance_bot.configuration import HardwareConfig, LearningState
 from balance_bot.enums import Axis
 from balance_bot.utils import Vector3
 
@@ -15,12 +15,14 @@ from balance_bot.utils import Vector3
 def test_imu_processing_default(monkeypatch):
     monkeypatch.setenv("ALLOW_MOCK_FALLBACK", "1")
 
-    cfg = RobotConfig(pid=PIDParams())
-    cfg.motor_l = 0
-    cfg.motor_r = 1
-    cfg.accel_vertical_axis = Axis.Z
-    cfg.accel_forward_axis = Axis.Y
-    cfg.gyro_pitch_axis = Axis.X
+    # HardwareConfig is frozen, pass params in init
+    cfg = HardwareConfig(
+        motor_l=0,
+        motor_r=1,
+        accel_vertical_axis=Axis.Z,
+        accel_forward_axis=Axis.Y,
+        gyro_pitch_axis=Axis.X
+    )
 
     hw = RobotHardware(cfg)
 
@@ -39,12 +41,13 @@ def test_imu_processing_default(monkeypatch):
 
 def test_imu_processing_tilted(monkeypatch):
     monkeypatch.setenv("ALLOW_MOCK_FALLBACK", "1")
-    cfg = RobotConfig(pid=PIDParams())
-    cfg.motor_l = 0
-    cfg.motor_r = 1
-    cfg.accel_vertical_axis = Axis.Z
-    cfg.accel_forward_axis = Axis.Y
-    cfg.gyro_pitch_axis = Axis.X
+    cfg = HardwareConfig(
+        motor_l=0,
+        motor_r=1,
+        accel_vertical_axis=Axis.Z,
+        accel_forward_axis=Axis.Y,
+        gyro_pitch_axis=Axis.X
+    )
 
     hw = RobotHardware(cfg)
     hw.sensor = MagicMock()
@@ -63,12 +66,13 @@ def test_imu_processing_tilted(monkeypatch):
 def test_imu_processing_axis_y(monkeypatch):
     monkeypatch.setenv("ALLOW_MOCK_FALLBACK", "1")
     # Axis Y means we use X accel and Y gyro.
-    cfg = RobotConfig(pid=PIDParams())
-    cfg.motor_l = 0
-    cfg.motor_r = 1
-    cfg.gyro_pitch_axis = Axis.Y
-    cfg.accel_forward_axis = Axis.X
-    cfg.accel_vertical_axis = Axis.Z
+    cfg = HardwareConfig(
+        motor_l=0,
+        motor_r=1,
+        gyro_pitch_axis=Axis.Y,
+        accel_forward_axis=Axis.X,
+        accel_vertical_axis=Axis.Z
+    )
 
     hw = RobotHardware(cfg)
     hw.sensor = MagicMock()
@@ -86,14 +90,15 @@ def test_imu_processing_axis_y(monkeypatch):
 def test_imu_processing_invert(monkeypatch):
     monkeypatch.setenv("ALLOW_MOCK_FALLBACK", "1")
     # Invert both pitch angle and gyro rate
-    cfg = RobotConfig(pid=PIDParams())
-    cfg.motor_l = 0
-    cfg.motor_r = 1
-    cfg.gyro_pitch_invert = True
-    cfg.accel_forward_invert = True
-    cfg.accel_vertical_axis = Axis.Z
-    cfg.accel_forward_axis = Axis.Y
-    cfg.gyro_pitch_axis = Axis.X
+    cfg = HardwareConfig(
+        motor_l=0,
+        motor_r=1,
+        gyro_pitch_invert=True,
+        accel_forward_invert=True,
+        accel_vertical_axis=Axis.Z,
+        accel_forward_axis=Axis.Y,
+        gyro_pitch_axis=Axis.X
+    )
 
     hw = RobotHardware(cfg)
     hw.sensor = MagicMock()
@@ -112,12 +117,13 @@ def test_imu_processing_invert(monkeypatch):
 def test_imu_processing_sideways(monkeypatch):
     """Test sideways mounting configuration (Vertical X, Forward Y, Gyro Z)"""
     monkeypatch.setenv("ALLOW_MOCK_FALLBACK", "1")
-    cfg = RobotConfig(pid=PIDParams())
-    cfg.motor_l = 0
-    cfg.motor_r = 1
-    cfg.accel_vertical_axis = Axis.X
-    cfg.accel_forward_axis = Axis.Y
-    cfg.gyro_pitch_axis = Axis.Z
+    cfg = HardwareConfig(
+        motor_l=0,
+        motor_r=1,
+        accel_vertical_axis=Axis.X,
+        accel_forward_axis=Axis.Y,
+        gyro_pitch_axis=Axis.Z
+    )
 
     hw = RobotHardware(cfg)
     hw.sensor = MagicMock()

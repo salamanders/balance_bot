@@ -1,7 +1,7 @@
 import pytest
 from unittest.mock import MagicMock
 from balance_bot.reflex.balance_core import BalanceCore, MotionRequest, TuningParams
-from balance_bot.config import RobotConfig, PIDParams, ControlConfig
+from balance_bot.configuration import HardwareConfig, LearningState, ControlConfig
 
 def create_mocked_core(monkeypatch, max_tilt_angle=None):
     # Setup Config
@@ -9,8 +9,8 @@ def create_mocked_core(monkeypatch, max_tilt_angle=None):
     if max_tilt_angle is not None:
         control_config.max_tilt_angle = max_tilt_angle
 
-    config = RobotConfig(
-        pid=PIDParams(),
+    config = HardwareConfig(
+        pid=LearningState(),
         control=control_config
     )
 

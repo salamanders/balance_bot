@@ -9,7 +9,7 @@ if 'smbus2' not in sys.modules:
 
 from balance_bot.wiring_check import WiringCheck
 from balance_bot.hardware.robot_hardware import IMUReading
-from balance_bot.config import RobotConfig, PIDParams
+from balance_bot.configuration import HardwareConfig, LearningState
 from balance_bot.utils import Vector3
 
 import os
@@ -20,7 +20,7 @@ def hw_fixture():
     # Use Mock Fallback to avoid import errors and dependency on real libs
     os.environ["ALLOW_MOCK_FALLBACK"] = "1"
 
-    config = RobotConfig(pid=PIDParams())
+    config = HardwareConfig(pid=LearningState())
     config.motor_i2c_bus = 1
     config.imu_i2c_bus = 1
 

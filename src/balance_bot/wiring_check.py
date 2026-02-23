@@ -1,12 +1,14 @@
 import time
 import sys
+from dataclasses import replace
+
 try:
     import smbus2 as smbus
 except ImportError:
     smbus = None
 
 from typing import Callable, Any
-from .config import RobotConfig
+from .configuration import HardwareConfig
 from .hardware.robot_hardware import RobotHardware, IMUReading
 from .enums import Axis
 from .utils import (
@@ -26,7 +28,7 @@ class WiringCheck:
     """
 
     def __init__(self):
-        self.config = RobotConfig.load()
+        self.config = HardwareConfig.load()
         self.hw = None
 
     def init_hw(self):
@@ -35,6 +37,23 @@ class WiringCheck:
         If config is incomplete, fills in safe defaults for discovery.
         """
         if self.hw:
+            # Re-init if config changed? RobotHardware holds reference to OLD config if we replaced it?
+            # Yes! self.config = replace(...) creates NEW object.
+            # RobotHardware has `self.config = config` in init.
+            # So if we update self.config, self.hw.config is STALE.
+            # We must re-init hardware or update its config reference.
+            # Since RobotHardware is designed to be lightweight, re-creation is safer?
+            # Or just update the reference.
+            self.hw.config = self.config
+            # But RobotHardware._init_hardware uses config values to set up drivers.
+            # If we changed bus or trim, we might need full re-init.
+            # If we changed inverted flags, those are used in runtime methods, so updating reference is enough.
+
+            # If we changed BUS, we need to re-init.
+            # But "Buses" step runs first.
+            # "Motor Candidates" sets motor_l/r. Runtime usage.
+            # "Motor Phasing" sets invert. Runtime usage.
+            # So updating reference is mostly fine.
             return
 
         # We need buses to be discovered first
@@ -44,6 +63,19 @@ class WiringCheck:
 
         self.hw = RobotHardware(self.config)
         self.hw.init()
+
+    def _update_config(self, **kwargs):
+        """Helper to update immutable config and sync to hardware."""
+        self.config = replace(self.config, **kwargs)
+        if self.hw:
+            self.hw.config = self.config
+
+    def _update_control(self, **kwargs):
+        """Helper to update nested control config."""
+        new_control = replace(self.config.control, **kwargs)
+        self.config = replace(self.config, control=new_control)
+        if self.hw:
+            self.hw.config = self.config
 
     def cleanup(self):
         if self.hw:
@@ -74,8 +106,7 @@ class WiringCheck:
             ("Motor Candidates",
              lambda c: c.motor_l is None or c.motor_r is None,
              lambda: (print("-> [INFO] Setting default motors (0,1)."),
-                      setattr(self.config, 'motor_l', 0),
-                      setattr(self.config, 'motor_r', 1),
+                      self._update_config(motor_l=0, motor_r=1),
                       self.config.save(),
                       self.init_hw())),
 
@@ -97,7 +128,7 @@ class WiringCheck:
 
             ("Motor Trim",
              lambda c: not c.motor_trim_verified,
-             lambda: (self.calibrate_motor_trim(), setattr(self.config, 'motor_trim_verified', True))),
+             lambda: (self.calibrate_motor_trim(), self._update_config(motor_trim_verified=True))),
 
             ("Mechanical Backlash",
              lambda c: not c.backlash_verified,
@@ -279,13 +310,13 @@ class WiringCheck:
             bus.read_byte_data(0x22, 0)
             return True
 
-        self.config.motor_i2c_bus = self._scan_or_die("PiconZero (Motors)", check_motor)
+        self._update_config(motor_i2c_bus=self._scan_or_die("PiconZero (Motors)", check_motor))
 
         # 2. Find IMU (0x68)
         def check_imu(bus):
             return bus.read_byte_data(0x68, 0x75) == 0x68
 
-        self.config.imu_i2c_bus = self._scan_or_die("MPU6050 (IMU)", check_imu)
+        self._update_config(imu_i2c_bus=self._scan_or_die("MPU6050 (IMU)", check_imu))
 
     # --- Phase 2: The Physical World (Sensors) ---
     def _measure_gravity_vectors(self) -> tuple[Vector3, Vector3]:
@@ -323,17 +354,20 @@ class WiringCheck:
         if pitch_magnitude < 1.1:
             print("  [WARNING] Pitch axis unclear. Did the robot actually move?")
 
-        self.config.gyro_pitch_axis = Axis(pitch_axis_name)
-        self.config.gyro_pitch_invert = pitch_vec[pitch_axis_name] < 0
+        self._update_config(
+            gyro_pitch_axis=Axis(pitch_axis_name),
+            gyro_pitch_invert=pitch_vec[pitch_axis_name] < 0
+        )
         print(f"  -> Pitch Axis: {pitch_axis_name.upper()} (Invert: {self.config.gyro_pitch_invert})")
 
         # 4. Determine Vertical Axis
         candidates = {k: abs(v) for k, v in avg_back.items() if k != pitch_axis_name}
         vert_axis_name, _, _ = analyze_dominance(candidates, "Vertical Axis (Gravity)")
 
-        self.config.accel_vertical_axis = Axis(vert_axis_name)
-        # Invert if gravity component is negative
-        self.config.accel_vertical_invert = avg_back[vert_axis_name] < 0
+        self._update_config(
+            accel_vertical_axis=Axis(vert_axis_name),
+            accel_vertical_invert=avg_back[vert_axis_name] < 0
+        )
         print(f"  -> Vertical Axis: {vert_axis_name.upper()} (Invert: {self.config.accel_vertical_invert})")
 
         # 5. Determine Forward Axis
@@ -346,16 +380,16 @@ class WiringCheck:
             sys.exit(1)
 
         forward_axis_name = remaining[0]
-        self.config.accel_forward_axis = Axis(forward_axis_name)
-
         # Deduce Forward Inversion
         delta_fwd = avg_front[forward_axis_name] - avg_back[forward_axis_name]
-        self.config.accel_forward_invert = delta_fwd < 0
-        print(f"  -> Forward Axis: {forward_axis_name.upper()} (Invert: {self.config.accel_forward_invert})")
 
-        # Deduce Gyro Yaw/Roll
-        self.config.gyro_yaw_axis = Axis(vert_axis_name)
-        self.config.gyro_roll_axis = Axis(forward_axis_name)
+        self._update_config(
+            accel_forward_axis=Axis(forward_axis_name),
+            accel_forward_invert=delta_fwd < 0,
+            gyro_yaw_axis=Axis(vert_axis_name),
+            gyro_roll_axis=Axis(forward_axis_name)
+        )
+        print(f"  -> Forward Axis: {forward_axis_name.upper()} (Invert: {self.config.accel_forward_invert})")
 
     def _calculate_rest_angles(self, avg_back: Vector3):
         """Calculate and store rest angles based on deduced axes."""
@@ -376,8 +410,10 @@ class WiringCheck:
         from .utils import calculate_pitch
         angle_back = calculate_pitch(fwd_val_back, vert_val_back)
 
-        self.config.rest_angle_forward = angle_front
-        self.config.rest_angle_backward = angle_back
+        self._update_config(
+            rest_angle_forward=angle_front,
+            rest_angle_backward=angle_back
+        )
 
         print(f"  -> Calibrated Rest Angles: Back={angle_back:.1f}, Front={angle_front:.1f}")
 
@@ -411,7 +447,7 @@ class WiringCheck:
             return rate > 15.0
 
         found = self._find_threshold("Minimum Power", 10, 5, 100, action, check)
-        self.config.min_power_visible = found
+        self._update_config(min_power_visible=found)
 
     # --- Phase 3b: Phasing ---
     def align_motors_phase(self):
@@ -428,10 +464,10 @@ class WiringCheck:
             if yaw > 40.0:
                 print("  -> High Yaw Rate detected. Motors are fighting (Spinning).")
                 print("  -> ACTION: Inverting Right Motor logic to align phases.")
-                self.config.motor_r_invert = not self.config.motor_r_invert
+                self._update_config(motor_r_invert=not self.config.motor_r_invert)
                 return False
             print("  -> Low Yaw Rate. Motors are aligned (Straight).")
-            self.config.motor_phasing_verified = True
+            self._update_config(motor_phasing_verified=True)
             return True
 
         self._verify_with_retries("Motor Phasing", test, verify)
@@ -485,12 +521,14 @@ class WiringCheck:
 
             if delta_lean > 2.0 or avg_accel_fwd > 0.15:
                  print("  [SUCCESS] Direction Correct.")
-                 self.config.motor_direction_verified = True
+                 self._update_config(motor_direction_verified=True)
                  return True
             elif delta_lean < -2.0 or avg_accel_fwd < -0.15:
                  print("  [FAILURE] Direction Inverted. Fixing...")
-                 self.config.motor_l_invert = not self.config.motor_l_invert
-                 self.config.motor_r_invert = not self.config.motor_r_invert
+                 self._update_config(
+                     motor_l_invert=not self.config.motor_l_invert,
+                     motor_r_invert=not self.config.motor_r_invert
+                 )
                  return False
 
             print("  [WARNING] Inconclusive.")
@@ -551,16 +589,6 @@ class WiringCheck:
 
             print(f"  Dot Product (Up . Gyro): {dot_prod:.2f}")
 
-            if abs(dot_prod) < 500: # Threshold depends on units. Raw gyro is usually LSBs or deg/s.
-                # Assuming deg/s, 500 is very fast?
-                # Raw units from MPU6050 might be large integers or scaled floats.
-                # If floats (deg/s): 20 deg/s is significant.
-                # Let's check typical magnitudes. If raw is deg/s, 20 is good.
-                # If raw is LSB (e.g. 16384/g), it's huge.
-                # MPU6050Adapter returns Vector3.from_dict.
-                # mpu6050 library usually returns degrees/second for gyro.
-                pass
-
             # Robustness check
             if abs(dot_prod) < 10.0:
                  print("  [WARNING] Spin rate too low to determine direction. Retrying...")
@@ -582,7 +610,7 @@ class WiringCheck:
                 # We want L=1, R=0.
                 if self.config.motor_l == 0:
                     print("  -> ACTION: Swapping Channels to Correct Mapping.")
-                    self.config.motor_l, self.config.motor_r = self.config.motor_r, self.config.motor_l
+                    self._update_config(motor_l=self.config.motor_r, motor_r=self.config.motor_l)
                 else:
                     print("  -> Mapping is already correct.")
 
@@ -597,7 +625,7 @@ class WiringCheck:
                 # We want L=0, R=1.
                 if self.config.motor_l == 1:
                      print("  -> ACTION: Swapping Channels to Correct Mapping.")
-                     self.config.motor_l, self.config.motor_r = self.config.motor_r, self.config.motor_l
+                     self._update_config(motor_l=self.config.motor_r, motor_r=self.config.motor_l)
                 else:
                     print("  -> Mapping is already correct.")
 
@@ -627,11 +655,11 @@ class WiringCheck:
                (dot_prod < 0 and current_yaw_rate > 0):
                 print("  -> Gyro Yaw Polarity is Inverted relative to reality.")
                 print("  -> ACTION: Inverting Gyro Yaw.")
-                self.config.gyro_yaw_invert = not self.config.gyro_yaw_invert
+                self._update_config(gyro_yaw_invert=not self.config.gyro_yaw_invert)
             else:
                 print("  -> Gyro Yaw Polarity is Correct.")
 
-            self.config.motor_channels_verified = True
+            self._update_config(motor_channels_verified=True)
             return
 
         print("  [FAILURE] Could not deduce Left/Right after multiple attempts.")
@@ -689,7 +717,7 @@ class WiringCheck:
             if abs(new_trim - current_trim) < 0.001 and abs(avg_yaw) > 5.0:
                  print("  [WARNING] Trim saturated or not moving.")
 
-            self.config.motor_trim = new_trim
+            self._update_config(motor_trim=new_trim)
             print(f"    -> Correction: {correction:+.4f} -> New Trim: {self.config.motor_trim:.3f}")
 
         print("  [WARNING] Could not perfectly trim motors. Saving best effort.")
@@ -742,8 +770,8 @@ class WiringCheck:
         print(f"  [SUCCESS] Backlash crossing takes ~{compensated_slop:.3f} seconds.")
 
         # Save it
-        self.config.control.backlash_pulse_time = compensated_slop
-        self.config.backlash_verified = True
+        self._update_control(backlash_pulse_time=compensated_slop)
+        self._update_config(backlash_verified=True)
 
     # --- Phase 7: Kick-Up Dynamics ---
     def _wait_for_start_condition(self, check_fn: Callable[[float], bool] | None, msg: str):
@@ -850,7 +878,8 @@ class WiringCheck:
         found = self._find_threshold(f"KickUp {direction}", start_p, 5, 100, action, check, fail)
 
         if found:
-            setattr(self.config.control, config_attr, found)
+            # Dynamic kwargs using dictionary unpacking
+            self._update_control(**{config_attr: found})
             self.config.save()
 
     def find_flop_thresholds(self):

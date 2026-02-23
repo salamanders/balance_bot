@@ -2,10 +2,18 @@ import os
 import argparse
 import traceback
 import importlib.metadata
+from dataclasses import asdict
+
 from .wiring_check import WiringCheck
 from .behavior.agent import Agent
 from .utils import setup_logging, get_captured_logs
 from .jules_client import JulesClient
+from .configuration import (
+    HARDWARE_CONFIG_FILE,
+    LEARNING_STATE_FILE,
+    HardwareConfig,
+    LearningState,
+)
 
 
 def main() -> None:
@@ -29,12 +37,12 @@ def main() -> None:
 
     try:
         if args.reset_brain or args.force:
-            from .config import RobotConfig
             print("Resetting Robot Memory...")
-            cfg = RobotConfig.load()
-            cfg.reset_hardware_map()
-            cfg.save()
+            # We just delete the config files to reset
+            HARDWARE_CONFIG_FILE.unlink(missing_ok=True)
+            LEARNING_STATE_FILE.unlink(missing_ok=True)
             print("Brain reset complete.")
+
             # If we are not discovering or checking wiring, we are done.
             if not args.discover and not args.check_wiring:
                 return
@@ -42,7 +50,7 @@ def main() -> None:
         if args.discover or args.check_wiring:
             try:
                 # WiringCheck handles incremental discovery automatically.
-                # If reset_hardware_map was called, it starts from scratch.
+                # If files were deleted above, it starts from scratch.
                 WiringCheck().run()
             except KeyboardInterrupt:
                 pass
@@ -83,7 +91,8 @@ def main() -> None:
                 try:
                     # 'bot' is an Agent instance
                     agent_inst = locals()["bot"]
-                    state = agent_inst.config.model_dump()
+                    # Merge both configs into one state dump
+                    state = asdict(agent_inst.hw_config) | asdict(agent_inst.learning_state)
                     # Add runtime info
                     state["runtime_ticks"] = agent_inst.ticks
                 except Exception:
