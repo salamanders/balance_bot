@@ -59,8 +59,8 @@ class TestWiringResilience(unittest.TestCase):
         # Setup Mock Hardware Instance
         hw_instance = MockHW.return_value
 
-        vec_back = Vector3(0.0, -0.17, 0.98)
-        vec_front = Vector3(0.0, 0.5, 0.86)
+        vec_back = Vector3(0.0, -0.5, 0.866) # ~ -30 deg
+        vec_front = Vector3(0.0, 0.5, 0.866) # ~ +30 deg (Angle = 60 > 45)
 
         # Mock drive_and_measure for gravity vector measurement
         # We need it to return MeasureResult with samples containing accel_raw
@@ -72,7 +72,12 @@ class TestWiringResilience(unittest.TestCase):
         r_front.accel_raw = vec_front
         res_front = MeasureResult(duration=1.0, samples=[r_front]*50)
 
-        hw_instance.drive_and_measure.side_effect = [res_back, res_front]
+        # Mock drive_and_measure calls:
+        # 1. P1 (Back)
+        # 2. Blind Flop Drive (Ignored result)
+        # 3. P2 (Front)
+        res_flop = MeasureResult(duration=0.5, samples=[])
+        hw_instance.drive_and_measure.side_effect = [res_back, res_flop, res_front]
 
         mock_reading_front = MagicMock(spec=IMUReading)
         mock_reading_front.pitch_angle = 30.0
@@ -110,7 +115,7 @@ class TestWiringResilience(unittest.TestCase):
             self.assertEqual(wc.hw_config.accel_forward_axis, Axis.Y)
 
             self.assertEqual(wc.learning_state.rest_angle_forward, 30.0)
-            self.assertAlmostEqual(wc.learning_state.rest_angle_backward, -9.84, places=1)
+            self.assertAlmostEqual(wc.learning_state.rest_angle_backward, -30.0, places=1)
 
     @patch("balance_bot.wiring_check.RobotHardware")
     @patch("balance_bot.wiring_check.time.sleep", side_effect=lambda x: None)

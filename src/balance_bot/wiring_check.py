@@ -1,5 +1,6 @@
 import time
 import sys
+import math
 
 from typing import Callable, Any, Optional
 from .configuration import HardwareConfig, LearningState
@@ -209,27 +210,63 @@ class WiringCheck:
         self._update_hw_config(motor_i2c_bus=found_motor_bus, imu_i2c_bus=found_imu_bus)
 
     # --- Phase 2: The Physical World (Sensors) ---
+    def _vector_angle(self, v1: Vector3, v2: Vector3) -> float:
+        """Helper to calculate angle between two vectors."""
+        dot = v1.dot(v2)
+        mag = v1.magnitude * v2.magnitude
+        if mag == 0:
+            return 0.0
+        val = max(-1.0, min(1.0, dot / mag))
+        return math.degrees(math.acos(val))
+
     def _measure_gravity_vectors(self) -> tuple[Vector3, Vector3]:
-        """Measure gravity vector at Back and Front resting positions."""
-        print(">>> Calibrating Orientation <<<")
-        print("Please place the robot on the FLOOR.")
-        print("Ensure motors are OFF and it is resting on the BACK training wheel.")
+        """
+        Measure gravity vector at Back and Front resting positions.
+        Uses 'Blind Flop' logic to autonomously discover positions without user input.
+        """
+        print(">>> Calibrating Orientation (Blind Flop) <<<")
+        print("Please ensure the robot is on the floor.")
         self.hw.wait_for_stability(duration=1.5)
 
-        # 1. Read Back Rest Gravity
-        print("  Measuring Gravity (Back Position)...")
-        time.sleep(0.5)
-        avg_back = self._measure_gravity_with_hardware()
-        print(f"  [DEBUG] Avg Back Vector: {avg_back}")
+        # 1. Measure Position 1 (Unknown State)
+        print("  Measuring Position 1...")
+        p1 = self._measure_gravity_with_hardware()
+        print(f"  [DEBUG] Vector P1: {p1}")
 
-        # 2. Read Front Rest Gravity
-        print("\n  Now TIP ROBOT FORWARD to Front Wheel.")
-        input("Press Enter to measure FRONT position...")
-        self.hw.wait_for_stability(duration=1.0)
+        # 2. Attempt Blind Flop (Positive Power)
+        # We don't know polarity, but +60 usually moves somewhat.
+        print("  Attempting Blind Flop (+60)...")
+        self.hw.drive_and_measure(60, 60, 0.5)
+        self.hw.wait_for_stability(duration=1.5)
 
-        avg_front = self._measure_gravity_with_hardware()
-        print(f"  [DEBUG] Avg Front Vector: {avg_front}")
-        return avg_back, avg_front
+        # 3. Measure Position 2
+        print("  Measuring Position 2...")
+        p2 = self._measure_gravity_with_hardware()
+        print(f"  [DEBUG] Vector P2: {p2}")
+
+        # 4. Check for drastic change
+        angle_diff = self._vector_angle(p1, p2)
+        print(f"  [DEBUG] Vector Change Angle: {angle_diff:.1f} degrees")
+
+        if angle_diff > 45.0:
+            # Huge change -> We flopped from Back to Front (or Front to Back).
+            # Assuming Position 1 was BACK (default rest), Position 2 is FRONT.
+            print("  [SUCCESS] Flop detected. Assuming P1=BACK, P2=FRONT.")
+            return p1, p2
+        else:
+            # Little change -> We pushed into the floor.
+            # Try NEGATIVE power to flop the other way.
+            print("  [INFO] No significant change. Reversing Flop Direction (-60)...")
+            self.hw.drive_and_measure(-60, -60, 0.5)
+            self.hw.wait_for_stability(duration=1.5)
+
+            # 5. Measure Position 3
+            print("  Measuring Position 3...")
+            p3 = self._measure_gravity_with_hardware()
+            print(f"  [DEBUG] Vector P3: {p3}")
+
+            print("  [SUCCESS] Assuming P2=FRONT, P3=BACK.")
+            return p3, p2
 
     def _deduce_axes(self, avg_back: Vector3, avg_front: Vector3):
         """Deduce Pitch, Vertical, and Forward axes from gravity vectors."""
@@ -360,7 +397,7 @@ class WiringCheck:
         """
         Ensure Positive Power = "Stand Up" (Reduce Lean).
         "Kick Up" Test.
-        Requirement: Robot must be leaning FORWARD.
+        Requirement: Robot must be leaning FORWARD (Positive Pitch).
         """
         def test():
             # Check Start Pitch
@@ -368,17 +405,29 @@ class WiringCheck:
             start_pitch = imu.pitch_angle
             print(f"  Start Pitch: {start_pitch:.1f}")
 
-            if start_pitch < -10.0:
-                print("  [ERROR] Leaning BACK. Lean FORWARD.")
-                input("Press Enter when re-positioned...")
-                return None
-            if abs(start_pitch) < 10:
-                print("  [WARNING] Too upright. Lean FORWARD.")
-                input("Press Enter when leaned...")
+            # 1. Ensure we are at FRONT (Positive Pitch)
+            if start_pitch < 10.0:
+                print(f"  [INFO] Not at FRONT (Pitch={start_pitch:.1f}). Attempting to flop...")
+                p = self.learning_state.min_power_visible + 30
+                # Try Positive
+                self.hw.drive_and_measure(p, p, 0.5)
+                self.hw.wait_for_stability()
+
+                # Check if successful
+                if self.hw.read_imu_converted().pitch_angle < 10.0:
+                    print("  [INFO] Flop failed. Trying reverse power...")
+                    self.hw.drive_and_measure(-p, -p, 0.5)
+                    self.hw.wait_for_stability()
+
+            start_pitch = self.hw.read_imu_converted().pitch_angle
+            if start_pitch < 10.0:
+                print(f"  [WARNING] Could not reach FRONT posture (Pitch={start_pitch:.1f}). Retrying...")
                 return None
 
-            direction_sign = 1.0 if start_pitch > 0 else -1.0
-            power = (self.learning_state.min_power_visible + 20) * direction_sign
+            # Now we are at Front (Positive Pitch).
+            # "Kick Up" means reducing pitch (towards 0).
+            # We try Positive Power. If Positive = Forward, pitch should decrease (stand up).
+            power = (self.learning_state.min_power_visible + 20)
             print(f"  Pulsing {power}...")
 
             res = self._drive_and_wait(power, power, 0.4, wait_stable=False)
@@ -578,9 +627,6 @@ class WiringCheck:
 
         slop_time = 0.0
         while True:
-            if self.watchdog:
-                self.watchdog.heartbeat()
-
             reading = self.hw.read_imu_converted()
 
             # If the chassis pitch rate spikes, the wheels have finally caught
@@ -609,27 +655,41 @@ class WiringCheck:
         self._update_learning_state(backlash_verified=True)
 
     # --- Phase 7: Kick-Up Dynamics ---
-    def _wait_for_start_condition(self, check_fn: Callable[[float], bool] | None, msg: str):
+    def _force_posture(self, target_posture: str, max_attempts: int = 5):
         """
-        Wait for stability and a specific pitch condition.
+        Autonomously forces the robot onto the target bumper ('FRONT' or 'BACK').
+        Raises an exception (dies) if it gets stuck, allowing the watchdog to function.
         """
-        print(msg)
-        while True:
-            if self.watchdog:
-                self.watchdog.heartbeat()
+        base_power = self.learning_state.min_power_visible + 10
 
+        for attempt in range(max_attempts):
             self.hw.wait_for_stability(duration=1.0)
-
-            if check_fn is None:
-                return
-
             curr = self.hw.read_imu_converted()
-            if check_fn(curr.pitch_angle):
-                print("  [OK] Position Verified.")
-                return
+            pitch = curr.pitch_angle
+
+            # Are we already where we want to be?
+            if target_posture == "FRONT" and pitch > 10.0:
+                return  # Success
+            if target_posture == "BACK" and pitch < -10.0:
+                return  # Success
+
+            print(f"  [AUTO-CORRECT] Wrong posture (Pitch={pitch:.1f}). Attempting to flop to {target_posture}...")
+
+            # To go FRONT (Pos Pitch), we need Negative Power (Pitch Increase).
+            # To go BACK (Neg Pitch), we need Positive Power (Pitch Decrease).
+            power = base_power + (attempt * 10)
+
+            if target_posture == "FRONT":
+                # Drive Reverse to flop Forward
+                self.hw.drive_and_measure(-power, -power, 0.4)
             else:
-                print(f"  [WAITING] Position incorrect (Pitch={curr.pitch_angle:.1f}). Please adjust.")
-                time.sleep(1.0)
+                # Drive Forward to flop Backward
+                self.hw.drive_and_measure(power, power, 0.4)
+
+        # If we exit the loop, we failed to achieve the posture.
+        print(f"  [FATAL] Failed to reach {target_posture} posture after {max_attempts} attempts. Am I stuck?")
+        import sys
+        sys.exit(1) # Die. Watchdog is happy, evolution continues.
 
     def _attempt_dynamic_flop(self, start_from: str, power: float) -> str:
         """
@@ -688,14 +748,14 @@ class WiringCheck:
         else:
             return "FAIL_POWER"
 
-    def _run_kickup_test(self, direction: str, check_fn: Callable[[float], bool], config_attr: str, msg: str):
+    def _run_kickup_test(self, direction: str, config_attr: str):
         """Run kick-up test for a single direction."""
         print(f"\n[Test] Kick-Up from {direction}")
 
         self._kickup_alignment_retries = 0
 
         def action(p):
-            self._wait_for_start_condition(check_fn, msg)
+            self._force_posture(direction)
             return self._attempt_dynamic_flop(direction, p)
 
         def check(res):
@@ -727,19 +787,8 @@ class WiringCheck:
         """
         print(">>> Dynamic Kick-Up Calibration (Roll & Slam) <<<")
 
-        # Robust Start Conditions using Calibrated Rest Angles
-        # If not calibrated (None), fallback to default -10/10
-        rest_back = self.learning_state.rest_angle_backward if self.learning_state.rest_angle_backward is not None else -10.0
-        rest_front = self.learning_state.rest_angle_forward if self.learning_state.rest_angle_forward is not None else 10.0
-
-        def check_back(p):
-            return p < (rest_back + 10.0) and p < -5.0
-
-        def check_front(p):
-            return p > (rest_front - 10.0) and p > 5.0
-
-        self._run_kickup_test("BACK", check_back, "kickup_power_forward", "Place robot on BACK wheel.")
-        self._run_kickup_test("FRONT", check_front, "kickup_power_backward", "Place robot on FRONT wheel.")
+        self._run_kickup_test("BACK", "kickup_power_forward")
+        self._run_kickup_test("FRONT", "kickup_power_backward")
 
     # --- Tier 6: Final Verification ---
     def verify_final_configuration(self):
