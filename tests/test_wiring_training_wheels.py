@@ -15,7 +15,7 @@ class TestWiringTrainingWheels(unittest.TestCase):
 
     def setUp(self):
         # Patch dependencies
-        self.smbus_patch = patch("balance_bot.wiring_check.smbus")
+        self.smbus_patch = patch("balance_bot.utils.smbus")
         self.hw_patch = patch("balance_bot.wiring_check.RobotHardware")
         self.config_patch = patch("balance_bot.wiring_check.RobotConfig")
         self.input_patch = patch("builtins.input")
