@@ -13,6 +13,7 @@ from ..config import (
     RobotConfig,
 )
 from ..enums import Axis
+from ..watchdog import SurvivalWatchdog
 
 logger = logging.getLogger(__name__)
 
@@ -171,12 +172,14 @@ class RobotHardware:
      - Convert raw sensor data into useful engineering units (Degrees, Deg/s).
     """
 
-    def __init__(self, config: RobotConfig):
+    def __init__(self, config: RobotConfig, watchdog: Optional[SurvivalWatchdog] = None):
         """
         Initialize the robot hardware abstraction.
         :param config: The shared RobotConfig object.
+        :param watchdog: Optional SurvivalWatchdog for heartbeat pulses.
         """
         self.config = config
+        self.watchdog = watchdog
         self._imu_consecutive_errors = 0
 
         # Store the "last known good" value
@@ -490,6 +493,10 @@ class RobotHardware:
         history: deque[Vector3] = deque(maxlen=20)
 
         while True:
+            # Pulse the heartbeat to show we are still alive
+            if self.watchdog:
+                self.watchdog.heartbeat()
+
             # Read sensors
             try:
                 # Use RAW data (which now includes bias correction)
@@ -577,6 +584,8 @@ class RobotHardware:
 
                 # Run for the duration of this step
                 while time.time() - step_start < duration:
+                    if self.watchdog:
+                        self.watchdog.heartbeat()
                     samples.append(self.read_imu_converted())
                     time.sleep(sample_interval)
 

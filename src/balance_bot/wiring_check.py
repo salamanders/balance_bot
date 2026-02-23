@@ -5,9 +5,10 @@ try:
 except ImportError:
     smbus = None
 
-from typing import Callable, Any
+from typing import Callable, Any, Optional
 from .config import RobotConfig
 from .hardware.robot_hardware import RobotHardware, IMUReading
+from .watchdog import SurvivalWatchdog
 from .enums import Axis
 from .utils import (
     analyze_dominance,
@@ -25,9 +26,10 @@ class WiringCheck:
     See LEARN.md for specification.
     """
 
-    def __init__(self):
+    def __init__(self, watchdog: Optional[SurvivalWatchdog] = None):
         self.config = RobotConfig.load()
         self.hw = None
+        self.watchdog = watchdog
 
     def init_hw(self):
         """
@@ -42,7 +44,7 @@ class WiringCheck:
             # Cannot init HW without buses.
             return
 
-        self.hw = RobotHardware(self.config)
+        self.hw = RobotHardware(self.config, watchdog=self.watchdog)
         self.hw.init()
 
     def cleanup(self):
@@ -109,6 +111,9 @@ class WiringCheck:
         ]
 
         while True:
+            if self.watchdog:
+                self.watchdog.heartbeat()
+
             print("\n---------------------------------------------------")
             print("Checking Knowledge Base...")
 
@@ -234,6 +239,9 @@ class WiringCheck:
         print(f">>> Finding Threshold: {name} <<<")
         val = start
         while val <= limit:
+            if self.watchdog:
+                self.watchdog.heartbeat()
+
             print(f"  Testing {val}...")
             result = action_fn(val)
 
@@ -719,6 +727,9 @@ class WiringCheck:
 
         slop_time = 0.0
         while True:
+            if self.watchdog:
+                self.watchdog.heartbeat()
+
             reading = self.hw.read_imu_converted()
 
             # If the chassis pitch rate spikes, the wheels have finally caught
@@ -752,6 +763,9 @@ class WiringCheck:
         """
         print(msg)
         while True:
+            if self.watchdog:
+                self.watchdog.heartbeat()
+
             self.hw.wait_for_stability(duration=1.0)
 
             if check_fn is None:

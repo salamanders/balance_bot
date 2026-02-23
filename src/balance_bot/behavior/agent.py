@@ -3,6 +3,9 @@ import time
 import logging
 import json
 import concurrent.futures
+from typing import Optional
+
+from ..watchdog import SurvivalWatchdog
 from ..config import (
     CONFIG_FILE,
     RobotConfig,
@@ -30,8 +33,9 @@ class Agent:
     Orchestrates the robot's behavior, manages state, and schedules sub-systems.
     """
 
-    def __init__(self):
+    def __init__(self, watchdog: Optional[SurvivalWatchdog] = None):
         setup_logging()
+        self.watchdog = watchdog
 
         # 1. Configuration
         self.force_tune = "--tune" in sys.argv
@@ -64,7 +68,7 @@ class Agent:
 
         # 2. Subsystems
         # Tier 1
-        self.core = BalanceCore(self.config)
+        self.core = BalanceCore(self.config, watchdog=self.watchdog)
 
         # Tier 2
         self.tuner = ContinuousTuner(self.config.tuner)
@@ -144,6 +148,9 @@ class Agent:
             )
 
             while self.running:
+                if self.watchdog:
+                    self.watchdog.heartbeat()
+
                 self.ticks += 1
 
                 # ---------------------------------------------------------
@@ -326,6 +333,9 @@ class Agent:
                 dt = rate.sleep()
 
         except KeyboardInterrupt:
+            if self.watchdog and self.watchdog.triggered:
+                logger.error("WATCHDOG PANIC: Interrupting Agent.")
+                raise RuntimeError("Watchdog Panic! Main thread was stuck.") from None
             logger.info("Keyboard Interrupt.")
         finally:
             self.core.cleanup()
@@ -353,6 +363,8 @@ class Agent:
         rate = RateLimiter(1.0 / self.config.loop_time)
         dt = self.config.loop_time
         while True:
+            if self.watchdog:
+                self.watchdog.heartbeat()
             # Keep filter alive
             telemetry = self.core.update(
                 self._zero_motion_enabled, self._zero_tuning, dt
@@ -374,6 +386,8 @@ class Agent:
         rate = RateLimiter(1.0 / self.config.loop_time)
         dt = self.config.loop_time
         while time.perf_counter() < end_time:
+            if self.watchdog:
+                self.watchdog.heartbeat()
             self.core.update(self._zero_motion_enabled, self._zero_tuning, dt)
             dt = rate.sleep()
 
@@ -401,6 +415,8 @@ class Agent:
 
         try:
             while power <= max_power:
+                if self.watchdog:
+                    self.watchdog.heartbeat()
                 self._wait_for_settle()
 
                 # Safety Check: Are we still in position?
@@ -450,6 +466,8 @@ class Agent:
                 rate = RateLimiter(1.0 / self.config.loop_time)
                 dt = self.config.loop_time
                 while time.perf_counter() - catch_start < 2.5:
+                    if self.watchdog:
+                        self.watchdog.heartbeat()
                     telem = self.core.update(self._zero_motion_enabled, catch_params, dt)
 
                     error = abs(telem.pitch_angle - target_angle)
