@@ -175,6 +175,11 @@ class RobotConfig(BaseModel):
     rest_angle_forward: Optional[float] = None
     rest_angle_backward: Optional[float] = None
 
+    # Gyro Bias Calibration
+    gyro_bias_x: float = 0.0
+    gyro_bias_y: float = 0.0
+    gyro_bias_z: float = 0.0
+
     # Discovery Flags
     motor_phasing_verified: bool = False
     motor_direction_verified: bool = False
@@ -224,6 +229,9 @@ class RobotConfig(BaseModel):
         self.accel_forward_invert = False
         self.rest_angle_forward = None
         self.rest_angle_backward = None
+        self.gyro_bias_x = 0.0
+        self.gyro_bias_y = 0.0
+        self.gyro_bias_z = 0.0
         self.min_power_visible = 0
         self.motor_phasing_verified = False
         self.motor_direction_verified = False

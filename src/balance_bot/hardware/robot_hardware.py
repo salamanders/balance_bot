@@ -3,6 +3,7 @@ import time
 import logging
 from typing import Protocol, runtime_checkable, Any, Optional
 from dataclasses import dataclass
+from collections import deque
 
 from ..utils import clamp, calculate_pitch, Vector3, get_i2c_failure_report
 from ..config import (
@@ -306,6 +307,13 @@ class RobotHardware:
             accel = self.sensor.get_accel_data()
             gyro = self.sensor.get_gyro_data()
 
+            # Apply Bias Calibration
+            gyro = Vector3(
+                gyro.x - self.config.gyro_bias_x,
+                gyro.y - self.config.gyro_bias_y,
+                gyro.z - self.config.gyro_bias_z
+            )
+
             # Update cache
             self._last_accel = accel
             self._last_gyro = gyro
@@ -468,24 +476,33 @@ class RobotHardware:
         """
         Wait for the robot to be stable (gyro rates low) for a duration.
         Blocks until the condition is met.
+
+        Baby Brain Adaptation:
+        If the robot detects it is "stable" (low variance) but "biased" (high rate),
+        it will auto-calibrate the gyro bias to zero the current reading.
         """
         logger.info(f"Waiting for stability (rates < {threshold} deg/s) for {duration}s...")
 
         start_stable_time = None
         last_log = 0.0
 
+        # History for Variance Check (Last 1 second @ 20Hz)
+        history: deque[Vector3] = deque(maxlen=20)
+
         while True:
             # Read sensors
             try:
-                # Use RAW data to avoid dependency on config (allows calibration)
+                # Use RAW data (which now includes bias correction)
                 accel, gyro = self.read_imu_raw()
             except Exception as e:
                 logger.warning(f"  [Error reading IMU] {e}")
                 time.sleep(0.1)
                 continue
 
-            # Calculate total rate magnitude from raw gyro (assumed deg/s or similar scale)
-            # This is robust even if axes are not yet configured.
+            # Maintain History
+            history.append(gyro)
+
+            # Calculate total rate magnitude
             rate = abs(gyro.x) + abs(gyro.y) + abs(gyro.z)
 
             if rate < threshold:
@@ -495,11 +512,50 @@ class RobotHardware:
                     logger.info("  [STABLE] Robot is still.")
                     return
             else:
-                if start_stable_time is not None:
-                    start_stable_time = None
-                    if time.time() - last_log > 1.0:
-                        logger.debug(f"  [MOVING] Rate {rate:.1f} > {threshold}. Waiting...")
-                        last_log = time.time()
+                # Reset stability timer
+                start_stable_time = None
+
+                # Check for "Static but Biased" condition
+                if len(history) == history.maxlen:
+                    # Calculate range (max - min) for each axis
+                    xs = [v.x for v in history]
+                    ys = [v.y for v in history]
+                    zs = [v.z for v in history]
+
+                    range_x = max(xs) - min(xs)
+                    range_y = max(ys) - min(ys)
+                    range_z = max(zs) - min(zs)
+
+                    # If variance is low (< 0.5 deg/s noise), we are likely still.
+                    # But rate > threshold means we are biased.
+                    if max(range_x, range_y, range_z) < 0.5:
+                        logger.warning(f"  [DRIFT] Rate {rate:.1f} > {threshold} but Variance is low. Auto-Calibrating...")
+
+                        # Calculate observed bias (Average of current readings)
+                        # Since read_imu_raw returns (Raw - OldBias),
+                        # Observed = (Raw - OldBias)
+                        # We want NewBias such that (Raw - NewBias) = 0
+                        # So NewBias = Raw
+                        # NewBias = Observed + OldBias
+
+                        avg_x = sum(xs) / len(xs)
+                        avg_y = sum(ys) / len(ys)
+                        avg_z = sum(zs) / len(zs)
+
+                        self.config.gyro_bias_x += avg_x
+                        self.config.gyro_bias_y += avg_y
+                        self.config.gyro_bias_z += avg_z
+
+                        self.config.save()
+                        logger.info(f"  [CALIBRATED] Bias Updated. New Offsets: ({self.config.gyro_bias_x:.2f}, {self.config.gyro_bias_y:.2f}, {self.config.gyro_bias_z:.2f})")
+
+                        # Clear history and retry immediately
+                        history.clear()
+                        continue
+
+                if time.time() - last_log > 1.0:
+                    logger.debug(f"  [MOVING] Rate {rate:.1f} > {threshold}. Waiting...")
+                    last_log = time.time()
 
             time.sleep(0.05)
 
