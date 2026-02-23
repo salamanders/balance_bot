@@ -1,5 +1,5 @@
 import json
-from balance_bot.config import RobotConfig, ControlConfig
+from balance_bot.configuration import RobotConfig, ControlConfig
 
 def test_control_config_mutable():
     """Verify ControlConfig is no longer frozen."""

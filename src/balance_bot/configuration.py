@@ -1,15 +1,16 @@
 import json
 import logging
-from contextlib import contextmanager
 from pathlib import Path
-from typing import Any, Optional
+from typing import Optional
 
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, Field, ConfigDict
 
 from .enums import Axis
 
 logger = logging.getLogger(__name__)
-CONFIG_FILE = Path("pid_config.json")
+
+HARDWARE_CONFIG_FILE = Path("hardware_config.json")
+LEARNING_STATE_FILE = Path("learning_state.json")
 
 # Angle Thresholds (Degrees)
 BALANCING_THRESHOLD = 15.0      # Normal operating range (+/-)
@@ -113,42 +114,25 @@ class SystemTiming(BaseModel):
     tuning_log_interval: float = 1.0
 
 
-@contextmanager
-def temp_pid_overrides(pid_params: PIDParams, **overrides):
+class HardwareConfig(BaseModel):
     """
-    Context manager to temporarily override PID parameters.
-    Restores original values on exit.
+    Immutable Hardware Configuration.
+    Defines fixed physical properties: pin assignments, bus IDs, axis mapping.
+    Modifying this requires re-instantiating the object (e.g., via copy/replace).
     """
-    original_values = {}
-    for k, v in overrides.items():
-        if hasattr(pid_params, k):
-            original_values[k] = getattr(pid_params, k)
-            setattr(pid_params, k, v)
-        else:
-            logger.warning(f"PIDParams has no attribute '{k}', ignoring override.")
+    model_config = ConfigDict(frozen=True)
 
-    try:
-        yield
-    finally:
-        for k, v in original_values.items():
-            setattr(pid_params, k, v)
+    # I2C Bus Assignments
+    motor_i2c_bus: Optional[int] = None
+    imu_i2c_bus: Optional[int] = None
 
-
-class RobotConfig(BaseModel):
-    """
-    Master Configuration Object.
-    Aggregates all sub-configs and hardware mapping.
-    """
-    pid: PIDParams
-    battery: BatteryConfig = Field(default_factory=BatteryConfig)
-    tuner: TunerConfig = Field(default_factory=TunerConfig)
-    led: LedConfig = Field(default_factory=LedConfig)
-    control: ControlConfig = Field(default_factory=ControlConfig)
-    timing: SystemTiming = Field(default_factory=SystemTiming)
+    # Motor Mapping
     motor_l: Optional[int] = None
     motor_r: Optional[int] = None
     motor_l_invert: bool = False
     motor_r_invert: bool = False
+
+    # IMU Axis Mapping
     gyro_pitch_axis: Optional[Axis] = None
     gyro_pitch_invert: bool = False
     gyro_yaw_axis: Optional[Axis] = None
@@ -159,15 +143,50 @@ class RobotConfig(BaseModel):
     accel_vertical_invert: bool = False
     accel_forward_axis: Optional[Axis] = None
     accel_forward_invert: bool = False
-    motor_i2c_bus: Optional[int] = None
-    imu_i2c_bus: Optional[int] = None
+
+    # Loop Parameters (Fixed by Hardware Capability)
     loop_time: float = 0.01
+    complementary_alpha: float = 0.98
+    imu_max_retries: int = 5
+
+    @classmethod
+    def load(cls) -> "HardwareConfig":
+        """Load hardware config from disk."""
+        if HARDWARE_CONFIG_FILE.exists():
+            try:
+                content = HARDWARE_CONFIG_FILE.read_text()
+                if not content.strip():
+                    return cls()
+                return cls.model_validate_json(content)
+            except Exception as e:
+                logger.error(f"Error loading hardware config: {e}. Using defaults.")
+        return cls()
+
+    def save(self) -> None:
+        """Serialize and save to disk."""
+        try:
+            HARDWARE_CONFIG_FILE.write_text(self.model_dump_json(indent=4))
+            logger.info("Hardware config saved.")
+        except OSError as e:
+            logger.error(f"Error saving hardware config: {e}")
+
+
+class LearningState(BaseModel):
+    """
+    Mutable Learned State.
+    Defines tunable parameters and calibration data.
+    """
+    # Sub-Configs
+    pid: PIDParams = Field(default_factory=PIDParams)
+    battery: BatteryConfig = Field(default_factory=BatteryConfig)
+    tuner: TunerConfig = Field(default_factory=TunerConfig)
+    led: LedConfig = Field(default_factory=LedConfig)
+    control: ControlConfig = Field(default_factory=ControlConfig)
+    timing: SystemTiming = Field(default_factory=SystemTiming)
 
     # Operational Parameters
     crash_angle: float = 50.0
-    complementary_alpha: float = 0.98
     vibration_threshold: int = 10
-    imu_max_retries: int = 5
     min_power_visible: int = 0
     motor_trim: float = 0.0
 
@@ -186,64 +205,34 @@ class RobotConfig(BaseModel):
     motor_channels_verified: bool = False
     motor_trim_verified: bool = False
     backlash_verified: bool = False
-
-    # The baton pass from Wiring Check to Agent
     balance_verified: bool = False
 
     @classmethod
-    def load(cls) -> "RobotConfig":
-        """
-        Load configuration from disk.
-        """
-        if CONFIG_FILE.exists():
+    def load(cls) -> "LearningState":
+        """Load learning state from disk."""
+        if LEARNING_STATE_FILE.exists():
             try:
-                # Use model_validate_json for automatic parsing and validation
-                content = CONFIG_FILE.read_text()
-                # Handle empty or malformed files gracefully by falling back to default
+                content = LEARNING_STATE_FILE.read_text()
                 if not content.strip():
-                    return cls(pid=PIDParams())
-
-                # We try strict validation first
+                    return cls()
                 return cls.model_validate_json(content)
             except Exception as e:
-                logger.error(f"Error loading config: {e}. Using defaults.")
-
-        # Default fallback
-        return cls(pid=PIDParams())
-
-    def reset_hardware_map(self) -> None:
-        """Reset all discovered hardware mappings to force re-discovery."""
-        self.motor_l = None
-        self.motor_r = None
-        self.motor_i2c_bus = None
-        self.imu_i2c_bus = None
-        self.gyro_pitch_axis = None
-        self.gyro_pitch_invert = False
-        self.gyro_yaw_axis = None
-        self.gyro_yaw_invert = False
-        self.gyro_roll_axis = None
-        self.gyro_roll_invert = False
-        self.accel_vertical_axis = None
-        self.accel_vertical_invert = False
-        self.accel_forward_axis = None
-        self.accel_forward_invert = False
-        self.rest_angle_forward = None
-        self.rest_angle_backward = None
-        self.gyro_bias_x = 0.0
-        self.gyro_bias_y = 0.0
-        self.gyro_bias_z = 0.0
-        self.min_power_visible = 0
-        self.motor_phasing_verified = False
-        self.motor_direction_verified = False
-        self.motor_channels_verified = False
-        self.motor_trim_verified = False
-        self.backlash_verified = False
-        self.balance_verified = False
+                logger.error(f"Error loading learning state: {e}. Using defaults.")
+        return cls()
 
     def save(self) -> None:
-        """Serialize and save the current configuration to disk."""
+        """Serialize and save to disk."""
         try:
-            CONFIG_FILE.write_text(self.model_dump_json(indent=4))
-            logger.info("Config saved.")
+            LEARNING_STATE_FILE.write_text(self.model_dump_json(indent=4))
+            # logger.info("Learning state saved.") # Reduce log spam on frequent saves
         except OSError as e:
-            logger.error(f"Error saving config: {e}")
+            logger.error(f"Error saving learning state: {e}")
+
+    def reset(self) -> None:
+        """Reset learned state to defaults."""
+        # Create a new default instance and copy values?
+        # Since we are modifying 'self', we need to reset fields.
+        # Easier to just replace the object in the caller, but here we can reset fields.
+        defaults = self.__class__()
+        for field in self.model_fields:
+            setattr(self, field, getattr(defaults, field))

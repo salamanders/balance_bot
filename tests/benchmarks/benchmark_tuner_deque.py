@@ -6,7 +6,7 @@ import os
 sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), '../../src')))
 
 from balance_bot.adaptation.tuner import ContinuousTuner
-from balance_bot.config import TunerConfig
+from balance_bot.configuration import TunerConfig
 
 def benchmark_tuner_update():
     buffer_size = 50000

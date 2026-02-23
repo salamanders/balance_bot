@@ -1,7 +1,7 @@
 import unittest
 from unittest.mock import MagicMock
 from balance_bot.reflex.pid import PIDController
-from balance_bot.config import PIDParams
+from balance_bot.configuration import PIDParams
 
 class TestPIDLogic(unittest.TestCase):
     def test_proportional(self):

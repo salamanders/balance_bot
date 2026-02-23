@@ -7,7 +7,7 @@ from pathlib import Path
 # Add src to sys.path to import balance_bot
 sys.path.append(str(Path(__file__).parent.parent.parent / "src"))
 
-from balance_bot.config import RobotConfig, PIDParams, TunerConfig
+from balance_bot.configuration import RobotConfig, PIDParams, TunerConfig
 
 def benchmark_config_serialization():
     config = RobotConfig(

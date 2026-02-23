@@ -8,16 +8,27 @@ sys.modules["mpu6050"] = MagicMock()
 
 # Now we can import safely
 from balance_bot.wiring_check import WiringCheck
-from balance_bot.config import RobotConfig, PIDParams
+from balance_bot.configuration import HardwareConfig, LearningState, PIDParams
 from balance_bot.utils import Vector3
 from balance_bot.enums import Axis
 
 class TestAutonomousConfig(unittest.TestCase):
     def setUp(self):
-        # Patch RobotConfig.load to return a fresh config
-        with patch('balance_bot.config.RobotConfig.load') as mock_load:
-            mock_load.return_value = RobotConfig(pid=PIDParams())
-            self.check = WiringCheck()
+        # Patch HardwareConfig.load/save and LearningState.load/save
+        self.hw_load_patch = patch('balance_bot.configuration.HardwareConfig.load')
+        self.ls_load_patch = patch('balance_bot.configuration.LearningState.load')
+        self.hw_save_patch = patch('balance_bot.configuration.HardwareConfig.save')
+        self.ls_save_patch = patch('balance_bot.configuration.LearningState.save')
+
+        self.mock_hw_load = self.hw_load_patch.start()
+        self.mock_ls_load = self.ls_load_patch.start()
+        self.mock_hw_save = self.hw_save_patch.start()
+        self.mock_ls_save = self.ls_save_patch.start()
+
+        self.mock_hw_load.return_value = HardwareConfig()
+        self.mock_ls_load.return_value = LearningState(pid=PIDParams())
+
+        self.check = WiringCheck()
 
         # Mock HW
         self.check.hw = MagicMock()
@@ -25,17 +36,28 @@ class TestAutonomousConfig(unittest.TestCase):
         self.check.hw.read_imu_raw.return_value = (Vector3(0, 0, -1), Vector3(0, 0, 0))
 
         # Reset Config
-        self.check.config.motor_l = 0
-        self.check.config.motor_r = 1
-        self.check.config.min_power_visible = 50
-        self.check.config.gyro_yaw_axis = Axis.Z
-        self.check.config.gyro_yaw_invert = False
+        # HW Config is immutable, so we replace it
+        self.check.hw_config = self.check.hw_config.model_copy(update={
+            'motor_l': 0,
+            'motor_r': 1,
+            'gyro_yaw_axis': Axis.Z,
+            'gyro_yaw_invert': False
+        })
+
+        # Learning State is mutable
+        self.check.learning_state.min_power_visible = 50
 
         # Mock drive_and_measure to avoid actual sleep
         # self.check.hw.drive_and_measure needs to be mocked per test
 
         # Mock wait_for_stability to avoid blocking or IMU errors
         self.check.hw.wait_for_stability = MagicMock()
+
+    def tearDown(self):
+        self.hw_load_patch.stop()
+        self.ls_load_patch.stop()
+        self.hw_save_patch.stop()
+        self.ls_save_patch.stop()
 
     def test_deduce_left_right_ccw_spin(self):
         """
@@ -68,9 +90,9 @@ class TestAutonomousConfig(unittest.TestCase):
             self.check.deduce_left_right_autonomous()
 
         # Verify Swap
-        self.assertEqual(self.check.config.motor_l, 1)
-        self.assertEqual(self.check.config.motor_r, 0)
-        self.assertTrue(self.check.config.motor_channels_verified)
+        self.assertEqual(self.check.hw_config.motor_l, 1)
+        self.assertEqual(self.check.hw_config.motor_r, 0)
+        self.assertTrue(self.check.learning_state.motor_channels_verified)
 
     def test_deduce_left_right_cw_spin(self):
         """
@@ -79,8 +101,7 @@ class TestAutonomousConfig(unittest.TestCase):
         Expect: Config matches Ch0=Left, Ch1=Right (L=0, R=1).
         """
         # Start with Wrong Config (L=1, R=0)
-        self.check.config.motor_l = 1
-        self.check.config.motor_r = 0
+        self.check.hw_config = self.check.hw_config.model_copy(update={'motor_l': 1, 'motor_r': 0})
 
         spin_sample = (Vector3(0, 0, -1.0), Vector3(0, 0, -100.0))
 
@@ -99,8 +120,8 @@ class TestAutonomousConfig(unittest.TestCase):
             self.check.deduce_left_right_autonomous()
 
         # Verify Swap back to L=0, R=1
-        self.assertEqual(self.check.config.motor_l, 0)
-        self.assertEqual(self.check.config.motor_r, 1)
+        self.assertEqual(self.check.hw_config.motor_l, 0)
+        self.assertEqual(self.check.hw_config.motor_r, 1)
 
     def test_calibrate_motor_trim_left_drift(self):
         """
@@ -108,7 +129,7 @@ class TestAutonomousConfig(unittest.TestCase):
         Right Motor is stronger.
         Expect: Trim increases (Positive).
         """
-        self.check.config.motor_trim = 0.0
+        self.check.learning_state.motor_trim = 0.0
 
         # Mock drive_and_measure to return Pos Yaw
         res = MagicMock()
@@ -125,7 +146,7 @@ class TestAutonomousConfig(unittest.TestCase):
         # Each attempt adds 10.0 * 0.005 = 0.05.
         # 15 * 0.05 = 0.75.
         # Clamped to 0.4 (New logic).
-        self.assertAlmostEqual(self.check.config.motor_trim, 0.4)
+        self.assertAlmostEqual(self.check.learning_state.motor_trim, 0.4)
 
     def test_calibrate_motor_trim_right_drift(self):
         """
@@ -133,7 +154,7 @@ class TestAutonomousConfig(unittest.TestCase):
         Left Motor is stronger.
         Expect: Trim decreases (Negative).
         """
-        self.check.config.motor_trim = 0.0
+        self.check.learning_state.motor_trim = 0.0
 
         res = MagicMock()
         res.samples = [MagicMock()]
@@ -145,14 +166,14 @@ class TestAutonomousConfig(unittest.TestCase):
         self.check.calibrate_motor_trim()
 
         # -0.75 clamped to -0.4
-        self.assertAlmostEqual(self.check.config.motor_trim, -0.4)
+        self.assertAlmostEqual(self.check.learning_state.motor_trim, -0.4)
 
     def test_calibrate_motor_trim_converges(self):
         """
         Case: Drift reduces to 0.
         Expect: Trim stops changing.
         """
-        self.check.config.motor_trim = 0.0
+        self.check.learning_state.motor_trim = 0.0
 
         # Sequence of return values for drive_and_measure
         # 1. 10.0 (High) -> Trim becomes 0.05
@@ -173,7 +194,7 @@ class TestAutonomousConfig(unittest.TestCase):
         # Should have run 2 times.
         # 1st: Trim += 0.05.
         # 2nd: Converged.
-        self.assertAlmostEqual(self.check.config.motor_trim, 0.05)
+        self.assertAlmostEqual(self.check.learning_state.motor_trim, 0.05)
 
 if __name__ == "__main__":
     unittest.main()

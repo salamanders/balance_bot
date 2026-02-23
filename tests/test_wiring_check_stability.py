@@ -9,7 +9,7 @@ if 'smbus2' not in sys.modules:
 
 from balance_bot.wiring_check import WiringCheck
 from balance_bot.hardware.robot_hardware import IMUReading
-from balance_bot.config import RobotConfig, PIDParams
+from balance_bot.configuration import RobotConfig, PIDParams
 from balance_bot.utils import Vector3
 
 import os

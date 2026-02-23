@@ -2,7 +2,7 @@ import time
 import sys
 
 from typing import Callable, Any, Optional
-from .config import RobotConfig
+from .configuration import HardwareConfig, LearningState
 from .hardware.robot_hardware import RobotHardware, IMUReading
 from .watchdog import SurvivalWatchdog
 from .enums import Axis
@@ -27,7 +27,8 @@ class WiringCheck:
     """
 
     def __init__(self, watchdog: Optional[SurvivalWatchdog] = None):
-        self.config = RobotConfig.load()
+        self.hw_config = HardwareConfig.load()
+        self.learning_state = LearningState.load()
         self.hw = None
         self.watchdog = watchdog
 
@@ -40,17 +41,33 @@ class WiringCheck:
             return
 
         # We need buses to be discovered first
-        if self.config.motor_i2c_bus is None or self.config.imu_i2c_bus is None:
+        if self.hw_config.motor_i2c_bus is None or self.hw_config.imu_i2c_bus is None:
             # Cannot init HW without buses.
             return
 
-        self.hw = RobotHardware(self.config, watchdog=self.watchdog)
+        self.hw = RobotHardware(self.hw_config, self.learning_state, watchdog=self.watchdog)
         self.hw.init()
 
     def cleanup(self):
         if self.hw:
             self.hw.stop()
             self.hw.cleanup()
+
+    def _update_hw_config(self, **kwargs):
+        """Helper to update immutable HardwareConfig."""
+        self.hw_config = self.hw_config.model_copy(update=kwargs)
+        self.hw_config.save()
+
+    def _update_learning_state(self, **kwargs):
+        """Helper to update mutable LearningState."""
+        for k, v in kwargs.items():
+            setattr(self.learning_state, k, v)
+        self.learning_state.save()
+
+    def _set_default_motors(self):
+        print("-> [INFO] Setting default motors (0,1).")
+        self._update_hw_config(motor_l=0, motor_r=1)
+        self.init_hw()
 
     def run(self):
         """
@@ -62,51 +79,47 @@ class WiringCheck:
 
         steps = [
             ("I2C Bus Assignments",
-             lambda c: c.motor_i2c_bus is None or c.imu_i2c_bus is None,
+             lambda: self.hw_config.motor_i2c_bus is None or self.hw_config.imu_i2c_bus is None,
              self.discover_buses),
 
             ("Spatial Orientation",
-             lambda c: c.accel_vertical_axis is None,
+             lambda: self.hw_config.accel_vertical_axis is None,
              lambda: (self.init_hw(), self.calibrate_static_orientation())),
 
             ("Hardware Initialization",
-             lambda c: self.hw is None,
+             lambda: self.hw is None,
              self.init_hw),
 
             ("Motor Candidates",
-             lambda c: c.motor_l is None or c.motor_r is None,
-             lambda: (print("-> [INFO] Setting default motors (0,1)."),
-                      setattr(self.config, 'motor_l', 0),
-                      setattr(self.config, 'motor_r', 1),
-                      self.config.save(),
-                      self.init_hw())),
+             lambda: self.hw_config.motor_l is None or self.hw_config.motor_r is None,
+             self._set_default_motors),
 
             ("Friction Threshold",
-             lambda c: c.min_power_visible == 0,
+             lambda: self.learning_state.min_power_visible == 0,
              self.find_min_power),
 
             ("Motor Phasing",
-             lambda c: not c.motor_phasing_verified,
+             lambda: not self.learning_state.motor_phasing_verified,
              self.align_motors_phase),
 
             ("Motor Direction",
-             lambda c: not c.motor_direction_verified,
+             lambda: not self.learning_state.motor_direction_verified,
              self.determine_motor_direction),
 
             ("Left/Right Identity",
-             lambda c: not c.motor_channels_verified,
+             lambda: not self.learning_state.motor_channels_verified,
              self.deduce_left_right_autonomous),
 
             ("Motor Trim",
-             lambda c: not c.motor_trim_verified,
-             lambda: (self.calibrate_motor_trim(), setattr(self.config, 'motor_trim_verified', True))),
+             lambda: not self.learning_state.motor_trim_verified,
+             lambda: (self.calibrate_motor_trim(), self._update_learning_state(motor_trim_verified=True))),
 
             ("Mechanical Backlash",
-             lambda c: not c.backlash_verified,
+             lambda: not self.learning_state.backlash_verified,
              self.measure_backlash),
 
             ("Kick-Up Dynamics",
-             lambda c: c.control.kickup_power_forward == 0.0,
+             lambda: self.learning_state.control.kickup_power_forward == 0.0,
              self.find_flop_thresholds)
         ]
 
@@ -119,10 +132,10 @@ class WiringCheck:
 
             action_taken = False
             for name, condition, action in steps:
-                if condition(self.config):
+                if condition():
                     print(f"-> [MISSING] {name}.")
                     action()
-                    self.config.save()
+                    # Configs are saved within actions
                     action_taken = True
                     break # Restart loop
 
@@ -138,14 +151,15 @@ class WiringCheck:
         self.cleanup()
 
     def _print_summary(self):
-        c = self.config
+        h = self.hw_config
+        l = self.learning_state
         print("\n[SUCCESS] Hardware Verified. Ready for Agent (Main Brain).")
         print("Summary:")
-        print(f"  Buses: Motor={c.motor_i2c_bus}, IMU={c.imu_i2c_bus}")
-        print(f"  Axes: Vert={c.accel_vertical_axis}, Fwd={c.accel_forward_axis}, Pitch={c.gyro_pitch_axis}, Yaw={c.gyro_yaw_axis}")
-        print(f"  Motors: MinPower={c.min_power_visible}, L={c.motor_l}(Inv={c.motor_l_invert}), R={c.motor_r}(Inv={c.motor_r_invert})")
-        print(f"  Trim: {c.motor_trim:.3f}")
-        print(f"  KickUp: Fwd={c.control.kickup_power_forward:.1f}, Bwd={c.control.kickup_power_backward:.1f}")
+        print(f"  Buses: Motor={h.motor_i2c_bus}, IMU={h.imu_i2c_bus}")
+        print(f"  Axes: Vert={h.accel_vertical_axis}, Fwd={h.accel_forward_axis}, Pitch={h.gyro_pitch_axis}, Yaw={h.gyro_yaw_axis}")
+        print(f"  Motors: MinPower={l.min_power_visible}, L={h.motor_l}(Inv={h.motor_l_invert}), R={h.motor_r}(Inv={h.motor_r_invert})")
+        print(f"  Trim: {l.motor_trim:.3f}")
+        print(f"  KickUp: Fwd={l.control.kickup_power_forward:.1f}, Bwd={l.control.kickup_power_backward:.1f}")
 
     def _drive_and_wait(self, left: float, right: float, duration: float,
                         wait_stable: bool = True) -> Any:
@@ -184,13 +198,15 @@ class WiringCheck:
             bus.read_byte_data(0x22, 0)
             return True
 
-        self.config.motor_i2c_bus = scan_i2c_or_die("PiconZero (Motors)", check_motor)
+        found_motor_bus = scan_i2c_or_die("PiconZero (Motors)", check_motor)
 
         # 2. Find IMU (0x68)
         def check_imu(bus):
             return bus.read_byte_data(0x68, 0x75) == 0x68
 
-        self.config.imu_i2c_bus = scan_i2c_or_die("MPU6050 (IMU)", check_imu)
+        found_imu_bus = scan_i2c_or_die("MPU6050 (IMU)", check_imu)
+
+        self._update_hw_config(motor_i2c_bus=found_motor_bus, imu_i2c_bus=found_imu_bus)
 
     # --- Phase 2: The Physical World (Sensors) ---
     def _measure_gravity_vectors(self) -> tuple[Vector3, Vector3]:
@@ -228,18 +244,19 @@ class WiringCheck:
         if pitch_magnitude < 1.1:
             print("  [WARNING] Pitch axis unclear. Did the robot actually move?")
 
-        self.config.gyro_pitch_axis = Axis(pitch_axis_name)
-        self.config.gyro_pitch_invert = pitch_vec[pitch_axis_name] < 0
-        print(f"  -> Pitch Axis: {pitch_axis_name.upper()} (Invert: {self.config.gyro_pitch_invert})")
+        update_dict = {}
+        update_dict['gyro_pitch_axis'] = Axis(pitch_axis_name)
+        update_dict['gyro_pitch_invert'] = pitch_vec[pitch_axis_name] < 0
+        print(f"  -> Pitch Axis: {pitch_axis_name.upper()} (Invert: {update_dict['gyro_pitch_invert']})")
 
         # 4. Determine Vertical Axis
         candidates = {k: abs(v) for k, v in avg_back.items() if k != pitch_axis_name}
         vert_axis_name, _, _ = analyze_dominance(candidates, "Vertical Axis (Gravity)")
 
-        self.config.accel_vertical_axis = Axis(vert_axis_name)
+        update_dict['accel_vertical_axis'] = Axis(vert_axis_name)
         # Invert if gravity component is negative
-        self.config.accel_vertical_invert = avg_back[vert_axis_name] < 0
-        print(f"  -> Vertical Axis: {vert_axis_name.upper()} (Invert: {self.config.accel_vertical_invert})")
+        update_dict['accel_vertical_invert'] = avg_back[vert_axis_name] < 0
+        print(f"  -> Vertical Axis: {vert_axis_name.upper()} (Invert: {update_dict['accel_vertical_invert']})")
 
         # 5. Determine Forward Axis
         all_axes = {'x', 'y', 'z'}
@@ -251,16 +268,18 @@ class WiringCheck:
             sys.exit(1)
 
         forward_axis_name = remaining[0]
-        self.config.accel_forward_axis = Axis(forward_axis_name)
+        update_dict['accel_forward_axis'] = Axis(forward_axis_name)
 
         # Deduce Forward Inversion
         delta_fwd = avg_front[forward_axis_name] - avg_back[forward_axis_name]
-        self.config.accel_forward_invert = delta_fwd < 0
-        print(f"  -> Forward Axis: {forward_axis_name.upper()} (Invert: {self.config.accel_forward_invert})")
+        update_dict['accel_forward_invert'] = delta_fwd < 0
+        print(f"  -> Forward Axis: {forward_axis_name.upper()} (Invert: {update_dict['accel_forward_invert']})")
 
         # Deduce Gyro Yaw/Roll
-        self.config.gyro_yaw_axis = Axis(vert_axis_name)
-        self.config.gyro_roll_axis = Axis(forward_axis_name)
+        update_dict['gyro_yaw_axis'] = Axis(vert_axis_name)
+        update_dict['gyro_roll_axis'] = Axis(forward_axis_name)
+
+        self._update_hw_config(**update_dict)
 
     def _calculate_rest_angles(self, avg_back: Vector3):
         """Calculate and store rest angles based on deduced axes."""
@@ -270,14 +289,13 @@ class WiringCheck:
         angle_front = curr_front_reading.pitch_angle
 
         # Calculate Back Angle from avg_back using known axes
-        fwd_val_back = self.hw.get_axis_value(avg_back, self.config.accel_forward_axis, self.config.accel_forward_invert)
-        vert_val_back = self.hw.get_axis_value(avg_back, self.config.accel_vertical_axis, self.config.accel_vertical_invert)
+        fwd_val_back = self.hw.get_axis_value(avg_back, self.hw_config.accel_forward_axis, self.hw_config.accel_forward_invert)
+        vert_val_back = self.hw.get_axis_value(avg_back, self.hw_config.accel_vertical_axis, self.hw_config.accel_vertical_invert)
 
         from .utils import calculate_pitch
         angle_back = calculate_pitch(fwd_val_back, vert_val_back)
 
-        self.config.rest_angle_forward = angle_front
-        self.config.rest_angle_backward = angle_back
+        self._update_learning_state(rest_angle_forward=angle_front, rest_angle_backward=angle_back)
 
         print(f"  -> Calibrated Rest Angles: Back={angle_back:.1f}, Front={angle_front:.1f}")
 
@@ -312,7 +330,7 @@ class WiringCheck:
 
         heartbeat_fn = self.watchdog.heartbeat if self.watchdog else None
         found = find_threshold("Minimum Power", 10, 5, 100, action, check, heartbeat_fn=heartbeat_fn)
-        self.config.min_power_visible = found
+        self._update_learning_state(min_power_visible=found)
 
     # --- Phase 3b: Phasing ---
     def align_motors_phase(self):
@@ -320,7 +338,7 @@ class WiringCheck:
         Ensure motors spin together (Straight), not opposite (Spin).
         """
         def test():
-            p = self.config.min_power_visible + 10
+            p = self.learning_state.min_power_visible + 10
             return self._drive_and_wait(p, p, 0.5)
 
         def verify(res):
@@ -329,10 +347,10 @@ class WiringCheck:
             if yaw > 40.0:
                 print("  -> High Yaw Rate detected. Motors are fighting (Spinning).")
                 print("  -> ACTION: Inverting Right Motor logic to align phases.")
-                self.config.motor_r_invert = not self.config.motor_r_invert
+                self._update_hw_config(motor_r_invert=not self.hw_config.motor_r_invert)
                 return False
             print("  -> Low Yaw Rate. Motors are aligned (Straight).")
-            self.config.motor_phasing_verified = True
+            self._update_learning_state(motor_phasing_verified=True)
             return True
 
         verify_with_retries("Motor Phasing", test, verify)
@@ -360,7 +378,7 @@ class WiringCheck:
                 return None
 
             direction_sign = 1.0 if start_pitch > 0 else -1.0
-            power = (self.config.min_power_visible + 20) * direction_sign
+            power = (self.learning_state.min_power_visible + 20) * direction_sign
             print(f"  Pulsing {power}...")
 
             res = self._drive_and_wait(power, power, 0.4, wait_stable=False)
@@ -376,8 +394,8 @@ class WiringCheck:
             # Calculate accel
             avg_accel_fwd = 0.0
             if res.samples:
-                fwd_axis = self.config.accel_forward_axis.value
-                invert = self.config.accel_forward_invert
+                fwd_axis = self.hw_config.accel_forward_axis.value
+                invert = self.hw_config.accel_forward_invert
                 # Using generator expression for sum
                 total = sum(getattr(s.accel_raw, fwd_axis) for s in res.samples)
                 avg_accel_fwd = - (total / len(res.samples)) if invert else (total / len(res.samples))
@@ -386,12 +404,12 @@ class WiringCheck:
 
             if delta_lean > 2.0 or avg_accel_fwd > 0.15:
                  print("  [SUCCESS] Direction Correct.")
-                 self.config.motor_direction_verified = True
+                 self._update_learning_state(motor_direction_verified=True)
                  return True
             elif delta_lean < -2.0 or avg_accel_fwd < -0.15:
                  print("  [FAILURE] Direction Inverted. Fixing...")
-                 self.config.motor_l_invert = not self.config.motor_l_invert
-                 self.config.motor_r_invert = not self.config.motor_r_invert
+                 self._update_hw_config(motor_l_invert=not self.hw_config.motor_l_invert,
+                                        motor_r_invert=not self.hw_config.motor_r_invert)
                  return False
 
             print("  [WARNING] Inconclusive.")
@@ -418,7 +436,7 @@ class WiringCheck:
 
             # 2. Arc Command ("The Arc")
             # Drive Ch0 High, Ch1 Low (but same sign).
-            power_high = self.config.min_power_visible + 20
+            power_high = self.learning_state.min_power_visible + 20
             power_low = power_high * 0.5
             print(f"  Driving Arc (Ch0={power_high:.0f}, Ch1={power_low:.0f})...")
 
@@ -452,23 +470,23 @@ class WiringCheck:
             # 4. Deduce Motor Mapping
             if dot_prod > 0:
                 print("  -> Detected Counter-Clockwise (Left) Turn. (Ch0 is Right).")
-                if self.config.motor_l == 0:
+                if self.hw_config.motor_l == 0:
                     print("  -> ACTION: Swapping Channels to Correct Mapping.")
-                    self.config.motor_l, self.config.motor_r = self.config.motor_r, self.config.motor_l
+                    self._update_hw_config(motor_l=self.hw_config.motor_r, motor_r=self.hw_config.motor_l)
                 else:
                     print("  -> Mapping is already correct.")
             else:
                 print("  -> Detected Clockwise (Right) Turn. (Ch0 is Left).")
-                if self.config.motor_l == 1:
+                if self.hw_config.motor_l == 1:
                      print("  -> ACTION: Swapping Channels to Correct Mapping.")
-                     self.config.motor_l, self.config.motor_r = self.config.motor_r, self.config.motor_l
+                     self._update_hw_config(motor_l=self.hw_config.motor_r, motor_r=self.hw_config.motor_l)
                 else:
                     print("  -> Mapping is already correct.")
 
             # 5. Deduce Gyro Yaw Polarity
             # Re-read config flags (since they might have changed if we wanted to support dynamic axis remapping, but here we just check polarity)
-            yaw_axis = self.config.gyro_yaw_axis
-            yaw_invert = self.config.gyro_yaw_invert
+            yaw_axis = self.hw_config.gyro_yaw_axis
+            yaw_invert = self.hw_config.gyro_yaw_invert
 
             raw_yaw_component = getattr(avg_gyro, yaw_axis.value)
             current_yaw_rate = -raw_yaw_component if yaw_invert else raw_yaw_component
@@ -480,11 +498,11 @@ class WiringCheck:
                (dot_prod < 0 and current_yaw_rate > 0):
                 print("  -> Gyro Yaw Polarity is Inverted relative to reality.")
                 print("  -> ACTION: Inverting Gyro Yaw.")
-                self.config.gyro_yaw_invert = not self.config.gyro_yaw_invert
+                self._update_hw_config(gyro_yaw_invert=not self.hw_config.gyro_yaw_invert)
             else:
                 print("  -> Gyro Yaw Polarity is Correct.")
 
-            self.config.motor_channels_verified = True
+            self._update_learning_state(motor_channels_verified=True)
             return True
 
         verify_with_retries("Left/Right Identity", test, verify, fail_fatal=True)
@@ -500,9 +518,9 @@ class WiringCheck:
         self.hw.wait_for_stability()
 
         def test():
-            current_trim = self.config.motor_trim
+            current_trim = self.learning_state.motor_trim
             print(f"  [Info] Testing Trim: {current_trim:.3f}")
-            power = self.config.min_power_visible + 15
+            power = self.learning_state.min_power_visible + 15
             # Drive Straight
             return self.hw.drive_and_measure(power, power, 1.0)
 
@@ -522,14 +540,14 @@ class WiringCheck:
             correction = avg_yaw * gain
 
             # Apply Correction
-            current_trim = self.config.motor_trim
+            current_trim = self.learning_state.motor_trim
             new_trim = max(-0.4, min(0.4, current_trim + correction))
 
             if abs(new_trim - current_trim) < 0.001 and abs(avg_yaw) > 5.0:
                  print("  [WARNING] Trim saturated or not moving.")
 
-            self.config.motor_trim = new_trim
-            print(f"    -> Correction: {correction:+.4f} -> New Trim: {self.config.motor_trim:.3f}")
+            self._update_learning_state(motor_trim=new_trim)
+            print(f"    -> Correction: {correction:+.4f} -> New Trim: {self.learning_state.motor_trim:.3f}")
             return False # Force Retry
 
         if not verify_with_retries("Motor Trim", test, verify, max_attempts=15, fail_fatal=False):
@@ -544,7 +562,7 @@ class WiringCheck:
         print(">>> Measuring Mechanical Backlash (Gear Slop) <<<")
         self.hw.wait_for_stability(duration=1.0)
 
-        test_power = self.config.min_power_visible + 10
+        test_power = self.learning_state.min_power_visible + 10
 
         # Step 1: Engage gears FORWARD
         print("  Engaging gears forward...")
@@ -586,8 +604,9 @@ class WiringCheck:
         print(f"  [SUCCESS] Backlash crossing takes ~{compensated_slop:.3f} seconds.")
 
         # Save it
-        self.config.control.backlash_pulse_time = compensated_slop
-        self.config.backlash_verified = True
+        self.learning_state.control.backlash_pulse_time = compensated_slop
+        self.learning_state.save()
+        self._update_learning_state(backlash_verified=True)
 
     # --- Phase 7: Kick-Up Dynamics ---
     def _wait_for_start_condition(self, check_fn: Callable[[float], bool] | None, msg: str):
@@ -688,18 +707,18 @@ class WiringCheck:
                 if self._kickup_alignment_retries < 3:
                     self._kickup_alignment_retries += 1
                     self.calibrate_motor_trim()
-                    self.config.save()
+                    self.learning_state.save()
                     return True # Retry same power
                 print("  [WARNING] Ignoring drift.")
             return False # Increment power
 
-        start_p = max(20, self.config.min_power_visible + 10)
+        start_p = max(20, self.learning_state.min_power_visible + 10)
         heartbeat_fn = self.watchdog.heartbeat if self.watchdog else None
         found = find_threshold(f"KickUp {direction}", start_p, 5, 100, action, check, fail, heartbeat_fn=heartbeat_fn)
 
         if found:
-            setattr(self.config.control, config_attr, found)
-            self.config.save()
+            setattr(self.learning_state.control, config_attr, found)
+            self.learning_state.save()
 
     def find_flop_thresholds(self):
         """
@@ -710,8 +729,8 @@ class WiringCheck:
 
         # Robust Start Conditions using Calibrated Rest Angles
         # If not calibrated (None), fallback to default -10/10
-        rest_back = self.config.rest_angle_backward if self.config.rest_angle_backward is not None else -10.0
-        rest_front = self.config.rest_angle_forward if self.config.rest_angle_forward is not None else 10.0
+        rest_back = self.learning_state.rest_angle_backward if self.learning_state.rest_angle_backward is not None else -10.0
+        rest_front = self.learning_state.rest_angle_forward if self.learning_state.rest_angle_forward is not None else 10.0
 
         def check_back(p):
             return p < (rest_back + 10.0) and p < -5.0
@@ -734,7 +753,7 @@ class WiringCheck:
 
         # 1. Verify Straight Drive
         print("  [Check 1] Drive Straight...")
-        power = self.config.min_power_visible + 10
+        power = self.learning_state.min_power_visible + 10
 
         result = self.hw.drive_and_measure(power, power, 1.0)
         time.sleep(0.5)
@@ -752,7 +771,7 @@ class WiringCheck:
         print("  [Check 2] Turn Right (Clockwise)...")
         # Command L+, R- (Spin) -> Changed to Arc (L+, R_low) to avoid drag
 
-        power_high = self.config.min_power_visible + 15
+        power_high = self.learning_state.min_power_visible + 15
         power_low = power_high * 0.5
 
         # Turn Right -> Drive Left Motor (High), Right Motor (Low)

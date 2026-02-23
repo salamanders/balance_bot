@@ -1,7 +1,7 @@
 import pytest
 from unittest.mock import MagicMock
 from balance_bot.reflex.balance_core import BalanceCore, MotionRequest, TuningParams
-from balance_bot.config import RobotConfig, PIDParams, ControlConfig
+from balance_bot.configuration import RobotConfig, PIDParams, ControlConfig
 
 def test_turn_gain_impact():
     """Verify that changing turn_gain affects motor output."""
