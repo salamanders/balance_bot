@@ -413,8 +413,8 @@ class WiringCheck:
         """
         print(">>> Aligning Motors Phase (Raw) <<<")
 
-        def test():
-            p = self.learning_state.min_power_visible + 10
+        def test(attempt: int):
+            p = self.learning_state.min_power_visible + 10 + (attempt * 10)
             return self._drive_and_wait(p, p, 0.5)
 
         def verify(res):
@@ -474,7 +474,7 @@ class WiringCheck:
         "Kick Up" Test.
         Requirement: Robot must be leaning FORWARD (Positive Pitch).
         """
-        def test():
+        def test(attempt: int):
             # Check Start Pitch
             imu = self.hw.read_imu_converted()
             start_pitch = imu.pitch_angle
@@ -483,7 +483,7 @@ class WiringCheck:
             # 1. Ensure we are at FRONT (Positive Pitch)
             if start_pitch < 10.0:
                 print(f"  [INFO] Not at FRONT (Pitch={start_pitch:.1f}). Attempting to flop...")
-                p = self.learning_state.min_power_visible + 30
+                p = self.learning_state.min_power_visible + 30 + (attempt * 10)
                 # Try Positive
                 self.hw.drive_and_measure(p, p, 0.5)
                 self.hw.wait_for_stability()
@@ -502,7 +502,7 @@ class WiringCheck:
             # Now we are at Front (Positive Pitch).
             # "Kick Up" means reducing pitch (towards 0).
             # We try Positive Power. If Positive = Forward, pitch should decrease (stand up).
-            power = (self.learning_state.min_power_visible + 20)
+            power = (self.learning_state.min_power_visible + 20) + (attempt * 10)
             print(f"  Pulsing {power}...")
 
             res = self._drive_and_wait(power, power, 0.4, wait_stable=False)
@@ -552,7 +552,7 @@ class WiringCheck:
         print("I am going to spin to determine my physical identity.")
         self.hw.wait_for_stability()
 
-        def test():
+        def test(attempt: int):
             # 1. Establish Up Vector (Opposite of Gravity)
             print("  Measuring Gravity for Reference...")
             accel, _ = self.hw.read_imu_raw()
@@ -560,7 +560,7 @@ class WiringCheck:
 
             # 2. Arc Command ("The Arc")
             # Drive Ch0 High, Ch1 Low (but same sign).
-            power_high = self.learning_state.min_power_visible + 20
+            power_high = self.learning_state.min_power_visible + 20 + (attempt * 10)
             power_low = power_high * 0.5
             print(f"  Driving Arc (Ch0={power_high:.0f}, Ch1={power_low:.0f})...")
 
@@ -651,10 +651,10 @@ class WiringCheck:
         print("I will drive straight and measure drift.")
         self.hw.wait_for_stability()
 
-        def test():
+        def test(attempt: int):
             current_trim = self.learning_state.motor_trim
             print(f"  [Info] Testing Trim: {current_trim:.3f}")
-            power = self.learning_state.min_power_visible + 15
+            power = self.learning_state.min_power_visible + 15 + (attempt * 2)
             # Drive Straight
             return self.hw.drive_and_measure(power, power, 1.0)
 

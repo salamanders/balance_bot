@@ -83,7 +83,12 @@ def test_align_motors_phase_raw_straight(wc_fixture):
         verify_cb = mock_verify.call_args[0][2]
 
         # Run callbacks
-        test_cb() # Should call drive_and_measure
+        test_cb(0) # Should call drive_and_measure with attempt 0
+        mock_hw.drive_and_measure.assert_called_with(30, 30, 0.5)
+
+        test_cb(1) # Should call drive_and_measure with attempt 1 (Ramping)
+        mock_hw.drive_and_measure.assert_called_with(40, 40, 0.5)
+
         result = verify_cb(res) # Should check alignment
 
         assert result is True

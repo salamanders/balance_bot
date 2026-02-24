@@ -565,7 +565,7 @@ def scan_i2c_or_die(name: str, check_fn: Callable[[Any], bool]) -> int:
         sys.exit(1)
     return bus
 
-def verify_with_retries(name: str, test_fn: Callable[[], Any],
+def verify_with_retries(name: str, test_fn: Callable[[int], Any],
                          check_fn: Callable[[Any], bool | str],
                          max_attempts: int = 3, fail_fatal: bool = True) -> bool:
     """
@@ -576,7 +576,7 @@ def verify_with_retries(name: str, test_fn: Callable[[], Any],
     print(f">>> Verifying {name} <<<")
     for i in range(max_attempts):
         print(f"  [Attempt {i+1}] Checking {name}...")
-        result = test_fn()
+        result = test_fn(i)
 
         outcome = check_fn(result)
         if outcome is True or outcome == "PASS":
