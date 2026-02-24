@@ -1,5 +1,6 @@
 import sys
 import pytest
+import glm
 from unittest.mock import MagicMock, patch
 
 # Mock smbus2 before import
@@ -7,7 +8,6 @@ if 'smbus2' not in sys.modules:
     sys.modules['smbus2'] = MagicMock()
 
 from balance_bot.wiring_check import WiringCheck
-from balance_bot.utils import Vector3
 from balance_bot.enums import Axis
 from balance_bot.hardware.robot_hardware import MeasureResult, IMUReading
 
@@ -26,7 +26,6 @@ def wc_fixture():
         MockHWConfig.load.return_value = hw_config
 
         # When model_copy is called, return the same mock so we can track calls easier
-        # In reality it returns a new object, but for mocking we just want to see the update dict
         hw_config.model_copy.return_value = hw_config
 
         learning_state = MagicMock()
@@ -45,15 +44,15 @@ def test_calibrate_orientation(wc_fixture):
     wc, hw_config, learning_state = wc_fixture
 
     # 1. Back (Vertical Gravity) - Z=-9.8
-    back_vec = Vector3(0.1, 0.2, -9.8)
+    back_vec = glm.vec3(0.1, 0.2, -9.8)
     # 2. Front (Flop Forward) - Y=9.8
-    front_vec = Vector3(0.1, 9.8, 0.2)
+    front_vec = glm.vec3(0.1, 9.8, 0.2)
 
     # Setup MeasureResults for drive_and_measure calls
 
     # Result 1 (Back Measurement)
     res_back = MeasureResult(duration=1.0, samples=[
-        IMUReading(0,0,0,0,0, accel_raw=back_vec, gyro_raw=Vector3(0,0,0))
+        IMUReading(0,0,0,0,0, accel_raw=back_vec, gyro_raw=glm.vec3(0,0,0))
     ] * 10)
 
     # Result 2 (Flop Action)
@@ -61,18 +60,15 @@ def test_calibrate_orientation(wc_fixture):
 
     # Result 3 (Front Measurement)
     res_front = MeasureResult(duration=1.0, samples=[
-        IMUReading(0,0,0,0,0, accel_raw=front_vec, gyro_raw=Vector3(0,0,0))
+        IMUReading(0,0,0,0,0, accel_raw=front_vec, gyro_raw=glm.vec3(0,0,0))
     ] * 10)
 
-    # Side effect for drive_and_measure
-    # Sequence: measure(0,0) -> drive(flop) -> measure(0,0) -> maybe reverse flop?
-    # We assume success on first flop.
     # wc.hw.drive_and_measure.side_effect = [res_back, res_flop, res_front]
 
     # Mock read_imu_converted for rest angle calculation
     wc.hw.read_imu_converted.return_value = IMUReading(
         pitch_angle=30.0, pitch_rate=0, yaw_rate=0, roll_angle=0, roll_rate=0,
-        accel_raw=front_vec, gyro_raw=Vector3(0,0,0)
+        accel_raw=front_vec, gyro_raw=glm.vec3(0,0,0)
     )
 
     # Mock get_axis_value to return dummy value

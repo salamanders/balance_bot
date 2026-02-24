@@ -7,7 +7,9 @@ import os
 import importlib
 from pathlib import Path
 from collections import deque
-from typing import NamedTuple, Union, Callable, Any
+from typing import Union, Callable, Any
+
+import glm
 
 try:
     import smbus2 as smbus
@@ -38,66 +40,6 @@ class LogCaptureHandler(logging.Handler):
             self.buffer.append(msg)
         except Exception:
             self.handleError(record)
-
-
-class Vector3(NamedTuple):
-    """Type definition for a 3D vector (x, y, z)."""
-
-    x: float
-    y: float
-    z: float
-
-    def __getitem__(self, key: Union[str, int]) -> float:
-        if isinstance(key, str):
-            if key == "x":
-                return self.x
-            if key == "y":
-                return self.y
-            if key == "z":
-                return self.z
-            raise KeyError(key)
-        return tuple.__getitem__(self, key)
-
-    def items(self):
-        return self._asdict().items()
-
-    @staticmethod
-    def from_dict(d: dict[str, float]) -> "Vector3":
-        return Vector3(d["x"], d["y"], d["z"])
-
-    def __add__(self, other: "Vector3") -> "Vector3":
-        return Vector3(self.x + other.x, self.y + other.y, self.z + other.z)
-
-    def __sub__(self, other: "Vector3") -> "Vector3":
-        return Vector3(self.x - other.x, self.y - other.y, self.z - other.z)
-
-    def __mul__(self, scalar: float) -> "Vector3":
-        return Vector3(self.x * scalar, self.y * scalar, self.z * scalar)
-
-    def __rmul__(self, scalar: float) -> "Vector3":
-        return self.__mul__(scalar)
-
-    def __truediv__(self, scalar: float) -> "Vector3":
-        if scalar == 0:
-            raise ZeroDivisionError("Vector division by zero")
-        return Vector3(self.x / scalar, self.y / scalar, self.z / scalar)
-
-    def __neg__(self) -> "Vector3":
-        return Vector3(-self.x, -self.y, -self.z)
-
-    @property
-    def magnitude(self) -> float:
-        return math.sqrt(self.x**2 + self.y**2 + self.z**2)
-
-    def dot(self, other: "Vector3") -> float:
-        return self.x * other.x + self.y * other.y + self.z * other.z
-
-    def cross(self, other: "Vector3") -> "Vector3":
-        return Vector3(
-            self.y * other.z - self.z * other.y,
-            self.z * other.x - self.x * other.z,
-            self.x * other.y - self.y * other.x,
-        )
 
 
 class ComplementaryFilter:
@@ -289,28 +231,8 @@ def check_force_calibration_flag() -> bool:
     return False
 
 
-def cross_product(a: Vector3, b: Vector3) -> Vector3:
-    """
-    Calculate the cross product of two 3D vectors (a x b).
-
-    :param a: First vector (Vector3 or object with x,y,z attributes).
-    :param b: Second vector (Vector3 or object with x,y,z attributes).
-    :return: Cross product vector (Vector3).
-    """
-    # Prefer method if available (it is now)
-    if hasattr(a, "cross") and callable(a.cross):
-        return a.cross(b)
-
-    # Fallback for duck-typed objects (if any still exist)
-    return Vector3(
-        a.y * b.z - a.z * b.y,
-        a.z * b.x - a.x * b.z,
-        a.x * b.y - a.y * b.x,
-    )
-
-
 def analyze_dominance(
-    data: Union[dict[str, float], Vector3],
+    data: Union[dict[str, float], glm.vec3],
     label: str,
     expected_axis: str = None,
     threshold: float = 1.5,
@@ -318,14 +240,14 @@ def analyze_dominance(
     """
     Analyzes a dictionary of axis values to find the dominant signal.
 
-    :param data: Dictionary of axis values (e.g. {'x': 100, 'y': 10}) or Vector3.
+    :param data: Dictionary of axis values (e.g. {'x': 100, 'y': 10}) or glm.vec3.
     :param label: Name of the test for logging.
     :param expected_axis: (Optional) The axis expected to be dominant.
     :param threshold: Minimum ratio between winner and runner-up.
     :return: Tuple (winner_axis, ratio, is_success)
     """
-    if isinstance(data, Vector3):
-        data = data._asdict()
+    if isinstance(data, glm.vec3):
+        data = {'x': data.x, 'y': data.y, 'z': data.z}
 
     sorted_items = sorted(data.items(), key=lambda x: abs(x[1]), reverse=True)
     winner, winner_val = sorted_items[0]
@@ -628,17 +550,17 @@ def find_threshold(name: str, start: float, step: float, limit: float,
     sys.exit(1)
 
 
-def vector_angle(v1: Vector3, v2: Vector3) -> float:
+def vector_angle(v1: glm.vec3, v2: glm.vec3) -> float:
     """Calculate the angle in degrees between two vectors."""
-    dot = v1.dot(v2)
-    mag = v1.magnitude * v2.magnitude
+    dot = glm.dot(v1, v2)
+    mag = glm.length(v1) * glm.length(v2)
     if mag == 0:
         return 0.0
     val = max(-1.0, min(1.0, dot / mag))
     return math.degrees(math.acos(val))
 
 
-def sort_resting_vectors(vectors: list[Vector3]) -> tuple[Vector3, Vector3]:
+def sort_resting_vectors(vectors: list[glm.vec3]) -> tuple[glm.vec3, glm.vec3]:
     """
     Sort resting vectors into two distinct groups based on angle separation.
     Returns the average vector for each group.
@@ -661,14 +583,14 @@ def sort_resting_vectors(vectors: list[Vector3]) -> tuple[Vector3, Vector3]:
         raise ValueError("Failed to find two distinct resting positions (all vectors clustered near pivot).")
 
     # Average buckets
-    def avg_bucket(bucket: list[Vector3]) -> Vector3:
+    def avg_bucket(bucket: list[glm.vec3]) -> glm.vec3:
         if not bucket:
-            return Vector3(0.0, 0.0, 0.0)
+            return glm.vec3(0.0)
         sum_x = sum(v.x for v in bucket)
         sum_y = sum(v.y for v in bucket)
         sum_z = sum(v.z for v in bucket)
         count = len(bucket)
-        return Vector3(sum_x / count, sum_y / count, sum_z / count)
+        return glm.vec3(sum_x / count, sum_y / count, sum_z / count)
 
     avg_a = avg_bucket(bucket_a)
     avg_b = avg_bucket(bucket_b)

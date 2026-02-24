@@ -2,12 +2,11 @@ import unittest
 from unittest.mock import MagicMock, patch, ANY, call
 import sys
 import math
+import glm
 
 # Define mock classes if needed, or rely on MagicMock
 # We need Vector3 for type hints or usage in create_sample if we import it
 
-from src.balance_bot.utils import Vector3
-# We need IMUReading and MeasureResult for mocking return values
 from src.balance_bot.hardware.robot_hardware import IMUReading, MeasureResult
 
 # Mock dependencies before importing wiring_check
@@ -55,8 +54,8 @@ class TestWiringCheckPhase(unittest.TestCase):
             yaw_rate=yaw,
             roll_angle=0.0,
             roll_rate=0.0,
-            accel_raw=Vector3(ax, ay, az),
-            gyro_raw=Vector3(gx, gy, gz)
+            accel_raw=glm.vec3(ax, ay, az),
+            gyro_raw=glm.vec3(gx, gy, gz)
         )
 
     def test_align_motors_phase_stuck(self):

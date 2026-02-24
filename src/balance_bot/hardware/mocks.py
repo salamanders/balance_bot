@@ -1,6 +1,6 @@
 import os
 import math
-from ..utils import Vector3
+import glm
 
 
 class MockPiconZero:
@@ -30,7 +30,7 @@ class MockMPU6050:
         self.address = address
         print(f"[MockMPU6050] init at {address}")
 
-    def get_accel_data(self) -> Vector3:
+    def get_accel_data(self) -> glm.vec3:
         # Default vertical
         pitch = 0.0
 
@@ -52,7 +52,7 @@ class MockMPU6050:
         y = math.sin(rad) * 9.8
         z = math.cos(rad) * 9.8
 
-        return Vector3(0.0, y, z)
+        return glm.vec3(0.0, y, z)
 
-    def get_gyro_data(self) -> Vector3:
-        return Vector3(0.0, 0.0, 0.0)
+    def get_gyro_data(self) -> glm.vec3:
+        return glm.vec3(0.0)
