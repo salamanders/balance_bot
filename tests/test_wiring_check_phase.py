@@ -106,15 +106,17 @@ class TestWiringCheckPhase(unittest.TestCase):
         self.wc.hw.read_imu_converted.return_value = self.create_sample(0, 0, 1.0, 0, 0, 0)
 
         # Scenario: Translating (Forward Accel).
+        # We simulate a ramp up in forward acceleration to trigger accel_vec_diff check
         samples = []
         for i in range(10):
-            noise = (i % 2) * 0.1
-            # Forward accel 0.2
-            samples.append(self.create_sample(0.2, 0, 1.0 + noise, 0, 5, 0, yaw=2.0))
+            noise = (i % 2) * 0.05
+            fwd_accel = 0.1 + (i * 0.05) # 0.1 -> 0.55
+            # Forward accel increasing
+            samples.append(self.create_sample(fwd_accel, 0, 1.0 + noise, 0, 5, 0, yaw=2.0))
         res = MeasureResult(duration=0.5, samples=samples)
         self.wc.hw.drive_and_measure.return_value = res
 
-        # We need self.hw.get_mapped_value to return 0.2 for "accel_forward"
+        # We need self.hw.get_mapped_value to return fwd_accel for "accel_forward" (Not used anymore in fix, but good to keep compatible)
         self.wc.hw.get_mapped_value.side_effect = lambda vec, name: vec.x if name == "accel_forward" else 0.0
 
         # Should pass on first attempt
