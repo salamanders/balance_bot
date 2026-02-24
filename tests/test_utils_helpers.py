@@ -40,6 +40,7 @@ class TestUtilsHelpers(unittest.TestCase):
         result = verify_with_retries("Test", test_fn, check_fn, max_attempts=3, fail_fatal=False)
         self.assertTrue(result)
         self.assertEqual(test_fn.call_count, 2)
+        test_fn.assert_has_calls([call(0), call(1)])
 
     def test_verify_with_retries_fail_retry(self):
         test_fn = MagicMock(return_value="Fail")
@@ -47,12 +48,14 @@ class TestUtilsHelpers(unittest.TestCase):
         result = verify_with_retries("Test", test_fn, lambda x: False, max_attempts=2, fail_fatal=False)
         self.assertFalse(result)
         self.assertEqual(test_fn.call_count, 2)
+        test_fn.assert_has_calls([call(0), call(1)])
 
     def test_verify_with_retries_fail_fatal(self):
         test_fn = MagicMock(return_value="Fatal")
 
         with self.assertRaises(SystemExit):
             verify_with_retries("Test", test_fn, lambda x: "FAIL_FATAL", max_attempts=3, fail_fatal=True)
+        test_fn.assert_called_with(0)
 
     def test_find_threshold_success(self):
         # Fail at 10, Success at 15
