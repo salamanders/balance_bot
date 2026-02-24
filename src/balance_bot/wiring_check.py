@@ -233,52 +233,46 @@ class WiringCheck:
     def _measure_gravity_vectors(self) -> tuple[Vector3, Vector3]:
         """
         Measure gravity vector at Back and Front resting positions.
-        Uses 'Blind Flop' logic to autonomously discover positions without user input.
+        Requires User Intervention to anchor the "BACK" position.
         """
-        print(">>> Calibrating Orientation (Blind Flop) <<<")
-        print("Please ensure the robot is on the floor.")
+        print(">>> Calibrating Orientation <<<")
+
+        # 1. Force Human Anchor (Establish Ground Truth)
+        input("  [ACTION REQUIRED] Please place the robot flat on its BACK on the floor and press Enter...")
         self.hw.wait_for_stability(duration=1.5)
 
-        # 1. Measure Position 1 (Unknown State)
-        print("  Measuring Position 1...")
-        p1 = self._measure_gravity_with_hardware()
-        print(f"  [DEBUG] Vector P1: {p1}")
+        print("  Measuring Position 1 (BACK)...")
+        p_back = self._measure_gravity_with_hardware()
+        print(f"  [DEBUG] Vector Back: {p_back}")
 
-        # 2. Attempt Blind Flop (Positive Power)
-        # Use discovered min_power + 30 for reliable flop
+        # 2. Attempt Flop to find Front
+        # Try Positive Power first
         flop_power = self.learning_state.min_power_visible + 30
-        print(f"  Attempting Blind Flop (+{flop_power})...")
+        print(f"  Attempting Flop (+{flop_power})...")
         self.hw.drive_and_measure(flop_power, flop_power, 0.5)
         self.hw.wait_for_stability(duration=1.5)
 
-        # 3. Measure Position 2
-        print("  Measuring Position 2...")
-        p2 = self._measure_gravity_with_hardware()
-        print(f"  [DEBUG] Vector P2: {p2}")
+        print("  Measuring Position 2 (FRONT?)...")
+        p_front = self._measure_gravity_with_hardware()
+        print(f"  [DEBUG] Vector Front (Candidate): {p_front}")
 
-        # 4. Check for drastic change
-        angle_diff = self._vector_angle(p1, p2)
+        # 3. Verify Flop
+        angle_diff = self._vector_angle(p_back, p_front)
         print(f"  [DEBUG] Vector Change Angle: {angle_diff:.1f} degrees")
 
-        if angle_diff > 45.0:
-            # Huge change -> We flopped from Back to Front (or Front to Back).
-            # Assuming Position 1 was BACK (default rest), Position 2 is FRONT.
-            print("  [SUCCESS] Flop detected. Assuming P1=BACK, P2=FRONT.")
-            return p1, p2
-        else:
+        if angle_diff < 45.0:
             # Little change -> We pushed into the floor.
             # Try NEGATIVE power to flop the other way.
             print(f"  [INFO] No significant change. Reversing Flop Direction (-{flop_power})...")
             self.hw.drive_and_measure(-flop_power, -flop_power, 0.5)
             self.hw.wait_for_stability(duration=1.5)
 
-            # 5. Measure Position 3
-            print("  Measuring Position 3...")
-            p3 = self._measure_gravity_with_hardware()
-            print(f"  [DEBUG] Vector P3: {p3}")
+            print("  Measuring Position 2 (FRONT)...")
+            p_front = self._measure_gravity_with_hardware()
+            print(f"  [DEBUG] Vector Front: {p_front}")
 
-            print("  [SUCCESS] Assuming P2=FRONT, P3=BACK.")
-            return p3, p2
+        print("  [SUCCESS] Orientation Calibrated.")
+        return p_back, p_front
 
     def _deduce_axes(self, avg_back: Vector3, avg_front: Vector3):
         """Deduce Pitch, Vertical, and Forward axes from gravity vectors."""
@@ -883,6 +877,11 @@ class WiringCheck:
         if avg_yaw > 40.0:
              print("  [FAILURE] Robot spun while trying to drive straight.")
              print("  -> Possible Phase mismatch or Motor Direction mismatch despite checks.")
+             self._update_learning_state(
+                motor_direction_verified=False,
+                motor_channels_verified=False,
+                motor_trim_verified=False
+             )
              sys.exit(1)
 
         # 2. Verify Right Turn
@@ -905,9 +904,19 @@ class WiringCheck:
              if avg_yaw_signed > 10.0:
                  print("  [FAILURE] Robot turned LEFT when commanded RIGHT.")
                  print("  -> Gyro Yaw or Motor Channel mismatch.")
+                 self._update_learning_state(
+                    motor_direction_verified=False,
+                    motor_channels_verified=False,
+                    motor_trim_verified=False
+                 )
                  sys.exit(1)
              else:
                  print("  [FAILURE] Robot did not turn significantly.")
+                 self._update_learning_state(
+                    motor_direction_verified=False,
+                    motor_channels_verified=False,
+                    motor_trim_verified=False
+                 )
                  sys.exit(1)
 
         print("  [PASS] Configuration Verified.")
