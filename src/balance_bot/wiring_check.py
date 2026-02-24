@@ -268,7 +268,7 @@ class WiringCheck:
         print(">>> Calibrating Orientation (Autonomous) <<<")
 
         # 1. Flail & Collect
-        vectors = self._toddler_flail_collection(duration=12.0)
+        vectors = self._toddler_flail_collection(duration=24.0)
 
         # 2. Sort into two buckets
         print(f"  [Analysis] Sorting {len(vectors)} vectors...")
