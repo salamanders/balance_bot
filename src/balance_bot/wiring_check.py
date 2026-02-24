@@ -364,18 +364,19 @@ class WiringCheck:
 
         self._update_hw_config(**update_dict)
 
-    def _calculate_rest_angles(self, avg_back: glm.vec3):
+    def _calculate_rest_angles(self, avg_back: glm.vec3, avg_front: glm.vec3):
         """Calculate and store rest angles based on deduced axes."""
         print("  Measuring Rest Angles...")
-        # Currently at FRONT position
-        curr_front_reading = self.hw.read_imu_converted()
-        angle_front = curr_front_reading.pitch_angle
+        from .utils import calculate_pitch
+
+        # Calculate Front Angle from avg_front using known axes
+        fwd_val_front = self.hw.get_axis_value(avg_front, self.hw_config.accel_forward_axis, self.hw_config.accel_forward_invert)
+        vert_val_front = self.hw.get_axis_value(avg_front, self.hw_config.accel_vertical_axis, self.hw_config.accel_vertical_invert)
+        angle_front = calculate_pitch(fwd_val_front, vert_val_front)
 
         # Calculate Back Angle from avg_back using known axes
         fwd_val_back = self.hw.get_axis_value(avg_back, self.hw_config.accel_forward_axis, self.hw_config.accel_forward_invert)
         vert_val_back = self.hw.get_axis_value(avg_back, self.hw_config.accel_vertical_axis, self.hw_config.accel_vertical_invert)
-
-        from .utils import calculate_pitch
         angle_back = calculate_pitch(fwd_val_back, vert_val_back)
 
         self._update_learning_state(rest_angle_forward=angle_front, rest_angle_backward=angle_back)
@@ -392,7 +393,7 @@ class WiringCheck:
         """
         avg_back, avg_front = self._measure_gravity_vectors()
         self._deduce_axes(avg_back, avg_front)
-        self._calculate_rest_angles(avg_back)
+        self._calculate_rest_angles(avg_back, avg_front)
 
 
     # --- Phase 3a: Friction Threshold ---
