@@ -9,6 +9,7 @@ from .watchdog import SurvivalWatchdog
 import random
 import glm
 from .enums import Axis
+from .dag_executor import DAGExecutor
 from .utils import (
     analyze_dominance,
     get_i2c_failure_report,
@@ -73,95 +74,108 @@ class WiringCheck:
     def _set_default_motors(self):
         print("-> [INFO] Setting default motors (0,1).")
         self._update_hw_config(motor_l=0, motor_r=1)
-        # Re-init hardware to pick up new config if needed,
-        # though RobotHardware doesn't cache motor channels, but let's be safe.
-        # Actually init_hw checks if self.hw is set. If we want to force update config,
-        # we might need to recreate self.hw?
-        # RobotHardware holds a reference to hw_config. But hw_config is immutable and replaced on update.
-        # So we MUST re-create RobotHardware.
+
+        # Cascading Invalidation: Force hardware re-initialization
         if self.hw:
             self.hw.cleanup()
             self.hw = None
-        self.init_hw()
+        # We return immediately. The DAG will detect 'hardware_init' condition is missing (hw is None)
+        # and re-run init_hw in the next step.
 
     def run(self):
         """
         Main Knowledge Dependency Loop.
-        Iterates until all configuration requirements are met.
+        Uses a Directed Acyclic Graph (DAG) to resolve configuration dependencies.
         """
         print("Beginning Self-Discovery Protocol...")
         run_diagnostics()
 
-        steps = [
-            ("I2C Bus Assignments",
-             lambda: self.hw_config.motor_i2c_bus is None or self.hw_config.imu_i2c_bus is None,
-             self.discover_buses),
+        knowledge_graph = {
+            "i2c_buses": {
+                "description": "Locate the physical addresses of the motor controller and IMU.",
+                "condition": lambda: self.hw_config.motor_i2c_bus is not None and self.hw_config.imu_i2c_bus is not None,
+                "depends_on": [],
+                "action": self.discover_buses
+            },
 
-            ("Hardware Initialization",
-             lambda: self.hw is None,
-             self.init_hw),
+            "hardware_init": {
+                "description": "Instantiate the hardware abstraction layer using discovered buses.",
+                "condition": lambda: self.hw is not None,
+                "depends_on": ["i2c_buses"],
+                "action": self.init_hw
+            },
 
-            ("Motor Candidates",
-             lambda: self.hw_config.motor_l is None or self.hw_config.motor_r is None,
-             self._set_default_motors),
+            "motor_candidates": {
+                "description": "Assign default logical channels to the left and right motors.",
+                "condition": lambda: self.hw_config.motor_l is not None and self.hw_config.motor_r is not None,
+                "depends_on": ["hardware_init"],
+                "action": self._set_default_motors
+            },
 
-            ("Friction Threshold",
-             lambda: self.learning_state.min_power_visible == 0,
-             self.find_min_power),
+            "friction_threshold": {
+                "description": "Find the minimum PWM required to overcome internal gear friction.",
+                "condition": lambda: self.learning_state.min_power_visible > 0,
+                "depends_on": ["hardware_init", "motor_candidates"],
+                "action": self.find_min_power
+            },
 
-            ("Spatial Orientation",
-             lambda: self.hw_config.accel_vertical_axis is None,
-             lambda: (self.init_hw(), self.calibrate_static_orientation())),
+            "spatial_orientation": {
+                "description": "Toddler flail to find resting gravity vectors, deducing IMU axes.",
+                "condition": lambda: self.hw_config.accel_vertical_axis is not None,
+                "depends_on": ["friction_threshold"], # Must know how hard to flail
+                "action": self.calibrate_static_orientation
+            },
 
-            ("Motor Phasing",
-             lambda: not self.learning_state.motor_phasing_verified,
-             self.align_motors_phase),
+            "motor_phasing": {
+                "description": "Ensure both wheels drive the same direction for a given sign.",
+                "condition": lambda: self.learning_state.motor_phasing_verified,
+                "depends_on": ["friction_threshold", "spatial_orientation"], # CRITICAL: Requires axis mapping
+                "action": self.align_motors_phase
+            },
 
-            ("Motor Direction",
-             lambda: not self.learning_state.motor_direction_verified,
-             self.determine_motor_direction),
+            "motor_direction": {
+                "description": "Ensure positive PWM results in 'Forward' movement (reducing pitch when leaning forward).",
+                "condition": lambda: self.learning_state.motor_direction_verified,
+                "depends_on": ["motor_phasing", "spatial_orientation"],
+                "action": self.determine_motor_direction
+            },
 
-            ("Left/Right Identity",
-             lambda: not self.learning_state.motor_channels_verified,
-             self.deduce_left_right_autonomous),
+            "left_right_identity": {
+                "description": "Drive an arc and use the Right-Hand Rule to determine Left vs Right.",
+                "condition": lambda: self.learning_state.motor_channels_verified,
+                "depends_on": ["motor_direction", "spatial_orientation"],
+                "action": self.deduce_left_right_autonomous
+            },
 
-            ("Motor Trim",
-             lambda: not self.learning_state.motor_trim_verified,
-             lambda: (self.calibrate_motor_trim(), self._update_learning_state(motor_trim_verified=True))),
+            "motor_trim": {
+                "description": "Drive straight and calculate the PWM offset needed to eliminate yaw drift.",
+                "condition": lambda: self.learning_state.motor_trim_verified,
+                "depends_on": ["left_right_identity"], # Must know true L/R to apply correct offsets
+                "action": lambda: (self.calibrate_motor_trim(), self._update_learning_state(motor_trim_verified=True))
+            },
 
-            ("Mechanical Backlash",
-             lambda: not self.learning_state.backlash_verified,
-             self.measure_backlash),
+            "mechanical_backlash": {
+                "description": "Measure the dead-time delay when reversing gear direction.",
+                "condition": lambda: self.learning_state.backlash_verified,
+                "depends_on": ["motor_trim"], # Requires reliable straight-line driving
+                "action": self.measure_backlash
+            },
 
-            ("Kick-Up Dynamics",
-             lambda: self.learning_state.control.kickup_power_forward == 0.0,
-             self.find_flop_thresholds)
-        ]
+            "kickup_dynamics": {
+                "description": "Determine the impulse power needed to stand up from resting positions.",
+                "condition": lambda: self.learning_state.control.kickup_power_forward > 0.0,
+                "depends_on": ["motor_trim", "spatial_orientation"],
+                "action": self.find_flop_thresholds
+            }
+        }
 
-        while True:
-            if self.watchdog:
-                self.watchdog.heartbeat()
+        executor = DAGExecutor(knowledge_graph)
 
-            print("\n---------------------------------------------------")
-            print("Checking Knowledge Base...")
-
-            action_taken = False
-            for name, condition, action in steps:
-                if condition():
-                    print(f"-> [MISSING] {name}.")
-                    action()
-                    # Configs are saved within actions
-                    action_taken = True
-                    break # Restart loop
-
-            if action_taken:
-                continue
-
-            # All steps passed
+        # Run until success
+        if executor.run(max_iterations=100):
             print("-> [VERIFYING] Final Configuration Check.")
             self.verify_final_configuration()
             self._print_summary()
-            break
 
         self.cleanup()
 
