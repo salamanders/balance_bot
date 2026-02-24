@@ -72,7 +72,13 @@ def test_align_motors_phase_raw_straight(wc_fixture):
 
     # Need fwd accel > 0.1
     # Mock get_mapped_value to return 0.2 when asking for accel_forward
-    mock_hw.get_mapped_value.side_effect = lambda v, name: 0.2 if name == "accel_forward" else 0.0
+    # But return 0.0 for baseline (which has z=1 in our manual construction below)
+    def get_mapped_val(v, name):
+        if name == "accel_forward":
+            if v and v.z == 1.0: return 0.0
+            return 0.2
+        return 0.0
+    mock_hw.get_mapped_value.side_effect = get_mapped_val
 
     res = MeasureResult(duration=0.5, samples=[
         IMUReading(0,0,0,0,0, accel_raw=gravity, gyro_raw=gyro)
@@ -91,13 +97,15 @@ def test_align_motors_phase_raw_straight(wc_fixture):
         # Run callbacks
         test_cb(0) # Should call drive_and_measure with attempt 0
         # Power = 20 + 20 + 0 = 40
-        mock_hw.drive_and_measure.assert_called_with(40, 40, 0.5)
+        mock_hw.drive_and_measure.assert_called_with(40, 40, 0.5, wait_for_stability=False)
 
         test_cb(1) # Should call drive_and_measure with attempt 1 (Ramping)
         # Power = 20 + 20 + 10 = 50
-        mock_hw.drive_and_measure.assert_called_with(50, 50, 0.5)
+        mock_hw.drive_and_measure.assert_called_with(50, 50, 0.5, wait_for_stability=False)
 
-        result = verify_cb(res) # Should check alignment
+        # Verify expects (baseline, res)
+        baseline = IMUReading(0,0,0,0,0, accel_raw=glm.vec3(0,0,1), gyro_raw=glm.vec3(0,0,0))
+        result = verify_cb((baseline, res)) # Should check alignment
 
         assert result is True
         assert learning_state.motor_phasing_verified == True
@@ -127,7 +135,8 @@ def test_align_motors_phase_raw_spinning(wc_fixture):
         wc.align_motors_phase()
 
         verify_cb = mock_verify.call_args[0][2]
-        result = verify_cb(res)
+        baseline = IMUReading(0,0,0,0,0, accel_raw=glm.vec3(0,0,1), gyro_raw=glm.vec3(0,0,0))
+        result = verify_cb((baseline, res))
 
         assert result is False
 
