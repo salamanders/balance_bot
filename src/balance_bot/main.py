@@ -15,10 +15,7 @@ def main() -> None:
     setup_logging()
 
     parser = argparse.ArgumentParser(description="Balance Bot Control")
-    parser.add_argument("--discover", action="store_true", help="Run the toddler discovery process")
-    parser.add_argument("--force", action="store_true", help="Force relearning even if knowledge exists")
-    parser.add_argument("--reset-brain", action="store_true", help="Reset the knowledge graph")
-    parser.add_argument("--check-wiring", action="store_true", help="Run wiring check utility")
+    parser.add_argument("--reset-brain", action="store_true", help="Wipe all learned configuration")
     parser.add_argument("--allow-mocks", action="store_true", help="Allow fallback to mock hardware")
     parser.add_argument("--auto-fix", action="store_true", help="Report crashes to Jules")
 
@@ -32,49 +29,32 @@ def main() -> None:
     watchdog = SurvivalWatchdog(timeout=20.0)
 
     try:
-        if args.reset_brain or args.force:
-            from .configuration import HardwareConfig, LearningState
+        # 1. Wipe Brain if requested
+        if args.reset_brain:
             print("Resetting Robot Memory...")
-            # Reset by overwriting with defaults
+            from .configuration import HardwareConfig, LearningState
             HardwareConfig().save()
             LearningState().save()
-            print("Brain reset complete.")
-            # If we are not discovering or checking wiring, we are done.
-            if not args.discover and not args.check_wiring:
-                return
+            print("Brain reset complete. Entering Toddler Phase.")
 
-        if args.discover or args.check_wiring:
-            try:
-                # WiringCheck handles incremental discovery automatically.
-                # If reset_brain was called, it starts from scratch.
-                WiringCheck(watchdog=watchdog).run()
-            except KeyboardInterrupt:
-                if watchdog.triggered:
-                    raise RuntimeError("Watchdog Panic! WiringCheck was stuck.") from None
-                pass
-            return
+        # 2. Check if we need to learn
+        from .configuration import LearningState
+        state = LearningState.load()
 
-        try:
-            bot = Agent(watchdog=watchdog)
-            bot.run()
-        except KeyboardInterrupt:
-            # Agent catches its own KeyboardInterrupt, but if it re-raises it (due to watchdog),
-            # we catch it here.
-            if watchdog.triggered:
-                raise RuntimeError("Watchdog Panic! Agent was stuck.") from None
-            pass
-        finally:
-            # Emergency Stop / Cleanup if bot was initialized
-            # This catches crashes that happen before bot.run() (e.g. init)
-            # or if bot.run()'s internal cleanup failed.
-            if "bot" in locals():
-                try:
-                    agent_inst = locals()["bot"]
-                    if hasattr(agent_inst, "core"):
-                        agent_inst.core.cleanup()
-                except Exception:
-                    # Do not let cleanup errors mask the original crash
-                    pass
+        # If the final discovery step hasn't been verified, it's a baby.
+        # We also check if kickup power is 0.0, because WiringCheck includes KickUp after Backlash.
+        needs_discovery = (not state.backlash_verified) or (state.control.kickup_power_forward == 0.0)
+
+        # 3. Learn (Toddler Phase)
+        if needs_discovery:
+            print("Incomplete knowledge detected. Initiating Discovery...")
+            WiringCheck(watchdog=watchdog).run()
+            # WiringCheck finishes and cleans up the hardware locks safely.
+            print("Discovery complete. Waking up Main Agent...")
+
+        # 4. Run (Adult Phase)
+        bot = Agent(watchdog=watchdog)
+        bot.run()
 
     except Exception as e:
         # Check if Auto-Fix is requested
@@ -89,19 +69,19 @@ def main() -> None:
             logs = get_captured_logs()
 
             # 3. Capture State
-            state = {"status": "Crashed before Agent init or in Utility"}
+            state_info = {"status": "Crashed before Agent init or in Utility"}
             # Access 'bot' from locals if it was initialized
             if "bot" in locals():
                 try:
                     # 'bot' is an Agent instance
                     agent_inst = locals()["bot"]
-                    state = {
+                    state_info = {
                         "hardware": agent_inst.hw_config.model_dump(),
                         "learning": agent_inst.learning_state.model_dump(),
                         "runtime_ticks": agent_inst.ticks
                     }
                 except Exception:
-                    state["serialization_error"] = "Could not serialize bot config"
+                    state_info["serialization_error"] = "Could not serialize bot config"
 
             # 4. Capture Libs
             libs = {
@@ -111,7 +91,7 @@ def main() -> None:
 
             # 5. Report
             client = JulesClient()
-            success, prompt = client.report_crash(str(e), tb, logs, state, libs)
+            success, prompt = client.report_crash(str(e), tb, logs, state_info, libs)
 
             if success:
                 print("Crash report submitted to Jules. Check your dashboard for the new session.")
