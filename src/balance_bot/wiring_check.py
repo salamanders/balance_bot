@@ -409,61 +409,67 @@ class WiringCheck:
     def align_motors_phase(self):
         """
         Ensure motors spin together (Straight), not opposite (Spin).
-        Uses raw gyro/accel comparison to detect spinning vs pitching.
+        Uses accelerometer for translation check and gyro for spin check.
         """
-        print(">>> Aligning Motors Phase (Raw) <<<")
+        print(">>> Aligning Motors Phase (New Protocol) <<<")
 
         def test(attempt: int):
-            p = self.learning_state.min_power_visible + 10 + (attempt * 10)
+            # Increased power by +20 (was +10) to overcome static friction
+            p = self.learning_state.min_power_visible + 20 + (attempt * 10)
             return self._drive_and_wait(p, p, 0.5)
 
         def verify(res):
             if not res.samples: return False
 
-            # 1. Estimate Gravity Vector (use first sample as approx rest state)
-            gravity = res.samples[0].accel_raw
-            if not gravity: return False
+            # Check 1 (Did we move?):
+            # Calculate Accel Magnitude Range
+            accel_mags = [s.accel_raw.magnitude for s in res.samples if s.accel_raw]
+            if not accel_mags: return False
+            accel_range = max(accel_mags) - min(accel_mags)
 
-            # 2. Estimate Average Rotation Vector
-            gyro_sum = Vector3(0.0, 0.0, 0.0)
-            count = 0
-            for s in res.samples:
-                if s.gyro_raw:
-                    gyro_sum += s.gyro_raw
-                    count += 1
-            if count == 0: return False
-            avg_gyro = gyro_sum / count
+            # Calculate Max Raw Gyro Magnitude
+            gyro_mags = [s.gyro_raw.magnitude for s in res.samples if s.gyro_raw]
+            if not gyro_mags: return False
+            max_gyro = max(gyro_mags)
 
-            # 3. Check Alignment
-            # If Spinning (Yawing): Rotation aligns with Gravity.
-            # If Driving (Pitching): Rotation is Perpendicular to Gravity.
+            print(f"    Accel Range: {accel_range:.3f}g, Max Gyro: {max_gyro:.1f} deg/s")
 
-            g_mag = math.sqrt(gravity.x**2 + gravity.y**2 + gravity.z**2)
-            r_mag = math.sqrt(avg_gyro.x**2 + avg_gyro.y**2 + avg_gyro.z**2)
-
-            if g_mag == 0 or r_mag == 0:
-                 print("  [WARNING] Zero magnitude vector.")
+            # If both are near zero, we are stuck.
+            if accel_range < 0.05 and max_gyro < 10.0:
+                 print("  [WARNING] No movement detected (Stuck). Retrying with more power...")
                  return False
 
-            dot = (gravity.x * avg_gyro.x + gravity.y * avg_gyro.y + gravity.z * avg_gyro.z)
-            cos_theta = abs(dot) / (g_mag * r_mag)
+            # Check 2 (Are we spinning?):
+            # Calculate average yaw rate magnitude
+            # Note: We rely on calibrate_static_orientation having run before this, so yaw_rate is valid.
+            avg_yaw = sum(abs(s.yaw_rate) for s in res.samples) / len(res.samples)
+            print(f"    Avg Yaw Rate: {avg_yaw:.1f} deg/s")
 
-            print(f"  Raw Gyro Mag: {r_mag:.1f}, Alignment (CosTheta): {cos_theta:.2f}")
-
-            if r_mag < 10.0:
-                 print("  [WARNING] Not moving enough to determine phase.")
-                 return False
-
-            # Threshold: > 0.7 implies mostly aligned (Spinning). < 0.4 implies mostly perpendicular.
-            if cos_theta > 0.6:
-                print("  -> Vectors aligned. Motors are fighting (Spinning).")
+            if avg_yaw > 30.0:
+                print("  -> Spinning detected. Motors are fighting.")
                 print("  -> ACTION: Inverting Right Motor logic.")
                 self._update_hw_config(motor_r_invert=not self.hw_config.motor_r_invert)
                 return False
 
-            print("  -> Vectors perpendicular. Motors are aligned (Straight).")
-            self._update_learning_state(motor_phasing_verified=True)
-            return True
+            # Check 3 (Are we translating?):
+            # We moved (Check 1) and we are NOT spinning (Check 2).
+            # Look for Forward Acceleration or Pitch Change.
+
+            # Calculate Average Forward Accel (Mapped)
+            fwd_accels = [self.hw.get_mapped_value(s.accel_raw, "accel_forward") for s in res.samples]
+            avg_fwd_accel = sum(fwd_accels) / len(res.samples)
+
+            delta_pitch = abs(res.samples[-1].pitch_angle - res.samples[0].pitch_angle)
+
+            print(f"    Avg Fwd Accel: {avg_fwd_accel:.2f}g, Delta Pitch: {delta_pitch:.1f} deg")
+
+            if avg_fwd_accel > 0.1 or delta_pitch > 5.0:
+                 print("  -> Translation detected. Motors are aligned (Straight).")
+                 self._update_learning_state(motor_phasing_verified=True)
+                 return True
+
+            print("  [WARNING] Movement detected but not clearly translation. Retrying...")
+            return False
 
         verify_with_retries("Motor Phasing", test, verify)
 
