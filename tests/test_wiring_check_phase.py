@@ -59,6 +59,8 @@ class TestWiringCheckPhase(unittest.TestCase):
         )
 
     def test_align_motors_phase_stuck(self):
+        # Mock baseline
+        self.wc.hw.read_imu_converted.return_value = self.create_sample(0, 0, 1.0, 0, 0, 0)
         # Mock _drive_and_wait to return stuck result (no noise)
         samples = [self.create_sample(0, 0, 1.0, 0, 0, 0) for _ in range(10)]
         res = MeasureResult(duration=0.5, samples=samples)
@@ -73,6 +75,9 @@ class TestWiringCheckPhase(unittest.TestCase):
         self.assertEqual(self.wc._drive_and_wait.call_count, 3)
 
     def test_align_motors_phase_spinning(self):
+        # Mock baseline
+        self.wc.hw.read_imu_converted.return_value = self.create_sample(0, 0, 1.0, 0, 0, 0)
+
         # Scenario: Spinning.
         # Need some noise on accel to pass Stuck check
         samples = []
@@ -100,6 +105,9 @@ class TestWiringCheckPhase(unittest.TestCase):
         self.wc._update_hw_config.assert_any_call(motor_r_invert=True)
 
     def test_align_motors_phase_success(self):
+        # Mock baseline (0.0 forward accel)
+        self.wc.hw.read_imu_converted.return_value = self.create_sample(0, 0, 1.0, 0, 0, 0)
+
         # Scenario: Translating (Forward Accel).
         samples = []
         for i in range(10):
