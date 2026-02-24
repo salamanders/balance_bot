@@ -5,7 +5,8 @@ from typing import Protocol, runtime_checkable, Any, Optional
 from dataclasses import dataclass
 from collections import deque
 
-from ..utils import clamp, calculate_pitch, Vector3, get_i2c_failure_report
+import glm
+from ..utils import clamp, calculate_pitch, get_i2c_failure_report
 from ..configuration import (
     BALANCING_THRESHOLD,
     REST_ANGLE_MIN,
@@ -38,8 +39,8 @@ class IMUReading:
     yaw_rate: float
     roll_angle: float
     roll_rate: float
-    accel_raw: Optional[Vector3] = None
-    gyro_raw: Optional[Vector3] = None
+    accel_raw: Optional[glm.vec3] = None
+    gyro_raw: Optional[glm.vec3] = None
 
 
 @dataclass(frozen=True)
@@ -126,17 +127,17 @@ class IMUDriver(Protocol):
     Abstracts specific sensor libraries (e.g. mpu6050).
     """
 
-    def get_accel_data(self) -> Vector3:
+    def get_accel_data(self) -> glm.vec3:
         """
         Get raw accelerometer data.
-        :return: Dictionary with x, y, z keys.
+        :return: glm.vec3.
         """
         ...
 
-    def get_gyro_data(self) -> Vector3:
+    def get_gyro_data(self) -> glm.vec3:
         """
         Get raw gyroscope data.
-        :return: Dictionary with x, y, z keys.
+        :return: glm.vec3.
         """
         ...
 
@@ -153,13 +154,15 @@ class MPU6050Adapter:
         """
         self.sensor = sensor_instance
 
-    def get_accel_data(self) -> Vector3:
+    def get_accel_data(self) -> glm.vec3:
         """Get accelerometer data."""
-        return Vector3.from_dict(self.sensor.get_accel_data())
+        d = self.sensor.get_accel_data()
+        return glm.vec3(d["x"], d["y"], d["z"])
 
-    def get_gyro_data(self) -> Vector3:
+    def get_gyro_data(self) -> glm.vec3:
         """Get gyroscope data."""
-        return Vector3.from_dict(self.sensor.get_gyro_data())
+        d = self.sensor.get_gyro_data()
+        return glm.vec3(d["x"], d["y"], d["z"])
 
 
 class RobotHardware:
@@ -186,8 +189,8 @@ class RobotHardware:
         self._imu_consecutive_errors = 0
 
         # Store the "last known good" value
-        self._last_accel = Vector3(0.0, 0.0, 0.0)
-        self._last_gyro = Vector3(0.0, 0.0, 0.0)
+        self._last_accel = glm.vec3(0.0)
+        self._last_gyro = glm.vec3(0.0)
 
         self.pz: MotorDriver | None = None
         self.sensor: IMUDriver | None = None
@@ -207,14 +210,14 @@ class RobotHardware:
                 return Axis.X  # Fallback
         return None
 
-    def get_axis_value(self, vector: Vector3, axis: Axis | None, invert: bool) -> float:
+    def get_axis_value(self, vector: glm.vec3, axis: Axis | None, invert: bool) -> float:
         """Helper to extract and optionally invert a vector component."""
         if axis is None:
             return 0.0
         val = getattr(vector, axis.value)
         return -val if invert else val
 
-    def get_mapped_value(self, vector: Vector3, config_name: str) -> float:
+    def get_mapped_value(self, vector: glm.vec3, config_name: str) -> float:
         """
         Helper to extract a value based on a config prefix.
         e.g. config_name="accel_forward" -> uses self.hw_config.accel_forward_axis
@@ -304,7 +307,7 @@ class RobotHardware:
         """Initialize the underlying motor driver."""
         self.pz.init()
 
-    def read_imu_raw(self) -> tuple[Vector3, Vector3]:
+    def read_imu_raw(self) -> tuple[glm.vec3, glm.vec3]:
         """
         Returns raw accelerometer and gyro data.
         Includes error handling for I2C noise.
@@ -319,11 +322,12 @@ class RobotHardware:
             gyro = self.sensor.get_gyro_data()
 
             # Apply Bias Calibration
-            gyro = Vector3(
-                gyro.x - self.learning_state.gyro_bias_x,
-                gyro.y - self.learning_state.gyro_bias_y,
-                gyro.z - self.learning_state.gyro_bias_z
+            bias_vec = glm.vec3(
+                self.learning_state.gyro_bias_x,
+                self.learning_state.gyro_bias_y,
+                self.learning_state.gyro_bias_z
             )
+            gyro = gyro - bias_vec
 
             # Update cache
             self._last_accel = accel
@@ -498,7 +502,7 @@ class RobotHardware:
         last_log = 0.0
 
         # History for Variance Check (Last 1 second @ 20Hz)
-        history: deque[Vector3] = deque(maxlen=20)
+        history: deque[glm.vec3] = deque(maxlen=20)
 
         while True:
             # Pulse the heartbeat to show we are still alive

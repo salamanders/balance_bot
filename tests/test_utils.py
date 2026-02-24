@@ -2,6 +2,7 @@ import time
 import math
 import logging
 from unittest.mock import patch, MagicMock
+import glm
 from balance_bot.utils import clamp, RateLimiter, ComplementaryFilter, calculate_pitch, to_signed, LogThrottler, LogCaptureHandler
 
 def test_clamp():
@@ -111,6 +112,14 @@ def test_analyze_dominance():
     winner, ratio, success = analyze_dominance(data, "Test4", expected_axis='x')
     assert winner == 'y'
     assert success is False
+
+def test_analyze_dominance_with_glm():
+    # Clear winner
+    data = glm.vec3(100.0, 10.0, 5.0)
+    winner, ratio, success = analyze_dominance(data, "TestGLM")
+    assert winner == 'x'
+    assert abs(ratio - 10.0) < 1e-5
+    assert success is True
 
 def test_log_throttler():
     with patch("time.monotonic") as mock_time:

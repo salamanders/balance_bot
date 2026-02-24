@@ -1,13 +1,13 @@
 import sys
 import pytest
 from unittest.mock import MagicMock, patch
+import glm
 
 # Mock smbus2 before import
 if 'smbus2' not in sys.modules:
     sys.modules['smbus2'] = MagicMock()
 
 from balance_bot.wiring_check import WiringCheck
-from balance_bot.utils import Vector3
 from balance_bot.hardware.robot_hardware import MeasureResult, IMUReading
 
 @pytest.fixture
@@ -33,6 +33,8 @@ def wc_fixture():
 
         wc = WiringCheck()
         wc.hw = MockHW.return_value
+        # Mock get_mapped_value to avoid formatting errors
+        wc.hw.get_mapped_value.return_value = 0.0
         wc.hw.wait_for_stability = MagicMock()
 
         yield wc, wc.hw, learning_state, hw_config
@@ -42,12 +44,12 @@ def test_find_min_power_raw_success(wc_fixture):
 
     # 1. First call (p=10): Small magnitude
     res_low = MeasureResult(duration=0.3, samples=[
-        IMUReading(0,0,0,0,0, accel_raw=None, gyro_raw=Vector3(1,1,1)) # Mag ~1.7
+        IMUReading(0,0,0,0,0, accel_raw=None, gyro_raw=glm.vec3(1,1,1)) # Mag ~1.7
     ])
 
     # 2. Second call (p=15): Big magnitude
     res_high = MeasureResult(duration=0.3, samples=[
-        IMUReading(0,0,0,0,0, accel_raw=None, gyro_raw=Vector3(10,10,10)) # Mag ~17.3
+        IMUReading(0,0,0,0,0, accel_raw=None, gyro_raw=glm.vec3(10,10,10)) # Mag ~17.3
     ])
 
     mock_hw.drive_and_measure.side_effect = [res_low, res_high]
@@ -65,8 +67,12 @@ def test_align_motors_phase_raw_straight(wc_fixture):
     learning_state.min_power_visible = 20
 
     # Setup drive_and_measure result
-    gravity = Vector3(0, 0, 9.8)
-    gyro = Vector3(10, 0, 0)
+    gravity = glm.vec3(0, 0, 9.8)
+    gyro = glm.vec3(10, 0, 0)
+
+    # Need fwd accel > 0.1
+    # Mock get_mapped_value to return 0.2 when asking for accel_forward
+    mock_hw.get_mapped_value.side_effect = lambda v, name: 0.2 if name == "accel_forward" else 0.0
 
     res = MeasureResult(duration=0.5, samples=[
         IMUReading(0,0,0,0,0, accel_raw=gravity, gyro_raw=gyro)
@@ -84,10 +90,12 @@ def test_align_motors_phase_raw_straight(wc_fixture):
 
         # Run callbacks
         test_cb(0) # Should call drive_and_measure with attempt 0
-        mock_hw.drive_and_measure.assert_called_with(30, 30, 0.5)
+        # Power = 20 + 20 + 0 = 40
+        mock_hw.drive_and_measure.assert_called_with(40, 40, 0.5)
 
         test_cb(1) # Should call drive_and_measure with attempt 1 (Ramping)
-        mock_hw.drive_and_measure.assert_called_with(40, 40, 0.5)
+        # Power = 20 + 20 + 10 = 50
+        mock_hw.drive_and_measure.assert_called_with(50, 50, 0.5)
 
         result = verify_cb(res) # Should check alignment
 
@@ -101,14 +109,19 @@ def test_align_motors_phase_raw_spinning(wc_fixture):
     learning_state.min_power_visible = 20
 
     # Setup drive_and_measure result
-    gravity = Vector3(0, 0, 9.8)
-    gyro = Vector3(0, 0, 10)
+    gravity = glm.vec3(0, 0, 9.8)
+    gyro = glm.vec3(0, 0, 10)
 
+    # Spinning means Yaw Rate > 30.0
     res = MeasureResult(duration=0.5, samples=[
-        IMUReading(0,0,0,0,0, accel_raw=gravity, gyro_raw=gyro)
+        IMUReading(0,0, 40.0, 0,0, accel_raw=gravity, gyro_raw=gyro)
     ])
 
     mock_hw.drive_and_measure.return_value = res
+
+    # Reset side effect for this test
+    mock_hw.get_mapped_value.side_effect = None
+    mock_hw.get_mapped_value.return_value = 0.0
 
     with patch("balance_bot.wiring_check.verify_with_retries") as mock_verify:
         wc.align_motors_phase()

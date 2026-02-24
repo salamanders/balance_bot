@@ -7,11 +7,10 @@ from .configuration import HardwareConfig, LearningState
 from .hardware.robot_hardware import RobotHardware, IMUReading
 from .watchdog import SurvivalWatchdog
 import random
+import glm
 from .enums import Axis
 from .utils import (
     analyze_dominance,
-    cross_product,
-    Vector3,
     get_i2c_failure_report,
     run_diagnostics,
     scan_i2c_candidates,
@@ -186,14 +185,14 @@ class WiringCheck:
         time.sleep(0.5)
         return result
 
-    def _measure_gravity_with_hardware(self) -> Vector3:
+    def _measure_gravity_with_hardware(self) -> glm.vec3:
         """Measure gravity using hardware abstraction."""
         # Drive 0,0 for 1.0 second
         res = self.hw.drive_and_measure(0, 0, 1.0)
         if not res.samples:
-            return Vector3(0.0, 0.0, 0.0)
+            return glm.vec3(0.0)
 
-        avg = Vector3(0.0, 0.0, 0.0)
+        avg = glm.vec3(0.0)
         count = 0
         for s in res.samples:
             if s.accel_raw:
@@ -201,7 +200,7 @@ class WiringCheck:
                 count += 1
         if count > 0:
             return avg / count
-        return Vector3(0.0, 0.0, 0.0)
+        return glm.vec3(0.0)
 
     def discover_buses(self):
         """
@@ -225,7 +224,7 @@ class WiringCheck:
         self._update_hw_config(motor_i2c_bus=found_motor_bus, imu_i2c_bus=found_imu_bus)
 
     # --- Phase 2: The Physical World (Sensors) ---
-    def _toddler_flail_collection(self, duration=10.0) -> list[Vector3]:
+    def _toddler_flail_collection(self, duration=10.0) -> list[glm.vec3]:
         """
         Flail around randomly to collect gravity vectors in various resting states.
         """
@@ -256,11 +255,11 @@ class WiringCheck:
             # Collect
             vec = self._measure_gravity_with_hardware()
             collected.append(vec)
-            print(f"    Collected: {vec}")
+            # print(f"    Collected: {vec}")
 
         return collected
 
-    def _measure_gravity_vectors(self) -> tuple[Vector3, Vector3]:
+    def _measure_gravity_vectors(self) -> tuple[glm.vec3, glm.vec3]:
         """
         Measure gravity vector at Back and Front resting positions.
         Uses autonomous 'Toddler Flail' to discover physical limits.
@@ -296,13 +295,13 @@ class WiringCheck:
         print("  [SUCCESS] Orientation Calibrated.")
         return p_back, p_front
 
-    def _deduce_axes(self, avg_back: Vector3, avg_front: Vector3):
+    def _deduce_axes(self, avg_back: glm.vec3, avg_front: glm.vec3):
         """Deduce Pitch, Vertical, and Forward axes from gravity vectors."""
         # 3. Determine Pitch Axis via Cross Product (Normal to the motion plane)
-        pitch_vec = avg_back.cross(avg_front)
+        pitch_vec = glm.cross(avg_back, avg_front)
 
         pitch_axis_name, pitch_magnitude, _ = analyze_dominance(
-            {k: abs(v) for k, v in pitch_vec.items()},
+            pitch_vec,
             "Pitch Axis (CrossProd)"
         )
 
@@ -311,16 +310,19 @@ class WiringCheck:
 
         update_dict = {}
         update_dict['gyro_pitch_axis'] = Axis(pitch_axis_name)
-        update_dict['gyro_pitch_invert'] = pitch_vec[pitch_axis_name] < 0
+        # Fix for glm access
+        pitch_val = getattr(pitch_vec, pitch_axis_name)
+        update_dict['gyro_pitch_invert'] = pitch_val < 0
         print(f"  -> Pitch Axis: {pitch_axis_name.upper()} (Invert: {update_dict['gyro_pitch_invert']})")
 
         # 4. Determine Vertical Axis
-        candidates = {k: abs(v) for k, v in avg_back.items() if k != pitch_axis_name}
+        candidates = {k: abs(getattr(avg_back, k)) for k in ['x', 'y', 'z'] if k != pitch_axis_name}
         vert_axis_name, _, _ = analyze_dominance(candidates, "Vertical Axis (Gravity)")
 
         update_dict['accel_vertical_axis'] = Axis(vert_axis_name)
         # Invert if gravity component is negative
-        update_dict['accel_vertical_invert'] = avg_back[vert_axis_name] < 0
+        vert_val = getattr(avg_back, vert_axis_name)
+        update_dict['accel_vertical_invert'] = vert_val < 0
         print(f"  -> Vertical Axis: {vert_axis_name.upper()} (Invert: {update_dict['accel_vertical_invert']})")
 
         # 5. Determine Forward Axis
@@ -336,7 +338,9 @@ class WiringCheck:
         update_dict['accel_forward_axis'] = Axis(forward_axis_name)
 
         # Deduce Forward Inversion
-        delta_fwd = avg_front[forward_axis_name] - avg_back[forward_axis_name]
+        val_front = getattr(avg_front, forward_axis_name)
+        val_back = getattr(avg_back, forward_axis_name)
+        delta_fwd = val_front - val_back
         update_dict['accel_forward_invert'] = delta_fwd < 0
         print(f"  -> Forward Axis: {forward_axis_name.upper()} (Invert: {update_dict['accel_forward_invert']})")
 
@@ -346,7 +350,7 @@ class WiringCheck:
 
         self._update_hw_config(**update_dict)
 
-    def _calculate_rest_angles(self, avg_back: Vector3):
+    def _calculate_rest_angles(self, avg_back: glm.vec3):
         """Calculate and store rest angles based on deduced axes."""
         print("  Measuring Rest Angles...")
         # Currently at FRONT position
@@ -394,7 +398,7 @@ class WiringCheck:
             max_mag = 0.0
             for s in res.samples:
                 if s.gyro_raw:
-                    mag = math.sqrt(s.gyro_raw.x**2 + s.gyro_raw.y**2 + s.gyro_raw.z**2)
+                    mag = glm.length(s.gyro_raw)
                     if mag > max_mag:
                         max_mag = mag
 
@@ -423,12 +427,12 @@ class WiringCheck:
 
             # Check 1 (Did we move?):
             # Calculate Accel Magnitude Range
-            accel_mags = [s.accel_raw.magnitude for s in res.samples if s.accel_raw]
+            accel_mags = [glm.length(s.accel_raw) for s in res.samples if s.accel_raw]
             if not accel_mags: return False
             accel_range = max(accel_mags) - min(accel_mags)
 
             # Calculate Max Raw Gyro Magnitude
-            gyro_mags = [s.gyro_raw.magnitude for s in res.samples if s.gyro_raw]
+            gyro_mags = [glm.length(s.gyro_raw) for s in res.samples if s.gyro_raw]
             if not gyro_mags: return False
             max_gyro = max(gyro_mags)
 
@@ -578,13 +582,13 @@ class WiringCheck:
                 return None
 
             # Average Gyro Vector
-            gyro_sum = Vector3(0.0, 0.0, 0.0)
+            gyro_sum = glm.vec3(0.0)
             for g in raw_gyro_samples:
                 gyro_sum += g
             avg_gyro = gyro_sum / len(raw_gyro_samples)
 
             # 3. Calculate Dot Product: Up . Omega
-            dot_prod = up_vector.dot(avg_gyro)
+            dot_prod = glm.dot(up_vector, avg_gyro)
             print(f"  Dot Product (Up . Gyro): {dot_prod:.2f}")
 
             if abs(dot_prod) < 10.0:

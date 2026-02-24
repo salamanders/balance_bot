@@ -1,34 +1,30 @@
 import math
+import glm
 from unittest.mock import MagicMock
 from balance_bot.hardware.robot_hardware import RobotHardware, IMUReading
-from balance_bot.configuration import RobotConfig, PIDParams
+from balance_bot.configuration import HardwareConfig, LearningState
 from balance_bot.enums import Axis
-from balance_bot.utils import Vector3
-
-# We need to mock the imports inside RobotHardware
-# But RobotHardware mocks them if ImportError.
-# We can force mock mode by setting env var if needed, or relying on the fact that MPU6050 isn't installed.
-# But we are in a sandbox where dependencies might be installed.
-# The code checks for mocks.py if ImportError.
-# Let's force MOCK_HARDWARE env var.
 
 def test_imu_processing_default(monkeypatch):
     monkeypatch.setenv("ALLOW_MOCK_FALLBACK", "1")
 
-    cfg = RobotConfig(pid=PIDParams())
-    cfg.motor_l = 0
-    cfg.motor_r = 1
-    cfg.accel_vertical_axis = Axis.Z
-    cfg.accel_forward_axis = Axis.Y
-    cfg.gyro_pitch_axis = Axis.X
+    # Setup Config
+    hw_config = HardwareConfig(
+        motor_l=0,
+        motor_r=1,
+        accel_vertical_axis=Axis.Z,
+        accel_forward_axis=Axis.Y,
+        gyro_pitch_axis=Axis.X
+    )
+    learning_state = LearningState()
 
-    hw = RobotHardware(cfg)
+    hw = RobotHardware(hw_config, learning_state)
 
     # Mock the sensor
     hw.sensor = MagicMock()
     # Accel Z = 1G (vertical), others 0
-    hw.sensor.get_accel_data.return_value = Vector3(0.0, 0.0, 9.8)
-    hw.sensor.get_gyro_data.return_value = Vector3(0.0, 0.0, 0.0)
+    hw.sensor.get_accel_data.return_value = glm.vec3(0.0, 0.0, 9.8)
+    hw.sensor.get_gyro_data.return_value = glm.vec3(0.0, 0.0, 0.0)
 
     # Default axis is X. Y is forward.
     # Pitch = atan2(acc_y, acc_z) = atan2(0, 9.8) = 0
@@ -39,21 +35,24 @@ def test_imu_processing_default(monkeypatch):
 
 def test_imu_processing_tilted(monkeypatch):
     monkeypatch.setenv("ALLOW_MOCK_FALLBACK", "1")
-    cfg = RobotConfig(pid=PIDParams())
-    cfg.motor_l = 0
-    cfg.motor_r = 1
-    cfg.accel_vertical_axis = Axis.Z
-    cfg.accel_forward_axis = Axis.Y
-    cfg.gyro_pitch_axis = Axis.X
 
-    hw = RobotHardware(cfg)
+    hw_config = HardwareConfig(
+        motor_l=0,
+        motor_r=1,
+        accel_vertical_axis=Axis.Z,
+        accel_forward_axis=Axis.Y,
+        gyro_pitch_axis=Axis.X
+    )
+    learning_state = LearningState()
+
+    hw = RobotHardware(hw_config, learning_state)
     hw.sensor = MagicMock()
 
     # Simulate tilt 45 deg forward
     # Y = sin(45)*9.8, Z = cos(45)*9.8
     val = 9.8 * 0.707
-    hw.sensor.get_accel_data.return_value = Vector3(0.0, val, val)
-    hw.sensor.get_gyro_data.return_value = Vector3(10.0, 0.0, 0.0)
+    hw.sensor.get_accel_data.return_value = glm.vec3(0.0, val, val)
+    hw.sensor.get_gyro_data.return_value = glm.vec3(10.0, 0.0, 0.0)
 
     reading = hw.read_imu_converted()
 
@@ -63,20 +62,22 @@ def test_imu_processing_tilted(monkeypatch):
 def test_imu_processing_axis_y(monkeypatch):
     monkeypatch.setenv("ALLOW_MOCK_FALLBACK", "1")
     # Axis Y means we use X accel and Y gyro.
-    cfg = RobotConfig(pid=PIDParams())
-    cfg.motor_l = 0
-    cfg.motor_r = 1
-    cfg.gyro_pitch_axis = Axis.Y
-    cfg.accel_forward_axis = Axis.X
-    cfg.accel_vertical_axis = Axis.Z
+    hw_config = HardwareConfig(
+        motor_l=0,
+        motor_r=1,
+        gyro_pitch_axis=Axis.Y,
+        accel_forward_axis=Axis.X,
+        accel_vertical_axis=Axis.Z
+    )
+    learning_state = LearningState()
 
-    hw = RobotHardware(cfg)
+    hw = RobotHardware(hw_config, learning_state)
     hw.sensor = MagicMock()
 
     # Simulate tilt on X axis (which is now pitch)
     val = 9.8 * 0.707
-    hw.sensor.get_accel_data.return_value = Vector3(val, 0.0, val)
-    hw.sensor.get_gyro_data.return_value = Vector3(0.0, 5.0, 0.0)
+    hw.sensor.get_accel_data.return_value = glm.vec3(val, 0.0, val)
+    hw.sensor.get_gyro_data.return_value = glm.vec3(0.0, 5.0, 0.0)
 
     reading = hw.read_imu_converted()
 
@@ -86,21 +87,23 @@ def test_imu_processing_axis_y(monkeypatch):
 def test_imu_processing_invert(monkeypatch):
     monkeypatch.setenv("ALLOW_MOCK_FALLBACK", "1")
     # Invert both pitch angle and gyro rate
-    cfg = RobotConfig(pid=PIDParams())
-    cfg.motor_l = 0
-    cfg.motor_r = 1
-    cfg.gyro_pitch_invert = True
-    cfg.accel_forward_invert = True
-    cfg.accel_vertical_axis = Axis.Z
-    cfg.accel_forward_axis = Axis.Y
-    cfg.gyro_pitch_axis = Axis.X
+    hw_config = HardwareConfig(
+        motor_l=0,
+        motor_r=1,
+        gyro_pitch_invert=True,
+        accel_forward_invert=True,
+        accel_vertical_axis=Axis.Z,
+        accel_forward_axis=Axis.Y,
+        gyro_pitch_axis=Axis.X
+    )
+    learning_state = LearningState()
 
-    hw = RobotHardware(cfg)
+    hw = RobotHardware(hw_config, learning_state)
     hw.sensor = MagicMock()
 
     val = 9.8 * 0.707
-    hw.sensor.get_accel_data.return_value = Vector3(0.0, val, val)
-    hw.sensor.get_gyro_data.return_value = Vector3(10.0, 0.0, 0.0)
+    hw.sensor.get_accel_data.return_value = glm.vec3(0.0, val, val)
+    hw.sensor.get_gyro_data.return_value = glm.vec3(10.0, 0.0, 0.0)
 
     reading = hw.read_imu_converted()
 
@@ -112,21 +115,23 @@ def test_imu_processing_invert(monkeypatch):
 def test_imu_processing_sideways(monkeypatch):
     """Test sideways mounting configuration (Vertical X, Forward Y, Gyro Z)"""
     monkeypatch.setenv("ALLOW_MOCK_FALLBACK", "1")
-    cfg = RobotConfig(pid=PIDParams())
-    cfg.motor_l = 0
-    cfg.motor_r = 1
-    cfg.accel_vertical_axis = Axis.X
-    cfg.accel_forward_axis = Axis.Y
-    cfg.gyro_pitch_axis = Axis.Z
+    hw_config = HardwareConfig(
+        motor_l=0,
+        motor_r=1,
+        accel_vertical_axis=Axis.X,
+        accel_forward_axis=Axis.Y,
+        gyro_pitch_axis=Axis.Z
+    )
+    learning_state = LearningState()
 
-    hw = RobotHardware(cfg)
+    hw = RobotHardware(hw_config, learning_state)
     hw.sensor = MagicMock()
 
     # Simulate 45 deg tilt.
     # Vertical (X) decreases to cos(45). Forward (Y) increases to sin(45).
     val = 9.8 * 0.707
-    hw.sensor.get_accel_data.return_value = Vector3(val, val, 0.0)
-    hw.sensor.get_gyro_data.return_value = Vector3(0.0, 0.0, 5.0)
+    hw.sensor.get_accel_data.return_value = glm.vec3(val, val, 0.0)
+    hw.sensor.get_gyro_data.return_value = glm.vec3(0.0, 0.0, 5.0)
 
     reading = hw.read_imu_converted()
 
