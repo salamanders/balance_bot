@@ -7,15 +7,14 @@ import glm
 # Define mock classes if needed, or rely on MagicMock
 # We need Vector3 for type hints or usage in create_sample if we import it
 
-from src.balance_bot.hardware.robot_hardware import IMUReading, MeasureResult
-
 # Mock dependencies before importing wiring_check
 with patch.dict(sys.modules, {
     'smbus2': MagicMock(),
     'mpu6050': MagicMock(),
-    'src.balance_bot.hardware.piconzero': MagicMock(),
+    'balance_bot.hardware.piconzero': MagicMock(),
 }):
-    from src.balance_bot.wiring_check import WiringCheck, HardwareConfig, LearningState
+    from balance_bot.wiring_check import WiringCheck, HardwareConfig, LearningState
+    from balance_bot.hardware.robot_hardware import IMUReading, MeasureResult
 
 class TestWiringCheckPhase(unittest.TestCase):
     def setUp(self):
@@ -31,12 +30,15 @@ class TestWiringCheckPhase(unittest.TestCase):
         self.mock_learning_state.motor_phasing_verified = False
 
         # Patch the class methods load
-        self.patcher1 = patch('src.balance_bot.wiring_check.HardwareConfig.load', return_value=self.mock_hw_config)
-        self.patcher2 = patch('src.balance_bot.wiring_check.LearningState.load', return_value=self.mock_learning_state)
+        # We patch where it is defined to ensure it catches all usages
+        self.patcher1 = patch('balance_bot.configuration.HardwareConfig.load', return_value=self.mock_hw_config)
+        self.patcher2 = patch('balance_bot.configuration.LearningState.load', return_value=self.mock_learning_state)
         self.patcher1.start()
         self.patcher2.start()
 
         self.wc = WiringCheck()
+        # Force inject mock state because patching load() is flaky with import paths
+        self.wc.learning_state = self.mock_learning_state
 
         # Inject mock hardware
         self.wc.hw = MagicMock()

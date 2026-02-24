@@ -20,7 +20,8 @@ from .utils import (
     find_threshold,
     sort_resting_vectors,
     vector_angle,
-    clamp
+    clamp,
+    calculate_pitch
 )
 
 
@@ -119,25 +120,25 @@ class WiringCheck:
                 "action": self.find_min_power
             },
 
-            "spatial_orientation": {
-                "description": "Toddler flail to find resting gravity vectors, deducing IMU axes.",
-                "condition": lambda: self.hw_config.accel_vertical_axis is not None,
-                "depends_on": ["friction_threshold"], # Must know how hard to flail
-                "action": self.calibrate_static_orientation
-            },
-
             "motor_phasing": {
                 "description": "Ensure both wheels drive the same direction for a given sign.",
                 "condition": lambda: self.learning_state.motor_phasing_verified,
-                "depends_on": ["friction_threshold", "spatial_orientation"], # CRITICAL: Requires axis mapping
+                "depends_on": ["friction_threshold"],
                 "action": self.align_motors_phase
             },
 
             "motor_direction": {
-                "description": "Ensure positive PWM results in 'Forward' movement (reducing pitch when leaning forward).",
+                "description": "Ensure positive PWM results in 'Forward' movement (Yank Test).",
                 "condition": lambda: self.learning_state.motor_direction_verified,
-                "depends_on": ["motor_phasing", "spatial_orientation"],
+                "depends_on": ["motor_phasing"],
                 "action": self.determine_motor_direction
+            },
+
+            "spatial_orientation": {
+                "description": "Toddler flail to find resting gravity vectors (The Labeler).",
+                "condition": lambda: self.hw_config.accel_vertical_axis is not None,
+                "depends_on": ["motor_direction"],
+                "action": self.calibrate_static_orientation
             },
 
             "left_right_identity": {
@@ -273,127 +274,97 @@ class WiringCheck:
 
         return collected
 
-    def _measure_gravity_vectors(self) -> tuple[glm.vec3, glm.vec3]:
+    def calibrate_static_orientation(self):
         """
-        Measure gravity vector at Back and Front resting positions.
-        Uses autonomous 'Toddler Flail' to discover physical limits.
+        The Labeler.
+        Discovers the Vertical Axis and labels the resting positions.
         """
-        print(">>> Calibrating Orientation (Autonomous) <<<")
+        print(">>> Calibrating Orientation (The Labeler) <<<")
 
-        # 1. Flail & Collect
+        # 1. Collect Resting Vectors
         vectors = self._toddler_flail_collection(duration=24.0)
 
-        # 2. Sort into two buckets
-        print(f"  [Analysis] Sorting {len(vectors)} vectors...")
+        # 2. Sort Vectors
         try:
             p1, p2 = sort_resting_vectors(vectors)
         except ValueError as e:
-             print(f"  [FAILURE] Sorting failed: {e}")
-             raise
+            print(f"  [FAILURE] Sorting failed: {e}")
+            raise
 
         print(f"  [DEBUG] Resting Position A: {p1}")
         print(f"  [DEBUG] Resting Position B: {p2}")
 
-        # 3. Failsafe Check
+        # Failsafe Check
         spread = vector_angle(p1, p2)
         print(f"  [DEBUG] Angle Spread: {spread:.1f} degrees")
-
         if spread < 15.0:
             msg = f"Resting vectors are too close ({spread:.1f} deg). Is the robot flat on its side?"
             print(f"  [CRITICAL] {msg}")
             raise RuntimeError(msg)
 
-        # 4. Assign Arbitrarily (Direction fixed in later step)
-        p_back, p_front = p1, p2
+        # 3. Find Vertical Axis
+        # We know Pitch Axis (Gyro) and Forward Axis (Accel) from Yank Test.
+        pitch_axis = self.hw_config.gyro_pitch_axis
+        fwd_axis = self.hw_config.accel_forward_axis
 
-        print("  [SUCCESS] Orientation Calibrated.")
-        return p_back, p_front
-
-    def _deduce_axes(self, avg_back: glm.vec3, avg_front: glm.vec3):
-        """Deduce Pitch, Vertical, and Forward axes from gravity vectors."""
-        # 3. Determine Pitch Axis via Cross Product (Normal to the motion plane)
-        pitch_vec = glm.cross(avg_back, avg_front)
-
-        pitch_axis_name, pitch_magnitude, _ = analyze_dominance(
-            pitch_vec,
-            "Pitch Axis (CrossProd)"
-        )
-
-        if pitch_magnitude < 1.1:
-            print("  [WARNING] Pitch axis unclear. Did the robot actually move?")
-
-        update_dict = {}
-        update_dict['gyro_pitch_axis'] = Axis(pitch_axis_name)
-        # Fix for glm access
-        pitch_val = getattr(pitch_vec, pitch_axis_name)
-        update_dict['gyro_pitch_invert'] = pitch_val < 0
-        print(f"  -> Pitch Axis: {pitch_axis_name.upper()} (Invert: {update_dict['gyro_pitch_invert']})")
-
-        # 4. Determine Vertical Axis
-        candidates = {k: abs(getattr(avg_back, k)) for k in ['x', 'y', 'z'] if k != pitch_axis_name}
-        vert_axis_name, _, _ = analyze_dominance(candidates, "Vertical Axis (Gravity)")
-
-        update_dict['accel_vertical_axis'] = Axis(vert_axis_name)
-        # Invert if gravity component is negative
-        vert_val = getattr(avg_back, vert_axis_name)
-        update_dict['accel_vertical_invert'] = vert_val < 0
-        print(f"  -> Vertical Axis: {vert_axis_name.upper()} (Invert: {update_dict['accel_vertical_invert']})")
-
-        # 5. Determine Forward Axis
-        all_axes = {'x', 'y', 'z'}
-        used = {pitch_axis_name, vert_axis_name}
-        remaining = list(all_axes - used)
+        # We assume physical axes align (Accel X ~ Gyro X).
+        # So we exclude the physical axes used for Pitch and Forward.
+        used_axes = {pitch_axis, fwd_axis}
+        all_axes = {Axis.X, Axis.Y, Axis.Z}
+        remaining = list(all_axes - used_axes)
 
         if not remaining:
-            print("  [CRITICAL ERROR] Axis deduction failed. Overlapping axes.")
-            sys.exit(1)
+             print("  [CRITICAL] Axes Overlap! Pitch and Forward are same?")
+             # Fallback: Find dominant gravity component on p1 ignoring others
+             vert_axis_name, _, _ = analyze_dominance(p1, "Vertical Gravity")
+             vert_axis = Axis(vert_axis_name)
+        else:
+             vert_axis = remaining[0]
 
-        forward_axis_name = remaining[0]
-        update_dict['accel_forward_axis'] = Axis(forward_axis_name)
+        # Determine Inversion
+        # We assume robot is upright-ish in resting state.
+        # Vertical component should be Positive.
+        raw_val = getattr(p1, vert_axis.value)
+        vert_invert = raw_val < 0 # If Negative, Invert to make Positive.
 
-        # Deduce Forward Inversion
-        val_front = getattr(avg_front, forward_axis_name)
-        val_back = getattr(avg_back, forward_axis_name)
-        delta_fwd = val_front - val_back
-        update_dict['accel_forward_invert'] = delta_fwd < 0
-        print(f"  -> Forward Axis: {forward_axis_name.upper()} (Invert: {update_dict['accel_forward_invert']})")
+        print(f"  -> Discovered Vertical Axis: {vert_axis.value.upper()} (Invert: {vert_invert})")
 
-        # Deduce Gyro Yaw/Roll
-        update_dict['gyro_yaw_axis'] = Axis(vert_axis_name)
-        update_dict['gyro_roll_axis'] = Axis(forward_axis_name)
+        self._update_hw_config(
+            accel_vertical_axis=vert_axis,
+            accel_vertical_invert=vert_invert,
+            # Also set Gyro Yaw (usually same as Vertical)
+            gyro_yaw_axis=vert_axis,
+            # Default Yaw Invert? We check this later in Left/Right.
+            gyro_yaw_invert=False,
+            # Set Roll Axis (Remaining)
+            gyro_roll_axis=fwd_axis # Typically Roll is around Forward axis
+        )
 
-        self._update_hw_config(**update_dict)
+        # 4. Calculate and Assign Rest Angles
+        print("  Labeling Resting Positions...")
 
-    def _calculate_rest_angles(self, avg_back: glm.vec3, avg_front: glm.vec3):
-        """Calculate and store rest angles based on deduced axes."""
-        print("  Measuring Rest Angles...")
-        from .utils import calculate_pitch
+        def get_pitch(vec):
+            fwd = self.hw.get_mapped_value(vec, "accel_forward")
+            vert = self.hw.get_mapped_value(vec, "accel_vertical")
+            return calculate_pitch(fwd, vert)
 
-        # Calculate Front Angle from avg_front using known axes
-        fwd_val_front = self.hw.get_axis_value(avg_front, self.hw_config.accel_forward_axis, self.hw_config.accel_forward_invert)
-        vert_val_front = self.hw.get_axis_value(avg_front, self.hw_config.accel_vertical_axis, self.hw_config.accel_vertical_invert)
-        angle_front = calculate_pitch(fwd_val_front, vert_val_front)
+        angle1 = get_pitch(p1)
+        angle2 = get_pitch(p2)
 
-        # Calculate Back Angle from avg_back using known axes
-        fwd_val_back = self.hw.get_axis_value(avg_back, self.hw_config.accel_forward_axis, self.hw_config.accel_forward_invert)
-        vert_val_back = self.hw.get_axis_value(avg_back, self.hw_config.accel_vertical_axis, self.hw_config.accel_vertical_invert)
-        angle_back = calculate_pitch(fwd_val_back, vert_val_back)
+        print(f"  Vector 1 Pitch: {angle1:.1f}")
+        print(f"  Vector 2 Pitch: {angle2:.1f}")
 
-        self._update_learning_state(rest_angle_forward=angle_front, rest_angle_backward=angle_back)
-
-        print(f"  -> Calibrated Rest Angles: Back={angle_back:.1f}, Front={angle_front:.1f}")
-
-        spread = angle_front - angle_back
-        if spread < 10.0:
-            print(f"  [WARNING] Rest angle spread is very small ({spread:.1f}). Is the robot balanced on a point?")
-
-    def calibrate_static_orientation(self):
-        """
-        Map Physical Axes (X, Y, Z) to Logical Axes.
-        """
-        avg_back, avg_front = self._measure_gravity_vectors()
-        self._deduce_axes(avg_back, avg_front)
-        self._calculate_rest_angles(avg_back, avg_front)
+        if angle1 > 0 and angle2 < 0:
+            self._update_learning_state(rest_angle_forward=angle1, rest_angle_backward=angle2)
+        elif angle2 > 0 and angle1 < 0:
+            self._update_learning_state(rest_angle_forward=angle2, rest_angle_backward=angle1)
+        else:
+             print("  [WARNING] Both angles have same sign? Robot might not be crossing vertical.")
+             # Fallback: Assign based on value
+             if angle1 > angle2:
+                 self._update_learning_state(rest_angle_forward=angle1, rest_angle_backward=angle2)
+             else:
+                 self._update_learning_state(rest_angle_forward=angle2, rest_angle_backward=angle1)
 
 
     # --- Phase 3a: Friction Threshold ---
@@ -471,12 +442,11 @@ class WiringCheck:
                  return False
 
             # Check 2 (Are we spinning?):
-            # Calculate average yaw rate magnitude
-            # Note: We rely on calibrate_static_orientation having run before this, so yaw_rate is valid.
-            avg_yaw = sum(abs(s.yaw_rate) for s in res.samples) / len(res.samples)
-            print(f"    Avg Yaw Rate: {avg_yaw:.1f} deg/s")
+            # Calculate average Gyro Magnitude (Axis Agnostic)
+            avg_gyro_mag = sum(glm.length(s.gyro_raw) for s in res.samples) / len(res.samples)
+            print(f"    Avg Gyro Mag: {avg_gyro_mag:.1f} deg/s")
 
-            if avg_yaw > 30.0:
+            if avg_gyro_mag > 30.0:
                 print("  -> Spinning detected. Motors are fighting.")
                 print("  -> ACTION: Inverting Right Motor logic.")
                 self._update_hw_config(motor_r_invert=not self.hw_config.motor_r_invert)
@@ -484,21 +454,25 @@ class WiringCheck:
 
             # Check 3 (Are we translating?):
             # We moved (Check 1) and we are NOT spinning (Check 2).
-            # Look for Forward Acceleration or Pitch Change.
+            # Look for Net Acceleration Change (Axis Agnostic).
 
-            # Calculate Average Forward Accel (Mapped)
-            baseline_fwd_accel = self.hw.get_mapped_value(baseline.accel_raw, "accel_forward")
-            fwd_accels = [self.hw.get_mapped_value(s.accel_raw, "accel_forward") for s in res.samples]
-            avg_fwd_accel = sum(fwd_accels) / len(res.samples)
+            # Calculate Mean Accel Vector during move
+            sum_accel = glm.vec3(0.0)
+            count = 0
+            for s in res.samples:
+                if s.accel_raw:
+                    sum_accel += s.accel_raw
+                    count += 1
+            avg_accel = sum_accel / count if count > 0 else glm.vec3(0.0)
 
-            delta_fwd_accel = avg_fwd_accel - baseline_fwd_accel
+            # Calculate Vector Delta Magnitude
+            delta_vec = avg_accel - baseline.accel_raw
+            delta_mag = glm.length(delta_vec)
 
-            delta_pitch = abs(res.samples[-1].pitch_angle - res.samples[0].pitch_angle)
+            print(f"    Accel Delta Mag: {delta_mag:.3f}g")
 
-            print(f"    Avg Fwd Accel: {avg_fwd_accel:.2f}g (Baseline: {baseline_fwd_accel:.2f}g, Delta: {delta_fwd_accel:.2f}g)")
-            print(f"    Delta Pitch: {delta_pitch:.1f} deg")
-
-            if delta_fwd_accel > 0.1 or delta_pitch > 2.0:
+            # Threshold for significant translation (0.05g is conservative but safe for toddlers)
+            if delta_mag > 0.05:
                  print("  -> Translation detected. Motors are aligned (Straight).")
                  self._update_learning_state(motor_phasing_verified=True)
                  return True
@@ -511,76 +485,74 @@ class WiringCheck:
     # --- Phase 4: Sense of Forward (Pitch Axis & Polarity) ---
     def determine_motor_direction(self):
         """
-        Ensure Positive Power = "Stand Up" (Reduce Lean).
-        "Kick Up" Test.
-        Requirement: Robot must be leaning FORWARD (Positive Pitch).
+        The "Yank" Test.
+        Establishes the Motor-First Axiom: +PWM is Forward.
+        Discovers Pitch Axis and Forward Axis based on inertial reaction.
         """
-        def test(attempt: int):
-            # Check Start Pitch
-            imu = self.hw.read_imu_converted()
-            start_pitch = imu.pitch_angle
-            print(f"  Start Pitch: {start_pitch:.1f}")
+        print(">>> Determining Motor Direction (Yank Test) <<<")
+        self.hw.wait_for_stability()
 
-            # 1. Ensure we are at FRONT (Positive Pitch)
-            if start_pitch < 10.0:
-                print(f"  [INFO] Not at FRONT (Pitch={start_pitch:.1f}). Attempting to flop...")
-                p = self.learning_state.min_power_visible + 30 + (attempt * 10)
-                # Try Positive
-                self.hw.drive_and_measure(p, p, 0.5)
-                self.hw.wait_for_stability()
+        # 1. Measure Baseline
+        baseline_accel, _ = self.hw.read_imu_raw()
 
-                # Check if successful
-                if self.hw.read_imu_converted().pitch_angle < 10.0:
-                    print("  [INFO] Flop failed. Trying reverse power...")
-                    self.hw.drive_and_measure(-p, -p, 0.5)
-                    self.hw.wait_for_stability()
+        # 2. Pulse Motors Forward
+        p = self.learning_state.min_power_visible + 30
+        print(f"  Pulsing Motors Forward (+{p})...")
+        # Drive for 0.3s
+        res = self._drive_and_wait(p, p, 0.3, wait_stable=False)
 
-            start_pitch = self.hw.read_imu_converted().pitch_angle
-            if start_pitch < 10.0:
-                print(f"  [WARNING] Could not reach FRONT posture (Pitch={start_pitch:.1f}). Retrying...")
-                return None
+        if not res.samples:
+            print("  [FAILURE] No samples collected.")
+            sys.exit(1)
 
-            # Now we are at Front (Positive Pitch).
-            # "Kick Up" means reducing pitch (towards 0).
-            # We try Positive Power. If Positive = Forward, pitch should decrease (stand up).
-            power = (self.learning_state.min_power_visible + 20) + (attempt * 10)
-            print(f"  Pulsing {power}...")
+        # 3. Analyze Gyro (Pitch Axis)
+        # Find dominant axis of rotation during the burst
+        gyro_sum = glm.vec3(0.0)
+        for s in res.samples:
+             if s.gyro_raw:
+                 gyro_sum += s.gyro_raw
+        avg_gyro = gyro_sum / len(res.samples)
 
-            res = self._drive_and_wait(power, power, 0.4, wait_stable=False)
-            return (start_pitch, res)
+        pitch_axis_name, _, _ = analyze_dominance(avg_gyro, "Inertial Pitch (Gyro)")
 
-        def verify(data):
-            if data is None: return False
-            start_pitch, res = data
-            end_pitch = res.final_pitch if res.samples else start_pitch
+        # We assume driving forward causes inertial BACKWARD pitch (Nose Up).
+        # We want this to be NEGATIVE Pitch Rate.
+        # So if raw value is POSITIVE, we must INVERT.
+        raw_pitch_val = getattr(avg_gyro, pitch_axis_name)
+        pitch_invert = raw_pitch_val > 0
 
-            delta_lean = abs(start_pitch) - abs(end_pitch)
+        print(f"  -> Discovered Pitch Axis: {pitch_axis_name.upper()} (Invert: {pitch_invert})")
+        self._update_hw_config(
+            gyro_pitch_axis=Axis(pitch_axis_name),
+            gyro_pitch_invert=pitch_invert
+        )
 
-            # Calculate accel
-            avg_accel_fwd = 0.0
-            if res.samples:
-                fwd_axis = self.hw_config.accel_forward_axis.value
-                invert = self.hw_config.accel_forward_invert
-                # Using generator expression for sum
-                total = sum(getattr(s.accel_raw, fwd_axis) for s in res.samples)
-                avg_accel_fwd = - (total / len(res.samples)) if invert else (total / len(res.samples))
+        # 4. Analyze Accel (Forward Axis)
+        # Find dominant axis of acceleration delta.
+        # Calculate Delta
+        accel_sum = glm.vec3(0.0)
+        count = 0
+        for s in res.samples:
+            if s.accel_raw:
+                accel_sum += s.accel_raw
+                count += 1
+        avg_accel = accel_sum / count if count > 0 else glm.vec3(0.0)
 
-            print(f"  Delta Lean: {delta_lean:.1f}, Avg Fwd Accel: {avg_accel_fwd:.2f}")
+        delta_accel = avg_accel - baseline_accel
 
-            if delta_lean > 2.0 or avg_accel_fwd > 0.15:
-                 print("  [SUCCESS] Direction Correct.")
-                 self._update_learning_state(motor_direction_verified=True)
-                 return True
-            elif delta_lean < -2.0 or avg_accel_fwd < -0.15:
-                 print("  [FAILURE] Direction Inverted. Fixing...")
-                 self._update_hw_config(motor_l_invert=not self.hw_config.motor_l_invert,
-                                        motor_r_invert=not self.hw_config.motor_r_invert)
-                 return False
+        fwd_axis_name, _, _ = analyze_dominance(delta_accel, "Inertial Lag (Accel)")
 
-            print("  [WARNING] Inconclusive.")
-            return False
+        # Prompt: "set accel_forward_invert so this delta reads as *negative*."
+        raw_fwd_val = getattr(delta_accel, fwd_axis_name)
+        fwd_invert = raw_fwd_val > 0 # If Positive, Invert to make it Negative.
 
-        verify_with_retries("Motor Direction", test, verify)
+        print(f"  -> Discovered Forward Axis: {fwd_axis_name.upper()} (Invert: {fwd_invert})")
+        self._update_hw_config(
+            accel_forward_axis=Axis(fwd_axis_name),
+            accel_forward_invert=fwd_invert
+        )
+
+        self._update_learning_state(motor_direction_verified=True)
 
     # --- Phase 5: Absolute Identity (Left/Right via Right-Hand Rule) ---
     def deduce_left_right_autonomous(self):
