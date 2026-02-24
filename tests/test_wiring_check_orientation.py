@@ -67,7 +67,7 @@ def test_calibrate_orientation(wc_fixture):
     # Side effect for drive_and_measure
     # Sequence: measure(0,0) -> drive(flop) -> measure(0,0) -> maybe reverse flop?
     # We assume success on first flop.
-    wc.hw.drive_and_measure.side_effect = [res_back, res_flop, res_front]
+    # wc.hw.drive_and_measure.side_effect = [res_back, res_flop, res_front]
 
     # Mock read_imu_converted for rest angle calculation
     wc.hw.read_imu_converted.return_value = IMUReading(
@@ -79,7 +79,9 @@ def test_calibrate_orientation(wc_fixture):
     wc.hw.get_axis_value.return_value = 0.5
 
     # Run
-    wc.calibrate_static_orientation()
+    # Mock _measure_gravity_vectors to bypass physical collection
+    with patch.object(wc, '_measure_gravity_vectors', return_value=(back_vec, front_vec)):
+        wc.calibrate_static_orientation()
 
     # Assertions
     # Verify calls to model_copy with update kwargs
