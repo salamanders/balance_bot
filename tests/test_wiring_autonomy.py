@@ -220,5 +220,57 @@ class TestWiringAutonomy(unittest.TestCase):
             mock_exit.assert_called_with(1)
             self.assertEqual(self.mock_hw.drive_and_measure.call_count, 2)
 
+    def test_deduce_left_right_swaps_polarity_flags(self):
+        """
+        Expect failure: verify that motor_l_invert and motor_r_invert are passed to _update_hw_config.
+        """
+        # Set Up Config specifically for this test
+        self.wc.hw_config = self.wc.hw_config.model_copy(update={
+            'motor_l': 0,
+            'motor_r': 1,
+            'motor_l_invert': True,
+            'motor_r_invert': False,
+            'gyro_yaw_invert': False
+        })
+        # Mock Axes
+        from balance_bot.enums import Axis
+        self.wc.hw_config = self.wc.hw_config.model_copy(update={
+            'gyro_yaw_axis': Axis.Z
+        })
+
+        # Mock read_imu_raw (Gravity Down)
+        # Mocking at RobotHardware level because WiringCheck calls self.hw.read_imu_raw() (in _deduce_left_right_autonomous indirectly?)
+        # Actually it calls self.hw.read_imu_raw() in deduce_left_right_autonomous step 1
+
+        self.mock_hw.read_imu_raw.return_value = (Vector3(0, 0, -1), Vector3(0, 0, 0))
+
+        # Mock execute_maneuver (CCW Turn -> Ch0 is Right -> Swap Needed)
+        mock_result = MagicMock()
+        sample = MagicMock()
+        sample.gyro_raw = Vector3(0, 0, 15) # Positive Yaw (Large enough > 10.0)
+        mock_result.samples = [sample]
+        self.mock_hw.execute_maneuver.return_value = mock_result
+
+        self.mock_hw.wait_for_stability.return_value = None
+
+        with patch.object(self.wc, '_update_hw_config') as mock_update:
+            with patch("builtins.print"):
+                self.wc.deduce_left_right_autonomous()
+
+            mock_update.assert_called()
+            kwargs = mock_update.call_args[1]
+
+            # Assert channels are swapped (Current behavior - should pass)
+            self.assertEqual(kwargs.get('motor_l'), 1)
+            self.assertEqual(kwargs.get('motor_r'), 0)
+
+            # Assert polarity is swapped (Buggy behavior - should fail)
+            # Old L_inv=True, R_inv=False.
+            # New L should be False, New R should be True.
+            self.assertIn('motor_l_invert', kwargs, "motor_l_invert was not updated!")
+            self.assertIn('motor_r_invert', kwargs, "motor_r_invert was not updated!")
+            self.assertEqual(kwargs['motor_l_invert'], False)
+            self.assertEqual(kwargs['motor_r_invert'], True)
+
 if __name__ == "__main__":
     unittest.main()

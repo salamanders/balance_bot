@@ -580,14 +580,24 @@ class WiringCheck:
                 print("  -> Detected Counter-Clockwise (Left) Turn. (Ch0 is Right).")
                 if self.hw_config.motor_l == 0:
                     print("  -> ACTION: Swapping Channels to Correct Mapping.")
-                    self._update_hw_config(motor_l=self.hw_config.motor_r, motor_r=self.hw_config.motor_l)
+                    self._update_hw_config(
+                        motor_l=self.hw_config.motor_r,
+                        motor_r=self.hw_config.motor_l,
+                        motor_l_invert=self.hw_config.motor_r_invert,
+                        motor_r_invert=self.hw_config.motor_l_invert
+                    )
                 else:
                     print("  -> Mapping is already correct.")
             else:
                 print("  -> Detected Clockwise (Right) Turn. (Ch0 is Left).")
                 if self.hw_config.motor_l == 1:
                      print("  -> ACTION: Swapping Channels to Correct Mapping.")
-                     self._update_hw_config(motor_l=self.hw_config.motor_r, motor_r=self.hw_config.motor_l)
+                     self._update_hw_config(
+                        motor_l=self.hw_config.motor_r,
+                        motor_r=self.hw_config.motor_l,
+                        motor_l_invert=self.hw_config.motor_r_invert,
+                        motor_r_invert=self.hw_config.motor_l_invert
+                     )
                 else:
                     print("  -> Mapping is already correct.")
 
