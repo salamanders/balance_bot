@@ -58,6 +58,8 @@ class WiringCheck:
         """Helper to update immutable HardwareConfig."""
         self.hw_config = self.hw_config.model_copy(update=kwargs)
         self.hw_config.save()
+        if self.hw:
+            self.hw.hw_config = self.hw_config
 
     def _update_learning_state(self, **kwargs):
         """Helper to update mutable LearningState."""

@@ -72,7 +72,8 @@ class TestWiringAutonomy(unittest.TestCase):
             self.assertEqual(ret_p2, p2)
 
             # Verify Flop Drive
-            self.mock_hw.drive_and_measure.assert_called_with(60, 60, 0.5)
+            # min_power=20, flop adds 30 -> 50
+            self.mock_hw.drive_and_measure.assert_called_with(50, 50, 0.5)
 
     def test_blind_flop_fail_positive_success_negative(self):
         """Test Blind Flop where +60 fails, -60 moves."""
@@ -96,9 +97,9 @@ class TestWiringAutonomy(unittest.TestCase):
             self.assertEqual(ret_p2, p2) # Front
 
             # Verify Calls
-            # 1. Flop +60
-            # 2. Flop -60
-            calls = [call(60, 60, 0.5), call(-60, -60, 0.5)]
+            # 1. Flop +50
+            # 2. Flop -50
+            calls = [call(50, 50, 0.5), call(-50, -50, 0.5)]
             self.mock_hw.drive_and_measure.assert_has_calls(calls, any_order=True)
 
     def test_determine_motor_direction_flop_needed(self):
