@@ -127,7 +127,7 @@ class ContinuousTuner:
         """Count how many times the signal crosses zero in the buffer."""
         crossings = 0
         for e1, e2 in pairwise(self.errors):
-            if (e1 > 0 and e2 <= 0) or (e1 < 0 and e2 >= 0):
+            if (e1 > 0 >= e2) or (e1 < 0 <= e2):
                 crossings += 1
         return crossings
 

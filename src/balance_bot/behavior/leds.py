@@ -36,7 +36,7 @@ class LedController:
     def _find_led_path(self) -> Path | None:
         """
         Locate the system path for controlling the status LED.
-        Checks standard Pi paths (ACT led, etc).
+        Checks standard Pi paths (ACT led, etc.).
         """
         candidates = (
             Path("/sys/class/leds/led0/brightness"),

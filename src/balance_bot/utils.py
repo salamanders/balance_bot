@@ -7,7 +7,7 @@ import os
 import importlib
 from pathlib import Path
 from collections import deque
-from typing import NamedTuple, Union, Callable, Any, Optional
+from typing import NamedTuple, Union, Callable, Any
 
 try:
     import smbus2 as smbus

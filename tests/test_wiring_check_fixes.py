@@ -54,7 +54,7 @@ class TestWiringCheckFixes(unittest.TestCase):
 
                 # Check 1: Input was called with specific instruction
                 mock_input.assert_called_once()
-                self.assertIn("place the robot flat on its BACK", mock_input.call_args[0][0])
+                self.assertIn("Lean the robot onto the BACK bumper", mock_input.call_args[0][0])
 
                 # Check 2: Measured Back first
                 self.assertEqual(p_back, vec_back)

@@ -30,13 +30,12 @@ class BatteryEstimator:
         # Example: If factor is 0.8 (20% drop), we divide by 0.8 (multiply by 1.25).
         self.compensation_factor = 1.0
 
-    def update(self, pwm: float, angular_accel: float, loop_delta_time: float) -> float:
+    def update(self, pwm: float, angular_accel: float) -> float:
         """
         Update the estimator with new physical data.
 
         :param pwm: The commanded PWM sent to motors (before compensation).
         :param angular_accel: Measured angular acceleration (deg/s^2).
-        :param loop_delta_time: Time step.
         :return: Current compensation factor (0.0 to 1.0ish).
         """
         if abs(pwm) < self.config.min_pwm:

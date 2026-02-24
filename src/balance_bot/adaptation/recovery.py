@@ -29,7 +29,7 @@ class RecoveryManager:
             self.recovering = False
             return None
 
-        # 2. If we were crashed/idle and now we are NOT crashed (Tier 1 is running),
+        # 2. If we were crashed/idle, and now we are NOT crashed (Tier 1 is running),
         #    we check if we need to start a recovery sequence.
         if not self.recovering:
             # We just woke up.
