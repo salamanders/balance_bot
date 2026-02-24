@@ -64,7 +64,11 @@ class WiringCheck:
         self.hw_config = self.hw_config.model_copy(update=kwargs)
         self.hw_config.save()
         if self.hw:
-            self.hw.hw_config = self.hw_config
+            # Re-instantiate to ensure no cached state (e.g. axes, bus objects) persists
+            print("  [Config] Re-initializing Hardware...")
+            self.hw.cleanup()
+            self.hw = RobotHardware(self.hw_config, self.learning_state, watchdog=self.watchdog)
+            self.hw.init()
 
     def _update_learning_state(self, **kwargs):
         """Helper to update mutable LearningState."""
@@ -431,12 +435,12 @@ class WiringCheck:
                  return False
 
             # Check 2 (Are we spinning?):
-            # Calculate average yaw rate magnitude
-            # Note: We rely on calibrate_static_orientation having run before this, so yaw_rate is valid.
-            avg_yaw = sum(abs(s.yaw_rate) for s in res.samples) / len(res.samples)
-            print(f"    Avg Yaw Rate: {avg_yaw:.1f} deg/s")
+            # Calculate average RAW gyro magnitude. If we are spinning, Total Rotation Rate will be high.
+            # We cannot use 'yaw_rate' because axes are not yet identified.
+            avg_gyro_mag = sum(glm.length(s.gyro_raw) for s in res.samples if s.gyro_raw) / len(res.samples)
+            print(f"    Avg Raw Gyro Mag: {avg_gyro_mag:.1f} deg/s")
 
-            if avg_yaw > 30.0:
+            if avg_gyro_mag > 30.0:
                 print("  -> Spinning detected. Motors are fighting.")
                 print("  -> ACTION: Inverting Right Motor logic.")
                 self._update_hw_config(motor_r_invert=not self.hw_config.motor_r_invert)
@@ -444,21 +448,16 @@ class WiringCheck:
 
             # Check 3 (Are we translating?):
             # We moved (Check 1) and we are NOT spinning (Check 2).
-            # Look for Forward Acceleration or Pitch Change.
+            # Look for significant change in Accel Vector (indicates Pitching or Linear Accel).
+            start_accel = res.samples[0].accel_raw
+            end_accel = res.samples[-1].accel_raw
+            accel_vec_diff = 0.0
+            if start_accel and end_accel:
+                accel_vec_diff = glm.distance(start_accel, end_accel)
 
-            # Calculate Average Forward Accel (Mapped)
-            baseline_fwd_accel = self.hw.get_mapped_value(baseline.accel_raw, "accel_forward")
-            fwd_accels = [self.hw.get_mapped_value(s.accel_raw, "accel_forward") for s in res.samples]
-            avg_fwd_accel = sum(fwd_accels) / len(res.samples)
+            print(f"    Accel Vector Diff: {accel_vec_diff:.3f}g")
 
-            delta_fwd_accel = avg_fwd_accel - baseline_fwd_accel
-
-            delta_pitch = abs(res.samples[-1].pitch_angle - res.samples[0].pitch_angle)
-
-            print(f"    Avg Fwd Accel: {avg_fwd_accel:.2f}g (Baseline: {baseline_fwd_accel:.2f}g, Delta: {delta_fwd_accel:.2f}g)")
-            print(f"    Delta Pitch: {delta_pitch:.1f} deg")
-
-            if delta_fwd_accel > 0.1 or delta_pitch > 2.0:
+            if accel_vec_diff > 0.15 or accel_range > 0.1:
                  print("  -> Translation detected. Motors are aligned (Straight).")
                  self._update_learning_state(motor_phasing_verified=True)
                  return True
@@ -561,9 +560,11 @@ class WiringCheck:
         """
         print(">>> Autonomous Left/Right Verification & Yaw Calibration <<<")
         print("I am going to spin to determine my physical identity.")
-        self.hw.wait_for_stability()
 
         def test(attempt: int):
+            # 0. Wait for Stability (Crucial for Gravity Baseline)
+            self.hw.wait_for_stability()
+
             # 1. Establish Up Vector (Opposite of Gravity)
             print("  Measuring Gravity for Reference...")
             accel, _ = self.hw.read_imu_raw()
@@ -801,12 +802,14 @@ class WiringCheck:
             # Leaning Back -> Kick Up (Increase Pitch).
             kick_sign = -1.0
             setup_sign = 1.0
-            check_success = lambda p: p > 10
+            # Success: Crossed zero (-10) but didn't overshoot (>20)
+            check_success = lambda p: -10 < p < 20
         elif start_from == "FRONT":
             # Leaning Front -> Kick Up (Decrease Pitch).
             kick_sign = 1.0
             setup_sign = -1.0
-            check_success = lambda p: p < -10
+            # Success: Crossed zero (10) but didn't overshoot (<-20)
+            check_success = lambda p: -20 < p < 10
         else:
             raise ValueError(f"Unknown direction {start_from}")
 

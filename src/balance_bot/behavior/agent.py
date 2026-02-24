@@ -212,6 +212,9 @@ class Agent:
                             self.kickup_attempts = 0
                             # _incremental_kickup ends with stop(), so next loop will catch.
                             # We might need to reset PID terms? Core handles it if we disabled control.
+                        elif self.state == BotState.FATAL_ERROR:
+                            logger.critical("-> FATAL ERROR: Kickup failed at Max Power. Require manual intervention.")
+                            # Stay in FATAL_ERROR.
                         else:
                             logger.warning("-> Kick-Up Failed. Transition to IDLE.")
                             self.state = BotState.IDLE
@@ -291,6 +294,11 @@ class Agent:
                             # Actually, just transition to IDLE. IDLE will decide what to do next.
                             logger.info("-> Crash Timeout Expired. Transition to IDLE.")
                             self.state = BotState.IDLE
+
+                    case BotState.FATAL_ERROR:
+                        motion_req.enable_control = False
+                        if self.ticks % 200 == 0:
+                            logger.critical("-> FATAL ERROR STATE. PLEASE MANUALLY RESET ROBOT.")
 
                 # ---------------------------------------------------------
                 # EXECUTION
@@ -431,7 +439,7 @@ class Agent:
 
                 if wrong_position:
                     logger.warning(f"-> Not at {start_label} Limit? Repositioning...")
-                    fix_power = 60.0 * (-kick_direction)
+                    fix_power = (self.learning_state.min_power_visible + 15) * (-kick_direction)
 
                     self.core.hw.set_motors(fix_power, fix_power)
                     self._sleep_with_update(0.5)
@@ -498,4 +506,5 @@ class Agent:
             return False
 
         logger.error("-> Failed to Kick-Up (Max Power Reached).")
+        self.state = BotState.FATAL_ERROR
         return False

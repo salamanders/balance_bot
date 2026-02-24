@@ -22,3 +22,4 @@ class BotState(Enum):
     KICKUP = auto()
     BALANCING = auto()
     CRASHED = auto()
+    FATAL_ERROR = auto()
