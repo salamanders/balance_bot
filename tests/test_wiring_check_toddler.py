@@ -1,0 +1,122 @@
+import sys
+import pytest
+from unittest.mock import MagicMock, patch
+
+# Mock smbus2 before import
+if 'smbus2' not in sys.modules:
+    sys.modules['smbus2'] = MagicMock()
+
+from balance_bot.wiring_check import WiringCheck
+from balance_bot.utils import Vector3
+from balance_bot.hardware.robot_hardware import MeasureResult, IMUReading
+
+@pytest.fixture
+def wc_fixture():
+    with patch("balance_bot.utils.smbus"), \
+         patch("balance_bot.wiring_check.RobotHardware") as MockHW, \
+         patch("balance_bot.wiring_check.HardwareConfig") as MockHWConfig, \
+         patch("balance_bot.wiring_check.LearningState") as MockLearningState:
+
+        # Setup Configs
+        hw_config = MagicMock()
+        hw_config.motor_l = 0
+        hw_config.motor_r = 1
+        # Set default invert flags to False so NOT invert toggles them
+        hw_config.motor_r_invert = False
+
+        MockHWConfig.load.return_value = hw_config
+        hw_config.model_copy.return_value = hw_config
+
+        learning_state = MagicMock()
+        learning_state.min_power_visible = 0
+        MockLearningState.load.return_value = learning_state
+
+        wc = WiringCheck()
+        wc.hw = MockHW.return_value
+        wc.hw.wait_for_stability = MagicMock()
+
+        yield wc, wc.hw, learning_state, hw_config
+
+def test_find_min_power_raw_success(wc_fixture):
+    wc, mock_hw, learning_state, _ = wc_fixture
+
+    # 1. First call (p=10): Small magnitude
+    res_low = MeasureResult(duration=0.3, samples=[
+        IMUReading(0,0,0,0,0, accel_raw=None, gyro_raw=Vector3(1,1,1)) # Mag ~1.7
+    ])
+
+    # 2. Second call (p=15): Big magnitude
+    res_high = MeasureResult(duration=0.3, samples=[
+        IMUReading(0,0,0,0,0, accel_raw=None, gyro_raw=Vector3(10,10,10)) # Mag ~17.3
+    ])
+
+    mock_hw.drive_and_measure.side_effect = [res_low, res_high]
+
+    # Run
+    wc.find_min_power()
+
+    # Expect found value should be 15.
+    assert learning_state.min_power_visible == 15
+    assert learning_state.save.called
+
+def test_align_motors_phase_raw_straight(wc_fixture):
+    """Test case where motors are aligned (perpendicular vectors)."""
+    wc, mock_hw, learning_state, _ = wc_fixture
+    learning_state.min_power_visible = 20
+
+    # Setup drive_and_measure result
+    gravity = Vector3(0, 0, 9.8)
+    gyro = Vector3(10, 0, 0)
+
+    res = MeasureResult(duration=0.5, samples=[
+        IMUReading(0,0,0,0,0, accel_raw=gravity, gyro_raw=gyro)
+    ])
+
+    mock_hw.drive_and_measure.return_value = res
+
+    # Mock verify_with_retries to just run test and verify once
+    with patch("balance_bot.wiring_check.verify_with_retries") as mock_verify:
+        wc.align_motors_phase()
+
+        # Verify call args
+        test_cb = mock_verify.call_args[0][1]
+        verify_cb = mock_verify.call_args[0][2]
+
+        # Run callbacks
+        test_cb() # Should call drive_and_measure
+        result = verify_cb(res) # Should check alignment
+
+        assert result is True
+        assert learning_state.motor_phasing_verified == True
+        assert learning_state.save.called
+
+def test_align_motors_phase_raw_spinning(wc_fixture):
+    """Test case where motors are fighting (aligned vectors)."""
+    wc, mock_hw, learning_state, hw_config = wc_fixture
+    learning_state.min_power_visible = 20
+
+    # Setup drive_and_measure result
+    gravity = Vector3(0, 0, 9.8)
+    gyro = Vector3(0, 0, 10)
+
+    res = MeasureResult(duration=0.5, samples=[
+        IMUReading(0,0,0,0,0, accel_raw=gravity, gyro_raw=gyro)
+    ])
+
+    mock_hw.drive_and_measure.return_value = res
+
+    with patch("balance_bot.wiring_check.verify_with_retries") as mock_verify:
+        wc.align_motors_phase()
+
+        verify_cb = mock_verify.call_args[0][2]
+        result = verify_cb(res)
+
+        assert result is False
+
+        # Check if config was updated
+        assert hw_config.model_copy.called
+        found = False
+        for call in hw_config.model_copy.call_args_list:
+            if 'motor_r_invert' in call.kwargs.get('update', {}):
+                found = True
+        assert found

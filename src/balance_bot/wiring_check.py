@@ -68,6 +68,15 @@ class WiringCheck:
     def _set_default_motors(self):
         print("-> [INFO] Setting default motors (0,1).")
         self._update_hw_config(motor_l=0, motor_r=1)
+        # Re-init hardware to pick up new config if needed,
+        # though RobotHardware doesn't cache motor channels, but let's be safe.
+        # Actually init_hw checks if self.hw is set. If we want to force update config,
+        # we might need to recreate self.hw?
+        # RobotHardware holds a reference to hw_config. But hw_config is immutable and replaced on update.
+        # So we MUST re-create RobotHardware.
+        if self.hw:
+            self.hw.cleanup()
+            self.hw = None
         self.init_hw()
 
     def run(self):
@@ -82,10 +91,6 @@ class WiringCheck:
             ("I2C Bus Assignments",
              lambda: self.hw_config.motor_i2c_bus is None or self.hw_config.imu_i2c_bus is None,
              self.discover_buses),
-
-            ("Spatial Orientation",
-             lambda: self.hw_config.accel_vertical_axis is None,
-             lambda: (self.init_hw(), self.calibrate_static_orientation())),
 
             ("Hardware Initialization",
              lambda: self.hw is None,
@@ -102,6 +107,10 @@ class WiringCheck:
             ("Motor Phasing",
              lambda: not self.learning_state.motor_phasing_verified,
              self.align_motors_phase),
+
+            ("Spatial Orientation",
+             lambda: self.hw_config.accel_vertical_axis is None,
+             lambda: (self.init_hw(), self.calibrate_static_orientation())),
 
             ("Motor Direction",
              lambda: not self.learning_state.motor_direction_verified,
@@ -234,9 +243,10 @@ class WiringCheck:
         print(f"  [DEBUG] Vector P1: {p1}")
 
         # 2. Attempt Blind Flop (Positive Power)
-        # We don't know polarity, but +60 usually moves somewhat.
-        print("  Attempting Blind Flop (+60)...")
-        self.hw.drive_and_measure(60, 60, 0.5)
+        # Use discovered min_power + 30 for reliable flop
+        flop_power = self.learning_state.min_power_visible + 30
+        print(f"  Attempting Blind Flop (+{flop_power})...")
+        self.hw.drive_and_measure(flop_power, flop_power, 0.5)
         self.hw.wait_for_stability(duration=1.5)
 
         # 3. Measure Position 2
@@ -256,8 +266,8 @@ class WiringCheck:
         else:
             # Little change -> We pushed into the floor.
             # Try NEGATIVE power to flop the other way.
-            print("  [INFO] No significant change. Reversing Flop Direction (-60)...")
-            self.hw.drive_and_measure(-60, -60, 0.5)
+            print(f"  [INFO] No significant change. Reversing Flop Direction (-{flop_power})...")
+            self.hw.drive_and_measure(-flop_power, -flop_power, 0.5)
             self.hw.wait_for_stability(duration=1.5)
 
             # 5. Measure Position 3
@@ -353,17 +363,25 @@ class WiringCheck:
     def find_min_power(self):
         """
         Find minimum PWM to overcome friction.
+        Uses raw gyro magnitude to detect movement without axis calibration.
         """
-        print(">>> Finding Minimum Power <<<")
+        print(">>> Finding Minimum Power (Raw) <<<")
         print("Ensuring robot is on the floor...")
 
         def action(p):
             return self._drive_and_wait(p, p, 0.3, wait_stable=False)
 
         def check(res):
-            rate = res.max_rate
-            print(f"    Max Rate: {rate:.1f} deg/s")
-            return rate > 15.0
+            # Calculate Max Raw Gyro Magnitude
+            max_mag = 0.0
+            for s in res.samples:
+                if s.gyro_raw:
+                    mag = math.sqrt(s.gyro_raw.x**2 + s.gyro_raw.y**2 + s.gyro_raw.z**2)
+                    if mag > max_mag:
+                        max_mag = mag
+
+            print(f"    Max Raw Gyro Magnitude: {max_mag:.1f} deg/s")
+            return max_mag > 15.0
 
         heartbeat_fn = self.watchdog.heartbeat if self.watchdog else None
         found = find_threshold("Minimum Power", 10, 5, 100, action, check, heartbeat_fn=heartbeat_fn)
@@ -373,20 +391,59 @@ class WiringCheck:
     def align_motors_phase(self):
         """
         Ensure motors spin together (Straight), not opposite (Spin).
+        Uses raw gyro/accel comparison to detect spinning vs pitching.
         """
+        print(">>> Aligning Motors Phase (Raw) <<<")
+
         def test():
             p = self.learning_state.min_power_visible + 10
             return self._drive_and_wait(p, p, 0.5)
 
         def verify(res):
-            yaw = res.abs_avg_yaw_rate
-            print(f"  -> Avg Yaw Rate: {yaw:.1f} deg/s")
-            if yaw > 40.0:
-                print("  -> High Yaw Rate detected. Motors are fighting (Spinning).")
-                print("  -> ACTION: Inverting Right Motor logic to align phases.")
+            if not res.samples: return False
+
+            # 1. Estimate Gravity Vector (use first sample as approx rest state)
+            gravity = res.samples[0].accel_raw
+            if not gravity: return False
+
+            # 2. Estimate Average Rotation Vector
+            gyro_sum = Vector3(0.0, 0.0, 0.0)
+            count = 0
+            for s in res.samples:
+                if s.gyro_raw:
+                    gyro_sum += s.gyro_raw
+                    count += 1
+            if count == 0: return False
+            avg_gyro = gyro_sum / count
+
+            # 3. Check Alignment
+            # If Spinning (Yawing): Rotation aligns with Gravity.
+            # If Driving (Pitching): Rotation is Perpendicular to Gravity.
+
+            g_mag = math.sqrt(gravity.x**2 + gravity.y**2 + gravity.z**2)
+            r_mag = math.sqrt(avg_gyro.x**2 + avg_gyro.y**2 + avg_gyro.z**2)
+
+            if g_mag == 0 or r_mag == 0:
+                 print("  [WARNING] Zero magnitude vector.")
+                 return False
+
+            dot = (gravity.x * avg_gyro.x + gravity.y * avg_gyro.y + gravity.z * avg_gyro.z)
+            cos_theta = abs(dot) / (g_mag * r_mag)
+
+            print(f"  Raw Gyro Mag: {r_mag:.1f}, Alignment (CosTheta): {cos_theta:.2f}")
+
+            if r_mag < 10.0:
+                 print("  [WARNING] Not moving enough to determine phase.")
+                 return False
+
+            # Threshold: > 0.7 implies mostly aligned (Spinning). < 0.4 implies mostly perpendicular.
+            if cos_theta > 0.6:
+                print("  -> Vectors aligned. Motors are fighting (Spinning).")
+                print("  -> ACTION: Inverting Right Motor logic.")
                 self._update_hw_config(motor_r_invert=not self.hw_config.motor_r_invert)
                 return False
-            print("  -> Low Yaw Rate. Motors are aligned (Straight).")
+
+            print("  -> Vectors perpendicular. Motors are aligned (Straight).")
             self._update_learning_state(motor_phasing_verified=True)
             return True
 
