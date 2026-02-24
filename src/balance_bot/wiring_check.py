@@ -109,13 +109,13 @@ class WiringCheck:
              lambda: self.learning_state.min_power_visible == 0,
              self.find_min_power),
 
-            ("Motor Phasing",
-             lambda: not self.learning_state.motor_phasing_verified,
-             self.align_motors_phase),
-
             ("Spatial Orientation",
              lambda: self.hw_config.accel_vertical_axis is None,
              lambda: (self.init_hw(), self.calibrate_static_orientation())),
+
+            ("Motor Phasing",
+             lambda: not self.learning_state.motor_phasing_verified,
+             self.align_motors_phase),
 
             ("Motor Direction",
              lambda: not self.learning_state.motor_direction_verified,
