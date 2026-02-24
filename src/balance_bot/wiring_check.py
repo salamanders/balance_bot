@@ -434,9 +434,21 @@ class WiringCheck:
         def test(attempt: int):
             # Increased power by +20 (was +10) to overcome static friction
             p = self.learning_state.min_power_visible + 20 + (attempt * 10)
-            return self._drive_and_wait(p, p, 0.5)
 
-        def verify(res):
+            # Ensure stability first
+            self.hw.wait_for_stability()
+            # Capture baseline
+            baseline_imu = self.hw.read_imu_converted()
+
+            # Drive (don't wait for stability again inside, to reduce lag)
+            res = self._drive_and_wait(p, p, 0.5, wait_stable=False)
+
+            return (baseline_imu, res)
+
+        def verify(data):
+            if not data: return False
+            baseline, res = data
+
             if not res.samples: return False
 
             # Check 1 (Did we move?):
@@ -474,14 +486,18 @@ class WiringCheck:
             # Look for Forward Acceleration or Pitch Change.
 
             # Calculate Average Forward Accel (Mapped)
+            baseline_fwd_accel = self.hw.get_mapped_value(baseline.accel_raw, "accel_forward")
             fwd_accels = [self.hw.get_mapped_value(s.accel_raw, "accel_forward") for s in res.samples]
             avg_fwd_accel = sum(fwd_accels) / len(res.samples)
 
+            delta_fwd_accel = avg_fwd_accel - baseline_fwd_accel
+
             delta_pitch = abs(res.samples[-1].pitch_angle - res.samples[0].pitch_angle)
 
-            print(f"    Avg Fwd Accel: {avg_fwd_accel:.2f}g, Delta Pitch: {delta_pitch:.1f} deg")
+            print(f"    Avg Fwd Accel: {avg_fwd_accel:.2f}g (Baseline: {baseline_fwd_accel:.2f}g, Delta: {delta_fwd_accel:.2f}g)")
+            print(f"    Delta Pitch: {delta_pitch:.1f} deg")
 
-            if avg_fwd_accel > 0.1 or delta_pitch > 5.0:
+            if delta_fwd_accel > 0.1 or delta_pitch > 2.0:
                  print("  -> Translation detected. Motors are aligned (Straight).")
                  self._update_learning_state(motor_phasing_verified=True)
                  return True
