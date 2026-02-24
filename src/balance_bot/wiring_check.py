@@ -190,32 +190,6 @@ class WiringCheck:
         print(f"  Trim: {l.motor_trim:.3f}")
         print(f"  KickUp: Fwd={l.control.kickup_power_forward:.1f}, Bwd={l.control.kickup_power_backward:.1f}")
 
-    def _drive_and_wait(self, left: float, right: float, duration: float,
-                        wait_stable: bool = True) -> Any:
-        """Helper to drive, measure, and wait."""
-        if wait_stable:
-            self.hw.wait_for_stability()
-        result = self.hw.drive_and_measure(left, right, duration)
-        time.sleep(0.5)
-        return result
-
-    def _measure_gravity_with_hardware(self) -> glm.vec3:
-        """Measure gravity using hardware abstraction."""
-        # Drive 0,0 for 1.0 second
-        res = self.hw.drive_and_measure(0, 0, 1.0)
-        if not res.samples:
-            return glm.vec3(0.0)
-
-        avg = glm.vec3(0.0)
-        count = 0
-        for s in res.samples:
-            if s.accel_raw:
-                avg += s.accel_raw
-                count += 1
-        if count > 0:
-            return avg / count
-        return glm.vec3(0.0)
-
     def discover_buses(self):
         """
         Scan I2C buses [1, 3, 0, 2] for PiconZero (0x22) and MPU6050 (0x68).
@@ -267,7 +241,7 @@ class WiringCheck:
             self.hw.wait_for_stability(duration=1.0)
 
             # Collect
-            vec = self._measure_gravity_with_hardware()
+            vec = self.hw.measure_gravity()
             collected.append(vec)
             # print(f"    Collected: {vec}")
 
@@ -406,7 +380,9 @@ class WiringCheck:
         print("Ensuring robot is on the floor...")
 
         def action(p):
-            return self._drive_and_wait(p, p, 0.3, wait_stable=False)
+            res = self.hw.drive_and_measure(p, p, 0.3, wait_for_stability=False)
+            time.sleep(0.5)
+            return res
 
         def check(res):
             # Calculate Max Raw Gyro Magnitude
@@ -442,7 +418,8 @@ class WiringCheck:
             baseline_imu = self.hw.read_imu_converted()
 
             # Drive (don't wait for stability again inside, to reduce lag)
-            res = self._drive_and_wait(p, p, 0.5, wait_stable=False)
+            res = self.hw.drive_and_measure(p, p, 0.5, wait_for_stability=False)
+            time.sleep(0.5)
 
             return (baseline_imu, res)
 
@@ -546,7 +523,8 @@ class WiringCheck:
             power = (self.learning_state.min_power_visible + 20) + (attempt * 10)
             print(f"  Pulsing {power}...")
 
-            res = self._drive_and_wait(power, power, 0.4, wait_stable=False)
+            res = self.hw.drive_and_measure(power, power, 0.4, wait_for_stability=False)
+            time.sleep(0.5)
             return (start_pitch, res)
 
         def verify(data):

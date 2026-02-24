@@ -43,14 +43,12 @@ def test_toddler_flail_collection_loop(wc_fixture):
     with patch('time.time', side_effect=[100.0, 100.1, 111.0]):
 
         # Mock measurement return
-        # _measure_gravity_with_hardware calls drive_and_measure
+        # measure_gravity calls drive_and_measure
         # flail calls drive_and_measure
         mock_hw.drive_and_measure.return_value = MeasureResult(0.1, [])
+        mock_hw.measure_gravity.return_value = glm.vec3(0,0,1)
 
-        # Mock _measure_gravity_with_hardware to return a dummy vector
-        # because the real one digs into res.samples which we mocked as empty
-        with patch.object(wc, '_measure_gravity_with_hardware', return_value=glm.vec3(0,0,1)):
-            vectors = wc._toddler_flail_collection(duration=10.0)
+        vectors = wc._toddler_flail_collection(duration=10.0)
 
         assert len(vectors) == 1
         # drive_and_measure called for flail

@@ -607,9 +607,29 @@ class RobotHardware:
 
         return MeasureResult(duration=total_duration, samples=samples)
 
-    def drive_and_measure(self, left_power: float, right_power: float, duration: float, sample_interval: float = 0.01) -> MeasureResult:
+    def drive_and_measure(self, left_power: float, right_power: float, duration: float, sample_interval: float = 0.01, wait_for_stability: bool = False) -> MeasureResult:
         """
         Drive motors for a duration and collect IMU readings.
         Returns a MeasureResult object containing samples and stats.
         """
+        if wait_for_stability:
+            self.wait_for_stability()
         return self.execute_maneuver([(left_power, right_power, duration)], sample_interval)
+
+    def measure_gravity(self, duration: float = 1.0) -> glm.vec3:
+        """
+        Measure average gravity vector by staying still (0 power).
+        """
+        res = self.drive_and_measure(0, 0, duration)
+        if not res.samples:
+            return glm.vec3(0.0)
+
+        avg = glm.vec3(0.0)
+        count = 0
+        for s in res.samples:
+            if s.accel_raw:
+                avg += s.accel_raw
+                count += 1
+        if count > 0:
+            return avg / count
+        return glm.vec3(0.0)

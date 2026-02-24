@@ -7,15 +7,15 @@ import glm
 # Define mock classes if needed, or rely on MagicMock
 # We need Vector3 for type hints or usage in create_sample if we import it
 
-from src.balance_bot.hardware.robot_hardware import IMUReading, MeasureResult
+from balance_bot.hardware.robot_hardware import IMUReading, MeasureResult
 
 # Mock dependencies before importing wiring_check
 with patch.dict(sys.modules, {
     'smbus2': MagicMock(),
     'mpu6050': MagicMock(),
-    'src.balance_bot.hardware.piconzero': MagicMock(),
+    'balance_bot.hardware.piconzero': MagicMock(),
 }):
-    from src.balance_bot.wiring_check import WiringCheck, HardwareConfig, LearningState
+    from balance_bot.wiring_check import WiringCheck, HardwareConfig, LearningState
 
 class TestWiringCheckPhase(unittest.TestCase):
     def setUp(self):
@@ -31,8 +31,8 @@ class TestWiringCheckPhase(unittest.TestCase):
         self.mock_learning_state.motor_phasing_verified = False
 
         # Patch the class methods load
-        self.patcher1 = patch('src.balance_bot.wiring_check.HardwareConfig.load', return_value=self.mock_hw_config)
-        self.patcher2 = patch('src.balance_bot.wiring_check.LearningState.load', return_value=self.mock_learning_state)
+        self.patcher1 = patch('balance_bot.wiring_check.HardwareConfig.load', return_value=self.mock_hw_config)
+        self.patcher2 = patch('balance_bot.wiring_check.LearningState.load', return_value=self.mock_learning_state)
         self.patcher1.start()
         self.patcher2.start()
 
@@ -61,18 +61,18 @@ class TestWiringCheckPhase(unittest.TestCase):
     def test_align_motors_phase_stuck(self):
         # Mock baseline
         self.wc.hw.read_imu_converted.return_value = self.create_sample(0, 0, 1.0, 0, 0, 0)
-        # Mock _drive_and_wait to return stuck result (no noise)
+        # Mock hw.drive_and_measure to return stuck result (no noise)
         samples = [self.create_sample(0, 0, 1.0, 0, 0, 0) for _ in range(10)]
         res = MeasureResult(duration=0.5, samples=samples)
-        self.wc._drive_and_wait = MagicMock(return_value=res)
+        self.wc.hw.drive_and_measure.return_value = res
 
         # Expect SystemExit after retries
         with self.assertRaises(SystemExit):
              self.wc.align_motors_phase()
 
         # Check that it tried 3 times (0, 1, 2)
-        # _drive_and_wait(p, p, 0.5)
-        self.assertEqual(self.wc._drive_and_wait.call_count, 3)
+        # drive_and_measure is called with wait_for_stability=False
+        self.assertEqual(self.wc.hw.drive_and_measure.call_count, 3)
 
     def test_align_motors_phase_spinning(self):
         # Mock baseline
@@ -86,15 +86,12 @@ class TestWiringCheckPhase(unittest.TestCase):
             # Yaw high (40)
             samples.append(self.create_sample(0, 0, 1.0 + noise, 0, 0, 40.0, yaw=40.0))
         res = MeasureResult(duration=0.5, samples=samples)
-        self.wc._drive_and_wait = MagicMock(return_value=res)
+        self.wc.hw.drive_and_measure.return_value = res
 
         # Mock get_mapped_value to be low so it doesn't pass translation check
         self.wc.hw.get_mapped_value.return_value = 0.0
 
         # Spy on _update_hw_config using a wrapper
-        # We can't use patch.object easily on the method itself if we want to call it?
-        # Actually verify calls self._update_hw_config.
-        # We can mock it.
         self.wc._update_hw_config = MagicMock()
 
         with self.assertRaises(SystemExit):
@@ -115,7 +112,7 @@ class TestWiringCheckPhase(unittest.TestCase):
             # Forward accel 0.2
             samples.append(self.create_sample(0.2, 0, 1.0 + noise, 0, 5, 0, yaw=2.0))
         res = MeasureResult(duration=0.5, samples=samples)
-        self.wc._drive_and_wait = MagicMock(return_value=res)
+        self.wc.hw.drive_and_measure.return_value = res
 
         # We need self.hw.get_mapped_value to return 0.2 for "accel_forward"
         self.wc.hw.get_mapped_value.side_effect = lambda vec, name: vec.x if name == "accel_forward" else 0.0
