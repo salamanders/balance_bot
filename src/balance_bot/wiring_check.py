@@ -6,6 +6,7 @@ from typing import Callable, Any, Optional
 from .configuration import HardwareConfig, LearningState
 from .hardware.robot_hardware import RobotHardware, IMUReading
 from .watchdog import SurvivalWatchdog
+import random
 from .enums import Axis
 from .utils import (
     analyze_dominance,
@@ -16,7 +17,10 @@ from .utils import (
     scan_i2c_candidates,
     scan_i2c_or_die,
     verify_with_retries,
-    find_threshold
+    find_threshold,
+    sort_resting_vectors,
+    vector_angle,
+    clamp
 )
 
 
@@ -221,55 +225,73 @@ class WiringCheck:
         self._update_hw_config(motor_i2c_bus=found_motor_bus, imu_i2c_bus=found_imu_bus)
 
     # --- Phase 2: The Physical World (Sensors) ---
-    def _vector_angle(self, v1: Vector3, v2: Vector3) -> float:
-        """Helper to calculate angle between two vectors."""
-        dot = v1.dot(v2)
-        mag = v1.magnitude * v2.magnitude
-        if mag == 0:
-            return 0.0
-        val = max(-1.0, min(1.0, dot / mag))
-        return math.degrees(math.acos(val))
+    def _toddler_flail_collection(self, duration=10.0) -> list[Vector3]:
+        """
+        Flail around randomly to collect gravity vectors in various resting states.
+        """
+        print(f"  [Toddler Flail] Starting chaos routine for {duration}s...")
+        collected = []
+        start_time = time.time()
+
+        while time.time() - start_time < duration:
+            if self.watchdog:
+                self.watchdog.heartbeat()
+
+            # Random power: min_power + 30 + random(0..40). Clamped to 100 max.
+            base = self.learning_state.min_power_visible + 30
+            extra = random.uniform(0, 40)
+            power = clamp(base + extra, 0, 100)
+
+            # Random direction
+            sign = 1.0 if random.random() > 0.5 else -1.0
+            power_signed = power * sign
+
+            # Burst
+            print(f"    Flailing: {power_signed:.1f} (0.4s)...")
+            self.hw.drive_and_measure(power_signed, power_signed, 0.4)
+
+            # Wait for gravity to settle
+            self.hw.wait_for_stability(duration=1.0)
+
+            # Collect
+            vec = self._measure_gravity_with_hardware()
+            collected.append(vec)
+            print(f"    Collected: {vec}")
+
+        return collected
 
     def _measure_gravity_vectors(self) -> tuple[Vector3, Vector3]:
         """
         Measure gravity vector at Back and Front resting positions.
-        Requires User Intervention to anchor the "BACK" position.
+        Uses autonomous 'Toddler Flail' to discover physical limits.
         """
-        print(">>> Calibrating Orientation <<<")
+        print(">>> Calibrating Orientation (Autonomous) <<<")
 
-        # 1. Force Human Anchor (Establish Ground Truth)
-        input("  [ACTION REQUIRED] Please place the robot flat on its BACK on the floor and press Enter...")
-        self.hw.wait_for_stability(duration=1.5)
+        # 1. Flail & Collect
+        vectors = self._toddler_flail_collection(duration=12.0)
 
-        print("  Measuring Position 1 (BACK)...")
-        p_back = self._measure_gravity_with_hardware()
-        print(f"  [DEBUG] Vector Back: {p_back}")
+        # 2. Sort into two buckets
+        print(f"  [Analysis] Sorting {len(vectors)} vectors...")
+        try:
+            p1, p2 = sort_resting_vectors(vectors)
+        except ValueError as e:
+             print(f"  [FAILURE] Sorting failed: {e}")
+             raise
 
-        # 2. Attempt Flop to find Front
-        # Try Positive Power first
-        flop_power = self.learning_state.min_power_visible + 30
-        print(f"  Attempting Flop (+{flop_power})...")
-        self.hw.drive_and_measure(flop_power, flop_power, 0.5)
-        self.hw.wait_for_stability(duration=1.5)
+        print(f"  [DEBUG] Resting Position A: {p1}")
+        print(f"  [DEBUG] Resting Position B: {p2}")
 
-        print("  Measuring Position 2 (FRONT?)...")
-        p_front = self._measure_gravity_with_hardware()
-        print(f"  [DEBUG] Vector Front (Candidate): {p_front}")
+        # 3. Failsafe Check
+        spread = vector_angle(p1, p2)
+        print(f"  [DEBUG] Angle Spread: {spread:.1f} degrees")
 
-        # 3. Verify Flop
-        angle_diff = self._vector_angle(p_back, p_front)
-        print(f"  [DEBUG] Vector Change Angle: {angle_diff:.1f} degrees")
+        if spread < 15.0:
+            msg = f"Resting vectors are too close ({spread:.1f} deg). Is the robot flat on its side?"
+            print(f"  [CRITICAL] {msg}")
+            raise RuntimeError(msg)
 
-        if angle_diff < 45.0:
-            # Little change -> We pushed into the floor.
-            # Try NEGATIVE power to flop the other way.
-            print(f"  [INFO] No significant change. Reversing Flop Direction (-{flop_power})...")
-            self.hw.drive_and_measure(-flop_power, -flop_power, 0.5)
-            self.hw.wait_for_stability(duration=1.5)
-
-            print("  Measuring Position 2 (FRONT)...")
-            p_front = self._measure_gravity_with_hardware()
-            print(f"  [DEBUG] Vector Front: {p_front}")
+        # 4. Assign Arbitrarily (Direction fixed in later step)
+        p_back, p_front = p1, p2
 
         print("  [SUCCESS] Orientation Calibrated.")
         return p_back, p_front

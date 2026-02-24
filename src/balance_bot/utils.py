@@ -626,3 +626,51 @@ def find_threshold(name: str, start: float, step: float, limit: float,
 
     print(f"  [FAILURE] Could not find {name} within limit {limit}.")
     sys.exit(1)
+
+
+def vector_angle(v1: Vector3, v2: Vector3) -> float:
+    """Calculate the angle in degrees between two vectors."""
+    dot = v1.dot(v2)
+    mag = v1.magnitude * v2.magnitude
+    if mag == 0:
+        return 0.0
+    val = max(-1.0, min(1.0, dot / mag))
+    return math.degrees(math.acos(val))
+
+
+def sort_resting_vectors(vectors: list[Vector3]) -> tuple[Vector3, Vector3]:
+    """
+    Sort resting vectors into two distinct groups based on angle separation.
+    Returns the average vector for each group.
+    """
+    if not vectors:
+        raise ValueError("No vectors collected.")
+
+    pivot = vectors[0]
+    bucket_a = []
+    bucket_b = []
+
+    for v in vectors:
+        angle = vector_angle(pivot, v)
+        if angle < 20.0:
+            bucket_a.append(v)
+        else:
+            bucket_b.append(v)
+
+    if not bucket_b:
+        raise ValueError("Failed to find two distinct resting positions (all vectors clustered near pivot).")
+
+    # Average buckets
+    def avg_bucket(bucket: list[Vector3]) -> Vector3:
+        if not bucket:
+            return Vector3(0.0, 0.0, 0.0)
+        sum_x = sum(v.x for v in bucket)
+        sum_y = sum(v.y for v in bucket)
+        sum_z = sum(v.z for v in bucket)
+        count = len(bucket)
+        return Vector3(sum_x / count, sum_y / count, sum_z / count)
+
+    avg_a = avg_bucket(bucket_a)
+    avg_b = avg_bucket(bucket_b)
+
+    return avg_a, avg_b
