@@ -1,20 +1,17 @@
 import time
 import sys
-import math
 import random
 import glm
-from typing import Callable, Any, Optional
+from typing import Optional
 
 from .configuration import HardwareConfig, LearningState
-from .hardware.robot_hardware import RobotHardware, IMUReading
+from .hardware.robot_hardware import RobotHardware
 from .watchdog import SurvivalWatchdog
 from .enums import Axis
 from .dag_executor import DAGExecutor
 from .utils import (
     analyze_dominance,
-    get_i2c_failure_report,
     run_diagnostics,
-    scan_i2c_candidates,
     scan_i2c_or_die,
     verify_with_retries,
     find_threshold,
@@ -751,36 +748,40 @@ class WiringCheck:
         self._update_learning_state(backlash_verified=True)
 
     # --- Phase 7: Kick-Up Dynamics ---
+
+    def _get_dir_sign(self, target_posture: str) -> float:
+        """
+        Returns the motor direction sign required to move TOWARDS the target posture.
+        BACK (Negative Pitch) -> Drive Forward (+1.0) to decrease pitch.
+        FRONT (Positive Pitch) -> Drive Reverse (-1.0) to increase pitch.
+        """
+        return 1.0 if target_posture == "BACK" else -1.0
+
     def _force_posture(self, target_posture: str, max_attempts: int = 5):
         """
         Autonomously forces the robot onto the target bumper ('FRONT' or 'BACK').
         Raises an exception (dies) if it gets stuck, allowing the watchdog to function.
         """
         base_power = self.learning_state.min_power_visible + 10
+        dir_sign = self._get_dir_sign(target_posture)
 
         for attempt in range(max_attempts):
             self.hw.wait_for_stability(duration=1.0)
-            curr = self.hw.read_imu_converted()
-            pitch = curr.pitch_angle
+            pitch = self.hw.read_imu_converted().pitch_angle
 
-            # Are we already where we want to be?
-            if target_posture == "FRONT" and pitch > 10.0:
-                return  # Success
-            if target_posture == "BACK" and pitch < -10.0:
+            # Check if we are already there (opposite logic of direction sign)
+            # If target=BACK (sign=1.0), we want pitch < -10.
+            # If target=FRONT (sign=-1.0), we want pitch > 10.
+            # Simplified: pitch * sign < -10 means we reached the target "zone"
+            # Example: pitch=-15, sign=1.0 -> -15 < -10 (True) -> Success
+            # Example: pitch=15, sign=-1.0 -> -15 < -10 (True) -> Success
+            if pitch * dir_sign < -10.0:
                 return  # Success
 
             print(f"  [AUTO-CORRECT] Wrong posture (Pitch={pitch:.1f}). Attempting to flop to {target_posture}...")
 
-            # To go FRONT (Pos Pitch), we need Negative Power (Pitch Increase).
-            # To go BACK (Neg Pitch), we need Positive Power (Pitch Decrease).
-            power = base_power + (attempt * 10)
-
-            if target_posture == "FRONT":
-                # Drive Reverse to flop Forward
-                self.hw.drive_and_measure(-power, -power, 0.4)
-            else:
-                # Drive Forward to flop Backward
-                self.hw.drive_and_measure(power, power, 0.4)
+            power = (base_power + (attempt * 10)) * dir_sign
+            self.hw.drive_and_measure(power, power, 0.4)
 
         # If we exit the loop, we failed to achieve the posture.
         print(f"  [FATAL] Failed to reach {target_posture} posture after {max_attempts} attempts. Am I stuck?")
@@ -793,22 +794,14 @@ class WiringCheck:
         start_from: "BACK" or "FRONT".
         Returns: "SUCCESS", "FAIL_POWER", or "FAIL_ALIGNMENT".
         """
-        # Define Physics Directions
-        # Convention: Positive Power = Forward.
-        # To Stand Up from BACK (Pitch < 0): Need Backward Wheels (Neg Power).
-        # To Stand Up from FRONT (Pitch > 0): Need Forward Wheels (Pos Power).
-        if start_from == "BACK":
-            # Leaning Back -> Kick Up (Increase Pitch).
-            kick_sign = -1.0
-            setup_sign = 1.0
-            check_success = lambda p: p > 10
-        elif start_from == "FRONT":
-            # Leaning Front -> Kick Up (Decrease Pitch).
-            kick_sign = 1.0
-            setup_sign = -1.0
-            check_success = lambda p: p < -10
-        else:
-            raise ValueError(f"Unknown direction {start_from}")
+        # Determine target posture (opposite of start)
+        target_posture = "FRONT" if start_from == "BACK" else "BACK"
+
+        # Logic:
+        # Kick: Move FROM start TO target. Use target direction.
+        # Setup: Roll deeper INTO start. Use start direction.
+        kick_sign = self._get_dir_sign(target_posture)
+        setup_sign = self._get_dir_sign(start_from)
 
         # Execute Maneuver (No delays between Setup and Kick)
         setup_p = power * setup_sign * 0.7  # Gentle Roll
@@ -824,22 +817,18 @@ class WiringCheck:
 
         # Coast & Check
         time.sleep(1.0)
-        final_reading = self.hw.read_imu_converted()
-        final_pitch = final_reading.pitch_angle
+        final_pitch = self.hw.read_imu_converted().pitch_angle
 
         # Alignment Check
-        if not samples:
-            avg_yaw = 0.0
-        else:
-            # Use signed sum to detect net drift, not vibration
-            avg_yaw = sum(s.yaw_rate for s in samples) / len(samples)
-
+        avg_yaw = sum(s.yaw_rate for s in samples) / len(samples) if samples else 0.0
         print(f"    Result: Pitch={final_pitch:.1f}, AvgDrift={avg_yaw:.1f} d/s")
 
         if abs(avg_yaw) > 15.0:
             return "FAIL_ALIGNMENT"
 
-        if check_success(final_pitch):
+        # Success Check: Did we reach the target zone?
+        # Target Zone: pitch * target_sign < -10
+        if final_pitch * kick_sign < -10.0:
             return "SUCCESS"
         else:
             return "FAIL_POWER"
@@ -891,66 +880,42 @@ class WiringCheck:
         """
         Autonomous Verification of the learned configuration.
         Pessimistic check:
-        1. Drive Straight: Verify Yaw Rate is low, Accel/Pitch reflects movement.
-        2. Turn Right: Verify Yaw Rate is Negative (or matches convention).
+        1. Drive Straight: Verify Yaw Rate is low.
+        2. Turn Right: Verify Yaw Rate is Negative.
         """
         print("  Running Autonomous Verification...")
+        base_p = self.learning_state.min_power_visible
 
-        # 1. Verify Straight Drive
-        print("  [Check 1] Drive Straight...")
-        power = self.learning_state.min_power_visible + 10
+        checks = [
+            {
+                "name": "Straight Drive",
+                "left": base_p + 10, "right": base_p + 10,
+                "check": lambda res: res.abs_avg_yaw_rate < 40.0,
+                "fail_msg": "Robot spun while trying to drive straight."
+            },
+            {
+                "name": "Right Turn (Clockwise)",
+                "left": base_p + 15, "right": (base_p + 15) * 0.5,
+                "check": lambda res: res.avg_yaw_rate < -10.0,
+                "fail_msg": "Robot did not turn Right (Clockwise). Expected Yaw < -10."
+            }
+        ]
 
-        result = self.hw.drive_and_measure(power, power, 1.0)
-        time.sleep(0.5)
+        for c in checks:
+            print(f"  [Check] {c['name']}...")
+            res = self.hw.drive_and_measure(c['left'], c['right'], 1.0)
+            time.sleep(0.5)
 
-        avg_yaw = result.abs_avg_yaw_rate
+            print(f"    Avg Yaw Rate: {res.avg_yaw_rate:.1f} deg/s (Abs: {res.abs_avg_yaw_rate:.1f})")
 
-        print(f"    Avg Yaw Rate: {avg_yaw:.1f} deg/s")
-
-        if avg_yaw > 40.0:
-             print("  [FAILURE] Robot spun while trying to drive straight.")
-             print("  -> Possible Phase mismatch or Motor Direction mismatch despite checks.")
-             self._update_learning_state(
-                motor_direction_verified=False,
-                motor_channels_verified=False,
-                motor_trim_verified=False
-             )
-             sys.exit(1)
-
-        # 2. Verify Right Turn
-        print("  [Check 2] Turn Right (Clockwise)...")
-        # Command L+, R- (Spin) -> Changed to Arc (L+, R_low) to avoid drag
-
-        power_high = self.learning_state.min_power_visible + 15
-        power_low = power_high * 0.5
-
-        # Turn Right -> Drive Left Motor (High), Right Motor (Low)
-        result = self.hw.drive_and_measure(power_high, power_low, 1.0)
-
-        avg_yaw_signed = result.avg_yaw_rate
-
-        print(f"    Avg Yaw Rate (Signed): {avg_yaw_signed:.1f} deg/s")
-
-        # Expect Negative Yaw (Clockwise)
-        if avg_yaw_signed > -10.0:
-             # It should be significantly negative (e.g. -30)
-             if avg_yaw_signed > 10.0:
-                 print("  [FAILURE] Robot turned LEFT when commanded RIGHT.")
-                 print("  -> Gyro Yaw or Motor Channel mismatch.")
-                 self._update_learning_state(
+            if not c['check'](res):
+                print(f"  [FAILURE] {c['fail_msg']}")
+                self._update_learning_state(
                     motor_direction_verified=False,
                     motor_channels_verified=False,
                     motor_trim_verified=False
-                 )
-                 sys.exit(1)
-             else:
-                 print("  [FAILURE] Robot did not turn significantly.")
-                 self._update_learning_state(
-                    motor_direction_verified=False,
-                    motor_channels_verified=False,
-                    motor_trim_verified=False
-                 )
-                 sys.exit(1)
+                )
+                sys.exit(1)
 
         print("  [PASS] Configuration Verified.")
 

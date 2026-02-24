@@ -1,8 +1,5 @@
 import unittest
-from unittest.mock import MagicMock, patch, call
-import sys
-import time
-import glm
+from unittest.mock import MagicMock, patch
 
 from balance_bot.wiring_check import WiringCheck
 from balance_bot.configuration import LearningState, HardwareConfig
@@ -33,6 +30,7 @@ class TestWiringCheckFixes(unittest.TestCase):
         # drive_and_measure returns a result object
         mock_result = MagicMock()
         mock_result.abs_avg_yaw_rate = 50.0 # > 40.0 Threshold
+        mock_result.avg_yaw_rate = 50.0 # Also set for logging
 
         self.wc.hw.drive_and_measure.return_value = mock_result
 
@@ -59,10 +57,12 @@ class TestWiringCheckFixes(unittest.TestCase):
         # 1. Drive Straight Pass
         mock_res_straight = MagicMock()
         mock_res_straight.abs_avg_yaw_rate = 0.0
+        mock_res_straight.avg_yaw_rate = 0.0
 
         # 2. Turn Right Fail (Wrong Direction - Positive Yaw instead of Negative)
         mock_res_turn = MagicMock()
         mock_res_turn.avg_yaw_rate = 20.0 # > -10.0 (Failed) and > 10.0 (Wrong Way)
+        mock_res_turn.abs_avg_yaw_rate = 20.0
 
         self.wc.hw.drive_and_measure.side_effect = [mock_res_straight, mock_res_turn]
 
@@ -85,10 +85,12 @@ class TestWiringCheckFixes(unittest.TestCase):
         # 1. Drive Straight Pass
         mock_res_straight = MagicMock()
         mock_res_straight.abs_avg_yaw_rate = 0.0
+        mock_res_straight.avg_yaw_rate = 0.0
 
         # 2. Turn Right Fail (No significant turn)
         mock_res_turn = MagicMock()
         mock_res_turn.avg_yaw_rate = 0.0 # > -10.0 (Failed) but < 10.0
+        mock_res_turn.abs_avg_yaw_rate = 0.0
 
         self.wc.hw.drive_and_measure.side_effect = [mock_res_straight, mock_res_turn]
 

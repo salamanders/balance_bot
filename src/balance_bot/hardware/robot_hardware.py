@@ -439,24 +439,13 @@ class RobotHardware:
         right_val = int(clamp(right, MOTOR_MIN_OUTPUT, MOTOR_MAX_OUTPUT))
 
         # Map logical Left/Right to Physical 0/1
-        val_0 = 0
-        val_1 = 0
+        motor_values = {0: 0, 1: 0}
 
-        # Assign Left Motor Value
-        if self.hw_config.motor_l is not None:
-            if self.hw_config.motor_l == 0:
-                val_0 = left_val
-            elif self.hw_config.motor_l == 1:
-                val_1 = left_val
+        for motor_id, val in [(self.hw_config.motor_l, left_val), (self.hw_config.motor_r, right_val)]:
+            if motor_id in motor_values:
+                motor_values[motor_id] = val
 
-        # Assign Right Motor Value
-        if self.hw_config.motor_r is not None:
-            if self.hw_config.motor_r == 0:
-                val_0 = right_val
-            elif self.hw_config.motor_r == 1:
-                val_1 = right_val
-
-        self.pz.set_motors(val_0, val_1)
+        self.pz.set_motors(motor_values[0], motor_values[1])
 
     def stop(self) -> None:
         """Stop all motors."""
