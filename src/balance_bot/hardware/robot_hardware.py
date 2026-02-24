@@ -195,7 +195,11 @@ class RobotHardware:
         self.pz: MotorDriver | None = None
         self.sensor: IMUDriver | None = None
 
-        self._init_hardware()
+        self.initialize_drivers()
+
+    def apply_config(self, new_config: HardwareConfig) -> None:
+        """Safely apply a new config without tearing down the object or I2C buses."""
+        self.hw_config = new_config
 
     @property
     def accel_roll_axis(self) -> Axis | None:
@@ -226,7 +230,7 @@ class RobotHardware:
         invert = getattr(self.hw_config, f"{config_name}_invert")
         return self.get_axis_value(vector, axis, invert)
 
-    def _init_hardware(self) -> None:
+    def initialize_drivers(self) -> None:
         """
         Initialize hardware components.
         """
@@ -234,6 +238,9 @@ class RobotHardware:
         # Note: hw_config is frozen, so we use local variables or assume it's set.
         # However, Agent/WiringCheck should have ensured valid config or safe defaults are passed.
         # But here we might check for None to avoid crash, though we can't modify self.hw_config.
+
+        if self.pz is not None and self.sensor is not None:
+             return
 
         motor_bus = self.hw_config.motor_i2c_bus if self.hw_config.motor_i2c_bus is not None else 1
         imu_bus = self.hw_config.imu_i2c_bus if self.hw_config.imu_i2c_bus is not None else 1

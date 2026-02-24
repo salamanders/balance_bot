@@ -199,11 +199,16 @@ class LearningState(BaseModel):
     gyro_bias_z: float = 0.0
 
     # Discovery Flags
-    motor_phasing_verified: bool = False
+    i2c_buses_verified: bool = False
+    hardware_init_verified: bool = False
+    friction_threshold_verified: bool = False
+    spatial_orientation_verified: bool = False
     motor_direction_verified: bool = False
+    motor_phasing_verified: bool = False
     motor_channels_verified: bool = False
     motor_trim_verified: bool = False
     backlash_verified: bool = False
+    kickup_dynamics_verified: bool = False
     balance_verified: bool = False
 
     @classmethod

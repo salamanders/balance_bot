@@ -2,7 +2,6 @@ import os
 import argparse
 import traceback
 import importlib.metadata
-from .wiring_check import WiringCheck
 from .behavior.agent import Agent
 from .utils import setup_logging, get_captured_logs
 from .jules_client import JulesClient
@@ -48,7 +47,20 @@ def main() -> None:
         # 3. Learn (Toddler Phase)
         if needs_discovery:
             print("Incomplete knowledge detected. Initiating Discovery...")
-            WiringCheck(watchdog=watchdog).run()
+            from .discovery.pipeline import SelfDiscoveryPipeline
+            from .discovery.steps import (
+                DiscoverBusesStep, HardwareInitStep, FrictionThresholdStep,
+                CalibrateGravityStep, DetermineMotorDirectionStep, VerifyMotorPhaseStep,
+                LeftRightIdentityStep, MotorTrimStep, MechanicalBacklashStep, KickupDynamicsStep
+            )
+
+            steps = [
+                DiscoverBusesStep(), HardwareInitStep(), FrictionThresholdStep(),
+                CalibrateGravityStep(), DetermineMotorDirectionStep(), VerifyMotorPhaseStep(),
+                LeftRightIdentityStep(), MotorTrimStep(), MechanicalBacklashStep(), KickupDynamicsStep()
+            ]
+            pipeline = SelfDiscoveryPipeline(steps, watchdog)
+            pipeline.run()
             # WiringCheck finishes and cleans up the hardware locks safely.
             print("Discovery complete. Waking up Main Agent...")
 
