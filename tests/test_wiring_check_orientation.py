@@ -65,13 +65,8 @@ def test_calibrate_orientation(wc_fixture):
 
     # wc.hw.drive_and_measure.side_effect = [res_back, res_flop, res_front]
 
-    # Mock read_imu_converted for rest angle calculation
-    wc.hw.read_imu_converted.return_value = IMUReading(
-        pitch_angle=30.0, pitch_rate=0, yaw_rate=0, roll_angle=0, roll_rate=0,
-        accel_raw=front_vec, gyro_raw=glm.vec3(0,0,0)
-    )
-
     # Mock get_axis_value to return dummy value
+    # With 0.5 for both axis components, atan2(0.5, 0.5) is 45 degrees.
     wc.hw.get_axis_value.return_value = 0.5
 
     # Run
@@ -93,3 +88,7 @@ def test_calibrate_orientation(wc_fixture):
             found_axis_update = True
 
     assert found_axis_update, "Did not find axis update call"
+
+    # Verify rest angles were calculated (should be 45.0 due to get_axis_value=0.5)
+    assert learning_state.rest_angle_forward == 45.0
+    assert learning_state.rest_angle_backward == 45.0
