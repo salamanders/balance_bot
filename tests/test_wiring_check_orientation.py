@@ -9,82 +9,89 @@ if 'smbus2' not in sys.modules:
 from balance_bot.wiring_check import WiringCheck
 from balance_bot.utils import Vector3
 from balance_bot.enums import Axis
+from balance_bot.hardware.robot_hardware import MeasureResult, IMUReading
 
 @pytest.fixture
 def wc_fixture():
     with patch("balance_bot.utils.smbus"), \
-         patch("balance_bot.wiring_check.RobotHardware"), \
-         patch("balance_bot.wiring_check.RobotConfig") as MockConfig:
+         patch("balance_bot.wiring_check.RobotHardware") as MockHW, \
+         patch("balance_bot.wiring_check.HardwareConfig") as MockHWConfig, \
+         patch("balance_bot.wiring_check.LearningState") as MockLearningState:
+
+        # Setup Configs
+        hw_config = MagicMock()
+        hw_config.accel_vertical_axis = None
+        hw_config.motor_l = 0
+        hw_config.motor_r = 1
+        MockHWConfig.load.return_value = hw_config
+
+        # When model_copy is called, return the same mock so we can track calls easier
+        # In reality it returns a new object, but for mocking we just want to see the update dict
+        hw_config.model_copy.return_value = hw_config
+
+        learning_state = MagicMock()
+        learning_state.min_power_visible = 20
+        MockLearningState.load.return_value = learning_state
 
         wc = WiringCheck()
-        wc.hw = MagicMock()
-        wc.config = MagicMock()
-        # Defaults
-        wc.config.accel_vertical_axis = None
+        wc.hw = MockHW.return_value
 
-        yield wc
-
-def test_calibrate_orientation(wc_fixture):
-    wc = wc_fixture
-
-    # 1. Back (Vertical Gravity)
-    # Simulate resting on back: Gravity on Z (negative or positive depending on mounting)
-    # Say Z = -9.8 (Gravity down, Z up)
-    # Forward (Y) = small
-
-    back_vec = Vector3(0.1, 0.2, -9.8)
-    front_vec = Vector3(0.1, 9.8, 0.2) # Tipped forward -> Gravity on Y
-
-    # We need to handle 2 loops of 50 samples
-    # We'll just make read_imu_raw return back_vec initially, then front_vec
-    # call_count increments every call.
-
-    # Configure drive_and_measure to return samples
-    from balance_bot.hardware.robot_hardware import MeasureResult, IMUReading
-
-    # Create IMUReadings with accel_raw
-    reading_back = MagicMock(spec=IMUReading)
-    reading_back.accel_raw = back_vec
-    reading_back.pitch_angle = 30.0
-
-    reading_front = MagicMock(spec=IMUReading)
-    reading_front.accel_raw = front_vec
-    reading_front.pitch_angle = 30.0
-
-    # We need separate results for the two calls
-    res_back = MeasureResult(duration=1.0, samples=[reading_back]*50)
-    res_front = MeasureResult(duration=1.0, samples=[reading_front]*50)
-
-    wc.hw.drive_and_measure.side_effect = [res_back, res_front]
-
-    # Mock input to avoid waiting
-    with patch("builtins.input") as mock_input:
-
-        # Configure the return value for pitch_angle to be a float
-        wc.hw.read_imu_converted.return_value.pitch_angle = 30.0
-
-        # Ensure wait_for_stability is a mock we can inspect
+        # Mock wait_for_stability
         wc.hw.wait_for_stability = MagicMock()
 
-        wc.calibrate_static_orientation()
+        yield wc, hw_config, learning_state
 
-        # We expect wait_for_stability on the mock
-        # Called twice: once for Back, once for Front
-        assert wc.hw.wait_for_stability.call_count == 2
-        # We expect input only for the second interaction (tipping forward)
-        assert mock_input.call_count == 1
+def test_calibrate_orientation(wc_fixture):
+    wc, hw_config, learning_state = wc_fixture
 
-    # Verify Vertical Axis = Z
-    # analyze_dominance on back_vec (z=-9.8) -> Winner Z
-    assert wc.config.accel_vertical_axis == Axis.Z
+    # 1. Back (Vertical Gravity) - Z=-9.8
+    back_vec = Vector3(0.1, 0.2, -9.8)
+    # 2. Front (Flop Forward) - Y=9.8
+    front_vec = Vector3(0.1, 9.8, 0.2)
 
-    # Verify Pitch Axis
-    # Back = {x:0.1, y:0.2, z:-9.8} (Approx Z-)
-    # Front = {x:0.1, y:9.8, z:0.2} (Approx Y+)
-    # Cross Product: Back x Front
-    # x = 0.2*0.2 - (-9.8)*9.8 = 0.04 + 96.04 = 96.08
-    # y = -9.8*0.1 - 0.1*0.2 = -0.98 - 0.02 = -1.0
-    # z = 0.1*9.8 - 0.2*0.1 = 0.98 - 0.02 = 0.96
-    # Dominant is X.
+    # Setup MeasureResults for drive_and_measure calls
 
-    assert wc.config.gyro_pitch_axis == Axis.X
+    # Result 1 (Back Measurement)
+    res_back = MeasureResult(duration=1.0, samples=[
+        IMUReading(0,0,0,0,0, accel_raw=back_vec, gyro_raw=Vector3(0,0,0))
+    ] * 10)
+
+    # Result 2 (Flop Action)
+    res_flop = MeasureResult(duration=0.5, samples=[])
+
+    # Result 3 (Front Measurement)
+    res_front = MeasureResult(duration=1.0, samples=[
+        IMUReading(0,0,0,0,0, accel_raw=front_vec, gyro_raw=Vector3(0,0,0))
+    ] * 10)
+
+    # Side effect for drive_and_measure
+    # Sequence: measure(0,0) -> drive(flop) -> measure(0,0) -> maybe reverse flop?
+    # We assume success on first flop.
+    wc.hw.drive_and_measure.side_effect = [res_back, res_flop, res_front]
+
+    # Mock read_imu_converted for rest angle calculation
+    wc.hw.read_imu_converted.return_value = IMUReading(
+        pitch_angle=30.0, pitch_rate=0, yaw_rate=0, roll_angle=0, roll_rate=0,
+        accel_raw=front_vec, gyro_raw=Vector3(0,0,0)
+    )
+
+    # Mock get_axis_value to return dummy value
+    wc.hw.get_axis_value.return_value = 0.5
+
+    # Run
+    wc.calibrate_static_orientation()
+
+    # Assertions
+    # Verify calls to model_copy with update kwargs
+    assert hw_config.model_copy.called
+
+    found_axis_update = False
+    for call in hw_config.model_copy.call_args_list:
+        kwargs = call.kwargs.get('update', {})
+        if 'accel_vertical_axis' in kwargs:
+            assert kwargs['accel_vertical_axis'] == Axis.Z
+            assert kwargs['accel_vertical_invert'] == True
+            assert kwargs['gyro_pitch_axis'] == Axis.X
+            found_axis_update = True
+
+    assert found_axis_update, "Did not find axis update call"

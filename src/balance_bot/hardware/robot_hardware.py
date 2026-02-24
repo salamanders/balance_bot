@@ -348,15 +348,25 @@ class RobotHardware:
     def read_imu_converted(self) -> IMUReading:
         """
         Read IMU and calculate pitch/rates based on config.
+        If axes are not configured, returns raw data with zeroed angles/rates.
         """
+        accel, gyro = self.read_imu_raw()
+
         if (
             self.hw_config.accel_forward_axis is None
             or self.hw_config.accel_vertical_axis is None
             or self.hw_config.gyro_pitch_axis is None
         ):
-            raise RuntimeError("IMU axes not configured. Use read_imu_raw() instead.")
-
-        accel, gyro = self.read_imu_raw()
+            # Return raw data only (Toddler Mode)
+            return IMUReading(
+                pitch_angle=0.0,
+                pitch_rate=0.0,
+                yaw_rate=0.0,
+                roll_angle=0.0,
+                roll_rate=0.0,
+                accel_raw=accel,
+                gyro_raw=gyro
+            )
 
         # Get raw values based on config
         accel_forward = self.get_mapped_value(accel, "accel_forward")
