@@ -236,30 +236,13 @@ class DeriveKinematicsStep(CalibrationStep):
         # Let's use Vertical Axis as Yaw Axis.
         gyro_yaw_axis = vert_axis_name
 
-        # Cross Product Check
-        # Forward Vector (Signed)
-        fwd_sign = -1.0 if accel_forward_invert else 1.0
-        fwd_vec = glm.vec3(0,0,0)
-        setattr(fwd_vec, fwd_axis_name, fwd_sign) # e.g. (+1, 0, 0)
-
-        # Pitch Vector (Signed) - Rotation Axis
-        pitch_sign = -1.0 if gyro_pitch_invert else 1.0
-        pitch_vec = glm.vec3(0,0,0)
-        setattr(pitch_vec, pitch_axis_name, pitch_sign) # e.g. (0, +1, 0)
-
-        # Up Vector = Fwd x Pitch
-        up_vec = glm.cross(fwd_vec, pitch_vec)
+        # Physical Up Vector = Lag x Pitch Backward
+        raw_up = glm.cross(sum_accel, sum_gyro)
 
         # Yaw Diff
-        # Re-fetch raw R_gyro (undo alignment if we flipped it) to check true physical turn difference
-        # Wait, earlier I decided "I MUST use the aligned R values."
-        # Because `motor_r_invert` fixes the Backward motion.
-        # If I propose `motor_r_invert`, then physically `Right Motor` *will* move forward.
-        # So I should use the "Predicted Future R Gyro" which is `r_gyro` (aligned).
-        # L (Right Turn) - R (Left Turn)
         yaw_diff = l_gyro - r_gyro
 
-        check_val = glm.dot(yaw_diff, up_vec)
+        check_val = glm.dot(yaw_diff, raw_up)
         print(f"    Yaw Check Dot Product: {check_val:.2f}")
 
         swap_motors = False
