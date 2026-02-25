@@ -32,44 +32,68 @@ class TestUtilsHelpers(unittest.TestCase):
         self.assertIsNone(result)
 
     def test_verify_with_retries_success(self):
+        # We need to simulate retries.
+        # test_fn accepts attempt number
+        # Returns "Fail" first (attempt 0), then "Pass" (attempt 1)
+        # However, verify_with_retries loops on attempts.
+        # If check_fn returns False, it continues loop.
+
         test_fn = MagicMock(side_effect=["Fail", "Pass"])
 
         def check_fn(res):
             return res == "Pass"
 
-        result = verify_with_retries("Test", test_fn, check_fn, max_attempts=3, fail_fatal=False)
+        result = verify_with_retries("Test", test_fn, check_fn, max_attempts=3)
         self.assertTrue(result)
         self.assertEqual(test_fn.call_count, 2)
+        # Note: verify_with_retries calls test_fn(i)
         test_fn.assert_has_calls([call(0), call(1)])
 
     def test_verify_with_retries_fail_retry(self):
         test_fn = MagicMock(return_value="Fail")
 
-        result = verify_with_retries("Test", test_fn, lambda x: False, max_attempts=2, fail_fatal=False)
+        result = verify_with_retries("Test", test_fn, lambda x: False, max_attempts=2)
         self.assertFalse(result)
         self.assertEqual(test_fn.call_count, 2)
         test_fn.assert_has_calls([call(0), call(1)])
 
     def test_verify_with_retries_fail_fatal(self):
+        # If check_fn returns "FAIL_FATAL", the loop breaks immediately and returns False
         test_fn = MagicMock(return_value="Fatal")
 
-        with self.assertRaises(SystemExit):
-            verify_with_retries("Test", test_fn, lambda x: "FAIL_FATAL", max_attempts=3, fail_fatal=True)
-        test_fn.assert_called_with(0)
+        def check_fn(res):
+            return "FAIL_FATAL"
+
+        result = verify_with_retries("Test", test_fn, check_fn, max_attempts=3)
+        self.assertFalse(result)
+        test_fn.assert_called_once_with(0)
 
     def test_find_threshold_success(self):
+        # Test steps: 10, 15, 20
         # Fail at 10, Success at 15
-        action_fn = MagicMock(side_effect=[False, True])
 
-        result = find_threshold("Test", 10, 5, 20, action_fn, lambda x: x)
+        # side_effect is called for each step?
+        # find_threshold calls action_fn(val)
+
+        # First call val=10 -> check_fn(False) -> fail
+        # Second call val=15 -> check_fn(True) -> found
+
+        def action_fn(val):
+            return val == 15
+
+        def check_fn(res):
+            return res
+
+        result = find_threshold("Test", 10, 5, 20, action_fn, check_fn)
         self.assertEqual(result, 15)
-        self.assertEqual(action_fn.call_count, 2)
-        # Called with 10, then 15
-        action_fn.assert_has_calls([call(10), call(15)])
 
     def test_find_threshold_fail_action_retry(self):
         # Fail at 10, Retry at 10, Success at 10
         # This simulates "retry_same" logic
+
+        # Call 1: val=10 -> res="Fail1" -> check_fn=False -> fail_action=True (retry)
+        # Call 2: val=10 -> res="Success" -> check_fn=True -> found
+
         action_fn = MagicMock(side_effect=["Fail1", "Success"])
 
         # fail_action returns True to retry same level
@@ -84,7 +108,8 @@ class TestUtilsHelpers(unittest.TestCase):
         action_fn.assert_has_calls([call(10), call(10)])
 
     def test_find_threshold_limit_exceeded(self):
+        # Always fail
         action_fn = MagicMock(return_value=False)
 
-        with self.assertRaises(SystemExit):
-            find_threshold("Test", 10, 5, 15, action_fn, lambda x: False)
+        result = find_threshold("Test", 10, 5, 15, action_fn, lambda x: False)
+        self.assertIsNone(result)

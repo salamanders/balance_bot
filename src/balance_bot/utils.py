@@ -7,7 +7,7 @@ import os
 import importlib
 from pathlib import Path
 from collections import deque
-from typing import Union, Callable, Any
+from typing import Union, Callable, Any, Optional
 
 import glm
 
@@ -465,9 +465,11 @@ def scan_i2c_candidates(name: str, check_fn: Callable[[Any], bool]) -> int | Non
             pass
     return None
 
-def scan_i2c_or_die(name: str, check_fn: Callable[[Any], bool]) -> int:
+def scan_i2c(name: str, check_fn: Callable[[Any], bool]) -> Optional[int]:
     """
-    Scans and exits if not found (with diagnostics).
+    Scans and returns bus ID if found.
+    If not found, prints diagnostics and returns None.
+    Replaces scan_i2c_or_die.
     """
     bus = scan_i2c_candidates(name, check_fn)
     if bus is None:
@@ -484,16 +486,17 @@ def scan_i2c_or_die(name: str, check_fn: Callable[[Any], bool]) -> int:
             print(f"  --- Bus {b} Report ---")
             print(get_i2c_failure_report(b, addr, name))
 
-        sys.exit(1)
+        return None
     return bus
 
 def verify_with_retries(name: str, test_fn: Callable[[int], Any],
                          check_fn: Callable[[Any], bool | str],
-                         max_attempts: int = 3, fail_fatal: bool = True) -> bool:
+                         max_attempts: int = 3) -> bool:
     """
     Generic verification loop with retries.
     check_fn should return True (Pass), False (Fail/Retry),
     or a string "FAIL_FATAL" / "FAIL_RETRY".
+    Returns True if verified, False if failed.
     """
     print(f">>> Verifying {name} <<<")
     for i in range(max_attempts):
@@ -512,19 +515,18 @@ def verify_with_retries(name: str, test_fn: Callable[[int], Any],
         print(f"  [RETRY] {name} check failed/ambiguous.")
 
     print(f"  [FAILURE] Could not verify {name} after {max_attempts} attempts.")
-    if fail_fatal:
-        sys.exit(1)
     return False
 
 def find_threshold(name: str, start: float, step: float, limit: float,
                     action_fn: Callable[[float], Any],
                     check_fn: Callable[[Any], bool],
                     fail_action: Callable[[Any], bool] = None,
-                    heartbeat_fn: Callable[[], None] = None) -> float:
+                    heartbeat_fn: Callable[[], None] = None) -> Optional[float]:
     """
     Find a threshold value by incrementing.
     fail_action: Optional callback on failure. Return True to retry SAME level.
     heartbeat_fn: Optional callback to keep watchdog alive.
+    Returns the found value, or None if failed.
     """
     print(f">>> Finding Threshold: {name} <<<")
     val = start
@@ -547,7 +549,7 @@ def find_threshold(name: str, start: float, step: float, limit: float,
             val += step
 
     print(f"  [FAILURE] Could not find {name} within limit {limit}.")
-    sys.exit(1)
+    return None
 
 
 def vector_angle(v1: glm.vec3, v2: glm.vec3) -> float:

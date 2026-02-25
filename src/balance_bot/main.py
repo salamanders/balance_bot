@@ -50,14 +50,12 @@ def main() -> None:
             from .discovery.pipeline import SelfDiscoveryPipeline
             from .discovery.steps import (
                 DiscoverBusesStep, HardwareInitStep, FrictionThresholdStep,
-                CalibrateGravityStep, DetermineMotorDirectionStep, VerifyMotorPhaseStep,
-                LeftRightIdentityStep, MotorTrimStep, MechanicalBacklashStep, KickupDynamicsStep
+                DeriveKinematicsStep, MotorTrimStep, MechanicalBacklashStep, KickupDynamicsStep
             )
 
             steps = [
                 DiscoverBusesStep(), HardwareInitStep(), FrictionThresholdStep(),
-                CalibrateGravityStep(), DetermineMotorDirectionStep(), VerifyMotorPhaseStep(),
-                LeftRightIdentityStep(), MotorTrimStep(), MechanicalBacklashStep(), KickupDynamicsStep()
+                DeriveKinematicsStep(), MotorTrimStep(), MechanicalBacklashStep(), KickupDynamicsStep()
             ]
             pipeline = SelfDiscoveryPipeline(steps, watchdog)
             pipeline.run()
