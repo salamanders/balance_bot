@@ -414,11 +414,12 @@ class RobotHardware:
         """Set the I2C retry count for the motor driver."""
         self.pz.set_retries(retries)
 
-    def set_motors(self, left: float, right: float) -> None:
+    def set_motors(self, left: float, right: float, trim_override: float | None = None) -> None:
         """
         Set motor speeds.
         :param left: Speed -100 to 100
         :param right: Speed -100 to 100
+        :param trim_override: Optional trim value to use instead of learning_state.motor_trim.
         """
         if self.pz is None:
             # If not initialized, maybe we can't drive?
@@ -431,10 +432,12 @@ class RobotHardware:
         # Apply Motor Trim (Compensation for mismatched motors)
         # Trim > 0: Scale down Right Motor (Right is stronger)
         # Trim < 0: Scale down Left Motor (Left is stronger)
-        if self.learning_state.motor_trim > 0:
-            right *= (1.0 - self.learning_state.motor_trim)
-        elif self.learning_state.motor_trim < 0:
-            left *= (1.0 - abs(self.learning_state.motor_trim))
+        trim = trim_override if trim_override is not None else self.learning_state.motor_trim
+
+        if trim > 0:
+            right *= (1.0 - trim)
+        elif trim < 0:
+            left *= (1.0 - abs(trim))
 
         if self.hw_config.motor_l_invert:
             left = -left
@@ -585,12 +588,13 @@ class RobotHardware:
 
             time.sleep(0.05)
 
-    def execute_maneuver(self, steps: list[tuple[float, float, float]], sample_interval: float = 0.01) -> MeasureResult:
+    def execute_maneuver(self, steps: list[tuple[float, float, float]], sample_interval: float = 0.01, trim_override: float | None = None) -> MeasureResult:
         """
         Execute a sequence of motor commands and collect IMU readings throughout.
 
         :param steps: List of (left_power, right_power, duration) tuples.
         :param sample_interval: Time between IMU samples.
+        :param trim_override: Optional override for motor trim (e.g. for calibration).
         :return: MeasureResult containing total duration and all samples.
         """
         samples = []
@@ -598,7 +602,7 @@ class RobotHardware:
 
         try:
             for left, right, duration in steps:
-                self.set_motors(left, right)
+                self.set_motors(left, right, trim_override=trim_override)
                 step_start = time.time()
 
                 # Run for the duration of this step
@@ -614,14 +618,14 @@ class RobotHardware:
 
         return MeasureResult(duration=total_duration, samples=samples)
 
-    def drive_and_measure(self, left_power: float, right_power: float, duration: float, sample_interval: float = 0.01, wait_for_stability: bool = False) -> MeasureResult:
+    def drive_and_measure(self, left_power: float, right_power: float, duration: float, sample_interval: float = 0.01, wait_for_stability: bool = False, trim_override: float | None = None) -> MeasureResult:
         """
         Drive motors for a duration and collect IMU readings.
         Returns a MeasureResult object containing samples and stats.
         """
         if wait_for_stability:
             self.wait_for_stability()
-        return self.execute_maneuver([(left_power, right_power, duration)], sample_interval)
+        return self.execute_maneuver([(left_power, right_power, duration)], sample_interval, trim_override=trim_override)
 
     def measure_gravity(self, duration: float = 1.0) -> glm.vec3:
         """

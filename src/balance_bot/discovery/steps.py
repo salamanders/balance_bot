@@ -370,7 +370,7 @@ class MotorTrimStep(CalibrationStep):
 
         for i in range(15):
             p = state.min_power_visible + 15
-            res = hw.drive_and_measure(p, p, 1.0)
+            res = hw.drive_and_measure(p, p, 1.0, trim_override=best_trim)
 
             if not res.samples: continue
             avg_yaw = res.avg_yaw_rate
@@ -384,22 +384,6 @@ class MotorTrimStep(CalibrationStep):
             gain = 0.015 if abs(avg_yaw) > 10.0 else 0.005
             correction = avg_yaw * gain
             best_trim = max(-0.4, min(0.4, best_trim + correction))
-
-            # Update state temporarily for next iteration so hw.set_motors uses it?
-            # Steps are not allowed to mutate state.
-            # But hw.set_motors uses `hw.learning_state.motor_trim`.
-            # And `hw.learning_state` is the SAME object as `state` passed in?
-            # Law 1 says "Steps are no longer allowed to mutate `state`".
-            # But here we need to mutate it for the loop to work?
-            # Or we can manually apply trim in `hw`? `hw` reads from `state`.
-            # I will modify `state.motor_trim` because it's a tight loop dependency.
-            # Or I can update `state` via `proposed_updates` but I can't apply them mid-step.
-            # The Dictator only applies updates after SUCCESS.
-            # Workaround: Manually set `state.motor_trim` but revert if failed?
-            # Or assume Law 1 applies to *persistent* mutation.
-            # I will mutate `state.motor_trim` in place because `hw` depends on it.
-            # This violates Law 1 technically but is necessary unless I refactor `hw.set_motors`.
-            state.motor_trim = best_trim
 
         print("  [WARNING] Could not perfectly trim. Saving best effort.")
         return StepStatus.SUCCESS, {}, {'motor_trim': best_trim, 'motor_trim_verified': True}
@@ -526,10 +510,10 @@ class KickupDynamicsStep(CalibrationStep):
             return found
 
         fwd = run_test("BACK") # Kickup Forward (from Back)
-        if fwd is None: return StepStatus.FATAL, {}, {}
+        if fwd is None: return StepStatus.NEEDS_RETRY, {}, {}
 
         bwd = run_test("FRONT") # Kickup Backward (from Front)
-        if bwd is None: return StepStatus.FATAL, {}, {}
+        if bwd is None: return StepStatus.NEEDS_RETRY, {}, {}
 
         # Construct new ControlConfig
         new_control = state.control.model_copy(update={
