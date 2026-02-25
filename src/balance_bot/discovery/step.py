@@ -1,10 +1,12 @@
-from typing import Protocol, Tuple
-import logging
+from enum import Enum, auto
+from typing import Protocol, Tuple, Dict, Any
 from ..configuration import HardwareConfig, LearningState
 from ..hardware.robot_hardware import RobotHardware
-from ..watchdog import SurvivalWatchdog
 
-logger = logging.getLogger(__name__)
+class StepStatus(Enum):
+    SUCCESS = auto()
+    NEEDS_RETRY = auto()
+    FATAL = auto()
 
 class CalibrationStep(Protocol):
     """
@@ -22,10 +24,12 @@ class CalibrationStep(Protocol):
         """
         ...
 
-    def run(self, hw: RobotHardware, config: HardwareConfig, state: LearningState, watchdog: SurvivalWatchdog) -> Tuple[HardwareConfig, bool]:
+    def run(self, hw: RobotHardware, config: HardwareConfig, state: LearningState) -> Tuple[StepStatus, Dict[str, Any], Dict[str, Any]]:
         """
         Execute the routine.
-        MUST return (new_config, True) on success, or (config, False) to force a retry.
-        NEVER mutate `config` or `state` until the very last line before returning True.
+        Returns:
+            - status: StepStatus
+            - proposed_config_updates: dict to update HardwareConfig
+            - proposed_state_updates: dict to update LearningState
         """
         ...
