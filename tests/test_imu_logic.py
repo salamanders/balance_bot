@@ -14,7 +14,9 @@ def test_imu_processing_default(monkeypatch):
         motor_r=1,
         accel_vertical_axis=Axis.Z,
         accel_forward_axis=Axis.Y,
-        gyro_pitch_axis=Axis.X
+        gyro_pitch_axis=Axis.X,
+        gyro_yaw_axis=Axis.Z,
+        gyro_roll_axis=Axis.Y
     )
     learning_state = LearningState()
 
@@ -41,7 +43,9 @@ def test_imu_processing_tilted(monkeypatch):
         motor_r=1,
         accel_vertical_axis=Axis.Z,
         accel_forward_axis=Axis.Y,
-        gyro_pitch_axis=Axis.X
+        gyro_pitch_axis=Axis.X,
+        gyro_yaw_axis=Axis.Z,
+        gyro_roll_axis=Axis.Y
     )
     learning_state = LearningState()
 
@@ -67,7 +71,9 @@ def test_imu_processing_axis_y(monkeypatch):
         motor_r=1,
         gyro_pitch_axis=Axis.Y,
         accel_forward_axis=Axis.X,
-        accel_vertical_axis=Axis.Z
+        accel_vertical_axis=Axis.Z,
+        gyro_yaw_axis=Axis.Z,
+        gyro_roll_axis=Axis.X
     )
     learning_state = LearningState()
 
@@ -94,7 +100,9 @@ def test_imu_processing_invert(monkeypatch):
         accel_forward_invert=True,
         accel_vertical_axis=Axis.Z,
         accel_forward_axis=Axis.Y,
-        gyro_pitch_axis=Axis.X
+        gyro_pitch_axis=Axis.X,
+        gyro_yaw_axis=Axis.Z,
+        gyro_roll_axis=Axis.Y
     )
     learning_state = LearningState()
 
@@ -120,7 +128,9 @@ def test_imu_processing_sideways(monkeypatch):
         motor_r=1,
         accel_vertical_axis=Axis.X,
         accel_forward_axis=Axis.Y,
-        gyro_pitch_axis=Axis.Z
+        gyro_pitch_axis=Axis.Z,
+        gyro_yaw_axis=Axis.X,
+        gyro_roll_axis=Axis.Y
     )
     learning_state = LearningState()
 
