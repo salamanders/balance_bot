@@ -137,9 +137,10 @@ verify the fix worked before proceeding.
   `0x68`) and Picon Zero (Motor Driver at `0x22`). Read the `WHO_AM_I` register on the IMU.
 * **Deduction:** If successful, I lock in the I2C bus IDs and establish communication. If I fail, I flash an error LED
   and halt—I cannot solve a physical puzzle without a body.
+* **Likely Values:** `motor_i2c_bus = 1`, `imu_i2c_bus = 1`.
 
 > **Implementation Status:** Implemented.
-> **Code Correlation:** `src/balance_bot/wiring_check.py` in `discover_buses` method.
+> **Code Correlation:** `src/balance_bot/discovery/steps.py` in `DiscoverBusesStep`.
 
 ---
 
@@ -155,7 +156,7 @@ verify the fix worked before proceeding.
     * *Note: The robot is TILTED in this state. This is normal.*
 
 > **Implementation Status:** Implemented.
-> **Code Correlation:** `src/balance_bot/wiring_check.py` in `calibrate_static_orientation` method.
+> **Code Correlation:** `src/balance_bot/discovery/steps.py` in `DeriveKinematicsStep` (Baseline).
 
 ---
 
@@ -175,9 +176,11 @@ verify the fix worked before proceeding.
         * **Fix:** Logically invert Port B in software. **Re-run the phasing test** to verify the Yaw rate is now near
           zero.
     * *New Knowledge: I know my deadband (`min_pwm`), and my motors now definitively push together.*
+* **Likely Values:** `PWM = 20` to `35`.
+* **Traps:** If the bot is held in the air, it will think friction is very low (`PWM = 10`). It expects to be on the floor.
 
 > **Implementation Status:** Implemented.
-> **Code Correlation:** `src/balance_bot/wiring_check.py` in `find_min_power` and `align_motors_phase` methods.
+> **Code Correlation:** `src/balance_bot/discovery/steps.py` in `FrictionThresholdStep`.
 
 ---
 
@@ -201,9 +204,10 @@ verify the fix worked before proceeding.
         * **Fix:** Invert *both* global motor polarities in software. **Re-run the test** to verify positive PWM causes
           the robot to pitch up.
     * *New Knowledge: I have my absolute 3D orientation ($\vec{D}$ and $\vec{P}$) and I know how to drive Forward.*
+* **Traps:** Needs to successfully flop to the FRONT. If it gets stuck balancing perfectly upright (rare), it might misread the start state.
 
 > **Implementation Status:** Implemented.
-> **Code Correlation:** `src/balance_bot/wiring_check.py` in `determine_motor_direction` method.
+> **Code Correlation:** `src/balance_bot/discovery/steps.py` in `DeriveKinematicsStep` (Axis Analysis).
 
 ---
 
@@ -227,9 +231,10 @@ verify the fix worked before proceeding.
     * If $\vec{\omega}$ points *Down*, the robot is spinning Right. **Port A is the Left Motor**, and Port B is the
       Right Motor.
     * *New Knowledge: I have mathematically mapped my left and right motor channels with ZERO human intervention.*
+* **Traps:** Requires a slip-free floor. If wheels slip, the arc won't generate enough yaw.
 
 > **Implementation Status:** Implemented.
-> **Code Correlation:** `src/balance_bot/wiring_check.py` in `deduce_left_right_autonomous` method.
+> **Code Correlation:** `src/balance_bot/discovery/steps.py` in `DeriveKinematicsStep` (L/R Identity).
 
 ---
 
@@ -245,9 +250,10 @@ verify the fix worked before proceeding.
     * **Fix:** Calculate a fractional scaling multiplier (e.g., `Right_Scale = 0.92`) and apply it permanently to the
       stronger motor in the software mixer. **Re-run the test** until the robot drives perfectly straight.
     * *New Knowledge: Perfect linear physical output mapping.*
+* **Likely Values:** `Trim = 0.05` to `0.15`.
 
 > **Implementation Status:** Implemented.
-> **Code Correlation:** `src/balance_bot/wiring_check.py` in `calibrate_motor_trim` method.
+> **Code Correlation:** `src/balance_bot/discovery/steps.py` in `MotorTrimStep`.
 
 ---
 
@@ -267,7 +273,7 @@ verify the fix worked before proceeding.
     * *New Knowledge: I have discovered my true mechanical Balance Point Offset.*
 
 > **Implementation Status:** Implemented (Continuous Learning).
-> **Code Correlation:** `src/balance_bot/wiring_check.py` handles Kick-Up (`find_flop_thresholds`), while `src/balance_bot/adaptation/tuner.py` handles continuous balance point tuning via `BalancePointFinder`.
+> **Code Correlation:** `src/balance_bot/discovery/steps.py` handles Kick-Up (`KickupDynamicsStep`), while `src/balance_bot/adaptation/tuner.py` handles continuous balance point tuning via `BalancePointFinder`.
 
 ---
 
@@ -288,7 +294,7 @@ Kick-Up maneuver based on established facts, and balances flawlessly.
 The configuration is managed using `pydantic` models for robust validation and serialization.
 
 > **Implementation Status:** Implemented.
-> **Code Correlation:** `src/balance_bot/config.py` in `RobotConfig.save`.
+> **Code Correlation:** `src/balance_bot/configuration.py` in `RobotConfig.save`.
 
 ---
 

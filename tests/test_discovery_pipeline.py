@@ -1,7 +1,7 @@
 import pytest
 from unittest.mock import MagicMock, patch
-from src.balance_bot.discovery.pipeline import SelfDiscoveryPipeline
-from src.balance_bot.discovery.step import CalibrationStep, StepStatus
+from balance_bot.discovery.pipeline import SelfDiscoveryPipeline
+from balance_bot.discovery.step import CalibrationStep, StepStatus
 
 def test_pipeline_flow():
     """Verify that pipeline runs steps sequentially and saves state."""
@@ -12,9 +12,9 @@ def test_pipeline_flow():
     mock_state_cls = MagicMock()
     mock_watchdog = MagicMock()
 
-    with patch("src.balance_bot.discovery.pipeline.RobotHardware", mock_hw_cls), \
-         patch("src.balance_bot.discovery.pipeline.HardwareConfig", mock_config_cls), \
-         patch("src.balance_bot.discovery.pipeline.LearningState", mock_state_cls):
+    with patch("balance_bot.discovery.pipeline.RobotHardware", mock_hw_cls), \
+         patch("balance_bot.discovery.pipeline.HardwareConfig", mock_config_cls), \
+         patch("balance_bot.discovery.pipeline.LearningState", mock_state_cls):
 
          # Setup State
          mock_state = MagicMock()

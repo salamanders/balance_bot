@@ -4,7 +4,7 @@ import math
 import random
 import logging
 import glm
-from typing import Tuple, Dict, Any, List
+from typing import Tuple, Dict, Any, List, Optional
 
 from .step import CalibrationStep, StepStatus
 from ..configuration import HardwareConfig, LearningState
@@ -13,6 +13,7 @@ from ..enums import Axis
 from ..utils import (
     analyze_dominance,
     scan_i2c,
+    make_i2c_check_fn,
     find_threshold,
     clamp,
     sort_resting_vectors,
@@ -34,24 +35,13 @@ class DiscoverBusesStep(CalibrationStep):
         print("Scanning I2C Buses...")
 
         # 1. Find Motors (0x22)
-        def check_motor(bus):
-            try:
-                bus.read_byte_data(0x22, 0)
-                return True
-            except:
-                return False
-
+        check_motor = make_i2c_check_fn(0x22, register=0)
         found_motor_bus = scan_i2c("PiconZero (Motors)", check_motor)
         if found_motor_bus is None:
             return StepStatus.FATAL, {}, {}
 
         # 2. Find IMU (0x68)
-        def check_imu(bus):
-            try:
-                return bus.read_byte_data(0x68, 0x75) == 0x68
-            except:
-                return False
-
+        check_imu = make_i2c_check_fn(0x68, register=0x75, expected_value=0x68)
         found_imu_bus = scan_i2c("MPU6050 (IMU)", check_imu)
         if found_imu_bus is None:
             return StepStatus.FATAL, {}, {}
@@ -148,6 +138,20 @@ class DeriveKinematicsStep(CalibrationStep):
                 state.motor_phasing_verified and
                 state.motor_channels_verified)
 
+    def _pulse_and_measure(self, hw: RobotHardware, l_p: float, r_p: float, name: str) -> Tuple[glm.vec3, glm.vec3]:
+        """Pulse motors and return average gyro and accel vectors."""
+        print(f"  Pulsing {name}...")
+        res = hw.drive_and_measure(l_p, r_p, 0.4, wait_for_stability=False)
+        time.sleep(1.0) # Settle
+
+        if not res.samples:
+             print(f"  [FAILURE] No samples collected for {name} Pulse.")
+             return None, None
+
+        gyro = self._avg_vec([s.gyro_raw for s in res.samples if s.gyro_raw])
+        accel = self._avg_vec([s.accel_raw for s in res.samples if s.accel_raw])
+        return gyro, accel
+
     def run(self, hw: RobotHardware, config: HardwareConfig, state: LearningState) -> Tuple[StepStatus, Dict[str, Any], Dict[str, Any]]:
         print(">>> Deriving Kinematics (Single Wiggle) <<<")
         hw.wait_for_stability()
@@ -158,30 +162,13 @@ class DeriveKinematicsStep(CalibrationStep):
         test_power = state.min_power_visible + 30.0
 
         # 1. Pulse Left Only (+PWM)
-        print("  Pulsing LEFT Motor...")
-        res_l = hw.drive_and_measure(test_power, 0, 0.4, wait_for_stability=False)
-        time.sleep(1.0) # Settle
-
-        if not res_l.samples:
-             print("  [FAILURE] No samples collected for Left Pulse.")
-             return StepStatus.NEEDS_RETRY, {}, {}
-
-        l_gyro = self._avg_vec([s.gyro_raw for s in res_l.samples if s.gyro_raw])
-        l_accel = self._avg_vec([s.accel_raw for s in res_l.samples if s.accel_raw])
-        # Use Delta Accel for Motion Logic
+        l_gyro, l_accel = self._pulse_and_measure(hw, test_power, 0, "LEFT Motor")
+        if l_gyro is None: return StepStatus.NEEDS_RETRY, {}, {}
         l_accel_delta = l_accel - baseline_accel
 
         # 2. Pulse Right Only (+PWM)
-        print("  Pulsing RIGHT Motor...")
-        res_r = hw.drive_and_measure(0, test_power, 0.4, wait_for_stability=False)
-        time.sleep(1.0) # Settle
-
-        if not res_r.samples:
-             print("  [FAILURE] No samples collected for Right Pulse.")
-             return StepStatus.NEEDS_RETRY, {}, {}
-
-        r_gyro = self._avg_vec([s.gyro_raw for s in res_r.samples if s.gyro_raw])
-        r_accel = self._avg_vec([s.accel_raw for s in res_r.samples if s.accel_raw])
+        r_gyro, r_accel = self._pulse_and_measure(hw, 0, test_power, "RIGHT Motor")
+        if r_gyro is None: return StepStatus.NEEDS_RETRY, {}, {}
         r_accel_delta = r_accel - baseline_accel
 
         # --- Phase Alignment ---
@@ -423,71 +410,66 @@ class KickupDynamicsStep(CalibrationStep):
     def is_verified(self, state: LearningState) -> bool:
         return state.kickup_dynamics_verified
 
+    def _force_posture(self, hw: RobotHardware, target: str, base_power: float) -> None:
+        """Helper to force the robot into a specific posture (FRONT or BACK)."""
+        for i in range(5):
+            hw.wait_for_stability(1.0)
+            pitch = hw.read_imu_converted().pitch_angle
+            if target == "FRONT" and pitch > 10: return
+            if target == "BACK" and pitch < -10: return
+
+            print(f"  Flop to {target}...")
+            p = base_power + (i*10)
+            if target == "FRONT": hw.drive_and_measure(-p, -p, 0.4)
+            else: hw.drive_and_measure(p, p, 0.4)
+
+        raise RuntimeError("Failed to posture")
+
+    def _attempt_kick(self, hw: RobotHardware, start: str, p: float) -> str:
+        """Helper to attempt a kick-up maneuver."""
+        kick_sign = -1.0 if start == "BACK" else 1.0
+        setup_sign = -kick_sign
+
+        setup_p = p * setup_sign * 0.7
+        kick_p = p * kick_sign * 1.0
+
+        hw.execute_maneuver([
+            (setup_p, setup_p, 0.3),
+            (kick_p, kick_p, 0.4)
+        ])
+
+        time.sleep(1.0)
+        pitch = hw.read_imu_converted().pitch_angle
+
+        # Check Success
+        if start == "BACK" and -10 < pitch < 20: return "SUCCESS"
+        if start == "FRONT" and -20 < pitch < 10: return "SUCCESS"
+        return "FAIL"
+
+    def _run_kickup_test(self, hw: RobotHardware, state: LearningState, direction: str) -> Optional[float]:
+        """Runs the threshold search for a specific kick-up direction."""
+
+        def action(p):
+            try:
+                self._force_posture(hw, direction, state.min_power_visible + 10)
+            except RuntimeError:
+                return "POSTURE_FAIL"
+            return self._attempt_kick(hw, direction, p)
+
+        return find_threshold(f"KickUp {direction}",
+                               max(20, state.min_power_visible + 10),
+                               5, 100,
+                               action,
+                               lambda r: r == "SUCCESS",
+                               heartbeat_fn=hw.watchdog.heartbeat if hw.watchdog else None)
+
     def run(self, hw: RobotHardware, config: HardwareConfig, state: LearningState) -> Tuple[StepStatus, Dict[str, Any], Dict[str, Any]]:
         print(">>> Dynamic Kick-Up Calibration <<<")
 
-        # We need to collect results.
-        # Since we can't mutate state, we use local vars.
-        found_fwd = state.control.kickup_power_forward
-        found_bwd = state.control.kickup_power_backward
-
-        # Helpers
-        def force_posture(target: str):
-            base = state.min_power_visible + 10
-            for i in range(5):
-                hw.wait_for_stability(1.0)
-                pitch = hw.read_imu_converted().pitch_angle
-                if target == "FRONT" and pitch > 10: return
-                if target == "BACK" and pitch < -10: return
-
-                print(f"  Flop to {target}...")
-                p = base + (i*10)
-                if target == "FRONT": hw.drive_and_measure(-p, -p, 0.4)
-                else: hw.drive_and_measure(p, p, 0.4)
-            # If we fail to flop, we can't test.
-            # We should return NEEDS_RETRY? Or FATAL?
-            raise RuntimeError("Failed to posture")
-
-        def attempt_kick(start: str, p: float):
-            kick_sign = -1.0 if start == "BACK" else 1.0
-            setup_sign = -kick_sign
-
-            setup_p = p * setup_sign * 0.7
-            kick_p = p * kick_sign * 1.0
-
-            res = hw.execute_maneuver([
-                (setup_p, setup_p, 0.3),
-                (kick_p, kick_p, 0.4)
-            ])
-
-            time.sleep(1.0)
-            pitch = hw.read_imu_converted().pitch_angle
-
-            # Check Success
-            if start == "BACK" and -10 < pitch < 20: return "SUCCESS"
-            if start == "FRONT" and -20 < pitch < 10: return "SUCCESS"
-            return "FAIL"
-
-        def run_test(direction: str):
-            def action(p):
-                try:
-                    force_posture(direction)
-                except RuntimeError:
-                    return "POSTURE_FAIL"
-                return attempt_kick(direction, p)
-
-            found = find_threshold(f"KickUp {direction}",
-                                   max(20, state.min_power_visible + 10),
-                                   5, 100,
-                                   action,
-                                   lambda r: r == "SUCCESS",
-                                   heartbeat_fn=hw.watchdog.heartbeat if hw.watchdog else None)
-            return found
-
-        fwd = run_test("BACK") # Kickup Forward (from Back)
+        fwd = self._run_kickup_test(hw, state, "BACK") # Kickup Forward (from Back)
         if fwd is None: return StepStatus.NEEDS_RETRY, {}, {}
 
-        bwd = run_test("FRONT") # Kickup Backward (from Front)
+        bwd = self._run_kickup_test(hw, state, "FRONT") # Kickup Backward (from Front)
         if bwd is None: return StepStatus.NEEDS_RETRY, {}, {}
 
         # Construct new ControlConfig
