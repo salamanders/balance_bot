@@ -217,7 +217,7 @@ class RobotHardware:
     def get_axis_value(self, vector: glm.vec3, axis: Axis | None, invert: bool) -> float:
         """Helper to extract and optionally invert a vector component."""
         if axis is None:
-            raise RuntimeError("CRITICAL: Attempted to read unmapped axis.")
+            raise RuntimeError("CRITICAL: HAL attempted to read an unmapped sensor axis.")
         val = getattr(vector, axis.value)
         return -val if invert else val
 
@@ -389,8 +389,10 @@ class RobotHardware:
 
         # Gyro Rates
         gyro_rate = self.get_mapped_value(gyro, "gyro_pitch")
-        yaw_rate = self.get_mapped_value(gyro, "gyro_yaw")
-        roll_rate = self.get_mapped_value(gyro, "gyro_roll")
+
+        # Explicitly handle optional axes instead of relying on silent failures
+        yaw_rate = self.get_mapped_value(gyro, "gyro_yaw") if self.hw_config.gyro_yaw_axis else 0.0
+        roll_rate = self.get_mapped_value(gyro, "gyro_roll") if self.hw_config.gyro_roll_axis else 0.0
 
         # Roll Angle (Approximate from Accel)
         if self.accel_roll_axis:
@@ -417,21 +419,14 @@ class RobotHardware:
     def set_motors(self, left: float, right: float, trim_override: float | None = None) -> None:
         """
         Set motor speeds.
-        :param left: Speed -100 to 100
-        :param right: Speed -100 to 100
-        :param trim_override: Optional trim value to use instead of learning_state.motor_trim.
         """
         if self.pz is None:
-            # If not initialized, maybe we can't drive?
-            # Or should we raise?
-            # The user might be calling this from "Twitch" which knows the bus...
-            # But Twitch should probably use pz.set_motor directly if it's doing raw stuff.
-            # But if we want to use the high level abstraction, we expect pz to be there.
-            raise RuntimeError("Motor Driver not initialized (Bus Unknown?)")
+            raise RuntimeError("CRITICAL: Motor Driver not initialized (Bus Unknown?)")
 
-        # Apply Motor Trim (Compensation for mismatched motors)
-        # Trim > 0: Scale down Right Motor (Right is stronger)
-        # Trim < 0: Scale down Left Motor (Left is stronger)
+        # FAIL LOUD: Do not silently ignore unmapped motors
+        if self.hw_config.motor_l is None or self.hw_config.motor_r is None:
+            raise RuntimeError(f"CRITICAL: Attempted to actuate motors, but channels are unmapped. L:{self.hw_config.motor_l} R:{self.hw_config.motor_r}")
+
         trim = trim_override if trim_override is not None else self.learning_state.motor_trim
 
         if trim > 0:
@@ -444,24 +439,17 @@ class RobotHardware:
         if self.hw_config.motor_r_invert:
             right = -right
 
-        # Use helper clamp, cast to int for driver
         left_val = int(clamp(left, MOTOR_MIN_OUTPUT, MOTOR_MAX_OUTPUT))
         right_val = int(clamp(right, MOTOR_MIN_OUTPUT, MOTOR_MAX_OUTPUT))
 
-        # Map logical Left/Right to Physical 0/1
         val_0 = 0
         val_1 = 0
 
-        if self.hw_config.motor_l is None or self.hw_config.motor_r is None:
-            raise RuntimeError("CRITICAL: Attempted to actuate motors, but motor channels are unmapped (None).")
-
-        # Assign Left Motor Value
         if self.hw_config.motor_l == 0:
             val_0 = left_val
         elif self.hw_config.motor_l == 1:
             val_1 = left_val
 
-        # Assign Right Motor Value
         if self.hw_config.motor_r == 0:
             val_0 = right_val
         elif self.hw_config.motor_r == 1:

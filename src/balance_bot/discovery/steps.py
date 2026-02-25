@@ -59,8 +59,8 @@ class DiscoverBusesStep(CalibrationStep):
         return StepStatus.SUCCESS, {
             'motor_i2c_bus': found_motor_bus,
             'imu_i2c_bus': found_imu_bus,
-            'motor_l': 0,
-            'motor_r': 1
+            'motor_l': 0,  # Bootstrap guess
+            'motor_r': 1   # Bootstrap guess
         }, {'i2c_buses_verified': True}
 
 # --- Step 2: Hardware Init ---
