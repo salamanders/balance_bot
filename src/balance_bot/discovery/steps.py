@@ -157,32 +157,30 @@ class DeriveKinematicsStep(CalibrationStep):
 
         test_power = state.min_power_visible + 30.0
 
+        def pulse_and_measure(name: str, left: float, right: float):
+            print(f"  Pulsing {name} Motor...")
+            res = hw.drive_and_measure(left, right, 0.4, wait_for_stability=False)
+            time.sleep(1.0)  # Settle
+
+            if not res.samples:
+                print(f"  [FAILURE] No samples collected for {name} Pulse.")
+                return None, None, None
+
+            gyro = self._avg_vec([s.gyro_raw for s in res.samples if s.gyro_raw])
+            accel = self._avg_vec([s.accel_raw for s in res.samples if s.accel_raw])
+            # Use Delta Accel for Motion Logic
+            accel_delta = accel - baseline_accel
+            return gyro, accel, accel_delta
+
         # 1. Pulse Left Only (+PWM)
-        print("  Pulsing LEFT Motor...")
-        res_l = hw.drive_and_measure(test_power, 0, 0.4, wait_for_stability=False)
-        time.sleep(1.0) # Settle
-
-        if not res_l.samples:
-             print("  [FAILURE] No samples collected for Left Pulse.")
-             return StepStatus.NEEDS_RETRY, {}, {}
-
-        l_gyro = self._avg_vec([s.gyro_raw for s in res_l.samples if s.gyro_raw])
-        l_accel = self._avg_vec([s.accel_raw for s in res_l.samples if s.accel_raw])
-        # Use Delta Accel for Motion Logic
-        l_accel_delta = l_accel - baseline_accel
+        l_gyro, l_accel, l_accel_delta = pulse_and_measure("LEFT", test_power, 0)
+        if l_gyro is None:
+            return StepStatus.NEEDS_RETRY, {}, {}
 
         # 2. Pulse Right Only (+PWM)
-        print("  Pulsing RIGHT Motor...")
-        res_r = hw.drive_and_measure(0, test_power, 0.4, wait_for_stability=False)
-        time.sleep(1.0) # Settle
-
-        if not res_r.samples:
-             print("  [FAILURE] No samples collected for Right Pulse.")
-             return StepStatus.NEEDS_RETRY, {}, {}
-
-        r_gyro = self._avg_vec([s.gyro_raw for s in res_r.samples if s.gyro_raw])
-        r_accel = self._avg_vec([s.accel_raw for s in res_r.samples if s.accel_raw])
-        r_accel_delta = r_accel - baseline_accel
+        r_gyro, r_accel, r_accel_delta = pulse_and_measure("RIGHT", 0, test_power)
+        if r_gyro is None:
+            return StepStatus.NEEDS_RETRY, {}, {}
 
         # --- Phase Alignment ---
         print("  [Analysis] Checking Motor Phase...")
