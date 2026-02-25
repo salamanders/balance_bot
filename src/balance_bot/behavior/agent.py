@@ -24,6 +24,7 @@ from ..adaptation.tuner import ContinuousTuner, BalancePointFinder
 from ..adaptation.battery import BatteryEstimator
 from .leds import LedController
 from ..enums import Orientation, Direction, BotState
+from ..telemetry import TelemetryBlackbox
 
 logger = logging.getLogger(__name__)
 
@@ -84,6 +85,7 @@ class Agent:
         self.led = LedController(self.learning_state.led)
         self.battery_logger = LogThrottler(self.learning_state.timing.battery_log_interval)
         self.tuning_logger = LogThrottler(self.learning_state.timing.tuning_log_interval)
+        self.blackbox = TelemetryBlackbox()
 
         # State
         self.running = True
@@ -136,6 +138,7 @@ class Agent:
             self.core.set_i2c_retries(1)
 
             self.led.signal_ready()
+            self.blackbox.start()
 
             rate = RateLimiter(1.0 / self.hw_config.loop_time)
             dt = self.hw_config.loop_time
@@ -341,6 +344,16 @@ class Agent:
                     battery_compensation=self.battery.compensation_factor,
                 )
 
+                self.blackbox.log_tick(
+                    self.state.name,
+                    last_telemetry.pitch_angle,
+                    last_telemetry.pitch_rate,
+                    last_telemetry.yaw_rate,
+                    last_telemetry.left_pwm,
+                    last_telemetry.right_pwm,
+                    last_telemetry.target_angle
+                )
+
                 dt = rate.sleep()
 
         except KeyboardInterrupt:
@@ -349,6 +362,7 @@ class Agent:
                 raise RuntimeError("Watchdog Panic! Main thread was stuck.") from None
             logger.info("Keyboard Interrupt.")
         finally:
+            self.blackbox.stop()
             self.core.cleanup()
             self.led.signal_off()
             if self.config_dirty:

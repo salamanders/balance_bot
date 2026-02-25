@@ -28,6 +28,9 @@ class BalanceTelemetry:
     yaw_rate: float
     motor_output: float
     crashed: bool
+    left_pwm: float
+    right_pwm: float
+    target_angle: float
 
 
 class TuningParams:
@@ -112,7 +115,10 @@ class BalanceCore:
                 pitch_rate=reading.pitch_rate,
                 yaw_rate=reading.yaw_rate,
                 motor_output=0.0,
-                crashed=False
+                crashed=False,
+                left_pwm=0.0,
+                right_pwm=0.0,
+                target_angle=self.learning_state.pid.target_angle
             )
 
         # 4. Apply Tuning (Tier 2 Adaptation)
@@ -144,7 +150,10 @@ class BalanceCore:
                 pitch_rate=reading.pitch_rate,
                 yaw_rate=reading.yaw_rate,
                 motor_output=0.0,
-                crashed=True
+                crashed=True,
+                left_pwm=0.0,
+                right_pwm=0.0,
+                target_angle=target_angle
             )
 
         # 7. Calculate Control Output
@@ -207,7 +216,10 @@ class BalanceCore:
             pitch_rate=reading.pitch_rate,
             yaw_rate=reading.yaw_rate,
             motor_output=pid_output, # Raw PID output (useful for battery estimation)
-            crashed=False
+            crashed=False,
+            left_pwm=left_motor,
+            right_pwm=right_motor,
+            target_angle=target_angle
         )
 
     def cleanup(self):
