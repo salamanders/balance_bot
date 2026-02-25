@@ -28,7 +28,7 @@ class TestFailLoud:
             # Manually inject mocks so set_motors doesn't fail on missing pz
             hw.pz = MagicMock()
 
-            with pytest.raises(RuntimeError, match="CRITICAL: Attempted to actuate motors"):
+            with pytest.raises(RuntimeError, match="CRITICAL: Attempted to actuate motors, but channels are unmapped. L:None R:None"):
                 hw.set_motors(50, 50)
 
     def test_set_motors_raises_if_one_unmapped(self, mock_hardware_deps):
@@ -56,10 +56,10 @@ class TestFailLoud:
             hw.set_motors(50, 50)
             hw.pz.set_motors.assert_called()
 
-    def test_read_imu_converted_raises_if_yaw_missing_in_adult_mode(self, mock_hardware_deps):
+    def test_read_imu_converted_handles_missing_yaw_in_adult_mode(self, mock_hardware_deps):
         """
-        Test that read_imu_converted raises RuntimeError if in Adult Mode (Pitch/Vert/Fwd set)
-        but Yaw is missing.
+        Test that read_imu_converted handles missing Yaw/Roll in Adult Mode gracefully (returns 0.0)
+        instead of crashing.
         """
         hw_config = HardwareConfig(
             accel_vertical_axis=Axis.Z,
@@ -75,9 +75,10 @@ class TestFailLoud:
             hw.sensor.get_accel_data.return_value = glm.vec3(0, 0, 9.8)
             hw.sensor.get_gyro_data.return_value = glm.vec3(0, 0, 0)
 
-            # Should raise because it tries to read Yaw which is None
-            with pytest.raises(RuntimeError, match="CRITICAL: Attempted to read unmapped axis"):
-                hw.read_imu_converted()
+            # Should NOT raise, but return 0.0 for yaw_rate
+            reading = hw.read_imu_converted()
+            assert reading.yaw_rate == 0.0
+            assert reading.pitch_angle == 0.0
 
     def test_read_imu_converted_toddler_mode_safe(self, mock_hardware_deps):
         """
