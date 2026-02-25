@@ -217,7 +217,7 @@ class RobotHardware:
     def get_axis_value(self, vector: glm.vec3, axis: Axis | None, invert: bool) -> float:
         """Helper to extract and optionally invert a vector component."""
         if axis is None:
-            return 0.0
+            raise RuntimeError("CRITICAL: Attempted to read unmapped axis.")
         val = getattr(vector, axis.value)
         return -val if invert else val
 
@@ -452,19 +452,20 @@ class RobotHardware:
         val_0 = 0
         val_1 = 0
 
+        if self.hw_config.motor_l is None or self.hw_config.motor_r is None:
+            raise RuntimeError("CRITICAL: Attempted to actuate motors, but motor channels are unmapped (None).")
+
         # Assign Left Motor Value
-        if self.hw_config.motor_l is not None:
-            if self.hw_config.motor_l == 0:
-                val_0 = left_val
-            elif self.hw_config.motor_l == 1:
-                val_1 = left_val
+        if self.hw_config.motor_l == 0:
+            val_0 = left_val
+        elif self.hw_config.motor_l == 1:
+            val_1 = left_val
 
         # Assign Right Motor Value
-        if self.hw_config.motor_r is not None:
-            if self.hw_config.motor_r == 0:
-                val_0 = right_val
-            elif self.hw_config.motor_r == 1:
-                val_1 = right_val
+        if self.hw_config.motor_r == 0:
+            val_0 = right_val
+        elif self.hw_config.motor_r == 1:
+            val_1 = right_val
 
         self.pz.set_motors(val_0, val_1)
 
