@@ -269,6 +269,15 @@ class DeriveKinematicsStep(CalibrationStep):
         else:
             print("  -> Yaw Direction Correct.")
 
+        # --- Calculate Yaw Invert ---
+        raw_yaw_val = getattr(l_gyro, gyro_yaw_axis)
+        if swap_motors:
+            # l_gyro was physically a LEFT turn. We expect the mapped Yaw to be Positive.
+            gyro_yaw_invert = raw_yaw_val < 0
+        else:
+            # l_gyro was physically a RIGHT turn. We expect the mapped Yaw to be Negative.
+            gyro_yaw_invert = raw_yaw_val > 0
+
         # --- Updates ---
         config_updates = {
             'gyro_pitch_axis': Axis(pitch_axis_name),
@@ -278,26 +287,7 @@ class DeriveKinematicsStep(CalibrationStep):
             'accel_vertical_axis': Axis(vert_axis_name),
             'accel_vertical_invert': accel_vertical_invert,
             'gyro_yaw_axis': Axis(gyro_yaw_axis),
-            # 'gyro_yaw_invert': ??? Not critical for balance, but useful for odometry.
-            # Standard: Right Turn = Negative Yaw.
-            # L_gyro (Right Turn) should be Negative along Up/Vertical.
-            # L_gyro dot Up_Vector is Negative.
-            # If Raw Z is Negative, and Up is +Z, then Invert=False.
-            # If Raw Z is Positive, and Up is +Z, then Invert=True.
-            # Let's calculate it.
-            # We want Reading along YawAxis to be positive for Left Turn?
-            # Standard Z-up: Left Turn = +Z. Right Turn = -Z.
-            # So Yaw Rate should be Positive for Left Turn.
-            # R_gyro (Left Turn) dot Up_Vector should be Positive.
-            # r_gyro (vector) dot up_vec (vector).
-            # If > 0, we are good. If < 0, we need to invert the Yaw axis reading?
-            # But gyro_yaw_axis is just an axis name. The sign comes from the axis + invert.
-            # If up_vec points along -Z, and r_gyro points along -Z (positive product),
-            # then "Positive Yaw Rate" is -Z direction.
-            # HardwareConfig has `gyro_yaw_invert`.
-            # If `accel_vertical_invert` makes Z positive up...
-            # Then usually Gyro Z matches?
-            # Let's leave `gyro_yaw_invert` as False for now, or match vertical invert.
+            'gyro_yaw_invert': gyro_yaw_invert,
             'motor_r_invert': motor_r_invert,
         }
 
