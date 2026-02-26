@@ -4,7 +4,7 @@ import math
 import random
 import logging
 import glm
-from typing import Tuple, Dict, Any, List
+from typing import Tuple, Dict, Any, List, Optional
 
 from .step import CalibrationStep, StepStatus
 from ..configuration import HardwareConfig, LearningState
@@ -148,41 +148,46 @@ class DeriveKinematicsStep(CalibrationStep):
                 state.motor_phasing_verified and
                 state.motor_channels_verified)
 
+    def _pulse_and_measure(self, hw: RobotHardware, l_pwr: float, r_pwr: float, baseline_accel: glm.vec3) -> Tuple[Optional[glm.vec3], Optional[glm.vec3], Optional[glm.vec3]]:
+        """Helper to pulse motors and return averaged vectors."""
+        res = hw.drive_and_measure(l_pwr, r_pwr, 0.4, wait_for_stability=False)
+        time.sleep(1.0) # Settle
+
+        if not res.samples:
+            return None, None, None
+
+        gyro = self._avg_vec([s.gyro_raw for s in res.samples if s.gyro_raw])
+        accel = self._avg_vec([s.accel_raw for s in res.samples if s.accel_raw])
+        accel_delta = accel - baseline_accel
+        return gyro, accel, accel_delta
+
+    def _analyze_axis(self, vec: glm.vec3, label: str) -> Tuple[str, float]:
+        """Helper to determine dominant axis and its value."""
+        axis_name, _, _ = analyze_dominance(vec, label)
+        val = getattr(vec, axis_name)
+        return axis_name, val
+
     def run(self, hw: RobotHardware, config: HardwareConfig, state: LearningState) -> Tuple[StepStatus, Dict[str, Any], Dict[str, Any]]:
         print(">>> Deriving Kinematics (Single Wiggle) <<<")
         hw.wait_for_stability()
 
         # 0. Baseline (Resting)
         baseline_accel, _ = hw.read_imu_raw()
-
         test_power = state.min_power_visible + 30.0
 
         # 1. Pulse Left Only (+PWM)
         print("  Pulsing LEFT Motor...")
-        res_l = hw.drive_and_measure(test_power, 0, 0.4, wait_for_stability=False)
-        time.sleep(1.0) # Settle
-
-        if not res_l.samples:
+        l_gyro, l_accel, l_accel_delta = self._pulse_and_measure(hw, test_power, 0, baseline_accel)
+        if l_gyro is None:
              print("  [FAILURE] No samples collected for Left Pulse.")
              return StepStatus.NEEDS_RETRY, {}, {}
 
-        l_gyro = self._avg_vec([s.gyro_raw for s in res_l.samples if s.gyro_raw])
-        l_accel = self._avg_vec([s.accel_raw for s in res_l.samples if s.accel_raw])
-        # Use Delta Accel for Motion Logic
-        l_accel_delta = l_accel - baseline_accel
-
         # 2. Pulse Right Only (+PWM)
         print("  Pulsing RIGHT Motor...")
-        res_r = hw.drive_and_measure(0, test_power, 0.4, wait_for_stability=False)
-        time.sleep(1.0) # Settle
-
-        if not res_r.samples:
+        r_gyro, r_accel, r_accel_delta = self._pulse_and_measure(hw, 0, test_power, baseline_accel)
+        if r_gyro is None:
              print("  [FAILURE] No samples collected for Right Pulse.")
              return StepStatus.NEEDS_RETRY, {}, {}
-
-        r_gyro = self._avg_vec([s.gyro_raw for s in res_r.samples if s.gyro_raw])
-        r_accel = self._avg_vec([s.accel_raw for s in res_r.samples if s.accel_raw])
-        r_accel_delta = r_accel - baseline_accel
 
         # --- Phase Alignment ---
         print("  [Analysis] Checking Motor Phase...")
@@ -203,27 +208,18 @@ class DeriveKinematicsStep(CalibrationStep):
         sum_accel = l_accel_delta + r_accel_delta
 
         # Pitch: Dominant axis of Sum Gyro
-        pitch_axis_name, _, _ = analyze_dominance(sum_gyro, "Pitch Axis")
-        pitch_val = getattr(sum_gyro, pitch_axis_name)
+        pitch_axis_name, pitch_val = self._analyze_axis(sum_gyro, "Pitch Axis")
         # We expect +PWM -> Negative Pitch Rate. If Positive, Invert.
         gyro_pitch_invert = pitch_val > 0
 
         # Forward: Dominant axis of Sum Accel
-        # Exclude Pitch Axis?
-        # Ideally Forward is distinct from Pitch axis (which is Gyro).
-        # Accel Forward is usually distinct.
-        fwd_axis_name, _, _ = analyze_dominance(sum_accel, "Forward Axis")
-        fwd_val = getattr(sum_accel, fwd_axis_name)
+        fwd_axis_name, fwd_val = self._analyze_axis(sum_accel, "Forward Axis")
         # We expect +PWM -> Negative Accel Delta (Lag). If Positive, Invert.
         accel_forward_invert = fwd_val > 0
 
         # --- Vertical Axis ---
         # The remaining axis.
         axes = {'x', 'y', 'z'}
-        # Note: Pitch Axis is Gyro axis (e.g. 'y'). Forward is Accel axis (e.g. 'x').
-        # Vertical should be 'z'.
-        # We need to pick the one that is NOT Forward. (Pitch is rotation, doesn't consume a translation axis, but usually aligns with Y).
-        # Let's verify dominance on Baseline Accel excluding Forward Axis.
         baseline_candidates = {k: abs(getattr(baseline_accel, k)) for k in axes if k != fwd_axis_name}
         vert_axis_name, _, _ = analyze_dominance(baseline_candidates, "Vertical Axis")
 
@@ -233,9 +229,7 @@ class DeriveKinematicsStep(CalibrationStep):
 
         # --- Yaw & L/R Identity ---
         print("  [Analysis] Checking L/R Identity...")
-        # Yaw Axis: Dominant axis of (L_gyro_raw - R_gyro_raw) ?
-        # Or just use Vertical Axis (Z)? Usually Yaw is around Vertical.
-        # Let's use Vertical Axis as Yaw Axis.
+        # Use Vertical Axis as Yaw Axis.
         gyro_yaw_axis = vert_axis_name
 
         # Physical Up Vector = Lag x Pitch Backward
@@ -243,7 +237,6 @@ class DeriveKinematicsStep(CalibrationStep):
 
         # Yaw Diff
         yaw_diff = l_gyro - r_gyro
-
         check_val = glm.dot(yaw_diff, raw_up)
         print(f"    Yaw Check Dot Product: {check_val:.2f}")
 
@@ -288,30 +281,11 @@ class DeriveKinematicsStep(CalibrationStep):
             # So we should swap the invert flags too.
             config_updates['motor_l'] = config.motor_r
             config_updates['motor_r'] = config.motor_l
-            config_updates['motor_l_invert'] = config.motor_r_invert
-            config_updates['motor_r_invert'] = config.motor_l_invert
 
-            # But wait! We just calculated `motor_r_invert` (local var) based on the *current* configuration (before swap).
-            # The `motor_r_invert` we found applies to the motor connected to the *current* Right Channel.
-            # If we swap channels, that motor becomes the Left Motor.
-            # So `config.motor_l_invert` (new) should become `motor_r_invert` (calculated)?
-            # And `config.motor_r_invert` (new) should become `config.motor_l_invert` (old)?
-            # Let's trace carefully.
-            # Current Config: L=0, R=1.
-            # We detected R (Channel 1) needs Invert. `motor_r_invert = True`.
-            # We detected Swap Needed. (Channel 0 is actually Right, Channel 1 is actually Left).
-            # So we want Logical Left -> Channel 1. Logical Right -> Channel 0.
-            # Channel 1 (now Left) needed Invert. So `motor_l_invert` = True.
-            # Channel 0 (now Right) uses whatever L used? (We assumed L was correct phase because we didn't check L phase, we aligned R to L).
-            # This implies `motor_l_invert` (original) was correct for Channel 0.
-            # So:
             # New L Channel = Old R Channel. New L Invert = Old R Invert (Calculated).
             # New R Channel = Old L Channel. New R Invert = Old L Invert (Original).
-
-            config_updates['motor_l'] = config.motor_r
-            config_updates['motor_r'] = config.motor_l
-            config_updates['motor_l_invert'] = motor_r_invert # The one we just calculated for the old R channel
-            config_updates['motor_r_invert'] = config.motor_l_invert # The existing L invert
+            config_updates['motor_l_invert'] = motor_r_invert
+            config_updates['motor_r_invert'] = config.motor_l_invert
 
         state_updates = {
             'spatial_orientation_verified': True,
