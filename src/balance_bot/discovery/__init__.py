@@ -1,5 +1,5 @@
 from .pipeline import SelfDiscoveryPipeline
-from .step import CalibrationStep, StepStatus
+from .step import BaseCalibrationStep, StepStatus
 from .steps import (
     DiscoverBusesStep,
     HardwareInitStep,
@@ -12,7 +12,7 @@ from .steps import (
 
 __all__ = [
     "SelfDiscoveryPipeline",
-    "CalibrationStep",
+    "BaseCalibrationStep",
     "StepStatus",
     "DiscoverBusesStep",
     "HardwareInitStep",

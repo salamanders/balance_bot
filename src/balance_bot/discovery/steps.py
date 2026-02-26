@@ -4,9 +4,9 @@ import math
 import random
 import logging
 import glm
-from typing import Tuple, Dict, Any, List
+from typing import Tuple, Dict, Any, List, Optional
 
-from .step import CalibrationStep, StepStatus
+from .step import BaseCalibrationStep, StepStatus
 from ..configuration import HardwareConfig, LearningState
 from ..hardware.robot_hardware import RobotHardware
 from ..enums import Axis
@@ -22,7 +22,7 @@ from ..utils import (
 logger = logging.getLogger(__name__)
 
 # --- Step 1: Discover Buses ---
-class DiscoverBusesStep(CalibrationStep):
+class DiscoverBusesStep(BaseCalibrationStep):
     @property
     def name(self) -> str:
         return "Discover I2C Buses"
@@ -30,8 +30,8 @@ class DiscoverBusesStep(CalibrationStep):
     def is_verified(self, state: LearningState) -> bool:
         return state.i2c_buses_verified
 
-    def run(self, hw: RobotHardware, config: HardwareConfig, state: LearningState) -> Tuple[StepStatus, Dict[str, Any], Dict[str, Any]]:
-        print("Scanning I2C Buses...")
+    def _run_impl(self, hw: RobotHardware, config: HardwareConfig, state: LearningState) -> Tuple[StepStatus, Dict[str, Any], Dict[str, Any]]:
+        self.log("Scanning I2C Buses...")
 
         # 1. Find Motors (0x22)
         def check_motor(bus):
@@ -64,7 +64,7 @@ class DiscoverBusesStep(CalibrationStep):
         }, {'i2c_buses_verified': True}
 
 # --- Step 2: Hardware Init ---
-class HardwareInitStep(CalibrationStep):
+class HardwareInitStep(BaseCalibrationStep):
     @property
     def name(self) -> str:
         return "Initialize Hardware Drivers"
@@ -72,30 +72,30 @@ class HardwareInitStep(CalibrationStep):
     def is_verified(self, state: LearningState) -> bool:
         return state.hardware_init_verified
 
-    def run(self, hw: RobotHardware, config: HardwareConfig, state: LearningState) -> Tuple[StepStatus, Dict[str, Any], Dict[str, Any]]:
-        print("Initializing Hardware Drivers...")
+    def _run_impl(self, hw: RobotHardware, config: HardwareConfig, state: LearningState) -> Tuple[StepStatus, Dict[str, Any], Dict[str, Any]]:
+        self.log("Initializing Hardware Drivers...")
         # Force driver initialization now that buses are known
         try:
             hw.initialize_drivers()
         except Exception as e:
-            print(f"  [FAILURE] Driver init raised exception: {e}")
+            self.log(f"[FAILURE] Driver init raised exception: {e}")
             return StepStatus.FATAL, {}, {}
 
         # Verify they are alive
         if hw.pz is None or hw.sensor is None:
-            print("  [FAILURE] Drivers failed to initialize despite known buses.")
+            self.log("[FAILURE] Drivers failed to initialize despite known buses.")
             return StepStatus.FATAL, {}, {}
 
         try:
             hw.init() # Init the motor driver specifically
         except Exception as e:
-            print(f"  [FAILURE] Motor driver init failed: {e}")
+            self.log(f"[FAILURE] Motor driver init failed: {e}")
             return StepStatus.FATAL, {}, {}
 
         return StepStatus.SUCCESS, {}, {'hardware_init_verified': True}
 
 # --- Step 3: Friction Threshold ---
-class FrictionThresholdStep(CalibrationStep):
+class FrictionThresholdStep(BaseCalibrationStep):
     @property
     def name(self) -> str:
         return "Friction Threshold (Min Power)"
@@ -103,9 +103,9 @@ class FrictionThresholdStep(CalibrationStep):
     def is_verified(self, state: LearningState) -> bool:
         return state.friction_threshold_verified
 
-    def run(self, hw: RobotHardware, config: HardwareConfig, state: LearningState) -> Tuple[StepStatus, Dict[str, Any], Dict[str, Any]]:
-        print(">>> Finding Minimum Power (Raw) <<<")
-        print("Ensuring robot is on the floor...")
+    def _run_impl(self, hw: RobotHardware, config: HardwareConfig, state: LearningState) -> Tuple[StepStatus, Dict[str, Any], Dict[str, Any]]:
+        self.log("Finding Minimum Power (Raw)")
+        self.log("Ensuring robot is on the floor...")
 
         def action(p):
             res = hw.drive_and_measure(p, p, 0.3, wait_for_stability=False)
@@ -121,7 +121,7 @@ class FrictionThresholdStep(CalibrationStep):
                     if mag > max_mag:
                         max_mag = mag
 
-            print(f"    Max Raw Gyro Magnitude: {max_mag:.1f} deg/s")
+            self.log(f"    Max Raw Gyro Magnitude: {max_mag:.1f} deg/s")
             return max_mag > 15.0
 
         heartbeat_fn = hw.watchdog.heartbeat if hw.watchdog else None
@@ -136,7 +136,7 @@ class FrictionThresholdStep(CalibrationStep):
         }
 
 # --- Step 4: Derive Kinematics (The Single Wiggle) ---
-class DeriveKinematicsStep(CalibrationStep):
+class DeriveKinematicsStep(BaseCalibrationStep):
     @property
     def name(self) -> str:
         return "Derive Kinematics (Single Wiggle)"
@@ -148,55 +148,40 @@ class DeriveKinematicsStep(CalibrationStep):
                 state.motor_phasing_verified and
                 state.motor_channels_verified)
 
-    def run(self, hw: RobotHardware, config: HardwareConfig, state: LearningState) -> Tuple[StepStatus, Dict[str, Any], Dict[str, Any]]:
-        print(">>> Deriving Kinematics (Single Wiggle) <<<")
-        hw.wait_for_stability()
+    def _run_impl(self, hw: RobotHardware, config: HardwareConfig, state: LearningState) -> Tuple[StepStatus, Dict[str, Any], Dict[str, Any]]:
+        self.wait_for_stability(hw)
 
         # 0. Baseline (Resting)
         baseline_accel, _ = hw.read_imu_raw()
-
         test_power = state.min_power_visible + 30.0
 
         # 1. Pulse Left Only (+PWM)
-        print("  Pulsing LEFT Motor...")
-        res_l = hw.drive_and_measure(test_power, 0, 0.4, wait_for_stability=False)
-        time.sleep(1.0) # Settle
-
-        if not res_l.samples:
-             print("  [FAILURE] No samples collected for Left Pulse.")
-             return StepStatus.NEEDS_RETRY, {}, {}
-
-        l_gyro = self._avg_vec([s.gyro_raw for s in res_l.samples if s.gyro_raw])
-        l_accel = self._avg_vec([s.accel_raw for s in res_l.samples if s.accel_raw])
-        # Use Delta Accel for Motion Logic
+        l_gyro, l_accel = self._pulse_and_measure(hw, test_power, 0)
+        if l_gyro is None:
+            self.log("[FAILURE] No samples collected for Left Pulse.")
+            return StepStatus.NEEDS_RETRY, {}, {}
         l_accel_delta = l_accel - baseline_accel
 
         # 2. Pulse Right Only (+PWM)
-        print("  Pulsing RIGHT Motor...")
-        res_r = hw.drive_and_measure(0, test_power, 0.4, wait_for_stability=False)
-        time.sleep(1.0) # Settle
-
-        if not res_r.samples:
-             print("  [FAILURE] No samples collected for Right Pulse.")
+        r_gyro, r_accel = self._pulse_and_measure(hw, 0, test_power)
+        if r_gyro is None:
+             self.log("[FAILURE] No samples collected for Right Pulse.")
              return StepStatus.NEEDS_RETRY, {}, {}
-
-        r_gyro = self._avg_vec([s.gyro_raw for s in res_r.samples if s.gyro_raw])
-        r_accel = self._avg_vec([s.accel_raw for s in res_r.samples if s.accel_raw])
         r_accel_delta = r_accel - baseline_accel
 
         # --- Phase Alignment ---
-        print("  [Analysis] Checking Motor Phase...")
+        self.log("[Analysis] Checking Motor Phase...")
         dot_accel = glm.dot(l_accel_delta, r_accel_delta)
         motor_r_invert = False
 
         if dot_accel < 0:
-            print("  -> Phase Mismatch Detected. Inverting Right Motor logic.")
+            self.log("-> Phase Mismatch Detected. Inverting Right Motor logic.")
             motor_r_invert = True
             # Flip R vectors to match L for math
             r_gyro = -r_gyro
             r_accel_delta = -r_accel_delta
         else:
-            print("  -> Phase Matched.")
+            self.log("-> Phase Matched.")
 
         # --- Pitch & Forward Axis ---
         sum_gyro = l_gyro + r_gyro
@@ -209,9 +194,6 @@ class DeriveKinematicsStep(CalibrationStep):
         gyro_pitch_invert = pitch_val > 0
 
         # Forward: Dominant axis of Sum Accel
-        # Exclude Pitch Axis?
-        # Ideally Forward is distinct from Pitch axis (which is Gyro).
-        # Accel Forward is usually distinct.
         fwd_axis_name, _, _ = analyze_dominance(sum_accel, "Forward Axis")
         fwd_val = getattr(sum_accel, fwd_axis_name)
         # We expect +PWM -> Negative Accel Delta (Lag). If Positive, Invert.
@@ -220,10 +202,6 @@ class DeriveKinematicsStep(CalibrationStep):
         # --- Vertical Axis ---
         # The remaining axis.
         axes = {'x', 'y', 'z'}
-        # Note: Pitch Axis is Gyro axis (e.g. 'y'). Forward is Accel axis (e.g. 'x').
-        # Vertical should be 'z'.
-        # We need to pick the one that is NOT Forward. (Pitch is rotation, doesn't consume a translation axis, but usually aligns with Y).
-        # Let's verify dominance on Baseline Accel excluding Forward Axis.
         baseline_candidates = {k: abs(getattr(baseline_accel, k)) for k in axes if k != fwd_axis_name}
         vert_axis_name, _, _ = analyze_dominance(baseline_candidates, "Vertical Axis")
 
@@ -232,10 +210,9 @@ class DeriveKinematicsStep(CalibrationStep):
         accel_vertical_invert = vert_val < 0
 
         # --- Yaw & L/R Identity ---
-        print("  [Analysis] Checking L/R Identity...")
+        self.log("[Analysis] Checking L/R Identity...")
         # Yaw Axis: Dominant axis of (L_gyro_raw - R_gyro_raw) ?
         # Or just use Vertical Axis (Z)? Usually Yaw is around Vertical.
-        # Let's use Vertical Axis as Yaw Axis.
         gyro_yaw_axis = vert_axis_name
 
         # Physical Up Vector = Lag x Pitch Backward
@@ -245,14 +222,14 @@ class DeriveKinematicsStep(CalibrationStep):
         yaw_diff = l_gyro - r_gyro
 
         check_val = glm.dot(yaw_diff, raw_up)
-        print(f"    Yaw Check Dot Product: {check_val:.2f}")
+        self.log(f"  Yaw Check Dot Product: {check_val:.2f}")
 
         swap_motors = False
         if check_val > 0:
-            print("  -> Yaw Direction Opposite. Motors are physically swapped.")
+            self.log("-> Yaw Direction Opposite. Motors are physically swapped.")
             swap_motors = True
         else:
-            print("  -> Yaw Direction Correct.")
+            self.log("-> Yaw Direction Correct.")
 
         # --- Calculate Yaw Invert ---
         raw_yaw_val = getattr(l_gyro, gyro_yaw_axis)
@@ -277,37 +254,6 @@ class DeriveKinematicsStep(CalibrationStep):
         }
 
         if swap_motors:
-            # Swap channels
-            # Also swap Inverts?
-            # If we swap channels, the physical wiring is swapped.
-            # If L was + and R was - (inverted), and we swap cables,
-            # Now "Logical L" goes to "Physical R". "Logical R" goes to "Physical L".
-            # We need to check if the *polarity* follows the motor or the port.
-            # Usually polarity is a property of the Motor+Wire+Gearbox.
-            # So if we swap ports, the polarity *of the motor* stays with the motor.
-            # So we should swap the invert flags too.
-            config_updates['motor_l'] = config.motor_r
-            config_updates['motor_r'] = config.motor_l
-            config_updates['motor_l_invert'] = config.motor_r_invert
-            config_updates['motor_r_invert'] = config.motor_l_invert
-
-            # But wait! We just calculated `motor_r_invert` (local var) based on the *current* configuration (before swap).
-            # The `motor_r_invert` we found applies to the motor connected to the *current* Right Channel.
-            # If we swap channels, that motor becomes the Left Motor.
-            # So `config.motor_l_invert` (new) should become `motor_r_invert` (calculated)?
-            # And `config.motor_r_invert` (new) should become `config.motor_l_invert` (old)?
-            # Let's trace carefully.
-            # Current Config: L=0, R=1.
-            # We detected R (Channel 1) needs Invert. `motor_r_invert = True`.
-            # We detected Swap Needed. (Channel 0 is actually Right, Channel 1 is actually Left).
-            # So we want Logical Left -> Channel 1. Logical Right -> Channel 0.
-            # Channel 1 (now Left) needed Invert. So `motor_l_invert` = True.
-            # Channel 0 (now Right) uses whatever L used? (We assumed L was correct phase because we didn't check L phase, we aligned R to L).
-            # This implies `motor_l_invert` (original) was correct for Channel 0.
-            # So:
-            # New L Channel = Old R Channel. New L Invert = Old R Invert (Calculated).
-            # New R Channel = Old L Channel. New R Invert = Old L Invert (Original).
-
             config_updates['motor_l'] = config.motor_r
             config_updates['motor_r'] = config.motor_l
             config_updates['motor_l_invert'] = motor_r_invert # The one we just calculated for the old R channel
@@ -322,6 +268,18 @@ class DeriveKinematicsStep(CalibrationStep):
 
         return StepStatus.SUCCESS, config_updates, state_updates
 
+    def _pulse_and_measure(self, hw: RobotHardware, left_p: float, right_p: float) -> Tuple[Optional[glm.vec3], Optional[glm.vec3]]:
+        self.log(f"Pulsing {'LEFT' if left_p else 'RIGHT'} Motor...")
+        res = hw.drive_and_measure(left_p, right_p, 0.4, wait_for_stability=False)
+        time.sleep(1.0) # Settle
+
+        if not res.samples:
+             return None, None
+
+        gyro = self._avg_vec([s.gyro_raw for s in res.samples if s.gyro_raw])
+        accel = self._avg_vec([s.accel_raw for s in res.samples if s.accel_raw])
+        return gyro, accel
+
     def _avg_vec(self, vecs: List[glm.vec3]) -> glm.vec3:
         if not vecs: return glm.vec3(0)
         s = glm.vec3(0)
@@ -329,7 +287,7 @@ class DeriveKinematicsStep(CalibrationStep):
         return s / len(vecs)
 
 # --- Step 5: Motor Trim ---
-class MotorTrimStep(CalibrationStep):
+class MotorTrimStep(BaseCalibrationStep):
     @property
     def name(self) -> str:
         return "Motor Trim Calibration"
@@ -337,9 +295,8 @@ class MotorTrimStep(CalibrationStep):
     def is_verified(self, state: LearningState) -> bool:
         return state.motor_trim_verified
 
-    def run(self, hw: RobotHardware, config: HardwareConfig, state: LearningState) -> Tuple[StepStatus, Dict[str, Any], Dict[str, Any]]:
-        print(">>> Motor Trim Calibration <<<")
-        hw.wait_for_stability()
+    def _run_impl(self, hw: RobotHardware, config: HardwareConfig, state: LearningState) -> Tuple[StepStatus, Dict[str, Any], Dict[str, Any]]:
+        self.wait_for_stability(hw)
 
         best_trim = state.motor_trim
 
@@ -349,10 +306,10 @@ class MotorTrimStep(CalibrationStep):
 
             if not res.samples: continue
             avg_yaw = res.avg_yaw_rate
-            print(f"    Trim: {best_trim:.3f}, Drift: {avg_yaw:.2f} d/s")
+            self.log(f"  Trim: {best_trim:.3f}, Drift: {avg_yaw:.2f} d/s")
 
             if abs(avg_yaw) < 2.0:
-                print("  [SUCCESS] Drift is negligible.")
+                self.log("[SUCCESS] Drift is negligible.")
                 return StepStatus.SUCCESS, {}, {'motor_trim': best_trim, 'motor_trim_verified': True}
 
             # Adaptive Correction
@@ -360,11 +317,11 @@ class MotorTrimStep(CalibrationStep):
             correction = avg_yaw * gain
             best_trim = max(-0.4, min(0.4, best_trim + correction))
 
-        print("  [WARNING] Could not perfectly trim. Saving best effort.")
+        self.log("[WARNING] Could not perfectly trim. Saving best effort.")
         return StepStatus.SUCCESS, {}, {'motor_trim': best_trim, 'motor_trim_verified': True}
 
 # --- Step 6: Mechanical Backlash ---
-class MechanicalBacklashStep(CalibrationStep):
+class MechanicalBacklashStep(BaseCalibrationStep):
     @property
     def name(self) -> str:
         return "Mechanical Backlash"
@@ -372,9 +329,8 @@ class MechanicalBacklashStep(CalibrationStep):
     def is_verified(self, state: LearningState) -> bool:
         return state.backlash_verified
 
-    def run(self, hw: RobotHardware, config: HardwareConfig, state: LearningState) -> Tuple[StepStatus, Dict[str, Any], Dict[str, Any]]:
-        print(">>> Measuring Mechanical Backlash <<<")
-        hw.wait_for_stability(duration=1.0)
+    def _run_impl(self, hw: RobotHardware, config: HardwareConfig, state: LearningState) -> Tuple[StepStatus, Dict[str, Any], Dict[str, Any]]:
+        self.wait_for_stability(hw, duration=1.0)
 
         test_power = state.min_power_visible + 10
 
@@ -382,7 +338,7 @@ class MechanicalBacklashStep(CalibrationStep):
         hw.set_motors(test_power, test_power)
         time.sleep(0.3)
         hw.stop()
-        hw.wait_for_stability(duration=1.0)
+        self.wait_for_stability(hw, duration=1.0)
 
         # Reverse & Time
         start_time = time.time()
@@ -399,23 +355,15 @@ class MechanicalBacklashStep(CalibrationStep):
 
         hw.stop()
         compensated = max(0.0, slop_time - 0.02)
-        print(f"  Backlash: {compensated:.3f}s")
+        self.log(f"Backlash: {compensated:.3f}s")
 
         return StepStatus.SUCCESS, {}, {
             'control': state.control.model_copy(update={'backlash_pulse_time': compensated}),
-            # Note: updating nested pydantic model requires full replacement or smart merge.
-            # LearningState.control is ControlConfig.
-            # We should provide the updated ControlConfig object.
-            # But `state.control` is mutable? No, ControlConfig is a Pydantic model.
-            # If `LearningState` defines `control: ControlConfig`, we need to update the field.
-            # The dictionary approach requires the pipeline to handle nested updates?
-            # Usually `model_copy(update=dict)` is shallow.
-            # So I should pass `control` key with the NEW ControlConfig object.
             'backlash_verified': True
         }
 
 # --- Step 7: Kickup Dynamics ---
-class KickupDynamicsStep(CalibrationStep):
+class KickupDynamicsStep(BaseCalibrationStep):
     @property
     def name(self) -> str:
         return "Kick-Up Dynamics"
@@ -423,71 +371,14 @@ class KickupDynamicsStep(CalibrationStep):
     def is_verified(self, state: LearningState) -> bool:
         return state.kickup_dynamics_verified
 
-    def run(self, hw: RobotHardware, config: HardwareConfig, state: LearningState) -> Tuple[StepStatus, Dict[str, Any], Dict[str, Any]]:
-        print(">>> Dynamic Kick-Up Calibration <<<")
+    def _run_impl(self, hw: RobotHardware, config: HardwareConfig, state: LearningState) -> Tuple[StepStatus, Dict[str, Any], Dict[str, Any]]:
+        self.log("Dynamic Kick-Up Calibration")
 
-        # We need to collect results.
-        # Since we can't mutate state, we use local vars.
-        found_fwd = state.control.kickup_power_forward
-        found_bwd = state.control.kickup_power_backward
-
-        # Helpers
-        def force_posture(target: str):
-            base = state.min_power_visible + 10
-            for i in range(5):
-                hw.wait_for_stability(1.0)
-                pitch = hw.read_imu_converted().pitch_angle
-                if target == "FRONT" and pitch > 10: return
-                if target == "BACK" and pitch < -10: return
-
-                print(f"  Flop to {target}...")
-                p = base + (i*10)
-                if target == "FRONT": hw.drive_and_measure(-p, -p, 0.4)
-                else: hw.drive_and_measure(p, p, 0.4)
-            # If we fail to flop, we can't test.
-            # We should return NEEDS_RETRY? Or FATAL?
-            raise RuntimeError("Failed to posture")
-
-        def attempt_kick(start: str, p: float):
-            kick_sign = -1.0 if start == "BACK" else 1.0
-            setup_sign = -kick_sign
-
-            setup_p = p * setup_sign * 0.7
-            kick_p = p * kick_sign * 1.0
-
-            res = hw.execute_maneuver([
-                (setup_p, setup_p, 0.3),
-                (kick_p, kick_p, 0.4)
-            ])
-
-            time.sleep(1.0)
-            pitch = hw.read_imu_converted().pitch_angle
-
-            # Check Success
-            if start == "BACK" and -10 < pitch < 20: return "SUCCESS"
-            if start == "FRONT" and -20 < pitch < 10: return "SUCCESS"
-            return "FAIL"
-
-        def run_test(direction: str):
-            def action(p):
-                try:
-                    force_posture(direction)
-                except RuntimeError:
-                    return "POSTURE_FAIL"
-                return attempt_kick(direction, p)
-
-            found = find_threshold(f"KickUp {direction}",
-                                   max(20, state.min_power_visible + 10),
-                                   5, 100,
-                                   action,
-                                   lambda r: r == "SUCCESS",
-                                   heartbeat_fn=hw.watchdog.heartbeat if hw.watchdog else None)
-            return found
-
-        fwd = run_test("BACK") # Kickup Forward (from Back)
+        # Run tests for both directions
+        fwd = self._run_test(hw, state, "BACK") # Kickup Forward (from Back)
         if fwd is None: return StepStatus.NEEDS_RETRY, {}, {}
 
-        bwd = run_test("FRONT") # Kickup Backward (from Front)
+        bwd = self._run_test(hw, state, "FRONT") # Kickup Backward (from Front)
         if bwd is None: return StepStatus.NEEDS_RETRY, {}, {}
 
         # Construct new ControlConfig
@@ -500,3 +391,54 @@ class KickupDynamicsStep(CalibrationStep):
             'control': new_control,
             'kickup_dynamics_verified': True
         }
+
+    def _force_posture(self, hw: RobotHardware, state: LearningState, target: str):
+        base = state.min_power_visible + 10
+        for i in range(5):
+            hw.wait_for_stability(1.0)
+            pitch = hw.read_imu_converted().pitch_angle
+            if target == "FRONT" and pitch > 10: return
+            if target == "BACK" and pitch < -10: return
+
+            self.log(f"  Flop to {target}...")
+            p = base + (i*10)
+            if target == "FRONT": hw.drive_and_measure(-p, -p, 0.4)
+            else: hw.drive_and_measure(p, p, 0.4)
+
+        raise RuntimeError("Failed to posture")
+
+    def _attempt_kick(self, hw: RobotHardware, start: str, p: float) -> str:
+        kick_sign = -1.0 if start == "BACK" else 1.0
+        setup_sign = -kick_sign
+
+        setup_p = p * setup_sign * 0.7
+        kick_p = p * kick_sign * 1.0
+
+        hw.execute_maneuver([
+            (setup_p, setup_p, 0.3),
+            (kick_p, kick_p, 0.4)
+        ])
+
+        time.sleep(1.0)
+        pitch = hw.read_imu_converted().pitch_angle
+
+        # Check Success
+        if start == "BACK" and -10 < pitch < 20: return "SUCCESS"
+        if start == "FRONT" and -20 < pitch < 10: return "SUCCESS"
+        return "FAIL"
+
+    def _run_test(self, hw: RobotHardware, state: LearningState, direction: str) -> Optional[float]:
+        def action(p):
+            try:
+                self._force_posture(hw, state, direction)
+            except RuntimeError:
+                return "POSTURE_FAIL"
+            return self._attempt_kick(hw, direction, p)
+
+        found = find_threshold(f"KickUp {direction}",
+                               max(20, state.min_power_visible + 10),
+                               5, 100,
+                               action,
+                               lambda r: r == "SUCCESS",
+                               heartbeat_fn=hw.watchdog.heartbeat if hw.watchdog else None)
+        return found

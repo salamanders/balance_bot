@@ -2,7 +2,7 @@ import logging
 import time
 from typing import List, Dict, Any
 
-from .step import CalibrationStep, StepStatus
+from .step import BaseCalibrationStep, StepStatus
 from ..configuration import HardwareConfig, LearningState
 from ..hardware.robot_hardware import RobotHardware
 from ..watchdog import SurvivalWatchdog
@@ -10,7 +10,7 @@ from ..watchdog import SurvivalWatchdog
 logger = logging.getLogger(__name__)
 
 class SelfDiscoveryPipeline:
-    def __init__(self, steps: List[CalibrationStep], watchdog: SurvivalWatchdog):
+    def __init__(self, steps: List[BaseCalibrationStep], watchdog: SurvivalWatchdog):
         self.steps = steps
         self.watchdog = watchdog
         self.config = HardwareConfig.load()

@@ -386,3 +386,50 @@ To ensure code quality and reduce boilerplate, the project utilizes:
 
 1.  **Pydantic:** Used for `RobotConfig` and all sub-configs (`PIDParams`, `BatteryConfig`, etc.). This replaces manual JSON parsing and validation with robust, typed models.
 2.  **Simple-PID:** The `pid.py` module wraps the industry-standard `simple-pid` library. It adds domain-specific logic like Gyro-based Derivative terms and Integral Clamping, while delegating the core math to the library.
+
+# Appendix D: Detailed Discovery Protocol (Legacy Reference)
+
+*Note: The implementation has been consolidated into simpler, more robust steps (e.g., `DeriveKinematicsStep` now handles Phasing, Orientation, and L/R Identity in one pass).*
+
+## The Order of Discovery (The Knowledge Graph)
+
+The sequence is strictly ordered. The robot cannot deduce $N$ without first proving $N-1$.
+
+1. **I2C Bus Assignments:** Where are my brain stem and inner ear?
+2. **Hardware Initialization:** Connect the nerves.
+3. **Motor Candidates:** Assume I have two legs (Ch0, Ch1).
+4. **Friction Threshold:** How hard do I have to push to move my body?
+5. **Motor Phasing:** Do my legs move together, or am I spinning in a circle?
+6. **Spatial Orientation (The Blind Flop):** Which way is up, forward, and tilt?
+7. **Motor Direction:** Which way is "Forward"?
+8. **Left/Right Identity:** Which leg is left and which is right? (Also fixes Gyro Yaw).
+9. **Motor Trim:** One of my legs is stronger. Let's fix that so I drive straight.
+10. **Mechanical Backlash:** How loose are my joints (gear slop)?
+11. **Kick-Up Dynamics:** How much momentum do I need to stand myself up?
+
+## Step-by-Step Execution Playbook
+
+### Step 1: Discover Buses
+* **What it does:** Scans I2C buses (1, 3, 0, 2) for standard addresses `0x22` (PiconZero) and `0x68` (MPU6050).
+* **Traps:** If I2C wires are completely disconnected, it will die here.
+
+### Step 4: Friction Threshold
+* **What it does:** Pulses the motors with incrementally higher power until it detects physical movement.
+* **How it checks:** Calculates the raw gyroscope magnitude.
+* **Traps/Retries:** If the bot is held in the air, it will think friction is very low. It expects to be on the floor.
+
+### Step 5-8: Derive Kinematics (Consolidated)
+* **What it does:**
+    1.  **Phasing:** Tests if motors are wired in phase.
+    2.  **Orientation:** Measures Gravity and Gyro response to determine Up, Pitch, and Forward axes.
+    3.  **L/R Identity:** Uses the Right-Hand Rule (driving one motor forward, one backward) to physically identify Left vs Right channels.
+* **Traps:** Requires the robot to be on the floor and able to move slightly.
+
+### Step 9: Motor Trim
+* **What it does:** Drives straight for 1 second. Measures Yaw drift and calculates a correction factor.
+
+### Step 10: Mechanical Backlash
+* **What it does:** Engages gears forward, then slams them in reverse and times the delay until the IMU registers a chassis pitch rate spike.
+
+### Step 11: Kick-Up Dynamics
+* **What it does:** Tests different PWM values to find the exact momentum required to kick the robot up from the ground to a standing position from both the BACK and the FRONT.
