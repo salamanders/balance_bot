@@ -437,6 +437,25 @@ def run_diagnostics():
 
 # --- Generic Helper Functions (Extracted from WiringCheck) ---
 
+def make_i2c_check_fn(address: int, register: int = 0, expected_value: int = None) -> Callable[[Any], bool]:
+    """
+    Creates a check function for scan_i2c.
+    :param address: I2C Device Address (7-bit).
+    :param register: Register to read (default 0).
+    :param expected_value: Value to expect. If None, any successful read is True.
+    :return: Callable that returns True if device is found.
+    """
+    def check(bus):
+        try:
+            val = bus.read_byte_data(address, register)
+            if expected_value is not None:
+                return val == expected_value
+            return True
+        except:
+            return False
+    return check
+
+
 def scan_i2c_candidates(name: str, check_fn: Callable[[Any], bool]) -> int | None:
     """
     Scans I2C buses for a device using a callback.
