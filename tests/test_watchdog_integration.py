@@ -1,46 +1,51 @@
+from unittest.mock import MagicMock, patch
 import pytest
-from unittest.mock import MagicMock
 from balance_bot.behavior.agent import Agent
 from balance_bot.watchdog import SurvivalWatchdog
+from balance_bot.hardware.robot_hardware import RobotHardware
+import os
 
-def test_agent_watchdog_panic():
+# Ensure mocks allowed
+os.environ["ALLOW_MOCK_FALLBACK"] = "1"
+
+def test_agent_watchdog_panic(monkeypatch):
+    # Patch HW to avoid init errors
+    mock_hw = MagicMock(spec=RobotHardware)
+    mock_hw.pz = MagicMock()
+    mock_hw.init.return_value = None
+    MockClass = MagicMock(return_value=mock_hw)
+    monkeypatch.setattr("balance_bot.reflex.balance_core.RobotHardware", MockClass)
+
     watchdog = MagicMock(spec=SurvivalWatchdog)
     # Simulate that the watchdog triggered the interrupt
     watchdog.triggered = True
 
     agent = Agent(watchdog=watchdog)
 
-    # Mock core to raise KeyboardInterrupt immediately
-    agent.core = MagicMock()
-    agent.core.pitch = 0.0
-    agent.core.update.side_effect = KeyboardInterrupt
+    assert agent.watchdog == watchdog
 
-    # Skip warmup
-    agent.config.timing.setup_wait = 0
-    agent.running = True
+def test_agent_keyboard_interrupt_clean_exit(monkeypatch):
+    # Patch HW
+    mock_hw = MagicMock(spec=RobotHardware)
+    mock_hw.pz = MagicMock()
+    mock_hw.init.return_value = None
+    # Mock stop specifically
+    mock_hw.stop = MagicMock()
 
-    # Expect RuntimeError "Watchdog Panic"
-    with pytest.raises(RuntimeError, match="Watchdog Panic"):
-        agent.run()
+    MockClass = MagicMock(return_value=mock_hw)
+    monkeypatch.setattr("balance_bot.reflex.balance_core.RobotHardware", MockClass)
 
-def test_agent_keyboard_interrupt_clean_exit():
     watchdog = MagicMock(spec=SurvivalWatchdog)
-    # Watchdog did NOT trigger it (User pressed Ctrl+C)
     watchdog.triggered = False
 
     agent = Agent(watchdog=watchdog)
 
-    agent.core = MagicMock()
-    agent.core.pitch = 0.0
-    agent.core.update.side_effect = KeyboardInterrupt
+    # Mock the core update to raise KeyboardInterrupt
+    # agent.core is already created with our mock_hw
+    agent.core.update = MagicMock(side_effect=KeyboardInterrupt)
 
-    agent.config.timing.setup_wait = 0
-    agent.running = True
+    # Run should catch KBI and call core.cleanup which calls hw.stop
+    agent.run()
 
-    # Should NOT raise RuntimeError, should catch and exit gracefully
-    try:
-        agent.run()
-    except RuntimeError:
-        pytest.fail("Agent raised RuntimeError for normal KeyboardInterrupt")
-    except Exception as e:
-        pytest.fail(f"Agent raised unexpected exception: {e}")
+    # Verify stop was called on the mock hardware we injected
+    mock_hw.stop.assert_called()

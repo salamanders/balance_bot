@@ -3,6 +3,15 @@ import time
 from typing import List, Dict, Any
 
 from .step import CalibrationStep, StepStatus
+from .steps import (
+    DiscoverBusesStep,
+    HardwareInitStep,
+    FrictionThresholdStep,
+    DeriveKinematicsStep,
+    MotorTrimStep,
+    MechanicalBacklashStep,
+    KickupDynamicsStep,
+)
 from ..configuration import HardwareConfig, LearningState
 from ..hardware.robot_hardware import RobotHardware
 from ..watchdog import SurvivalWatchdog
@@ -10,14 +19,24 @@ from ..watchdog import SurvivalWatchdog
 logger = logging.getLogger(__name__)
 
 class SelfDiscoveryPipeline:
-    def __init__(self, steps: List[CalibrationStep], watchdog: SurvivalWatchdog):
-        self.steps = steps
+    def __init__(self, watchdog: SurvivalWatchdog):
         self.watchdog = watchdog
         self.config = HardwareConfig.load()
         self.state = LearningState.load()
 
         # Instantiate HAL once.
         self.hw = RobotHardware(self.config, self.state, watchdog=self.watchdog)
+
+        # Initialize steps in the standard order
+        self.steps: List[CalibrationStep] = [
+            DiscoverBusesStep(),
+            HardwareInitStep(),
+            FrictionThresholdStep(),
+            DeriveKinematicsStep(),
+            MotorTrimStep(),
+            MechanicalBacklashStep(),
+            KickupDynamicsStep(),
+        ]
 
     def run(self):
         logger.info("Starting Linear Self-Discovery Pipeline...")

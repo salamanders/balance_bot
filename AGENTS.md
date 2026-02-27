@@ -139,7 +139,7 @@ verify the fix worked before proceeding.
   and halt—I cannot solve a physical puzzle without a body.
 
 > **Implementation Status:** Implemented.
-> **Code Correlation:** `src/balance_bot/wiring_check.py` in `discover_buses` method.
+> **Code Correlation:** `src/balance_bot/discovery/steps.py` in `DiscoverBusesStep`.
 
 ---
 
@@ -155,7 +155,7 @@ verify the fix worked before proceeding.
     * *Note: The robot is TILTED in this state. This is normal.*
 
 > **Implementation Status:** Implemented.
-> **Code Correlation:** `src/balance_bot/wiring_check.py` in `calibrate_static_orientation` method.
+> **Code Correlation:** `src/balance_bot/discovery/steps.py` (Baseline logic in `DeriveKinematicsStep`).
 
 ---
 
@@ -177,7 +177,7 @@ verify the fix worked before proceeding.
     * *New Knowledge: I know my deadband (`min_pwm`), and my motors now definitively push together.*
 
 > **Implementation Status:** Implemented.
-> **Code Correlation:** `src/balance_bot/wiring_check.py` in `find_min_power` and `align_motors_phase` methods.
+> **Code Correlation:** `src/balance_bot/discovery/steps.py` in `FrictionThresholdStep`.
 
 ---
 
@@ -203,7 +203,7 @@ verify the fix worked before proceeding.
     * *New Knowledge: I have my absolute 3D orientation ($\vec{D}$ and $\vec{P}$) and I know how to drive Forward.*
 
 > **Implementation Status:** Implemented.
-> **Code Correlation:** `src/balance_bot/wiring_check.py` in `determine_motor_direction` method.
+> **Code Correlation:** `src/balance_bot/discovery/steps.py` in `DeriveKinematicsStep` (Forward axis logic).
 
 ---
 
@@ -229,7 +229,7 @@ verify the fix worked before proceeding.
     * *New Knowledge: I have mathematically mapped my left and right motor channels with ZERO human intervention.*
 
 > **Implementation Status:** Implemented.
-> **Code Correlation:** `src/balance_bot/wiring_check.py` in `deduce_left_right_autonomous` method.
+> **Code Correlation:** `src/balance_bot/discovery/steps.py` in `DeriveKinematicsStep` (L/R Identity logic).
 
 ---
 
@@ -247,7 +247,7 @@ verify the fix worked before proceeding.
     * *New Knowledge: Perfect linear physical output mapping.*
 
 > **Implementation Status:** Implemented.
-> **Code Correlation:** `src/balance_bot/wiring_check.py` in `calibrate_motor_trim` method.
+> **Code Correlation:** `src/balance_bot/discovery/steps.py` in `MotorTrimStep`.
 
 ---
 
@@ -267,7 +267,7 @@ verify the fix worked before proceeding.
     * *New Knowledge: I have discovered my true mechanical Balance Point Offset.*
 
 > **Implementation Status:** Implemented (Continuous Learning).
-> **Code Correlation:** `src/balance_bot/wiring_check.py` handles Kick-Up (`find_flop_thresholds`), while `src/balance_bot/adaptation/tuner.py` handles continuous balance point tuning via `BalancePointFinder`.
+> **Code Correlation:** `src/balance_bot/discovery/steps.py` handles Kick-Up (`KickupDynamicsStep`), while `src/balance_bot/adaptation/tuner.py` handles continuous balance point tuning via `BalancePointFinder`.
 
 ---
 
@@ -288,7 +288,7 @@ Kick-Up maneuver based on established facts, and balances flawlessly.
 The configuration is managed using `pydantic` models for robust validation and serialization.
 
 > **Implementation Status:** Implemented.
-> **Code Correlation:** `src/balance_bot/config.py` in `RobotConfig.save`.
+> **Code Correlation:** `src/balance_bot/configuration.py` in `RobotConfig.save`.
 
 ---
 

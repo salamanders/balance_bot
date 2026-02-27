@@ -48,16 +48,8 @@ def main() -> None:
         if needs_discovery:
             print("Incomplete knowledge detected. Initiating Discovery...")
             from .discovery.pipeline import SelfDiscoveryPipeline
-            from .discovery.steps import (
-                DiscoverBusesStep, HardwareInitStep, FrictionThresholdStep,
-                DeriveKinematicsStep, MotorTrimStep, MechanicalBacklashStep, KickupDynamicsStep
-            )
 
-            steps = [
-                DiscoverBusesStep(), HardwareInitStep(), FrictionThresholdStep(),
-                DeriveKinematicsStep(), MotorTrimStep(), MechanicalBacklashStep(), KickupDynamicsStep()
-            ]
-            pipeline = SelfDiscoveryPipeline(steps, watchdog)
+            pipeline = SelfDiscoveryPipeline(watchdog)
             pipeline.run()
             # WiringCheck finishes and cleans up the hardware locks safely.
             print("Discovery complete. Waking up Main Agent...")

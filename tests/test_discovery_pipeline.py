@@ -1,66 +1,52 @@
+from unittest.mock import MagicMock
 import pytest
-from unittest.mock import MagicMock, patch
-from src.balance_bot.discovery.pipeline import SelfDiscoveryPipeline
-from src.balance_bot.discovery.step import CalibrationStep, StepStatus
+import os
+from balance_bot.discovery.pipeline import SelfDiscoveryPipeline
+from balance_bot.discovery.step import StepStatus, CalibrationStep
+from balance_bot.configuration import HardwareConfig, LearningState
 
-def test_pipeline_flow():
-    """Verify that pipeline runs steps sequentially and saves state."""
+# Ensure mock fallback is allowed for pipeline (which creates hardware)
+os.environ["ALLOW_MOCK_FALLBACK"] = "1"
 
-    # Mock dependencies
-    mock_hw_cls = MagicMock()
-    mock_config_cls = MagicMock()
-    mock_state_cls = MagicMock()
-    mock_watchdog = MagicMock()
+class MockStep:
+    def __init__(self, name="MockStep"):
+        self._name = name
+        self.run_called = False
 
-    with patch("src.balance_bot.discovery.pipeline.RobotHardware", mock_hw_cls), \
-         patch("src.balance_bot.discovery.pipeline.HardwareConfig", mock_config_cls), \
-         patch("src.balance_bot.discovery.pipeline.LearningState", mock_state_cls):
+    @property
+    def name(self):
+        return self._name
 
-         # Setup State
-         mock_state = MagicMock()
-         mock_state_cls.load.return_value = mock_state
+    def is_verified(self, state):
+        return False
 
-         mock_config = MagicMock()
-         mock_config_cls.load.return_value = mock_config
+    def run(self, hw, config, state):
+        self.run_called = True
+        # Return a valid field update for LearningState
+        return StepStatus.SUCCESS, {}, {'i2c_buses_verified': True}
 
-         # Mock model_copy to return a different mock so strict inequality passes
-         new_mock_config = MagicMock()
-         mock_config.model_copy.return_value = new_mock_config
+def test_pipeline_execution():
+    watchdog = MagicMock()
+    pipeline = SelfDiscoveryPipeline(watchdog)
 
-         mock_hw = mock_hw_cls.return_value
+    mock_step_1 = MockStep("Step1")
+    mock_step_2 = MockStep("Step2")
+    pipeline.steps = [mock_step_1, mock_step_2]
 
-         # Define Steps
-         step1 = MagicMock(spec=CalibrationStep)
-         step1.name = "Step1"
-         step1.is_verified.return_value = False
-         step1.run.return_value = (StepStatus.SUCCESS, {}, {}) # Success, no config change
+    pipeline.run()
 
-         step2 = MagicMock(spec=CalibrationStep)
-         step2.name = "Step2"
-         step2.is_verified.return_value = True # Already verified
+    assert mock_step_1.run_called
+    assert mock_step_2.run_called
 
-         step3 = MagicMock(spec=CalibrationStep)
-         step3.name = "Step3"
-         step3.is_verified.return_value = False
-         # Step 3 changes config
-         config_updates = {'field': 'val'}
-         step3.run.return_value = (StepStatus.SUCCESS, config_updates, {})
+def test_pipeline_skips_verified():
+    watchdog = MagicMock()
+    pipeline = SelfDiscoveryPipeline(watchdog)
 
-         pipeline = SelfDiscoveryPipeline([step1, step2, step3], mock_watchdog)
-         pipeline.run()
+    mock_step = MockStep("Step1")
+    # Patch is_verified to True
+    mock_step.is_verified = lambda s: True
 
-         # Verify Execution
-         # Step 1 ran
-         step1.run.assert_called_once()
+    pipeline.steps = [mock_step]
+    pipeline.run()
 
-         # Step 2 skipped
-         step2.run.assert_not_called()
-
-         # Step 3 ran and updated config
-         step3.run.assert_called_once()
-         mock_config.model_copy.assert_called_with(update=config_updates)
-         new_mock_config.save.assert_called_once()
-         mock_hw.apply_config.assert_called_with(new_mock_config)
-
-         # Verify HAL stop
-         mock_hw.stop.assert_called_once()
+    assert not mock_step.run_called

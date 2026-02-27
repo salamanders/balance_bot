@@ -31,8 +31,11 @@
 * [src/balance_bot/jules_client.py](src/balance_bot/jules_client.py): Client for reporting crashes to Jules.
 * [src/balance_bot/main.py](src/balance_bot/main.py): Main application entry point.
 * [src/balance_bot/utils.py](src/balance_bot/utils.py): Shared utility functions (math, timing, filtering).
-* [src/balance_bot/wiring_check.py](src/balance_bot/wiring_check.py): Interactive tool for verifying motor/sensor wiring
-  and orientation.
+
+**Discovery (Self-Learning)**
+
+* [src/balance_bot/discovery/pipeline.py](src/balance_bot/discovery/pipeline.py): The main "Self-Discovery" state machine runner.
+* [src/balance_bot/discovery/steps.py](src/balance_bot/discovery/steps.py): Implementation of all calibration steps (Buses, Kinematics, Trim, etc.).
 
 **Tier 1: Reflex (Brainstem)**
 
@@ -174,7 +177,7 @@ uv sync
 Run the **Zero-Knowledge Self-Discovery Protocol**. This is a state-machine based wizard that will learn your robot's unique wiring and physics configuration.
 **Note:** The robot will wake up knowing nothing. It will ask you to place it in specific positions to learn gravity, motor direction, and friction thresholds.
 
-For a detailed explanation of the logic, see [LEARN.md](LEARN.md).
+For a detailed explanation of the logic, see [AGENTS.md](AGENTS.md).
 
 ```bash
 uv run balance-bot --check-wiring
@@ -229,12 +232,12 @@ adjust these values in the cited files.
     * *Citation*: [src/balance_bot/hardware/robot_hardware.py](src/balance_bot/hardware/robot_hardware.py) (
       MPU), [src/balance_bot/hardware/piconzero.py](src/balance_bot/hardware/piconzero.py) (PiconZero `I2C_ADDRESS`).
 * **Motor Channels**: Assumes motors are connected to PiconZero Motor A (0) and Motor B (1). The specific Left/Right mapping is autonomously discovered.
-    * *Citation*: [src/balance_bot/wiring_check.py](src/balance_bot/wiring_check.py) (Discovery logic).
+    * *Citation*: [src/balance_bot/discovery/steps.py](src/balance_bot/discovery/steps.py) (Discovery logic).
 * **Motor Input Range**: Assumes motor driver accepts values from -100 to 100.
     * *Citation*: [src/balance_bot/hardware/robot_hardware.py](src/balance_bot/hardware/robot_hardware.py) (
       `MOTOR_MIN_OUTPUT`, `MOTOR_MAX_OUTPUT`).
 * **PiconZero Protocol**: The PiconZero motor driver (based on ATmega328P) does NOT support standard I2C "Block Write" commands for motor control. It requires individual "Byte Writes" for each register.
-    * *Citation*: [src/balance_bot/hardware/piconzero.py](src/balance_bot/hardware/piconzero.py) and [src/balance_bot/wiring_check.py](src/balance_bot/wiring_check.py).
+    * *Citation*: [src/balance_bot/hardware/piconzero.py](src/balance_bot/hardware/piconzero.py) and [src/balance_bot/discovery/steps.py](src/balance_bot/discovery/steps.py).
 
 ### Physics & Mounting
 
