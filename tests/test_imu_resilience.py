@@ -1,8 +1,7 @@
-import pytest
 from unittest.mock import MagicMock
 from balance_bot.hardware.robot_hardware import RobotHardware
-from balance_bot.configuration import RobotConfig, PIDParams
-from balance_bot.utils import Vector3
+from balance_bot.configuration import HardwareConfig, LearningState, PIDParams
+from pyglm import glm
 
 def test_imu_resilience_zero_order_hold(monkeypatch):
     """
@@ -12,12 +11,10 @@ def test_imu_resilience_zero_order_hold(monkeypatch):
     # Force mock mode to avoid import errors for hardware libs
     monkeypatch.setenv("ALLOW_MOCK_FALLBACK", "1")
 
-    # Fix: Use RobotConfig
-    config = RobotConfig(pid=PIDParams())
-    config.motor_l = 0
-    config.motor_r = 1
+    hw_config = HardwareConfig(motor_l=0, motor_r=1)
+    learning_state = LearningState(pid=PIDParams())
 
-    hw = RobotHardware(config)
+    hw = RobotHardware(hw_config, learning_state)
     # Replaces the internal sensor with a MagicMock for control
     hw.sensor = MagicMock()
 
@@ -31,20 +28,20 @@ def test_imu_resilience_zero_order_hold(monkeypatch):
     accel, gyro = hw.read_imu_raw()
 
     # Verify defaults
-    assert accel == Vector3(0.0, 0.0, 0.0)
-    assert gyro == Vector3(0.0, 0.0, 0.0)
+    assert accel == glm.vec3(0.0, 0.0, 0.0)
+    assert gyro == glm.vec3(0.0, 0.0, 0.0)
 
     # --- Case 2: Successful Read ---
     hw.sensor.get_accel_data.side_effect = None
     hw.sensor.get_gyro_data.side_effect = None
-    hw.sensor.get_accel_data.return_value = Vector3(1.0, 2.0, 3.0)
-    hw.sensor.get_gyro_data.return_value = Vector3(4.0, 5.0, 6.0)
+    hw.sensor.get_accel_data.return_value = glm.vec3(1.0, 2.0, 3.0)
+    hw.sensor.get_gyro_data.return_value = glm.vec3(4.0, 5.0, 6.0)
 
     accel, gyro = hw.read_imu_raw()
 
     # Verify we got the new values
-    assert accel == Vector3(1.0, 2.0, 3.0)
-    assert gyro == Vector3(4.0, 5.0, 6.0)
+    assert accel == glm.vec3(1.0, 2.0, 3.0)
+    assert gyro == glm.vec3(4.0, 5.0, 6.0)
 
     # --- Case 3: Transient Failure (Zero-Order Hold) ---
     # Simulate another I2C error.
@@ -53,5 +50,5 @@ def test_imu_resilience_zero_order_hold(monkeypatch):
     # Should return the values from Case 2 (Last Known Good)
     accel, gyro = hw.read_imu_raw()
 
-    assert accel == Vector3(1.0, 2.0, 3.0)
-    assert gyro == Vector3(4.0, 5.0, 6.0)
+    assert accel == glm.vec3(1.0, 2.0, 3.0)
+    assert gyro == glm.vec3(4.0, 5.0, 6.0)

@@ -1,4 +1,3 @@
-import pytest
 from unittest.mock import MagicMock, patch
 from balance_bot.discovery.pipeline import SelfDiscoveryPipeline
 from balance_bot.discovery.step import CalibrationStep, StepStatus

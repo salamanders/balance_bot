@@ -1,7 +1,4 @@
-import sys
 import time
-import math
-import random
 import logging
 import glm
 from typing import Tuple, Dict, Any, List, Optional
@@ -14,10 +11,7 @@ from ..utils import (
     analyze_dominance,
     scan_i2c,
     make_i2c_check_fn,
-    find_threshold,
-    clamp,
-    sort_resting_vectors,
-    vector_angle
+    find_threshold
 )
 
 logger = logging.getLogger(__name__)

@@ -1,7 +1,6 @@
 import sys
 import unittest
-import time
-from unittest.mock import MagicMock, call, patch
+from unittest.mock import MagicMock, patch
 
 # Clean up sys.modules to force fresh import of piconzero
 if "balance_bot.hardware.piconzero" in sys.modules:

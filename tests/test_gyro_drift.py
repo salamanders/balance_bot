@@ -8,16 +8,15 @@ if 'smbus2' not in sys.modules:
     sys.modules['smbus2'] = MagicMock()
 
 from balance_bot.hardware.robot_hardware import RobotHardware
-from balance_bot.configuration import RobotConfig, PIDParams
-from balance_bot.utils import Vector3
+from balance_bot.configuration import HardwareConfig, LearningState, PIDParams
+from pyglm import glm
 
 @pytest.fixture
 def hw_fixture():
     os.environ["ALLOW_MOCK_FALLBACK"] = "1"
-    config = RobotConfig(pid=PIDParams())
-    config.motor_i2c_bus = 1
-    config.imu_i2c_bus = 1
-    hw = RobotHardware(config)
+    hw_config = HardwareConfig(motor_i2c_bus=1, imu_i2c_bus=1)
+    learning_state = LearningState(pid=PIDParams())
+    hw = RobotHardware(hw_config, learning_state)
 
     # We must NOT mock read_imu_raw directly, because the fix is inside read_imu_raw logic (bias application).
     # Instead, we mock the underlying sensor driver.
@@ -32,15 +31,15 @@ def test_wait_for_stability_fixes_bias(hw_fixture):
     hw = hw_fixture
 
     # Simulate a constant bias of 3.0 deg/s on X axis from the SENSOR.
-    biased_gyro_raw = Vector3(3.0, 0.0, 0.0)
-    dummy_accel = Vector3(0.0, 0.0, 1.0)
+    biased_gyro_raw = glm.vec3(3.0, 0.0, 0.0)
+    dummy_accel = glm.vec3(0.0, 0.0, 1.0)
 
     # Configure the sensor mock to return biased raw data
     hw.sensor.get_accel_data.return_value = dummy_accel
     hw.sensor.get_gyro_data.return_value = biased_gyro_raw
 
     # Check initial config bias
-    assert hw.config.gyro_bias_x == 0.0
+    assert hw.learning_state.gyro_bias_x == 0.0
 
     # Run wait_for_stability.
     # It should:
@@ -62,7 +61,7 @@ def test_wait_for_stability_fixes_bias(hw_fixture):
 
     # Assert Bias was updated
     # It should be exactly 3.0 (or very close)
-    assert hw.config.gyro_bias_x == pytest.approx(3.0, abs=0.1)
+    assert hw.learning_state.gyro_bias_x == pytest.approx(3.0, abs=0.1)
 
     # Assert we can now read clean data
     accel, gyro = hw.read_imu_raw()

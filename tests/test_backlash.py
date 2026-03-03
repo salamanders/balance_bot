@@ -1,11 +1,11 @@
 import pytest
 from unittest.mock import MagicMock, patch
-from src.balance_bot.configuration import RobotConfig, ControlConfig, PIDParams
-from src.balance_bot.reflex.balance_core import BalanceCore, MotionRequest, TuningParams
+from balance_bot.configuration import HardwareConfig, LearningState, ControlConfig, PIDParams
+from balance_bot.reflex.balance_core import BalanceCore, MotionRequest, TuningParams
 
 @pytest.fixture
 def mock_hardware():
-    with patch('src.balance_bot.reflex.balance_core.RobotHardware') as MockHW:
+    with patch('balance_bot.reflex.balance_core.RobotHardware') as MockHW:
         hw_instance = MockHW.return_value
         # Default IMU reading
         hw_instance.read_imu_converted.return_value = MagicMock(
@@ -15,15 +15,13 @@ def mock_hardware():
 
 @pytest.fixture
 def core(mock_hardware):
-    config = RobotConfig(
+    hw_config = HardwareConfig(motor_i2c_bus=1, imu_i2c_bus=1)
+    learning_state = LearningState(
         pid=PIDParams(),
         control=ControlConfig(backlash_pulse_time=0.1) # 100ms pulse
     )
-    # Ensure bus config so it doesn't try to auto-detect
-    config.motor_i2c_bus = 1
-    config.imu_i2c_bus = 1
 
-    core = BalanceCore(config)
+    core = BalanceCore(hw_config, learning_state)
     return core
 
 def set_pitch(core, mock_hardware, pitch):
@@ -52,7 +50,7 @@ def test_backlash_trigger(core, mock_hardware):
 
     # Verify backlash triggered
     # Timer starts at 0.1, decremented by 0.01 -> 0.09
-    assert abs(core.backlash_timer - (core.config.control.backlash_pulse_time - 0.01)) < 1e-9
+    assert abs(core.backlash_timer - (core.learning_state.control.backlash_pulse_time - 0.01)) < 1e-9
     assert core.last_motor_sign == -1
 
     # Verify Kick Power

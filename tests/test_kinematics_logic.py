@@ -3,7 +3,6 @@ import os
 import unittest
 from unittest.mock import MagicMock
 import glm
-import math
 
 # Adjust path to import src
 sys.path.insert(0, os.path.abspath("src"))
@@ -12,7 +11,6 @@ from balance_bot.discovery.steps import DeriveKinematicsStep
 from balance_bot.discovery.step import StepStatus
 from balance_bot.configuration import HardwareConfig, LearningState, ControlConfig
 from balance_bot.hardware.robot_hardware import RobotHardware, IMUReading
-from balance_bot.enums import Axis
 
 class TestDeriveKinematics(unittest.TestCase):
 

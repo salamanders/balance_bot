@@ -1,5 +1,4 @@
 import unittest
-from unittest.mock import MagicMock
 from balance_bot.adaptation.recovery import RecoveryManager
 from balance_bot.configuration import ControlConfig, STARTUP_RAMP_SPEED
 

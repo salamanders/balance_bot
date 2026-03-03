@@ -1,6 +1,6 @@
 import unittest
 import sys
-from unittest.mock import patch, MagicMock, call
+from unittest.mock import patch, MagicMock
 import os
 
 # Clean up sys.modules to force fresh import of piconzero

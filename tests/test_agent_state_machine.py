@@ -1,22 +1,24 @@
 import unittest
 from unittest.mock import MagicMock, patch, PropertyMock
 import time
-from src.balance_bot.behavior.agent import Agent, BotState, RobotConfig
+from balance_bot.behavior.agent import Agent, BotState
 
 class TestAgentStateMachine(unittest.TestCase):
     def setUp(self):
         # Patch dependencies before Agent init
-        self.config_patcher = patch('src.balance_bot.behavior.agent.RobotConfig')
-        self.core_patcher = patch('src.balance_bot.behavior.agent.BalanceCore')
-        self.tuner_patcher = patch('src.balance_bot.behavior.agent.ContinuousTuner')
-        self.finder_patcher = patch('src.balance_bot.behavior.agent.BalancePointFinder')
-        self.battery_patcher = patch('src.balance_bot.behavior.agent.BatteryEstimator')
-        self.recovery_patcher = patch('src.balance_bot.behavior.agent.RecoveryManager')
-        self.led_patcher = patch('src.balance_bot.behavior.agent.LedController')
-        self.setup_logging_patcher = patch('src.balance_bot.behavior.agent.setup_logging')
-        self.check_force_calib_patcher = patch('src.balance_bot.behavior.agent.check_force_calibration_flag')
+        self.hw_config_patcher = patch('balance_bot.behavior.agent.HardwareConfig')
+        self.learning_state_patcher = patch('balance_bot.behavior.agent.LearningState')
+        self.core_patcher = patch('balance_bot.behavior.agent.BalanceCore')
+        self.tuner_patcher = patch('balance_bot.behavior.agent.ContinuousTuner')
+        self.finder_patcher = patch('balance_bot.behavior.agent.BalancePointFinder')
+        self.battery_patcher = patch('balance_bot.behavior.agent.BatteryEstimator')
+        self.recovery_patcher = patch('balance_bot.behavior.agent.RecoveryManager')
+        self.led_patcher = patch('balance_bot.behavior.agent.LedController')
+        self.setup_logging_patcher = patch('balance_bot.behavior.agent.setup_logging')
+        self.check_force_calib_patcher = patch('balance_bot.behavior.agent.check_force_calibration_flag')
 
-        self.mock_config_cls = self.config_patcher.start()
+        self.mock_hw_config_cls = self.hw_config_patcher.start()
+        self.mock_learning_state_cls = self.learning_state_patcher.start()
         self.mock_core_cls = self.core_patcher.start()
         self.mock_tuner_cls = self.tuner_patcher.start()
         self.mock_finder_cls = self.finder_patcher.start()
@@ -29,21 +31,24 @@ class TestAgentStateMachine(unittest.TestCase):
         self.mock_check_force.return_value = False
 
         # Mock Config Instance
-        self.mock_config = MagicMock()
-        self.mock_config.loop_time = 0.01
-        self.mock_config.timing.setup_wait = 0.0
-        self.mock_config.timing.battery_log_interval = 100
-        self.mock_config.timing.tuning_log_interval = 100
-        self.mock_config.pid.target_angle = 0.0
-        self.mock_config.pid.kp = 1.0
-        self.mock_config.pid.ki = 0.0
-        self.mock_config.pid.kd = 0.0
-        self.mock_config.crash_angle = 50.0
-        self.mock_config.control.kickup_power_forward = 50.0
-        self.mock_config.control.kickup_power_backward = 50.0
-        self.mock_config.control.low_battery_log_threshold = 0.5
+        self.mock_hw_config = MagicMock()
+        self.mock_hw_config.loop_time = 0.01
 
-        self.mock_config_cls.load.return_value = self.mock_config
+        self.mock_learning_state = MagicMock()
+        self.mock_learning_state.timing.setup_wait = 0.0
+        self.mock_learning_state.timing.battery_log_interval = 100
+        self.mock_learning_state.timing.tuning_log_interval = 100
+        self.mock_learning_state.pid.target_angle = 0.0
+        self.mock_learning_state.pid.kp = 1.0
+        self.mock_learning_state.pid.ki = 0.0
+        self.mock_learning_state.pid.kd = 0.0
+        self.mock_learning_state.crash_angle = 50.0
+        self.mock_learning_state.control.kickup_power_forward = 50.0
+        self.mock_learning_state.control.kickup_power_backward = 50.0
+        self.mock_learning_state.control.low_battery_log_threshold = 0.5
+
+        self.mock_hw_config_cls.load.return_value = self.mock_hw_config
+        self.mock_learning_state_cls.load.return_value = self.mock_learning_state
 
         self.agent = Agent()
 
@@ -54,7 +59,8 @@ class TestAgentStateMachine(unittest.TestCase):
         self.agent.running = False
 
     def tearDown(self):
-        self.config_patcher.stop()
+        self.hw_config_patcher.stop()
+        self.learning_state_patcher.stop()
         self.core_patcher.stop()
         self.tuner_patcher.stop()
         self.finder_patcher.stop()
@@ -69,7 +75,7 @@ class TestAgentStateMachine(unittest.TestCase):
         self.agent.running = True
 
         # We patch RateLimiter.sleep to stop the loop after one call
-        with patch('src.balance_bot.behavior.agent.RateLimiter') as mock_rate:
+        with patch('balance_bot.behavior.agent.RateLimiter') as mock_rate:
             mock_rate_instance = mock_rate.return_value
             def stop_loop():
                 self.agent.running = False

@@ -242,9 +242,6 @@ class RobotHardware:
         if self.pz is not None and self.sensor is not None:
              return
 
-        motor_bus = self.hw_config.motor_i2c_bus if self.hw_config.motor_i2c_bus is not None else 1
-        imu_bus = self.hw_config.imu_i2c_bus if self.hw_config.imu_i2c_bus is not None else 1
-
         # Note: We rely on caller to set defaults for Axes if None.
 
         # If running in explicit mock mode via env var, do that first.

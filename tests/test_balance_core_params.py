@@ -1,11 +1,12 @@
 import pytest
 from unittest.mock import MagicMock
 from balance_bot.reflex.balance_core import BalanceCore, MotionRequest, TuningParams, BalanceTelemetry
-from balance_bot.configuration import RobotConfig, PIDParams
+from balance_bot.configuration import HardwareConfig, LearningState, PIDParams
 
 def test_balance_core_update_with_mutable_tuning_params():
     # Setup
-    config = RobotConfig(pid=PIDParams(kp=1.0, ki=0.0, kd=0.0))
+    hw_config = HardwareConfig()
+    learning_state = LearningState(pid=PIDParams(kp=1.0, ki=0.0, kd=0.0))
 
     # Mock Hardware inside BalanceCore
     # We use monkeypatch to avoid hardware init issues
@@ -26,7 +27,7 @@ def test_balance_core_update_with_mutable_tuning_params():
         m.setattr("balance_bot.hardware.robot_hardware.RobotHardware.stop", lambda self: None)
 
         # Initialize Core
-        core = BalanceCore(config)
+        core = BalanceCore(hw_config, learning_state)
 
         # Test Data
         motion = MotionRequest()

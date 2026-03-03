@@ -1,7 +1,7 @@
 import pytest
 from unittest.mock import MagicMock, patch
 import glm
-from balance_bot.hardware.robot_hardware import RobotHardware, IMUReading
+from balance_bot.hardware.robot_hardware import RobotHardware
 from balance_bot.configuration import HardwareConfig, LearningState
 from balance_bot.enums import Axis
 from balance_bot.discovery.steps import DiscoverBusesStep, StepStatus

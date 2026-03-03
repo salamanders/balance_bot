@@ -10,8 +10,8 @@ from balance_bot.behavior.agent import Agent
 class TestAgentStartup(unittest.TestCase):
 
     def setUp(self):
-        # Patch CONFIG_FILE
-        self.config_patcher = patch("balance_bot.behavior.agent.CONFIG_FILE")
+        # Patch LEARNING_STATE_FILE
+        self.config_patcher = patch("balance_bot.behavior.agent.LEARNING_STATE_FILE")
         self.mock_config_file = self.config_patcher.start()
 
         # Patch BalanceCore
@@ -20,9 +20,12 @@ class TestAgentStartup(unittest.TestCase):
         self.mock_core_instance = self.mock_core_cls.return_value
         self.mock_core_instance.update.return_value = MagicMock()
 
-        # Patch RobotConfig
-        self.robot_config_patcher = patch("balance_bot.behavior.agent.RobotConfig")
-        self.mock_robot_config_cls = self.robot_config_patcher.start()
+        # Patch HardwareConfig and LearningState
+        self.hw_config_patcher = patch("balance_bot.behavior.agent.HardwareConfig")
+        self.mock_hw_config_cls = self.hw_config_patcher.start()
+
+        self.learning_state_patcher = patch("balance_bot.behavior.agent.LearningState")
+        self.mock_learning_state_cls = self.learning_state_patcher.start()
 
         # Patch ContinuousTuner
         self.tuner_patcher = patch("balance_bot.behavior.agent.ContinuousTuner")
@@ -43,19 +46,22 @@ class TestAgentStartup(unittest.TestCase):
         # Configure common mocks
         self.mock_config_file.exists.return_value = True
 
-        self.mock_config_instance = MagicMock()
-        self.mock_config_instance.pid = MagicMock()
-        self.mock_config_instance.control = MagicMock() # Ensure control config exists
-        self.mock_config_instance.timing = MagicMock() # Add timing mock
-        self.mock_config_instance.timing.setup_wait = 0.1
-        self.mock_config_instance.timing.battery_log_interval = 1.0 # Also used
-        self.mock_config_instance.timing.save_interval = 1.0 # Also used
+        self.mock_hw_config_instance = MagicMock()
+        self.mock_hw_config_instance.loop_time = 0.01
+
+        self.mock_learning_state_instance = MagicMock()
+        self.mock_learning_state_instance.pid = MagicMock()
+        self.mock_learning_state_instance.control = MagicMock() # Ensure control config exists
+        self.mock_learning_state_instance.timing = MagicMock() # Add timing mock
+        self.mock_learning_state_instance.timing.setup_wait = 0.1
+        self.mock_learning_state_instance.timing.battery_log_interval = 1.0 # Also used
+        self.mock_learning_state_instance.timing.save_interval = 1.0 # Also used
 
         # Ensure we have target_angle
-        self.mock_config_instance.pid.target_angle = 0.0
-        self.mock_config_instance.loop_time = 0.01
-        self.mock_robot_config_cls.load.return_value = self.mock_config_instance
-        self.mock_robot_config_cls.return_value = self.mock_config_instance
+        self.mock_learning_state_instance.pid.target_angle = 0.0
+
+        self.mock_hw_config_cls.load.return_value = self.mock_hw_config_instance
+        self.mock_learning_state_cls.load.return_value = self.mock_learning_state_instance
 
     def tearDown(self):
         patch.stopall()
@@ -66,11 +72,11 @@ class TestAgentStartup(unittest.TestCase):
         agent = Agent()
 
         # Assert
-        self.mock_recovery_cls.assert_called_once_with(self.mock_config_instance.control)
+        self.mock_recovery_cls.assert_called_once_with(self.mock_learning_state_instance.control)
 
     def test_normal_run_on_back_triggers_kickup(self):
         # Arrange
-        self.mock_config_instance.timing.setup_wait = 0.0 # Skip warmup loop
+        self.mock_learning_state_instance.timing.setup_wait = 0.0 # Skip warmup loop
         self.mock_config_file.exists.return_value = True # Saved config
 
         agent = Agent()
@@ -107,7 +113,7 @@ class TestAgentStartup(unittest.TestCase):
 
     def test_normal_run_upright_skips_kickup(self):
         # Arrange
-        self.mock_config_instance.timing.setup_wait = 0.0 # Skip warmup
+        self.mock_learning_state_instance.timing.setup_wait = 0.0 # Skip warmup
         self.mock_config_file.exists.return_value = True
 
         agent = Agent()
