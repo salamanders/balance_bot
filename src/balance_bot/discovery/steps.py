@@ -410,24 +410,27 @@ class KickupDynamicsStep(CalibrationStep):
     def is_verified(self, state: LearningState) -> bool:
         return state.kickup_dynamics_verified
 
-    def _force_posture(self, hw: RobotHardware, target: str, base_power: float) -> None:
-        """Helper to force the robot into a specific posture (FRONT or BACK)."""
+    def _force_posture(self, hw: RobotHardware, target_sign: float, base_power: float) -> None:
+        """Helper to force the robot into a specific posture (+1 for BACK, -1 for FRONT)."""
+        target_name = "BACK" if target_sign > 0 else "FRONT"
         for i in range(5):
             hw.wait_for_stability(1.0)
             pitch = hw.read_imu_converted().pitch_angle
-            if target == "FRONT" and pitch > 10: return
-            if target == "BACK" and pitch < -10: return
 
-            print(f"  Flop to {target}...")
-            p = base_power + (i*10)
-            if target == "FRONT": hw.drive_and_measure(-p, -p, 0.4)
-            else: hw.drive_and_measure(p, p, 0.4)
+            # If target_sign > 0 (BACK), pitch should be < -10
+            # If target_sign < 0 (FRONT), pitch should be > 10
+            if target_sign > 0 and pitch < -10: return
+            if target_sign < 0 and pitch > 10: return
+
+            print(f"  Flop to {target_name}...")
+            p = (base_power + (i*10)) * target_sign
+            hw.drive_and_measure(p, p, 0.4)
 
         raise RuntimeError("Failed to posture")
 
-    def _attempt_kick(self, hw: RobotHardware, start: str, p: float) -> str:
-        """Helper to attempt a kick-up maneuver."""
-        kick_sign = -1.0 if start == "BACK" else 1.0
+    def _attempt_kick(self, hw: RobotHardware, start_sign: float, p: float) -> str:
+        """Helper to attempt a kick-up maneuver. start_sign: +1 for BACK, -1 for FRONT."""
+        kick_sign = -start_sign
         setup_sign = -kick_sign
 
         setup_p = p * setup_sign * 0.7
@@ -442,21 +445,22 @@ class KickupDynamicsStep(CalibrationStep):
         pitch = hw.read_imu_converted().pitch_angle
 
         # Check Success
-        if start == "BACK" and -10 < pitch < 20: return "SUCCESS"
-        if start == "FRONT" and -20 < pitch < 10: return "SUCCESS"
+        if start_sign > 0 and -10 < pitch < 20: return "SUCCESS"
+        if start_sign < 0 and -20 < pitch < 10: return "SUCCESS"
         return "FAIL"
 
-    def _run_kickup_test(self, hw: RobotHardware, state: LearningState, direction: str) -> Optional[float]:
-        """Runs the threshold search for a specific kick-up direction."""
+    def _run_kickup_test(self, hw: RobotHardware, state: LearningState, direction_sign: float) -> Optional[float]:
+        """Runs the threshold search for a specific kick-up direction. direction_sign: +1 for BACK, -1 for FRONT."""
+        dir_name = "BACK" if direction_sign > 0 else "FRONT"
 
         def action(p):
             try:
-                self._force_posture(hw, direction, state.min_power_visible + 10)
+                self._force_posture(hw, direction_sign, state.min_power_visible + 10)
             except RuntimeError:
                 return "POSTURE_FAIL"
-            return self._attempt_kick(hw, direction, p)
+            return self._attempt_kick(hw, direction_sign, p)
 
-        return find_threshold(f"KickUp {direction}",
+        return find_threshold(f"KickUp {dir_name}",
                                max(20, state.min_power_visible + 10),
                                5, 100,
                                action,
@@ -466,10 +470,10 @@ class KickupDynamicsStep(CalibrationStep):
     def run(self, hw: RobotHardware, config: HardwareConfig, state: LearningState) -> Tuple[StepStatus, Dict[str, Any], Dict[str, Any]]:
         print(">>> Dynamic Kick-Up Calibration <<<")
 
-        fwd = self._run_kickup_test(hw, state, "BACK") # Kickup Forward (from Back)
+        fwd = self._run_kickup_test(hw, state, 1.0) # Kickup Forward (from Back, +1)
         if fwd is None: return StepStatus.NEEDS_RETRY, {}, {}
 
-        bwd = self._run_kickup_test(hw, state, "FRONT") # Kickup Backward (from Front)
+        bwd = self._run_kickup_test(hw, state, -1.0) # Kickup Backward (from Front, -1)
         if bwd is None: return StepStatus.NEEDS_RETRY, {}, {}
 
         # Construct new ControlConfig
