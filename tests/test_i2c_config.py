@@ -1,7 +1,7 @@
 import os
 import sys
 from unittest.mock import patch, MagicMock
-from balance_bot.configuration import HardwareConfig, LearningState, PIDParams
+from balance_bot.configuration import HardwareConfig, LearningState
 
 def test_config_i2c_bus_default():
     """Test that i2c buses default to None (defer to hardware default)."""

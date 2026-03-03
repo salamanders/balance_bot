@@ -173,19 +173,19 @@ def main():
         motor1_polarity = 1
         motor2_polarity = 1
 
-    print(f"HardwareConfig(")
+    print("HardwareConfig(")
     print(f"    motor_i2c_bus={motor_bus_num},")
     print(f"    imu_i2c_bus={gyro_bus_num},\n")
     print(f"    motor1_polarity={motor1_polarity},")
     print(f"    motor2_polarity={motor2_polarity},\n")
-    print(f"    # Accelerometer Mapping")
+    print("    # Accelerometer Mapping")
     print(f"    accel_vertical_axis=Axis.{vertical_axis.upper()},")
     print(f"    accel_forward_axis=Axis.{forward_axis.upper()},\n")
-    print(f"    # Gyroscope Mapping (Derived from rigid Accel mapping)")
+    print("    # Gyroscope Mapping (Derived from rigid Accel mapping)")
     print(f"    gyro_yaw_axis=Axis.{vertical_axis.upper()},    # Rotates around Vertical")
     print(f"    gyro_roll_axis=Axis.{forward_axis.upper()},    # Rotates around Forward")
     print(f"    gyro_pitch_axis=Axis.{lateral_axis.upper()}    # Rotates around Lateral")
-    print(f")\n")
+    print(")\n")
     print(f"Calculated Rest Angle: {rest_angle_deg:.2f} degrees")
     print("==================================================")
 

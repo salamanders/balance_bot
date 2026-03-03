@@ -16,7 +16,7 @@ def test_agent_watchdog_panic():
     agent.core.update.side_effect = KeyboardInterrupt
 
     # Skip warmup
-    agent.config.timing.setup_wait = 0
+    agent.learning_state.timing.setup_wait = 0
     agent.running = True
 
     # Expect RuntimeError "Watchdog Panic"
@@ -34,7 +34,7 @@ def test_agent_keyboard_interrupt_clean_exit():
     agent.core.pitch = 0.0
     agent.core.update.side_effect = KeyboardInterrupt
 
-    agent.config.timing.setup_wait = 0
+    agent.learning_state.timing.setup_wait = 0
     agent.running = True
 
     # Should NOT raise RuntimeError, should catch and exit gracefully

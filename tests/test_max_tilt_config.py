@@ -1,7 +1,6 @@
-import pytest
 from unittest.mock import MagicMock
 from balance_bot.reflex.balance_core import BalanceCore, MotionRequest, TuningParams
-from balance_bot.configuration import RobotConfig, PIDParams, ControlConfig
+from balance_bot.configuration import HardwareConfig, LearningState, PIDParams, ControlConfig
 
 def create_mocked_core(monkeypatch, max_tilt_angle=None):
     # Setup Config
@@ -9,7 +8,8 @@ def create_mocked_core(monkeypatch, max_tilt_angle=None):
     if max_tilt_angle is not None:
         control_config.max_tilt_angle = max_tilt_angle
 
-    config = RobotConfig(
+    hw_config = HardwareConfig(motor_l=0, motor_r=1)
+    learning_state = LearningState(
         pid=PIDParams(),
         control=control_config
     )
@@ -27,7 +27,7 @@ def create_mocked_core(monkeypatch, max_tilt_angle=None):
     monkeypatch.setattr("balance_bot.hardware.robot_hardware.RobotHardware.set_motors", lambda self, l, r: None)
     monkeypatch.setattr("balance_bot.hardware.robot_hardware.RobotHardware.stop", lambda self: None)
 
-    core = BalanceCore(config)
+    core = BalanceCore(hw_config, learning_state)
 
     # Mock Filter to ensure pitch is 0.0
     core.filter = MagicMock()
@@ -35,7 +35,7 @@ def create_mocked_core(monkeypatch, max_tilt_angle=None):
 
     # Mock PID to capture error
     core.pid = MagicMock()
-    core.pid.params = config.pid # Maintain reference to params
+    core.pid.params = learning_state.pid # Maintain reference to params
     core.pid.update.return_value = 0.0
 
     return core

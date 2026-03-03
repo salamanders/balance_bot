@@ -1,7 +1,7 @@
 import time
 import math
 import logging
-from unittest.mock import patch, MagicMock
+from unittest.mock import patch
 import glm
 from balance_bot.utils import clamp, RateLimiter, ComplementaryFilter, calculate_pitch, to_signed, LogThrottler, LogCaptureHandler
 
