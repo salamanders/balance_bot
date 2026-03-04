@@ -294,7 +294,7 @@ Kick-Up maneuver based on established facts, and balances flawlessly.
 The configuration is managed using `pydantic` models for robust validation and serialization.
 
 > **Implementation Status:** Implemented.
-> **Code Correlation:** `src/balance_bot/configuration.py` in `RobotConfig.save`.
+> **Code Correlation:** `src/balance_bot/configuration.py` in `HardwareConfig.save` and `LearningState.save`.
 
 ---
 
@@ -390,5 +390,5 @@ In a linear script, a failure is an exit. In a Discovery engine, a failure is **
 
 To ensure code quality and reduce boilerplate, the project utilizes:
 
-1.  **Pydantic:** Used for `RobotConfig` and all sub-configs (`PIDParams`, `BatteryConfig`, etc.). This replaces manual JSON parsing and validation with robust, typed models.
+1.  **Pydantic:** Used for `HardwareConfig` and `LearningState` and all sub-configs (`PIDParams`, `BatteryConfig`, etc.). This replaces manual JSON parsing and validation with robust, typed models.
 2.  **Simple-PID:** The `pid.py` module wraps the industry-standard `simple-pid` library. It adds domain-specific logic like Gyro-based Derivative terms and Integral Clamping, while delegating the core math to the library.
