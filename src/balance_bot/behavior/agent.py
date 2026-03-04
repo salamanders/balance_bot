@@ -479,7 +479,6 @@ class Agent:
                 # 2. Catch (Enter PID Loop)
                 logger.info("-> Attempting Catch...")
                 catch_start = time.perf_counter()
-                caught = False
 
                 catch_params = TuningParams(
                     kp=self.learning_state.pid.kp * 1.5,

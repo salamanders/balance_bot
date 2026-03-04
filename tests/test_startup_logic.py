@@ -69,7 +69,7 @@ class TestAgentStartup(unittest.TestCase):
     def test_recovery_manager_initialized_with_config(self):
         """Test that RecoveryManager is initialized with control config."""
         # Act
-        agent = Agent()
+        Agent()
 
         # Assert
         self.mock_recovery_cls.assert_called_once_with(self.mock_learning_state_instance.control)
