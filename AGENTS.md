@@ -392,3 +392,64 @@ To ensure code quality and reduce boilerplate, the project utilizes:
 
 1.  **Pydantic:** Used for `HardwareConfig` and `LearningState` and all sub-configs (`PIDParams`, `BatteryConfig`, etc.). This replaces manual JSON parsing and validation with robust, typed models.
 2.  **Simple-PID:** The `pid.py` module wraps the industry-standard `simple-pid` library. It adds domain-specific logic like Gyro-based Derivative terms and Integral Clamping, while delegating the core math to the library.
+
+---
+
+# Appendix D: Architecture & Failure Modes (from Audit)
+
+## Code Quality & Architecture
+
+### The Good
+*   **Layered Architecture (The "Brain/Brainstem" Model):** The codebase beautifully separates concerns. `BalanceCore` (Tier 1) operates as a deterministic, high-frequency reflex loop, isolated from the complex state management of the `Agent` (Tier 3).
+*   **The "Tabula Rasa" Protocol:** The self-discovery steps (`src/balance_bot/discovery/steps.py`) execute a brilliant physical logic grid to determine hardware mapping (motor phasing, axis dominance, Left/Right chirality via the Right-Hand Rule).
+*   **Modern Python Tooling:** Extensive use of `pydantic` for configuration validation and serialization (`HardwareConfig`, `LearningState`), dataclasses for data transfer (`MotionRequest`, `BalanceTelemetry`), and type hinting throughout.
+*   **Fail-Fast Hardware Abstraction:** `RobotHardware` enforces a fail-fast policy. If expected hardware is missing, it crashes loudly rather than silently failing, which is critical for robotics.
+*   **Continuous Adaptation:** The `ContinuousTuner` and `BalancePointFinder` mechanisms allow the robot to adjust its PID values and physical center of mass offset dynamically without human intervention.
+*   **Resource Management:** Good use of threads for asynchronous logging (`TelemetryBlackbox`) and config saving, preventing I/O operations from blocking the critical control loop.
+
+## Cross-Product Expansion & Failure Modes
+
+The `DeriveKinematicsStep` is designed to deduce physical configurations dynamically. The hardware parameter space consists of:
+- **Left/Right Motor Polarity:** Standard or Reversed (changes whether +PWM moves the wheel Forward or Backward).
+- **Left/Right Motor Channel Mapping:** Which I2C channel maps to which physical side.
+- **IMU Orientation:** The 3D orientation of the IMU relative to the robot chassis (Pitch, Yaw, Roll, and Inversion).
+
+### Success Modes
+
+1. **Standard Configuration (No inverts, standard mount):**
+   - Phase matches. Pitch and Forward axes identified successfully. `raw_up` properly identifies Vertical.
+   - **Result: SUCCESS.** Robot balances perfectly.
+
+2. **Single Motor Reversed Polarity (e.g., Left Motor Backwards):**
+   - `DeriveKinematicsStep` detects a phase mismatch during the pulse test and aligns the 'Normal' motor to the 'Reversed' motor. Both motors now move backward on +PWM.
+   - The algorithm redefines 'Forward' as 'Backward' physically. It then incorrectly deduces that Left and Right channels are swapped relative to this new direction.
+   - **Result: SUCCESS.** Pitch and Yaw senses are inverted to match the reversed motors. The robot successfully balances and steers, but the physical 'Front' becomes the logical 'Back'.
+
+3. **Both Motors Reversed Polarity:**
+   - Phase matches immediately (both go backwards). Pitch and Accel signals invert.
+   - **Result: SUCCESS.** The robot operates perfectly, similarly redefining its 'Front' as 'Back'.
+
+4. **IMU Mounted Sideways / Upside Down:**
+   - `analyze_dominance` dynamically reassigns axes. The calculation of physical Up (`raw_up = glm.cross(sum_accel, sum_gyro)`) is invariant to sensor orientation because it relies on the physical cross product of Lag and Pitch.
+   - **Result: SUCCESS.** Axis remapping perfectly accommodates 90-degree and 180-degree physical rotations of the IMU.
+
+### Failure Mode: Phase Mismatch with Positive Feedback (The "Spinning in a Circle" Issue)
+
+There is a specific edge-case failure mode involving the physical environment rather than the algorithm itself, which leads directly to the robot **"spinning in a circle, but thinking it was tipping over."**
+
+**The Catalyst:**
+If the robot's wheels lack traction (e.g., slipping on a smooth surface) or the pulse power is too weak, the single-motor wiggle generates extremely low linear acceleration (`accel_delta`). If this signal falls below the noise floor or is overpowered by gravity tilt:
+- `glm.dot(l_accel_delta, r_accel_delta)` may incorrectly evaluate as positive, failing to detect an actual phase mismatch.
+
+**The Cascade:**
+1. **Axis Contamination:** With opposing motors incorrectly considered 'matched', one motor pulses forward and the other backward. This produces pure physical **Yaw** rather than Pitch.
+2. **Axis Swapping:** `sum_gyro` becomes dominated by Yaw rotation. The calibration logic mistakenly assigns the IMU's Pitch Axis to the physical Yaw axis.
+3. **Positive Feedback Loop:**
+   - When the robot attempts to balance, a slight physical forward tilt is mistakenly read as a Yaw error.
+   - The PID controller attempts to correct this 'Yaw' by driving the wheels in opposite directions.
+   - This opposing drive spins the robot in a circle physically.
+4. **Centripetal False-Pitch:** As the robot spins rapidly in a circle, centripetal acceleration acts on the off-center IMU. This radial acceleration registers on the IMU as continuous Pitch (tipping), causing the robot to drive the motors harder, exacerbating the spin.
+
+**Conclusion:** The observed behavior is not a logical gap in the cross-product mapping, but an environmental failure causing the initial phase-alignment to fail, leading to Pitch and Yaw axes becoming perfectly swapped in software.
+
+**Fix:** Fixed in `src/balance_bot/discovery/steps.py` by relying on the Gyro's yaw vectors (`yaw_mag_sum` vs `yaw_mag_diff` around the Up vector) instead of linear acceleration (`accel_delta`), making the phase alignment robust to low-traction wheel slipping.

@@ -1,7 +1,7 @@
 from unittest.mock import MagicMock
 from balance_bot.hardware.robot_hardware import RobotHardware
 from balance_bot.configuration import HardwareConfig, LearningState, PIDParams
-from pyglm import glm
+import glm
 
 def test_imu_resilience_zero_order_hold(monkeypatch):
     """
