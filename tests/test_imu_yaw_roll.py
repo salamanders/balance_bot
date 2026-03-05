@@ -2,7 +2,7 @@ from unittest.mock import MagicMock
 from balance_bot.hardware.robot_hardware import RobotHardware
 from balance_bot.configuration import HardwareConfig, LearningState, PIDParams
 from balance_bot.enums import Axis
-from pyglm import glm
+import glm
 import math
 
 def test_imu_yaw_roll_defaults(monkeypatch):

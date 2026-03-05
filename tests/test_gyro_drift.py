@@ -9,7 +9,7 @@ if 'smbus2' not in sys.modules:
 
 from balance_bot.hardware.robot_hardware import RobotHardware
 from balance_bot.configuration import HardwareConfig, LearningState, PIDParams
-from pyglm import glm
+import glm
 
 @pytest.fixture
 def hw_fixture():
