@@ -6,10 +6,9 @@
 
 * [.gitignore](.gitignore): Git configuration specifying which files to ignore.
 * [.python-version](.python-version): Specifies the Python version used by the project/tools.
-* [AGENTS.md](AGENTS.md): Instructions/Context for AI agents working on this codebase.
+* [AGENTS.md](AGENTS.md): Instructions/Context for AI agents working on this codebase, including documentation of the "Self-Discovery" protocol and implemented algorithms.
 * [AUTO_RUN.md](AUTO_RUN.md): Instructions for setting up the robot to run automatically on boot via systemd.
 * [ITERATE.md](ITERATE.md): Guidelines and prompts for AI-driven code refactoring and maintenance.
-* [LEARN.md](LEARN.md): Documentation of the "Self-Discovery" protocol and implemented algorithms.
 * [LICENSE](LICENSE): Project license file.
 * [Makefile](Makefile): Shortcut commands for installation, linting, formatting, and running.
 * [README.md](README.md): The main entry point documentation.
@@ -24,7 +23,7 @@
 **Core & Utilities**
 
 * [src/balance_bot/__init__.py](src/balance_bot/__init__.py): Package initialization.
-* [src/balance_bot/config.py](src/balance_bot/config.py): Centralized configuration (constants, dataclasses) for the
+* [src/balance_bot/configuration.py](src/balance_bot/configuration.py): Centralized configuration (constants, dataclasses) for the
   robot.
 * [src/balance_bot/diagnostics.py](src/balance_bot/diagnostics.py): Tools for checking system health (I2C, imports).
 * [src/balance_bot/enums.py](src/balance_bot/enums.py): Enumerations for direction and orientation.
@@ -174,7 +173,7 @@ uv sync
 Run the **Zero-Knowledge Self-Discovery Protocol**. This is a state-machine based wizard that will learn your robot's unique wiring and physics configuration.
 **Note:** The robot will wake up knowing nothing. It will ask you to place it in specific positions to learn gravity, motor direction, and friction thresholds.
 
-For a detailed explanation of the logic, see [LEARN.md](LEARN.md).
+For a detailed explanation of the logic, see `AGENTS.md`.
 
 ```bash
 uv run balance-bot --check-wiring
@@ -239,20 +238,20 @@ adjust these values in the cited files.
 ### Physics & Mounting
 
 * **Mounting Orientation**: Default: **None** (Discovered via Wizard).
-    * *Citation*: [src/balance_bot/config.py](src/balance_bot/config.py) (`gyro_pitch_axis` in `RobotConfig`).
+    * *Citation*: [src/balance_bot/configuration.py](src/balance_bot/configuration.py) (`gyro_pitch_axis` in `HardwareConfig` and `LearningState`).
 * **Fall Limit**: The robot considers itself "fallen" (and stops motors) if the pitch angle exceeds **60 degrees**.
-    * *Citation*: [src/balance_bot/config.py](src/balance_bot/config.py) (`crash_angle` in `RobotConfig`).
+    * *Citation*: [src/balance_bot/configuration.py](src/balance_bot/configuration.py) (`crash_angle` in `HardwareConfig` and `LearningState`).
 * **Gravity Vector**: Pitch calculation assumes the Z-axis accelerometer measures gravity when upright.
     * *Citation*: [src/balance_bot/utils.py](src/balance_bot/utils.py) (`calculate_pitch`).
 
 ### Control System
 
 * **Loop Frequency**: The control loop is designed to run at **100 Hz** (10ms per loop).
-    * *Citation*: [src/balance_bot/config.py](src/balance_bot/config.py) (`loop_time` in `RobotConfig`).
+    * *Citation*: [src/balance_bot/configuration.py](src/balance_bot/configuration.py) (`loop_time` in `HardwareConfig` and `LearningState`).
 * **Motor Deadband**: Assumes motors require a minimum PWM of **20.0** to overcome static friction (for battery estimation). The actual physical deadband is discovered and stored as `min_power_visible`.
-    * *Citation*: [src/balance_bot/config.py](src/balance_bot/config.py) (`min_pwm` in `BatteryConfig`, `min_power_visible` in `RobotConfig`).
+    * *Citation*: [src/balance_bot/configuration.py](src/balance_bot/configuration.py) (`min_pwm` in `BatteryConfig`, `min_power_visible` in `HardwareConfig` and `LearningState`).
 * **PID Defaults**: Starts with `Kp=25.0`, `Ki=0.0`, `Kd=0.5`.
-    * *Citation*: [src/balance_bot/config.py](src/balance_bot/config.py) (`PIDParams`).
+    * *Citation*: [src/balance_bot/configuration.py](src/balance_bot/configuration.py) (`PIDParams`).
 
 ### System Environment
 

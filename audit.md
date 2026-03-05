@@ -25,7 +25,7 @@ However, recent architectural changes—specifically the splitting of a monolith
 
 *   **`AGENTS.md` is Excellent:** The documentation in `AGENTS.md` is outstanding. It clearly outlines the constraints (cheap hardware, 20-degree rest angles), the "Tabula Rasa" philosophy, and the exact step-by-step physical experiments the robot must perform. It provides essential context that isn't immediately obvious from reading the code.
 *   **Code Documentation (Docstrings):** Docstrings are generally present and well-written, particularly in complex areas like the `BalanceCore` and `Agent` classes.
-*   **Missing Legacy References:** Some test documentation and inline comments might still refer to deleted files like `SCRIPT.md` and `LEARN.md` (which have been consolidated into `AGENTS.md`).
+*   ~~**Missing Legacy References:** Some test documentation and inline comments might still refer to deleted files like `SCRIPT.md` and `LEARN.md` (which have been consolidated into `AGENTS.md`).~~ [DONE]
 
 ## Identified Bugs / Broken Components
 

@@ -41,7 +41,7 @@ def main() -> None:
         state = LearningState.load()
 
         # If the final discovery step hasn't been verified, it's a baby.
-        # We also check if kickup power is 0.0, because WiringCheck includes KickUp after Backlash.
+        # We also check if kickup power is 0.0, because SelfDiscoveryPipeline includes KickUp after Backlash.
         needs_discovery = (not state.backlash_verified) or (state.control.kickup_power_forward == 0.0)
 
         # 3. Learn (Toddler Phase)
@@ -59,7 +59,7 @@ def main() -> None:
             ]
             pipeline = SelfDiscoveryPipeline(steps, watchdog)
             pipeline.run()
-            # WiringCheck finishes and cleans up the hardware locks safely.
+            # SelfDiscoveryPipeline finishes and cleans up the hardware locks safely.
             print("Discovery complete. Waking up Main Agent...")
 
         # 4. Run (Adult Phase)

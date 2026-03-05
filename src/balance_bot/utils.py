@@ -435,7 +435,7 @@ def run_diagnostics():
     print("\nDiagnostics Complete.")
     print("========================")
 
-# --- Generic Helper Functions (Extracted from WiringCheck) ---
+# --- Generic Helper Functions (Extracted from legacy WiringCheck) ---
 
 def make_i2c_check_fn(address: int, register: int = 0, expected_value: int = None) -> Callable[[Any], bool]:
     """
