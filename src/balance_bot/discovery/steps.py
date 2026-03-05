@@ -167,10 +167,13 @@ class DeriveKinematicsStep(CalibrationStep):
 
         # --- Phase Alignment ---
         print("  [Analysis] Checking Motor Phase...")
-        dot_accel = glm.dot(l_accel_delta, r_accel_delta)
+        up_dir = glm.normalize(baseline_accel)
+        yaw_mag_sum = abs(glm.dot(l_gyro + r_gyro, up_dir))
+        yaw_mag_diff = abs(glm.dot(l_gyro - r_gyro, up_dir))
+
         motor_r_invert = False
 
-        if dot_accel < 0:
+        if yaw_mag_sum > yaw_mag_diff:
             print("  -> Phase Mismatch Detected. Inverting Right Motor logic.")
             motor_r_invert = True
             # Flip R vectors to match L for math
