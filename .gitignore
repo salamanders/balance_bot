@@ -622,3 +622,5 @@ __marimo__/
 
 
 pid_config.json
+flight_data.csv
+learning_state.json
