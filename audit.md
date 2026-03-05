@@ -19,7 +19,7 @@ However, recent architectural changes—specifically the splitting of a monolith
 ### Needs Improvement
 *   **Test Suite Maintenance:** The test suite is currently severely broken due to recent refactors. Files like `tests/test_agent_state_machine.py` and `tests/test_autonomous_config.py` still reference deprecated modules (`WiringCheck`) and legacy configuration classes (`RobotConfig`).
 *   **Import Paths in Tests:** Many tests fail to import the source code properly (e.g., `ModuleNotFoundError: No module named 'src'`). Test files need to import from the top-level package (`balance_bot`) and rely on the PYTHONPATH or `uv` environment, or use relative imports correctly.
-*   **Linting/Formatting Exceptions:** `uv run ruff check .` found 68 errors, mostly unused imports, multiple statements on a single line, and ambiguous variable names (e.g., `l` instead of `left_power`). These should be cleaned up via `ruff check --fix`.
+*   ~~**Linting/Formatting Exceptions:** `uv run ruff check .` found 68 errors, mostly unused imports, multiple statements on a single line, and ambiguous variable names (e.g., `l` instead of `left_power`). These should be cleaned up via `ruff check --fix`.~~ [DONE]
 
 ## Documentation Status
 

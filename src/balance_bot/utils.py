@@ -451,7 +451,7 @@ def make_i2c_check_fn(address: int, register: int = 0, expected_value: int = Non
             if expected_value is not None:
                 return val == expected_value
             return True
-        except:
+        except Exception:
             return False
     return check
 

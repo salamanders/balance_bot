@@ -5,9 +5,9 @@ from unittest.mock import MagicMock, patch
 sys.modules["smbus2"] = MagicMock()
 sys.modules["mpu6050"] = MagicMock()
 
-import json
-from balance_bot.behavior.agent import Agent
-from balance_bot.configuration import HardwareConfig, LearningState, PIDParams
+import json # noqa: E402
+from balance_bot.behavior.agent import Agent # noqa: E402
+from balance_bot.configuration import HardwareConfig, LearningState, PIDParams # noqa: E402
 
 @patch("balance_bot.behavior.agent.BalanceCore")
 @patch("balance_bot.behavior.agent.LedController")

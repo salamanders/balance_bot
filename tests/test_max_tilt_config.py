@@ -24,7 +24,7 @@ def create_mocked_core(monkeypatch, max_tilt_angle=None):
     dummy_reading.yaw_rate = 0.0
     monkeypatch.setattr("balance_bot.hardware.robot_hardware.RobotHardware.read_imu_converted", lambda self: dummy_reading)
 
-    monkeypatch.setattr("balance_bot.hardware.robot_hardware.RobotHardware.set_motors", lambda self, l, r: None)
+    monkeypatch.setattr("balance_bot.hardware.robot_hardware.RobotHardware.set_motors", lambda self, left_pwm, right_pwm: None)
     monkeypatch.setattr("balance_bot.hardware.robot_hardware.RobotHardware.stop", lambda self: None)
 
     core = BalanceCore(hw_config, learning_state)

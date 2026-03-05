@@ -6,7 +6,7 @@ import smbus2
 # SHIM: Trick the mpu6050 library into using smbus2 instead of the missing smbus
 sys.modules['smbus'] = smbus2
 
-from mpu6050 import mpu6050
+from mpu6050 import mpu6050 # noqa: E402
 
 APP_START_TIME = time.time()
 

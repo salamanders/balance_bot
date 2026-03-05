@@ -11,8 +11,10 @@ class TestUtilsHelpers(unittest.TestCase):
         mock_bus3 = MagicMock()
 
         def smbus_side_effect(bus_id):
-            if bus_id == 1: return mock_bus1
-            if bus_id == 3: return mock_bus3
+            if bus_id == 1:
+                return mock_bus1
+            if bus_id == 3:
+                return mock_bus3
             raise OSError("Bus Error")
 
         mock_smbus.SMBus.side_effect = smbus_side_effect
