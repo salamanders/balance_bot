@@ -100,7 +100,7 @@ def test_hardware_init_skips_if_none():
             config = HardwareConfig(motor_l=0, motor_r=1)
             # Defaults are None.
 
-            hw = RobotHardware(config, LearningState())
+            RobotHardware(config, LearningState())
 
             # Verify mpu6050 was NOT called
             mock_mpu_class.assert_not_called()

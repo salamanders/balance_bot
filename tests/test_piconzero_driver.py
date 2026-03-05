@@ -51,7 +51,7 @@ class TestPiconZeroDriver(unittest.TestCase):
     @patch('balance_bot.hardware.piconzero.smbus.SMBus')
     def test_bus_switching(self, mock_smbus_cls):
         """Test that initializing with a different bus works."""
-        pz = PiconZero(bus_number=0)
+        PiconZero(bus_number=0)
 
         # Check that smbus.SMBus(0) was called
         mock_smbus_cls.assert_called_with(0)
