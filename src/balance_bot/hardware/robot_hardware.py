@@ -236,7 +236,7 @@ class RobotHardware:
         """
         # Inject Defaults if missing (Safe Baseline)
         # Note: hw_config is frozen, so we use local variables or assume it's set.
-        # However, Agent/WiringCheck should have ensured valid config or safe defaults are passed.
+        # However, Agent/SelfDiscoveryPipeline should have ensured valid config or safe defaults are passed.
         # But here we might check for None to avoid crash, though we can't modify self.hw_config.
 
         if self.pz is not None and self.sensor is not None:
