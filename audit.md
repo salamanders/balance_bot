@@ -92,3 +92,5 @@ If the robot's wheels lack traction (e.g., slipping on a smooth surface) or the 
 4. **Centripetal False-Pitch:** As the robot spins rapidly in a circle, centripetal acceleration acts on the off-center IMU. This radial acceleration registers on the IMU as continuous Pitch (tipping), causing the robot to drive the motors harder, exacerbating the spin.
 
 **Conclusion:** The observed behavior is not a logical gap in the cross-product mapping, but an environmental failure causing the initial phase-alignment to fail, leading to Pitch and Yaw axes becoming perfectly swapped in software.
+
+**Fix:** Fixed in `src/balance_bot/discovery/steps.py` by relying on the Gyro's yaw vectors (`yaw_mag_sum` vs `yaw_mag_diff` around the Up vector) instead of linear acceleration (`accel_delta`), making the phase alignment robust to low-traction wheel slipping. [DONE]
