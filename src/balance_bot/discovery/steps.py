@@ -157,12 +157,14 @@ class DeriveKinematicsStep(CalibrationStep):
 
         # 1. Pulse Left Only (+PWM)
         l_gyro, l_accel = self._pulse_and_measure(hw, test_power, 0, "LEFT Motor")
-        if l_gyro is None: return StepStatus.NEEDS_RETRY, {}, {}
+        if l_gyro is None:
+            return StepStatus.NEEDS_RETRY, {}, {}
         l_accel_delta = l_accel - baseline_accel
 
         # 2. Pulse Right Only (+PWM)
         r_gyro, r_accel = self._pulse_and_measure(hw, 0, test_power, "RIGHT Motor")
-        if r_gyro is None: return StepStatus.NEEDS_RETRY, {}, {}
+        if r_gyro is None:
+            return StepStatus.NEEDS_RETRY, {}, {}
         r_accel_delta = r_accel - baseline_accel
 
         # --- Phase Alignment ---
@@ -307,9 +309,11 @@ class DeriveKinematicsStep(CalibrationStep):
         return StepStatus.SUCCESS, config_updates, state_updates
 
     def _avg_vec(self, vecs: List[glm.vec3]) -> glm.vec3:
-        if not vecs: return glm.vec3(0)
+        if not vecs:
+            return glm.vec3(0)
         s = glm.vec3(0)
-        for v in vecs: s += v
+        for v in vecs:
+            s += v
         return s / len(vecs)
 
 # --- Step 5: Motor Trim ---
@@ -331,7 +335,8 @@ class MotorTrimStep(CalibrationStep):
             p = state.min_power_visible + 15
             res = hw.drive_and_measure(p, p, 1.0, trim_override=best_trim)
 
-            if not res.samples: continue
+            if not res.samples:
+                continue
             avg_yaw = res.avg_yaw_rate
             print(f"    Trim: {best_trim:.3f}, Drift: {avg_yaw:.2f} d/s")
 
@@ -416,8 +421,10 @@ class KickupDynamicsStep(CalibrationStep):
 
             # If target_sign > 0 (BACK), pitch should be < -10
             # If target_sign < 0 (FRONT), pitch should be > 10
-            if target_sign > 0 and pitch < -10: return
-            if target_sign < 0 and pitch > 10: return
+            if target_sign > 0 and pitch < -10:
+                return
+            if target_sign < 0 and pitch > 10:
+                return
 
             print(f"  Flop to {target_name}...")
             p = (base_power + (i*10)) * target_sign
@@ -442,8 +449,10 @@ class KickupDynamicsStep(CalibrationStep):
         pitch = hw.read_imu_converted().pitch_angle
 
         # Check Success
-        if start_sign > 0 and -10 < pitch < 20: return "SUCCESS"
-        if start_sign < 0 and -20 < pitch < 10: return "SUCCESS"
+        if start_sign > 0 and -10 < pitch < 20:
+            return "SUCCESS"
+        if start_sign < 0 and -20 < pitch < 10:
+            return "SUCCESS"
         return "FAIL"
 
     def _run_kickup_test(self, hw: RobotHardware, state: LearningState, direction_sign: float) -> Optional[float]:
@@ -468,10 +477,12 @@ class KickupDynamicsStep(CalibrationStep):
         print(">>> Dynamic Kick-Up Calibration <<<")
 
         fwd = self._run_kickup_test(hw, state, 1.0) # Kickup Forward (from Back, +1)
-        if fwd is None: return StepStatus.NEEDS_RETRY, {}, {}
+        if fwd is None:
+            return StepStatus.NEEDS_RETRY, {}, {}
 
         bwd = self._run_kickup_test(hw, state, -1.0) # Kickup Backward (from Front, -1)
-        if bwd is None: return StepStatus.NEEDS_RETRY, {}, {}
+        if bwd is None:
+            return StepStatus.NEEDS_RETRY, {}, {}
 
         # Construct new ControlConfig
         new_control = state.control.model_copy(update={

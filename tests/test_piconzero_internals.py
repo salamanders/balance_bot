@@ -9,7 +9,7 @@ if "balance_bot.hardware.piconzero" in sys.modules:
 # Mock smbus2 before importing piconzero (for non-Pi systems)
 if "smbus2" not in sys.modules:
     try:
-        import smbus2
+        import smbus2 # noqa: F401
     except ImportError:
         sys.modules["smbus2"] = MagicMock()
 

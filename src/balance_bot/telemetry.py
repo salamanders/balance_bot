@@ -28,7 +28,8 @@ class TelemetryBlackbox:
         logger.info(f"Telemetry Blackbox recording to {self.filename}")
 
     def log_tick(self, state_name, pitch, pitch_rate, yaw_rate, left_pwm, right_pwm, pid_target):
-        if not self.running: return
+        if not self.running:
+            return
 
         try:
             self.queue.put_nowait((

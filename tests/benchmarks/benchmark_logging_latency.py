@@ -61,7 +61,7 @@ def run_benchmark():
     # Cleanup
     try:
         os.remove(LOG_FILE)
-    except:
+    except OSError:
         pass
 
 if __name__ == "__main__":
