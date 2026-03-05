@@ -38,10 +38,10 @@ However, recent architectural changes—specifically the splitting of a monolith
 
 ## Actionable Recommendations
 
-1.  **Fix the Test Suite Imports:** Perform a global search and replace in the `tests/` directory:
-    *   Replace `from src.balance_bot` with `from balance_bot`.
-    *   Replace `RobotConfig` imports and instantiations with `HardwareConfig` and/or `LearningState` depending on the context of the test.
-    *   Rewrite `WiringCheck` tests to target the new `CalibrationStep` subclasses in `src/balance_bot/discovery/steps.py`.
+1.  ~~**Fix the Test Suite Imports:** Perform a global search and replace in the `tests/` directory:~~ [DONE]
+    *   ~~Replace `from src.balance_bot` with `from balance_bot`.~~ [DONE]
+    *   ~~Replace `RobotConfig` imports and instantiations with `HardwareConfig` and/or `LearningState` depending on the context of the test.~~ [DONE]
+    *   ~~Rewrite `WiringCheck` tests to target the new `CalibrationStep` subclasses in `src/balance_bot/discovery/steps.py`.~~ [DONE]
 2.  ~~**Run Linting Fixes:** Execute `uv run ruff check . --fix` to clean up the unused imports and stylistic errors flagged by the linter.~~ [DONE]
 3.  **Audit the Pipeline State Update Logic:** Review `SelfDiscoveryPipeline.run()`. When a step returns `state_updates`, ensure that `setattr(self.state, k, v)` works correctly when `v` is a nested Pydantic model (like `ControlConfig`) rather than a primitive type.
 4.  ~~**Update `AGENTS.md`:** Do a quick pass over `AGENTS.md` to update class names (e.g., changing references from `RobotConfig` to `HardwareConfig` and `LearningState`) to match the new source code reality perfectly.~~ [DONE]

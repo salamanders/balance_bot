@@ -7,10 +7,8 @@ import os
 # Ensure src is in path for standalone execution
 sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), '../../src')))
 
-try:
-    from balance_bot.adaptation.tuner import ContinuousTuner, TunerConfig
-except ImportError:
-    from src.balance_bot.adaptation.tuner import ContinuousTuner, TunerConfig
+from balance_bot.adaptation.tuner import ContinuousTuner
+from balance_bot.configuration import TunerConfig
 
 def benchmark_tuner():
     # Setup
