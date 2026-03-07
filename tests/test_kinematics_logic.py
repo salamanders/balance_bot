@@ -38,6 +38,9 @@ class TestDeriveKinematics(unittest.TestCase):
         # Drive and Measure Mock
         # We need to return specific responses for Left Pulse and Right Pulse.
 
+        # Because we replaced drive_and_measure with execute_maneuver (ramping steps),
+        # we need to mock execute_maneuver instead of drive_and_measure.
+
         # Scenario: Correct Setup (Not Swapped)
         # Forward -> +Y (Body Frame)
         # Pitch Back -> +X (Body Frame) (Nose Up)
@@ -65,7 +68,7 @@ class TestDeriveKinematics(unittest.TestCase):
             res.samples = [s] * 10
             return res
 
-        hw.drive_and_measure.side_effect = [
+        hw.execute_maneuver.side_effect = [
             make_result(l_gyro, l_accel_delta),
             make_result(r_gyro, r_accel_delta)
         ]

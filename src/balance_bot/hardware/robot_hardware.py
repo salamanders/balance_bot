@@ -346,12 +346,15 @@ class RobotHardware:
             self._imu_consecutive_errors += 1
             if self._imu_consecutive_errors > self.hw_config.imu_max_retries:
                 logger.error(f"IMU Failed {self._imu_consecutive_errors} times in a row. Raising Error.")
-                raise
+            else:
+                logger.error("IMU Glitch. Halting actuators.")
 
-            # If I2C fails (noise), return the last known good values
-            # This prevents the robot from crashing or freezing
-            # logger.warning("I2C Glitch - Using stale data")
-            return self._last_accel, self._last_gyro
+            if self.pz:
+                try:
+                    self.pz.stop()
+                except Exception:
+                    pass
+            raise OSError("IMU I2C communication failed. Halting system instead of using stale data.")
 
     def read_imu_converted(self) -> IMUReading:
         """

@@ -453,3 +453,13 @@ If the robot's wheels lack traction (e.g., slipping on a smooth surface) or the 
 **Conclusion:** The observed behavior is not a logical gap in the cross-product mapping, but an environmental failure causing the initial phase-alignment to fail, leading to Pitch and Yaw axes becoming perfectly swapped in software.
 
 **Fix:** Fixed in `src/balance_bot/discovery/steps.py` by relying on the Gyro's yaw vectors (`yaw_mag_sum` vs `yaw_mag_diff` around the Up vector) instead of linear acceleration (`accel_delta`), making the phase alignment robust to low-traction wheel slipping.
+
+## Core Directives from balance_bot_2
+
+The following operational directives are permanently established:
+
+* **Hardware Reality over Assumptions:** All hardware components must be assumed to lie or fail; implement explicit error handling, timeouts, and never swallow errors.
+* **Defense in Depth & I2C Brownouts:** Operations requiring large physical forces must ramp power instead of spiking it to prevent `[Errno 5]` I2C bus crashes.
+* **Prohibition on Hallucinated Physics:** Rely only on logged data; do not invent narratives like "momentum swings" unless mathematically derived from IMU telemetry.
+* **Isolate Inversions:** All sensor and actuator inversions must be isolated to the hardware abstraction layer, keeping core control loops mathematically pure.
+* **Strict Personal Operational Constraints:** Operate under the assumption that your initial math is wrong until proven by logs, and enforce "Data Literalism" without inventing narratives.

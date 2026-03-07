@@ -135,7 +135,19 @@ class DeriveKinematicsStep(CalibrationStep):
     def _pulse_and_measure(self, hw: RobotHardware, l_p: float, r_p: float, name: str) -> Tuple[glm.vec3, glm.vec3]:
         """Pulse motors and return average gyro and accel vectors."""
         print(f"  Pulsing {name}...")
-        res = hw.drive_and_measure(l_p, r_p, 0.4, wait_for_stability=False)
+
+        # Ramp up power
+        steps = []
+        ramp_duration = 0.1
+        ramp_steps = 5
+        for i in range(1, ramp_steps + 1):
+            factor = i / ramp_steps
+            steps.append((l_p * factor, r_p * factor, ramp_duration / ramp_steps))
+
+        # Hold
+        steps.append((l_p, r_p, 0.4 - ramp_duration))
+
+        res = hw.execute_maneuver(steps)
         time.sleep(1.0) # Settle
 
         if not res.samples:
@@ -367,9 +379,14 @@ class MechanicalBacklashStep(CalibrationStep):
 
         test_power = state.min_power_visible + 10
 
-        # Forward
-        hw.set_motors(test_power, test_power)
-        time.sleep(0.3)
+        # Forward Ramp
+        steps_fwd = []
+        ramp_steps = 5
+        for i in range(1, ramp_steps + 1):
+            factor = i / ramp_steps
+            steps_fwd.append((test_power * factor, test_power * factor, 0.05))
+        steps_fwd.append((test_power, test_power, 0.3))
+        hw.execute_maneuver(steps_fwd)
         hw.stop()
         hw.wait_for_stability(duration=1.0)
 
@@ -432,7 +449,14 @@ class KickupDynamicsStep(CalibrationStep):
             print(f"  Flop to {target_name} (Power {p:.0f})...")
             motor_p = p * target_sign
 
-            hw.drive_and_measure(motor_p, motor_p, 0.4)
+            # Ramp
+            steps = []
+            ramp_steps = 5
+            for i in range(1, ramp_steps + 1):
+                factor = i / ramp_steps
+                steps.append((motor_p * factor, motor_p * factor, 0.05))
+            steps.append((motor_p, motor_p, 0.4 - 0.25))
+            hw.execute_maneuver(steps)
             hw.wait_for_stability(1.0)
             pitch = hw.read_imu_converted().pitch_angle
 
@@ -453,10 +477,25 @@ class KickupDynamicsStep(CalibrationStep):
         setup_p = p * setup_sign * 0.7
         kick_p = p * kick_sign * 1.0
 
-        hw.execute_maneuver([
-            (setup_p, setup_p, 0.3),
-            (kick_p, kick_p, 0.4)
-        ])
+        # Ramp setup power
+        steps = []
+        ramp_steps = 5
+        for i in range(1, ramp_steps + 1):
+            factor = i / ramp_steps
+            steps.append((setup_p * factor, setup_p * factor, 0.05))
+
+        # Setup hold
+        steps.append((setup_p, setup_p, 0.3 - 0.25))
+
+        # Ramp kick power (fast)
+        for i in range(1, 3):
+            factor = i / 2.0
+            steps.append((kick_p * factor, kick_p * factor, 0.02))
+
+        # Kick hold
+        steps.append((kick_p, kick_p, 0.4 - 0.04))
+
+        hw.execute_maneuver(steps)
 
         time.sleep(1.0)
         pitch = hw.read_imu_converted().pitch_angle
