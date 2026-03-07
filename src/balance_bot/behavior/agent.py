@@ -453,16 +453,24 @@ class Agent:
 
                 if wrong_position:
                     logger.warning(f"-> Not at {start_label} Limit? Repositioning...")
-                    fix_power = (self.learning_state.min_power_visible + 15) * (-kick_direction)
 
-                    self.core.hw.set_motors(fix_power, fix_power)
-                    self._sleep_with_update(0.5)
-                    self.core.hw.stop()
-                    self._wait_for_settle()
+                    fix_success = False
+                    base_fix_power = self.learning_state.min_power_visible + 15
 
-                    if (kick_direction == Direction.BACKWARD and self.core.pitch > -10) or (
-                        kick_direction == Direction.FORWARD and self.core.pitch < 10
-                    ):
+                    for p_try in range(int(base_fix_power), 101, 10):
+                        fix_power = p_try * (-kick_direction)
+                        self.core.hw.set_motors(fix_power, fix_power)
+                        self._sleep_with_update(0.5)
+                        self.core.hw.stop()
+                        self._wait_for_settle()
+
+                        if (kick_direction == Direction.BACKWARD and self.core.pitch < -10) or (
+                            kick_direction == Direction.FORWARD and self.core.pitch > 10
+                        ):
+                            fix_success = True
+                            break
+
+                    if not fix_success:
                         logger.warning("-> Reposition failed or confused. Aborting kickup.")
                         return False
 

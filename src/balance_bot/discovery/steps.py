@@ -415,7 +415,10 @@ class KickupDynamicsStep(CalibrationStep):
     def _force_posture(self, hw: RobotHardware, target_sign: float, base_power: float) -> None:
         """Helper to force the robot into a specific posture (+1 for BACK, -1 for FRONT)."""
         target_name = "BACK" if target_sign > 0 else "FRONT"
-        for i in range(5):
+
+        # Increment power until we reach max_power
+        p = base_power
+        while p <= 100:
             hw.wait_for_stability(1.0)
             pitch = hw.read_imu_converted().pitch_angle
 
@@ -426,9 +429,19 @@ class KickupDynamicsStep(CalibrationStep):
             if target_sign < 0 and pitch > 10:
                 return
 
-            print(f"  Flop to {target_name}...")
-            p = (base_power + (i*10)) * target_sign
-            hw.drive_and_measure(p, p, 0.4)
+            print(f"  Flop to {target_name} (Power {p:.0f})...")
+            motor_p = p * target_sign
+
+            hw.drive_and_measure(motor_p, motor_p, 0.4)
+            hw.wait_for_stability(1.0)
+            pitch = hw.read_imu_converted().pitch_angle
+
+            if target_sign > 0 and pitch < -10:
+                return
+            if target_sign < 0 and pitch > 10:
+                return
+
+            p += 10.0
 
         raise RuntimeError("Failed to posture")
 
