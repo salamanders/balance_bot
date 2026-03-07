@@ -36,6 +36,17 @@ class PiconZero:
                 if self.debug:
                     print(f"Error in {name}(), retrying")
                 time.sleep(0.005)
+
+        # Explicitly try to disarm actuators on failure before raising
+        if self.bus:
+            try:
+                self.bus.write_byte_data(self.I2C_ADDRESS, 0, 0)
+            except Exception:
+                pass
+            try:
+                self.bus.write_byte_data(self.I2C_ADDRESS, 1, 0)
+            except Exception:
+                pass
         raise OSError(f"PiconZero {name}() failed after {self.retries} retries")
 
     def init(self, debug: bool = False) -> None:
@@ -52,7 +63,17 @@ class PiconZero:
         try:
             self._retry(lambda: self.bus.write_byte_data(self.I2C_ADDRESS, self.CMD_RESET, 0), "cleanup")
         except OSError:
-            pass # Best effort cleanup
+            # We must attempt to explicitly write 0 to PWMs before passing
+            try:
+                self.bus.write_byte_data(self.I2C_ADDRESS, 0, 0)
+            except Exception:
+                pass
+            try:
+                self.bus.write_byte_data(self.I2C_ADDRESS, 1, 0)
+            except Exception:
+                pass
+            print("OSError during PiconZero cleanup. Halting.")
+            raise
         time.sleep(0.001)
         if self.bus:
             try:

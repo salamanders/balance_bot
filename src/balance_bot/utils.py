@@ -506,3 +506,14 @@ def sort_resting_vectors(vectors: list[glm.vec3]) -> tuple[glm.vec3, glm.vec3]:
     avg_b = avg_bucket(bucket_b)
 
     return avg_a, avg_b
+
+def circular_difference(target: float, current: float) -> float:
+    """
+    Calculate the shortest-path angle difference between a target angle and a current angle.
+    Handles the 180/-180 degree boundary safely.
+    :param target: Target angle in degrees.
+    :param current: Current angle in degrees.
+    :return: The difference in degrees (-180 to 180).
+    """
+    diff = (target - current + 180) % 360 - 180
+    return diff

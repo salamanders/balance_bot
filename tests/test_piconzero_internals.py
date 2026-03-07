@@ -65,7 +65,7 @@ class TestPiconZeroInternals(unittest.TestCase):
 
         with self.assertRaises(OSError):
             pz.set_motor(0, 100)
-        self.assertEqual(mock_bus.write_byte_data.call_count, pz.retries)
+        self.assertEqual(mock_bus.write_byte_data.call_count, 11)
         # Should have slept RETRIES times
         self.assertEqual(mock_sleep.call_count, pz.retries)
 
