@@ -605,11 +605,19 @@ def sort_resting_vectors(vectors: list[glm.vec3]) -> tuple[glm.vec3, glm.vec3]:
 
     # Average buckets
     def avg_bucket(bucket: list[glm.vec3]) -> glm.vec3:
+        """
+        Calculate the average vector from a list of vectors in a single pass.
+        This optimizes out multiple iterations and generator overhead.
+        """
         if not bucket:
             return glm.vec3(0.0)
-        sum_x = sum(v.x for v in bucket)
-        sum_y = sum(v.y for v in bucket)
-        sum_z = sum(v.z for v in bucket)
+
+        sum_x = sum_y = sum_z = 0.0
+        for v in bucket:
+            sum_x += v.x
+            sum_y += v.y
+            sum_z += v.z
+
         count = len(bucket)
         return glm.vec3(sum_x / count, sum_y / count, sum_z / count)
 
