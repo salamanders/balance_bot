@@ -107,8 +107,8 @@ def main():
 
     def set_motors(val_0, val_1):
         try:
-            motor_bus.write_byte_data(PICONZERO_ADDR, 0, val_0)
-            motor_bus.write_byte_data(PICONZERO_ADDR, 1, val_1)
+            motor_bus.write_byte_data(PICONZERO_ADDR, 0, val_0 & 0xFF)
+            motor_bus.write_byte_data(PICONZERO_ADDR, 1, val_1 & 0xFF)
         except Exception as e:
             print(f"[{get_ms():05d} ms] ERROR setting motors: {e}")
 

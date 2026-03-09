@@ -97,7 +97,7 @@ class PiconZero:
         :param value: Speed (-100 to 100).
         """
         if 0 <= motor <= 1 and -128 <= value < 128:
-            self._retry(lambda: self.bus.write_byte_data(self.I2C_ADDRESS, motor, value), "set_motor")
+            self._retry(lambda: self.bus.write_byte_data(self.I2C_ADDRESS, motor, value & 0xFF), "set_motor")
 
     def set_motors(self, motor_0_val: int, motor_1_val: int) -> None:
         """

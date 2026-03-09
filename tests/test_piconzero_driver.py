@@ -43,7 +43,7 @@ class TestPiconZeroDriver(unittest.TestCase):
 
         # Check for specific motor values
         found_motor0 = any(c.args[1] == 0 and c.args[2] == 50 for c in motor_calls)
-        found_motor1 = any(c.args[1] == 1 and c.args[2] == -50 for c in motor_calls)
+        found_motor1 = any(c.args[1] == 1 and c.args[2] == (-50 & 0xFF) for c in motor_calls)
 
         self.assertTrue(found_motor0, "Did not find write for Motor 0 with 50")
         self.assertTrue(found_motor1, "Did not find write for Motor 1 with -50")
