@@ -433,20 +433,37 @@ class KickupDynamicsStep(CalibrationStep):
         """Helper to force the robot into a specific posture (+1 for BACK, -1 for FRONT)."""
         target_name = "BACK" if target_sign > 0 else "FRONT"
 
+        print(f"  [Posture Check] Verifying initial physical state before trying to flop {target_name}...")
+        hw.wait_for_stability(1.0)
+
+        # Take multiple readings to be absolutely sure we're not just bouncing
+        samples = []
+        for _ in range(5):
+            samples.append(hw.read_imu_converted().pitch_angle)
+            time.sleep(0.05)
+
+        avg_pitch = sum(samples) / len(samples)
+        pitch_variance = max(samples) - min(samples)
+
+        print(f"  [Posture Check] Measured average pitch: {avg_pitch:.1f}° (Variance: {pitch_variance:.1f}°)")
+
+        # Define a high-confidence resting threshold (e.g. resting on bumpers usually means > 30 degrees)
+        RESTING_THRESHOLD = 25.0
+
+        # Check if we are already securely flopped in the correct direction
+        if target_sign > 0 and avg_pitch < -RESTING_THRESHOLD and pitch_variance < 5.0:
+            print(f"  [Posture Check] I am REALLY sure I'm on my BACK. I know this because stable pitch is {avg_pitch:.1f}° (Threshold is < -{RESTING_THRESHOLD}°). No flop needed.")
+            return
+        elif target_sign < 0 and avg_pitch > RESTING_THRESHOLD and pitch_variance < 5.0:
+            print(f"  [Posture Check] I am REALLY sure I'm on my FRONT. I know this because stable pitch is {avg_pitch:.1f}° (Threshold is > {RESTING_THRESHOLD}°). No flop needed.")
+            return
+
+        print(f"  [Posture Check] Current pitch is {avg_pitch:.1f}°. Need to actively flop to {target_name}. Initiating maneuver...")
+
         # Increment power until we reach max_power
         p = base_power
         while p <= 100:
-            hw.wait_for_stability(1.0)
-            pitch = hw.read_imu_converted().pitch_angle
-
-            # If target_sign > 0 (BACK), pitch should be < -10
-            # If target_sign < 0 (FRONT), pitch should be > 10
-            if target_sign > 0 and pitch < -10:
-                return
-            if target_sign < 0 and pitch > 10:
-                return
-
-            print(f"  Flop to {target_name} (Power {p:.0f})...")
+            print(f"  Flop to {target_name} (Power {p:.0f}%)...")
             motor_p = p * target_sign
 
             # Ramp
@@ -457,12 +474,23 @@ class KickupDynamicsStep(CalibrationStep):
                 steps.append((motor_p * factor, motor_p * factor, 0.05))
             steps.append((motor_p, motor_p, 0.4 - 0.25))
             hw.execute_maneuver(steps)
-            hw.wait_for_stability(1.0)
-            pitch = hw.read_imu_converted().pitch_angle
 
-            if target_sign > 0 and pitch < -10:
+            hw.wait_for_stability(1.0)
+
+            # Post-maneuver verification
+            samples_post = []
+            for _ in range(3):
+                samples_post.append(hw.read_imu_converted().pitch_angle)
+                time.sleep(0.05)
+
+            avg_pitch_post = sum(samples_post) / len(samples_post)
+
+            # Keep the old, less strict bounds for the actual flop attempt just to detect if we successfully passed the 0 degree point
+            if target_sign > 0 and avg_pitch_post < -10:
+                print(f"  [Posture Check] Flop successful. Settled at {avg_pitch_post:.1f}°")
                 return
-            if target_sign < 0 and pitch > 10:
+            if target_sign < 0 and avg_pitch_post > 10:
+                print(f"  [Posture Check] Flop successful. Settled at {avg_pitch_post:.1f}°")
                 return
 
             p += 10.0
