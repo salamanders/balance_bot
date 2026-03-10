@@ -109,7 +109,7 @@ class FrictionThresholdStep(CalibrationStep):
             return max_mag > 15.0
 
         heartbeat_fn = hw.watchdog.heartbeat if hw.watchdog else None
-        found = find_threshold("Minimum Power", 10, 5, 100, action, check, heartbeat_fn=heartbeat_fn)
+        found = find_threshold("Minimum Power", 0, 5, 100, action, check, heartbeat_fn=heartbeat_fn)
 
         if found is None:
             return StepStatus.FATAL, {}, {}
@@ -558,7 +558,7 @@ class KickupDynamicsStep(CalibrationStep):
             return self._attempt_kick(hw, direction_sign, p)
 
         return find_threshold(f"KickUp {dir_name}",
-                               max(20, state.min_power_visible + 10),
+                               0,
                                5, 100,
                                action,
                                lambda r: r == "SUCCESS",
