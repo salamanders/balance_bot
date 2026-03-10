@@ -147,6 +147,11 @@ class DeriveKinematicsStep(CalibrationStep):
         # Hold
         steps.append((l_p, r_p, 0.4 - ramp_duration))
 
+        # Ramp down
+        for i in range(ramp_steps - 1, -1, -1):
+            factor = i / ramp_steps
+            steps.append((l_p * factor, r_p * factor, ramp_duration / ramp_steps))
+
         res = hw.execute_maneuver(steps)
         time.sleep(1.0) # Settle
 
@@ -172,6 +177,10 @@ class DeriveKinematicsStep(CalibrationStep):
         if l_gyro is None:
             return StepStatus.NEEDS_RETRY, {}, {}
         l_accel_delta = l_accel - baseline_accel
+
+        # Wait for complete physical stability before Right motor test
+        print("  Waiting for stability before pulsing RIGHT Motor...")
+        hw.wait_for_stability()
 
         # 2. Pulse Right Only (+PWM)
         r_gyro, r_accel = self._pulse_and_measure(hw, 0, test_power, "RIGHT Motor")
@@ -337,6 +346,28 @@ class MotorTrimStep(CalibrationStep):
     def is_verified(self, state: LearningState) -> bool:
         return state.motor_trim_verified
 
+    def _build_smooth_ramp(self, l_p: float, r_p: float, total_duration: float) -> list[tuple[float, float, float]]:
+        steps = []
+        ramp_duration = 0.1
+        ramp_steps = 5
+        hold_duration = total_duration - (2 * ramp_duration)
+
+        # Ramp up
+        for i in range(1, ramp_steps + 1):
+            factor = i / ramp_steps
+            steps.append((l_p * factor, r_p * factor, ramp_duration / ramp_steps))
+
+        # Hold
+        if hold_duration > 0:
+            steps.append((l_p, r_p, hold_duration))
+
+        # Ramp down
+        for i in range(ramp_steps - 1, -1, -1):
+            factor = i / ramp_steps
+            steps.append((l_p * factor, r_p * factor, ramp_duration / ramp_steps))
+
+        return steps
+
     def run(self, hw: RobotHardware, config: HardwareConfig, state: LearningState) -> Tuple[StepStatus, Dict[str, Any], Dict[str, Any]]:
         print(">>> Motor Trim Calibration <<<")
         hw.wait_for_stability()
@@ -345,11 +376,15 @@ class MotorTrimStep(CalibrationStep):
 
         for i in range(15):
             p = state.min_power_visible + 15
-            res = hw.drive_and_measure(p, p, 1.0, trim_override=best_trim)
+
+            # Drive forward with smooth ramps
+            fwd_steps = self._build_smooth_ramp(p, p, 1.0)
+            res = hw.execute_maneuver(fwd_steps, trim_override=best_trim)
             hw.wait_for_stability()
 
-            # Reverse to roughly the starting position
-            hw.drive_and_measure(-p, -p, 1.0, trim_override=best_trim)
+            # Reverse to roughly the starting position with smooth ramps
+            rev_steps = self._build_smooth_ramp(-p, -p, 1.0)
+            hw.execute_maneuver(rev_steps, trim_override=best_trim)
             hw.wait_for_stability()
 
             if not res.samples:
@@ -391,22 +426,57 @@ class MechanicalBacklashStep(CalibrationStep):
             factor = i / ramp_steps
             steps_fwd.append((test_power * factor, test_power * factor, 0.05))
         steps_fwd.append((test_power, test_power, 0.3))
+
+        # Ramp down
+        for i in range(ramp_steps - 1, -1, -1):
+            factor = i / ramp_steps
+            steps_fwd.append((test_power * factor, test_power * factor, 0.05))
+
         hw.execute_maneuver(steps_fwd)
         hw.stop()
         hw.wait_for_stability(duration=1.0)
 
-        # Reverse & Time
+        # Start timing reverse maneuver
         start_time = time.time()
-        hw.set_motors(-test_power, -test_power)
 
+        # Execute the ramp while checking for movement to capture slop properly
         slop_time = 0.2
         reading = None
-        while time.time() - start_time < 1.0:
-            reading = hw.read_imu_converted()
-            if abs(reading.pitch_rate) > 5.0:
-                slop_time = time.time() - start_time
+        moved = False
+
+        for i in range(1, 4):
+            factor = i / 3.0
+            hw.set_motors(-test_power * factor, -test_power * factor)
+
+            # Wait 0.05s while checking for movement
+            step_start = time.time()
+            while time.time() - step_start < 0.05:
+                reading = hw.read_imu_converted()
+                if abs(reading.pitch_rate) > 5.0:
+                    slop_time = time.time() - start_time
+                    moved = True
+                    break
+                time.sleep(0.005)
+
+            if moved:
                 break
-            time.sleep(0.005)
+
+        # If hasn't moved yet during ramp, hold full power and keep timing
+        if not moved:
+            hw.set_motors(-test_power, -test_power)
+            while time.time() - start_time < 1.0:
+                reading = hw.read_imu_converted()
+                if abs(reading.pitch_rate) > 5.0:
+                    slop_time = time.time() - start_time
+                    break
+                time.sleep(0.005)
+
+        # Ramp down from reverse
+        steps_rev_down = []
+        for i in range(2, -1, -1):  # Quick 3-step ramp down
+            factor = i / 3.0
+            steps_rev_down.append((-test_power * factor, -test_power * factor, 0.05))
+        hw.execute_maneuver(steps_rev_down)
 
         hw.stop()
         compensated = max(0.0, slop_time - 0.02)
@@ -478,6 +548,12 @@ class KickupDynamicsStep(CalibrationStep):
                 factor = i / ramp_steps
                 steps.append((motor_p * factor, motor_p * factor, 0.05))
             steps.append((motor_p, motor_p, 0.4 - 0.25))
+
+            # Ramp down
+            for i in range(ramp_steps - 1, -1, -1):
+                factor = i / ramp_steps
+                steps.append((motor_p * factor, motor_p * factor, 0.05))
+
             hw.execute_maneuver(steps)
 
             hw.wait_for_stability(1.0)
@@ -533,6 +609,11 @@ class KickupDynamicsStep(CalibrationStep):
 
         # Kick hold
         steps.append((kick_p, kick_p, 0.4 - 0.04))
+
+        # Ramp kick power down (fast)
+        for i in range(1, -1, -1):
+            factor = i / 2.0
+            steps.append((kick_p * factor, kick_p * factor, 0.02))
 
         hw.execute_maneuver(steps)
 
