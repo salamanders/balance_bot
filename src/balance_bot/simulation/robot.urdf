@@ -1,0 +1,138 @@
+<?xml version="1.0"?>
+<robot name="balance_bot">
+  <!-- BASE LINK -->
+  <link name="base_link">
+    <visual>
+      <!-- Shift center of mass slightly upward -->
+      <origin xyz="0 0 0.05" rpy="0 0 0" />
+      <geometry>
+        <box size="0.08 0.1 0.1" />
+      </geometry>
+      <material name="blue">
+        <color rgba="0 0 0.8 1" />
+      </material>
+    </visual>
+    <collision>
+      <origin xyz="0 0 0.05" rpy="0 0 0" />
+      <geometry>
+        <box size="0.08 0.1 0.1" />
+      </geometry>
+    </collision>
+    <inertial>
+      <!-- Assuming 200g base -->
+      <mass value="0.2" />
+      <origin xyz="0 0 0.05" rpy="0 0 0" />
+      <inertia ixx="0.0002" ixy="0" ixz="0" iyy="0.0002" iyz="0" izz="0.0002" />
+    </inertial>
+  </link>
+
+  <!-- DRAG BAR -->
+  <link name="drag_bar">
+    <visual>
+      <origin xyz="0 0 -0.01" rpy="0 0 0" />
+      <geometry>
+        <!-- A thin box sticking out from the front and back near the bottom -->
+        <box size="0.15 0.02 0.02" />
+      </geometry>
+      <material name="grey">
+        <color rgba="0.5 0.5 0.5 1" />
+      </material>
+    </visual>
+    <collision>
+      <origin xyz="0 0 -0.01" rpy="0 0 0" />
+      <geometry>
+        <box size="0.15 0.02 0.02" />
+      </geometry>
+      <!-- High friction for the drag bar -->
+      <surface>
+        <friction>
+          <ode>
+            <mu>10.0</mu>
+            <mu2>10.0</mu2>
+          </ode>
+        </friction>
+      </surface>
+    </collision>
+    <inertial>
+      <!-- Minimal mass for the drag bar -->
+      <mass value="0.01" />
+      <origin xyz="0 0 -0.01" rpy="0 0 0" />
+      <inertia ixx="0.00001" ixy="0" ixz="0" iyy="0.00001" iyz="0" izz="0.00001" />
+    </inertial>
+  </link>
+
+  <joint name="drag_bar_joint" type="fixed">
+    <parent link="base_link" />
+    <child link="drag_bar" />
+    <origin xyz="0 0 0" rpy="0 0 0" />
+  </joint>
+
+  <!-- LEFT WHEEL -->
+  <link name="left_wheel">
+    <visual>
+      <!-- Wheel is parallel to Y axis, rotate by pi/2 around X -->
+      <origin xyz="0 0 0" rpy="1.57079632679 0 0" />
+      <geometry>
+        <!-- 60mm diameter -> 30mm radius, let's say 20mm width -->
+        <cylinder radius="0.03" length="0.02" />
+      </geometry>
+      <material name="black">
+        <color rgba="0.1 0.1 0.1 1" />
+      </material>
+    </visual>
+    <collision>
+      <origin xyz="0 0 0" rpy="1.57079632679 0 0" />
+      <geometry>
+        <cylinder radius="0.03" length="0.02" />
+      </geometry>
+    </collision>
+    <inertial>
+      <!-- 30g wheels -->
+      <mass value="0.03" />
+      <origin xyz="0 0 0" rpy="1.57079632679 0 0" />
+      <inertia ixx="0.00001" ixy="0" ixz="0" iyy="0.00001" iyz="0" izz="0.00001" />
+    </inertial>
+  </link>
+
+  <!-- RIGHT WHEEL -->
+  <link name="right_wheel">
+    <visual>
+      <origin xyz="0 0 0" rpy="1.57079632679 0 0" />
+      <geometry>
+        <cylinder radius="0.03" length="0.02" />
+      </geometry>
+      <material name="black" />
+    </visual>
+    <collision>
+      <origin xyz="0 0 0" rpy="1.57079632679 0 0" />
+      <geometry>
+        <cylinder radius="0.03" length="0.02" />
+      </geometry>
+    </collision>
+    <inertial>
+      <mass value="0.03" />
+      <origin xyz="0 0 0" rpy="1.57079632679 0 0" />
+      <inertia ixx="0.00001" ixy="0" ixz="0" iyy="0.00001" iyz="0" izz="0.00001" />
+    </inertial>
+  </link>
+
+  <!-- CONTINUOUS JOINTS FOR WHEELS -->
+  <joint name="left_wheel_joint" type="continuous">
+    <parent link="base_link" />
+    <child link="left_wheel" />
+    <!-- Rotate around Y axis -->
+    <axis xyz="0 1 0" />
+    <!-- Offset on Y axis for wheel spacing -->
+    <origin xyz="0 0.06 0" rpy="0 0 0" />
+  </joint>
+
+  <joint name="right_wheel_joint" type="continuous">
+    <parent link="base_link" />
+    <child link="right_wheel" />
+    <!-- Rotate around Y axis -->
+    <axis xyz="0 1 0" />
+    <!-- Offset on Y axis for wheel spacing -->
+    <origin xyz="0 -0.06 0" rpy="0 0 0" />
+  </joint>
+
+</robot>
