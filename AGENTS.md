@@ -18,6 +18,10 @@ This is for a self-balancing homebrew robot with a Segway-like topology. The har
 | **Bootstrapping** | Never hardcode physical constants. Remain pessimistic. |
 | **Physical Tuning** | Practice graceful degradation. Revert to conservative baseline (Kp=25.0, Ki=0.0, Kd=0.5) if unable to verify states. |
 
+### Architectural Anti-Pattern: Context-Blind Fault Intolerance
+
+When generating control code for cyber-physical systems, AI agents frequently misapply high-level software engineering paradigms—specifically strict "fail-fast" exception handling—to low-level hardware interfaces. In a real-time physical environment, transient I/O errors (such as I2C glitches caused by motor EMI or voltage sags) are nominal operating conditions, not fatal system failures. Enforcing strict data-purity rules during a continuous actuation loop causes trivial hardware noise to collapse the entire system. To eliminate this class of bug, agents must adhere to the following directives: strictly separate initialization logic (where failing fast is required) from the real-time control loop (which requires absolute fault tolerance); replace fatal exceptions with continuous data quality metrics (e.g., returning cached data alongside an age/error counter) to keep the loop alive; and actively inject simulated physical noise (like jitter and correlated EMI dropouts) into unit tests to verify system resilience.
+
 ## 3. Architecture Overview
 *   **Layered Architecture:** `BalanceCore` (Tier 1) operates as a deterministic, high-frequency reflex loop. `Agent` (Tier 3) handles complex state.
 *   **Modern Tooling:** Pydantic is used for validation/serialization (`HardwareConfig`, `LearningState`). The `pid.py` module wraps `simple-pid`. Threads handle async logging (`TelemetryBlackbox`).
