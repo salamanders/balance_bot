@@ -1,5 +1,6 @@
 import math
 import time
+import random
 import logging
 import numpy as np
 import glm
@@ -37,6 +38,10 @@ class SimHardware:
         self.last_step_time = time.time()
         self.control_dt = 1.0 / 100.0  # 100Hz
 
+        # Simulate I2C glitches
+        self.error_count = 0
+        self.last_valid_imu: Optional[IMUReading] = None
+
     def apply_config(self, new_config: HardwareConfig) -> None:
         self.config = new_config
 
@@ -56,6 +61,30 @@ class SimHardware:
         return glm.vec3(0,0,0), glm.vec3(0,0,0)
 
     def read_imu_converted(self) -> IMUReading:
+        # Simulate occasional I2C read failures (10% chance)
+        if random.random() < 0.10 and self.last_valid_imu is not None:
+            self.error_count += 1
+            # Step physics to keep time flowing, but drop the new data
+            now = time.time()
+            elapsed = now - self.last_step_time
+            if elapsed < self.control_dt:
+                time.sleep(self.control_dt - elapsed)
+            action = np.array([self.last_left_pwm, self.last_right_pwm], dtype=np.float32)
+            self.obs, reward, terminated, truncated, info = self.env.step(action)
+            self.last_step_time = time.time()
+
+            # Return old reading with incremented error count
+            return IMUReading(
+                pitch_angle=self.last_valid_imu.pitch_angle,
+                pitch_rate=self.last_valid_imu.pitch_rate,
+                yaw_rate=self.last_valid_imu.yaw_rate,
+                roll_angle=self.last_valid_imu.roll_angle,
+                roll_rate=self.last_valid_imu.roll_rate,
+                error_count=self.error_count
+            )
+
+        self.error_count = 0
+
         # Step the environment with the last set motor values to get the latest physics state
         # The physical loop calls read_imu_converted(), computes PID, then calls set_motors().
         # In simulation, we need to enforce the loop time to emulate hardware delay.
@@ -86,19 +115,26 @@ class SimHardware:
         roll_rate_deg = 0.0
 
         # Also need error_count to simulate transient I2C glitches (we can just pass 0)
-        return IMUReading(
+        reading = IMUReading(
             pitch_angle=pitch_deg,
             pitch_rate=pitch_rate_deg,
             yaw_rate=yaw_rate_deg,
             roll_angle=roll_deg,
             roll_rate=roll_rate_deg,
-            error_count=0
+            error_count=self.error_count
         )
+        self.last_valid_imu = reading
+        return reading
 
     def set_motor_retries(self, retries: int) -> None:
         pass
 
     def set_motors(self, left: float, right: float, trim_override: float | None = None) -> None:
+        # Simulate occasional I2C write failures to motors (10% chance)
+        if random.random() < 0.10:
+            logger.debug("Simulated motor write failure - ignoring command")
+            return
+
         # Convert [-100, 100] scale to [-1.0, 1.0] expected by the Env action space
         self.last_left_pwm = max(min(left / 100.0, 1.0), -1.0)
         self.last_right_pwm = max(min(right / 100.0, 1.0), -1.0)

@@ -48,37 +48,65 @@ class BalanceBotEnv(gym.Env):
         self.left_torque_mod = 1.0
         self.right_torque_mod = 1.0
         self.imu_pitch_offset = 0.0
+        self.imu_rotation_matrix = np.eye(3)
 
     def _get_obs(self):
         # In URDF, position and orientation
         pos, orn = pb.getBasePositionAndOrientation(self.robot_id, physicsClientId=self.client_id)
 
-        # Convert quaternion to euler (roll, pitch, yaw) in radians
-        # Note: PyBullet returns rpy, but depending on URDF coordinate system, pitch might be Y or X.
-        # Assuming robot rolls forward on X axis, wheels rotate around Y, so pitch is rotation around Y.
+        # Multiply robot's orientation quaternion with IMU rotation offset
+        # to find the "observed" orientation of the IMU in world space
+        # (Actually, better to calculate angular velocity in local frame then apply IMU rotation)
+
+        # Base velocity in WORLD frame
+        linear_vel_world, angular_vel_world = pb.getBaseVelocity(self.robot_id, physicsClientId=self.client_id)
+
+        # Convert world angular velocity to robot BODY frame
+        # Get inverse of robot orientation (conjugate of quaternion)
+        inv_orn = [-orn[0], -orn[1], -orn[2], orn[3]]
+
+        # pb doesn't have a direct vector rotation function using quats, so we convert vector to point, apply transform
+        ang_vel_body, _ = pb.multiplyTransforms(
+            [0, 0, 0], inv_orn,
+            angular_vel_world, [0, 0, 0, 1]
+        )
+
+        # Apply random IMU mounting rotation matrix to get angular velocity in IMU frame
+        ang_vel_imu = np.dot(self.imu_rotation_matrix, np.array(ang_vel_body))
+
+        # To get the "pitch" and "yaw" observed by the rotated IMU, we need to consider how the IMU calculates orientation
+        # Since the real robot just uses the raw angular velocity from the IMU, we just pass the transformed rates.
+        # But we also need the absolute pitch/yaw, which is derived from gravity vector on real hardware.
+        # Let's find gravity in IMU frame. World gravity is [0, 0, -1].
+        gravity_body, _ = pb.multiplyTransforms(
+            [0, 0, 0], inv_orn,
+            [0, 0, -1], [0, 0, 0, 1]
+        )
+        gravity_imu = np.dot(self.imu_rotation_matrix, np.array(gravity_body))
+
+        # Calculate pitch and roll from gravity vector
+        # (Standard IMU equations: pitch = atan2(-gx, sqrt(gy^2 + gz^2)), roll = atan2(gy, gz))
+        obs_pitch = math.atan2(gravity_imu[0], math.sqrt(gravity_imu[1]**2 + gravity_imu[2]**2))
+
+        # The robot uses gyro Z for yaw, so we use the transformed Z angular velocity
+        obs_yaw_rate = ang_vel_imu[2]
+        obs_pitch_rate = ang_vel_imu[1]
+
+        # We also need an absolute yaw for the observation space (even though hardware uses rate)
+        # Just use the original yaw to keep the environment happy, it's not strictly used by hardware
         euler = pb.getEulerFromQuaternion(orn)
-        pitch = euler[1]
-        yaw = euler[2]
+        obs_yaw = euler[2]
 
-        # Base velocity
-        linear_vel, angular_vel = pb.getBaseVelocity(self.robot_id, physicsClientId=self.client_id)
-
-        # angular_vel is (wx, wy, wz)
-        # pitch rate is around Y, yaw rate around Z
-        pitch_rate = angular_vel[1]
-        yaw_rate = angular_vel[2]
-
-        # Add sensor noise and mounting offset
-        pitch += self.imu_pitch_offset
+        # Add sensor noise and mounting offset (the new orientation matrix handles offset naturally, but keeping this for legacy)
+        obs_pitch += self.imu_pitch_offset
 
         # Add gaussian noise to pitch and pitch rate (mu=0, sigma=0.02)
         noise_pitch = random.gauss(0, 0.02)
         noise_pitch_rate = random.gauss(0, 0.02)
 
-        obs_pitch = pitch + noise_pitch
-        obs_pitch_rate = pitch_rate + noise_pitch_rate
-        obs_yaw = yaw
-        obs_yaw_rate = yaw_rate
+        obs_pitch = obs_pitch + noise_pitch
+        obs_pitch_rate = obs_pitch_rate + noise_pitch_rate
+        obs_yaw_rate = obs_yaw_rate
 
         return np.array([obs_pitch, obs_pitch_rate, obs_yaw, obs_yaw_rate], dtype=np.float32)
 
@@ -118,6 +146,20 @@ class BalanceBotEnv(gym.Env):
         self.right_torque_mod = random.uniform(0.85, 1.15)
         self.imu_pitch_offset = math.radians(random.uniform(-3.0, 3.0))
 
+        # Generate random 3D orientation for IMU (mounting error, flipped upside down, random yaw, etc.)
+        rpy = [random.uniform(-math.pi, math.pi) for _ in range(3)]
+        quat = pb.getQuaternionFromEuler(rpy)
+        rot_tuple = pb.getMatrixFromQuaternion(quat)
+        self.imu_rotation_matrix = np.array(rot_tuple).reshape(3, 3)
+
+        # Randomly invert axes to simulate backward wiring
+        if random.choice([True, False]):
+            self.imu_rotation_matrix[0] *= -1
+        if random.choice([True, False]):
+            self.imu_rotation_matrix[1] *= -1
+        if random.choice([True, False]):
+            self.imu_rotation_matrix[2] *= -1
+
         obs = self._get_obs()
         info = {}
         return obs, info
@@ -128,8 +170,13 @@ class BalanceBotEnv(gym.Env):
         # Apply domain randomized torque modifiers
         # Note: In PyBullet, torque control takes absolute force. PWM (-1 to 1)
         # is scaled by a max_torque multiplier and the random domain modifier.
-        left_torque = left_pwm * self.max_torque * self.left_torque_mod
-        right_torque = right_pwm * self.max_torque * self.right_torque_mod
+
+        # Add dynamic high-frequency jitter (dodgy motors) - +/- 5% variance per step
+        left_jitter = random.uniform(0.95, 1.05)
+        right_jitter = random.uniform(0.95, 1.05)
+
+        left_torque = left_pwm * self.max_torque * self.left_torque_mod * left_jitter
+        right_torque = right_pwm * self.max_torque * self.right_torque_mod * right_jitter
 
         pb.setJointMotorControl2(
             self.robot_id,
