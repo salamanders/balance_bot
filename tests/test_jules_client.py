@@ -110,12 +110,14 @@ class TestJulesClient(unittest.TestCase):
             stack_trace="traceback...",
             logs="logs...",
             state={"pitch": 0.1},
-            libs={"numpy": "1.2.3"}
+            libs={"numpy": "1.2.3"},
+            telemetry="telemetry..."
         )
 
         self.assertTrue(success)
         self.assertIn("ZeroDivisionError", prompt)
         self.assertIn("traceback...", prompt)
+        self.assertIn("telemetry...", prompt)
         mock_create_session.assert_called_once_with(prompt)
 
     def test_report_crash_no_api_key(self):
