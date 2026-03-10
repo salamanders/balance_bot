@@ -498,6 +498,12 @@ class KickupDynamicsStep(CalibrationStep):
                 print(f"  [Posture Check] Flop successful. Settled at {avg_pitch_post:.1f}°")
                 return
 
+            # Revert movement to avoid hitting walls
+            print("  [Posture Check] Flop failed. Reversing to start position...")
+            reverse_steps = [(-l, -r, d) for l, r, d in steps]
+            hw.execute_maneuver(reverse_steps)
+            hw.wait_for_stability(1.0)
+
             p += 10.0
 
         raise RuntimeError("Failed to posture")
