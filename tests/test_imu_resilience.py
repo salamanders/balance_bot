@@ -1,4 +1,3 @@
-import pytest
 from unittest.mock import MagicMock
 from balance_bot.hardware.robot_hardware import RobotHardware
 from balance_bot.configuration import HardwareConfig, LearningState, PIDParams
@@ -23,6 +22,11 @@ def test_imu_resilience_fail_fast(monkeypatch):
     for _ in range(hw_config.imu_max_retries):
         hw.read_imu_raw()
 
-    # Exceeding the max retries should raise an OSError
-    with pytest.raises(OSError):
-        hw.read_imu_raw()
+    # Exceeding the max retries should NO LONGER raise an OSError.
+    # It should gracefully return cached values indefinitely to keep the continuous actuation loop alive.
+    hw.read_imu_raw()
+    assert hw._imu_consecutive_errors == hw_config.imu_max_retries + 1
+
+    # Verify that the continuous data quality metric is returned correctly.
+    reading = hw.read_imu_converted()
+    assert reading.error_count == hw_config.imu_max_retries + 2

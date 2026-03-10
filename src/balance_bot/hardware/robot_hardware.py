@@ -39,6 +39,7 @@ class IMUReading:
     yaw_rate: float
     roll_angle: float
     roll_rate: float
+    error_count: int = 0
     accel_raw: Optional[glm.vec3] = None
     gyro_raw: Optional[glm.vec3] = None
 
@@ -345,17 +346,11 @@ class RobotHardware:
         except OSError:
             self._imu_consecutive_errors += 1
             if self._imu_consecutive_errors > self.hw_config.imu_max_retries:
-                logger.error(f"IMU Failed {self._imu_consecutive_errors} times in a row. Raising Error.")
-                if self.pz:
-                    try:
-                        self.pz.stop()
-                    except Exception:
-                        pass
-                raise OSError("IMU I2C communication failed. Halting system instead of using stale data.")
+                logger.error(f"IMU Failed {self._imu_consecutive_errors} times in a row. Returning cached data indefinitely to avoid fatal crash.")
             else:
                 logger.warning(f"IMU Glitch ({self._imu_consecutive_errors}/{self.hw_config.imu_max_retries}). Using cached data.")
-                # Return the last known good values to survive the tick
-                return self._last_accel, self._last_gyro
+            # Return the last known good values to survive the tick
+            return self._last_accel, self._last_gyro
 
     def read_imu_converted(self) -> IMUReading:
         """
@@ -376,6 +371,7 @@ class RobotHardware:
                 yaw_rate=0.0,
                 roll_angle=0.0,
                 roll_rate=0.0,
+                error_count=self._imu_consecutive_errors,
                 accel_raw=accel,
                 gyro_raw=gyro
             )
@@ -409,6 +405,7 @@ class RobotHardware:
             yaw_rate=yaw_rate,
             roll_angle=roll_angle,
             roll_rate=roll_rate,
+            error_count=self._imu_consecutive_errors,
             accel_raw=accel,
             gyro_raw=gyro
         )
