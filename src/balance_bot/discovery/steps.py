@@ -346,6 +346,11 @@ class MotorTrimStep(CalibrationStep):
         for i in range(15):
             p = state.min_power_visible + 15
             res = hw.drive_and_measure(p, p, 1.0, trim_override=best_trim)
+            hw.wait_for_stability()
+
+            # Reverse to roughly the starting position
+            hw.drive_and_measure(-p, -p, 1.0, trim_override=best_trim)
+            hw.wait_for_stability()
 
             if not res.samples:
                 continue
