@@ -99,9 +99,23 @@ def main() -> None:
                 for dist in importlib.metadata.distributions()
             }
 
-            # 5. Report
+            # 5. Capture Telemetry
+            telemetry_data = "No telemetry data found."
+            try:
+                if os.path.exists("flight_data.csv"):
+                    with open("flight_data.csv", "r") as f:
+                        # Grab the header and the last 100 lines
+                        lines = f.readlines()
+                        if len(lines) > 100:
+                            telemetry_data = "".join([lines[0]] + lines[-100:])
+                        else:
+                            telemetry_data = "".join(lines)
+            except Exception as read_err:
+                telemetry_data = f"Failed to read telemetry: {read_err}"
+
+            # 6. Report
             client = JulesClient()
-            success, prompt = client.report_crash(str(e), tb, logs, state_info, libs)
+            success, prompt = client.report_crash(str(e), tb, logs, state_info, libs, telemetry_data)
 
             if success:
                 print("Crash report submitted to Jules. Check your dashboard for the new session.")

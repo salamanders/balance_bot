@@ -79,7 +79,8 @@ class JulesClient:
         stack_trace: str,
         logs: str,
         state: Dict[str, Any],
-        libs: Dict[str, str]
+        libs: Dict[str, str],
+        telemetry: str = "No telemetry data found."
     ) -> tuple[bool, str]:
         """
         Constructs the prompt and initiates the fix session.
@@ -91,6 +92,7 @@ class JulesClient:
             f"{error_msg}\n\n"
             f"Stack Trace:\n```\n{stack_trace}\n```\n\n"
             f"Recent Logs:\n```\n{logs}\n```\n\n"
+            f"Recent Telemetry:\n```csv\n{telemetry}\n```\n\n"
             f"Current Runtime State:\n```json\n{json.dumps(state, indent=2, default=str)}\n```\n\n"
             f"Installed Libraries:\n```json\n{json.dumps(libs, indent=2)}\n```\n\n"
             f"Please analyze this crash, identify the root cause, and create a Pull Request with a fix."
