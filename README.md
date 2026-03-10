@@ -171,22 +171,21 @@ uv sync
 ### 5. Verify and run
 
 Run the **Zero-Knowledge Self-Discovery Protocol**. This is a state-machine based wizard that will learn your robot's unique wiring and physics configuration.
-**Note:** The robot will wake up knowing nothing. It will ask you to place it in specific positions to learn gravity, motor direction, and friction thresholds.
+**Note:** The robot will wake up knowing nothing. It will automatically detect if it is unconfigured on the first run, and will ask you to place it in specific positions to learn gravity, motor direction, and friction thresholds.
 
 For a detailed explanation of the logic, see `AGENTS.md`.
-
-```bash
-uv run balance-bot --check-wiring
-```
-
-The wizard is **pessimistic**: it will verify every discovery it makes (e.g., if it decides to invert a motor, it will re-test to prove the inversion was correct).
-Once the discovery process reports "[SUCCESS] Self-Discovery Complete", you can run the main agent:
 
 ```bash
 uv run balance-bot
 ```
 
+The wizard is **pessimistic**: it will verify every discovery it makes (e.g., if it decides to invert a motor, it will re-test to prove the inversion was correct).
+Once the discovery process completes successfully, the main agent will wake up and start running automatically.
+
 ## Additional Flags
+
+* **`--reset-brain`**
+  Wipe all learned configuration and force the robot to re-run the Zero-Knowledge Self-Discovery Protocol.
 
 * **`--auto-fix`**
   Enables automated crash reporting. If the robot crashes, this flag captures the traceback, logs, configuration state,
