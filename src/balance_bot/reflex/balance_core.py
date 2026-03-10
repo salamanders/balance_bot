@@ -26,6 +26,7 @@ class BalanceTelemetry:
     pitch_angle: float
     pitch_rate: float
     yaw_rate: float
+    error_count: int
     motor_output: float
     crashed: bool
     left_pwm: float
@@ -112,6 +113,7 @@ class BalanceCore:
                 pitch_angle=self.pitch,
                 pitch_rate=reading.pitch_rate,
                 yaw_rate=reading.yaw_rate,
+                error_count=reading.error_count,
                 motor_output=0.0,
                 crashed=False,
                 left_pwm=0.0,
@@ -147,6 +149,7 @@ class BalanceCore:
                 pitch_angle=self.pitch,
                 pitch_rate=reading.pitch_rate,
                 yaw_rate=reading.yaw_rate,
+                error_count=reading.error_count,
                 motor_output=0.0,
                 crashed=True,
                 left_pwm=0.0,
@@ -197,6 +200,7 @@ class BalanceCore:
             pitch_angle=self.pitch,
             pitch_rate=reading.pitch_rate,
             yaw_rate=reading.yaw_rate,
+            error_count=reading.error_count,
             motor_output=pid_output, # Raw PID output (useful for battery estimation)
             crashed=False,
             left_pwm=left_motor,
