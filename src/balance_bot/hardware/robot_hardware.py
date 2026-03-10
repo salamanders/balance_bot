@@ -1,6 +1,7 @@
 import os
 import time
 import logging
+import contextlib
 from typing import Protocol, runtime_checkable, Any, Optional
 from dataclasses import dataclass
 from collections import deque
@@ -154,15 +155,25 @@ class MPU6050Adapter:
         :param sensor_instance: Instance of mpu6050 class.
         """
         self.sensor = sensor_instance
+        # Open /dev/null once for the lifecycle of the adapter
+        # This avoids opening/closing files 200 times a second in the 100Hz control loop
+        self._devnull = open(os.devnull, 'w')
+
+    def __del__(self):
+        """Cleanup the file handle when the adapter is destroyed."""
+        if hasattr(self, '_devnull') and not self._devnull.closed:
+            self._devnull.close()
 
     def get_accel_data(self) -> glm.vec3:
         """Get accelerometer data."""
-        d = self.sensor.get_accel_data()
+        with contextlib.redirect_stdout(self._devnull):
+            d = self.sensor.get_accel_data()
         return glm.vec3(d["x"], d["y"], d["z"])
 
     def get_gyro_data(self) -> glm.vec3:
         """Get gyroscope data."""
-        d = self.sensor.get_gyro_data()
+        with contextlib.redirect_stdout(self._devnull):
+            d = self.sensor.get_gyro_data()
         return glm.vec3(d["x"], d["y"], d["z"])
 
 
@@ -348,7 +359,7 @@ class RobotHardware:
             if self._imu_consecutive_errors > self.hw_config.imu_max_retries:
                 logger.error(f"IMU Failed {self._imu_consecutive_errors} times in a row. Returning cached data indefinitely to avoid fatal crash.")
             else:
-                logger.warning(f"IMU Glitch ({self._imu_consecutive_errors}/{self.hw_config.imu_max_retries}). Using cached data.")
+                logger.debug(f"IMU Glitch ({self._imu_consecutive_errors}/{self.hw_config.imu_max_retries}). Using cached data.")
             # Return the last known good values to survive the tick
             return self._last_accel, self._last_gyro
 
