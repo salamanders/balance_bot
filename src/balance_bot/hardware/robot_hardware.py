@@ -2,6 +2,7 @@ import os
 import time
 import logging
 import contextlib
+from functools import cached_property
 from typing import Protocol, runtime_checkable, Any, Optional
 from dataclasses import dataclass
 from collections import deque
@@ -54,19 +55,19 @@ class MeasureResult:
     duration: float
     samples: list[IMUReading]
 
-    @property
+    @cached_property
     def avg_yaw_rate(self) -> float:
         if not self.samples:
             return 0.0
         return sum(s.yaw_rate for s in self.samples) / len(self.samples)
 
-    @property
+    @cached_property
     def abs_avg_yaw_rate(self) -> float:
         if not self.samples:
             return 0.0
         return sum(abs(s.yaw_rate) for s in self.samples) / len(self.samples)
 
-    @property
+    @cached_property
     def max_rate(self) -> float:
         if not self.samples:
             return 0.0
@@ -75,7 +76,7 @@ class MeasureResult:
             for s in self.samples
         )
 
-    @property
+    @cached_property
     def final_pitch(self) -> float:
         if not self.samples:
             return 0.0
