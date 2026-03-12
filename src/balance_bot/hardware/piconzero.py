@@ -83,8 +83,10 @@ class PiconZero:
 
     def stop(self) -> None:
         """Stop all motors immediately."""
-        self.set_motor(0, 0)
-        self.set_motor(1, 0)
+        for _ in range(3):
+            self.set_motor(0, 0)
+            self.set_motor(1, 0)
+            time.sleep(0.005)
 
     def set_retries(self, retries: int) -> None:
         """Set the number of I2C retries."""
