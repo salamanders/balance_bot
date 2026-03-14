@@ -29,12 +29,12 @@ def _run_discovery(watchdog: SurvivalWatchdog) -> None:
     print("Incomplete knowledge detected. Initiating Discovery...")
     from .discovery.pipeline import SelfDiscoveryPipeline
     from .discovery import (
-        DiscoverBusesStep, HardwareInitStep, ManualLeanCalibrationStep, FrictionThresholdStep,
+        DiscoverBusesStep, HardwareInitStep, ManualLeanCalibrationStep, BrokenWireCheckStep, FrictionThresholdStep,
         DeriveKinematicsStep, MotorTrimStep, MechanicalBacklashStep, KickupDynamicsStep
     )
 
     steps = [
-        DiscoverBusesStep(), HardwareInitStep(), ManualLeanCalibrationStep(), FrictionThresholdStep(),
+        DiscoverBusesStep(), HardwareInitStep(), ManualLeanCalibrationStep(), BrokenWireCheckStep(), FrictionThresholdStep(),
         DeriveKinematicsStep(), MotorTrimStep(), MechanicalBacklashStep(), KickupDynamicsStep()
     ]
     pipeline = SelfDiscoveryPipeline(steps, watchdog)

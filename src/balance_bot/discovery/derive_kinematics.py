@@ -1,6 +1,6 @@
 import time
 import logging
-from typing import Tuple, Dict, Any, List, Optional
+from typing import Tuple, Dict, Any, List
 import glm
 
 from .step import CalibrationStep, StepStatus
