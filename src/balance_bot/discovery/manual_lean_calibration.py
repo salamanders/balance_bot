@@ -32,10 +32,10 @@ class ManualLeanCalibrationStep(CalibrationStep):
             for _ in range(num_samples):
                 if hw.watchdog:
                     hw.watchdog.heartbeat()
-                reading = hw.sensor.read_imu()
-                samples[Axis.X].append(reading.accel_x)
-                samples[Axis.Y].append(reading.accel_y)
-                samples[Axis.Z].append(reading.accel_z)
+                accel, gyro = hw.read_imu_raw()
+                samples[Axis.X].append(accel.x)
+                samples[Axis.Y].append(accel.y)
+                samples[Axis.Z].append(accel.z)
                 time.sleep(delay)
             return {
                 Axis.X: sum(samples[Axis.X]) / num_samples,
@@ -47,10 +47,10 @@ class ManualLeanCalibrationStep(CalibrationStep):
             while True:
                 if hw.watchdog:
                     hw.watchdog.heartbeat()
-                current_reading = hw.sensor.read_imu()
-                diff_x = abs(current_reading.accel_x - initial_readings[Axis.X])
-                diff_y = abs(current_reading.accel_y - initial_readings[Axis.Y])
-                diff_z = abs(current_reading.accel_z - initial_readings[Axis.Z])
+                current_accel, current_gyro = hw.read_imu_raw()
+                diff_x = abs(current_accel.x - initial_readings[Axis.X])
+                diff_y = abs(current_accel.y - initial_readings[Axis.Y])
+                diff_z = abs(current_accel.z - initial_readings[Axis.Z])
 
                 if diff_x > threshold or diff_y > threshold or diff_z > threshold:
                     logger.info("   Movement detected. Waiting for it to settle...")
