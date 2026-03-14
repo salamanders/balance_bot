@@ -15,7 +15,7 @@ class ManualLeanCalibrationStep(CalibrationStep):
         return "Manual Lean Calibration (Determine Axes & Balance Range)"
 
     def is_verified(self, state: LearningState) -> bool:
-        return state.axes_verified and state.balance_range_verified
+        return state.manual_lean_verified
 
     def run(self, hw: RobotHardware, config: HardwareConfig, state: LearningState) -> Tuple[StepStatus, Dict[str, Any], Dict[str, Any]]:
         logger.info("========================================")
@@ -106,6 +106,5 @@ class ManualLeanCalibrationStep(CalibrationStep):
             'max_tilt_back': max_tilt_back,
             'max_tilt_front': max_tilt_front
         }, {
-            'axes_verified': True,
-            'balance_range_verified': True
+            'manual_lean_verified': True
         }
