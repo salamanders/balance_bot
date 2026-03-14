@@ -1,0 +1,19 @@
+--- tests/test_utils.py
++++ tests/test_utils.py
+@@ -10,6 +10,7 @@
+ from balance_bot.telemetry import TelemetryBlackbox
+ from balance_bot.enums import Axis
+ from balance_bot.utils import (
++    check_force_calibration_flag,
+     get_i2c_failure_report,
+     find_threshold,
+     analyze_dominance,
+@@ -171,8 +172,6 @@
+             time.sleep(1.0)
+             assert len(handler.buffer) == 0
+
+-from balance_bot.utils import check_force_calibration_flag
+-
+ @patch("balance_bot.utils.Path.exists")
+ @patch("balance_bot.utils.Path.unlink")
+ def test_check_force_calibration_flag_exists(mock_unlink, mock_exists):

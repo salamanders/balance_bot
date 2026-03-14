@@ -1,0 +1,10 @@
+--- test_utils.py
++++ test_utils.py
+@@ -10,6 +10,7 @@
+ from balance_bot.telemetry import TelemetryBlackbox
+ from balance_bot.enums import Axis
+ from balance_bot.utils import (
++    check_force_calibration_flag,
+     get_i2c_failure_report,
+     find_threshold,
+     analyze_dominance,
