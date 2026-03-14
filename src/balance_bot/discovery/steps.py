@@ -26,7 +26,7 @@ class DiscoverBusesStep(CalibrationStep):
         return state.i2c_buses_verified
 
     def run(self, hw: RobotHardware, config: HardwareConfig, state: LearningState) -> Tuple[StepStatus, Dict[str, Any], Dict[str, Any]]:
-        print("Scanning I2C Buses...")
+        logger.info("Scanning I2C Buses...")
 
         # 1. Find Motors (0x22)
         check_motor = make_i2c_check_fn(0x22, register=0)
@@ -57,23 +57,23 @@ class HardwareInitStep(CalibrationStep):
         return state.hardware_init_verified
 
     def run(self, hw: RobotHardware, config: HardwareConfig, state: LearningState) -> Tuple[StepStatus, Dict[str, Any], Dict[str, Any]]:
-        print("Initializing Hardware Drivers...")
+        logger.info("Initializing Hardware Drivers...")
         # Force driver initialization now that buses are known
         try:
             hw.initialize_drivers()
         except Exception as e:
-            print(f"  [FAILURE] Driver init raised exception: {e}")
+            logger.error(f"  [FAILURE] Driver init raised exception: {e}")
             return StepStatus.FATAL, {}, {}
 
         # Verify they are alive
         if hw.pz is None or hw.sensor is None:
-            print("  [FAILURE] Drivers failed to initialize despite known buses.")
+            logger.error("  [FAILURE] Drivers failed to initialize despite known buses.")
             return StepStatus.FATAL, {}, {}
 
         try:
             hw.init() # Init the motor driver specifically
         except Exception as e:
-            print(f"  [FAILURE] Motor driver init failed: {e}")
+            logger.error(f"  [FAILURE] Motor driver init failed: {e}")
             return StepStatus.FATAL, {}, {}
 
         return StepStatus.SUCCESS, {}, {'hardware_init_verified': True}
@@ -88,17 +88,17 @@ class ManualLeanCalibrationStep(CalibrationStep):
         return state.manual_lean_verified
 
     def run(self, hw: RobotHardware, config: HardwareConfig, state: LearningState) -> Tuple[StepStatus, Dict[str, Any], Dict[str, Any]]:
-        print("\n>>> User Assisted Lean Calibration <<<")
-        print("Please place the robot on the floor, leaning fully BACKWARDS.")
+        logger.info("\n>>> User Assisted Lean Calibration <<<")
+        logger.info("Please place the robot on the floor, leaning fully BACKWARDS.")
         hw.wait_for_stability(duration=2.0)
 
         # 1. Record Backwards Lean
         back_accel, _ = hw.read_imu_raw()
-        print("Recorded Backwards lean vector.")
+        logger.info("Recorded Backwards lean vector.")
 
         # 2. Wait for user to flop to front
-        print("\nNow, manually flop the robot fully FORWARD.")
-        print("Waiting for movement and stability (>20 degrees difference)...")
+        logger.info("\nNow, manually flop the robot fully FORWARD.")
+        logger.info("Waiting for movement and stability (>20 degrees difference)...")
 
         front_accel = None
         while True:
@@ -124,7 +124,7 @@ class ManualLeanCalibrationStep(CalibrationStep):
                     # Stabilize and take final reading
                     hw.wait_for_stability(duration=2.0)
                     front_accel, _ = hw.read_imu_raw()
-                    print(f"Recorded Front lean vector (Angle Diff: {angle_diff:.1f}°).")
+                    logger.info(f"Recorded Front lean vector (Angle Diff: {angle_diff:.1f}°).")
                     break
             time.sleep(0.1)
 
@@ -137,7 +137,7 @@ class ManualLeanCalibrationStep(CalibrationStep):
             leds.set_led(False)
             time.sleep(0.1)
 
-        print("\n--- IMU Orientation Guess ---")
+        logger.info("\n--- IMU Orientation Guess ---")
 
         # 4. Analyze differences
         accel_diff = front_accel - back_accel
@@ -153,20 +153,20 @@ class ManualLeanCalibrationStep(CalibrationStep):
         sum_dict[fwd_axis] = 0.0
         vert_axis, vert_ratio, _ = analyze_dominance(sum_dict, "Lean Sum (Vertical Axis)")
 
-        print(f"Guess: Forward/Backward Axis = {fwd_axis.upper()} (Ratio: {fwd_ratio:.1f})")
-        print(f"Guess: Vertical (Gravity) Axis = {vert_axis.upper()} (Ratio: {vert_ratio:.1f})")
+        logger.info(f"Guess: Forward/Backward Axis = {fwd_axis.upper()} (Ratio: {fwd_ratio:.1f})")
+        logger.info(f"Guess: Vertical (Gravity) Axis = {vert_axis.upper()} (Ratio: {vert_ratio:.1f})")
 
         # Determine "Down" (gravity)
         # Assuming the robot is roughly upright, the vertical axis should be pointing either UP or DOWN
         vert_val = getattr(accel_sum, vert_axis)
         down_dir = "POSITIVE" if vert_val > 0 else "NEGATIVE"
-        print(f"Guess: 'Down' is {down_dir} on the {vert_axis.upper()} axis.")
+        logger.info(f"Guess: 'Down' is {down_dir} on the {vert_axis.upper()} axis.")
 
         # Balance Point Range
-        print("\n--- Balance Point ---")
-        print("The balance point must lie between these two accelerometer readings:")
-        print(f"  Back:  X:{back_accel.x:.2f} Y:{back_accel.y:.2f} Z:{back_accel.z:.2f}")
-        print(f"  Front: X:{front_accel.x:.2f} Y:{front_accel.y:.2f} Z:{front_accel.z:.2f}")
+        logger.info("\n--- Balance Point ---")
+        logger.info("The balance point must lie between these two accelerometer readings:")
+        logger.info(f"  Back:  X:{back_accel.x:.2f} Y:{back_accel.y:.2f} Z:{back_accel.z:.2f}")
+        logger.info(f"  Front: X:{front_accel.x:.2f} Y:{front_accel.y:.2f} Z:{front_accel.z:.2f}")
 
         # Since we don't know motors yet, we won't fully commit the config,
         # but we can record the baseline state for the next steps.
@@ -183,8 +183,8 @@ class FrictionThresholdStep(CalibrationStep):
         return state.friction_threshold_verified
 
     def run(self, hw: RobotHardware, config: HardwareConfig, state: LearningState) -> Tuple[StepStatus, Dict[str, Any], Dict[str, Any]]:
-        print("\n>>> Finding Minimum Power (Raw) <<<")
-        print("Ensuring robot is on the floor...")
+        logger.info("\n>>> Finding Minimum Power (Raw) <<<")
+        logger.info("Ensuring robot is on the floor...")
 
         self.ignored_commands = 0
         self.gyro_glitches = 0
@@ -208,25 +208,25 @@ class FrictionThresholdStep(CalibrationStep):
 
             if error_count > 0:
                 self.gyro_glitches += error_count
-                print(f"    [GLITCH] Gyro read failed {error_count} times during pulse. Total: {self.gyro_glitches}")
+                logger.warning(f"    [GLITCH] Gyro read failed {error_count} times during pulse. Total: {self.gyro_glitches}")
 
-            print(f"    Max Raw Gyro Magnitude: {max_mag:.1f} deg/s")
+            logger.info(f"    Max Raw Gyro Magnitude: {max_mag:.1f} deg/s")
 
             if max_mag > 15.0:
                 return True
             else:
                 self.ignored_commands += 1
-                print(f"    [IGNORED] Not enough power to move. Ignored Command count: {self.ignored_commands}")
+                logger.warning(f"    [IGNORED] Not enough power to move. Ignored Command count: {self.ignored_commands}")
                 return False
 
         heartbeat_fn = hw.watchdog.heartbeat if hw.watchdog else None
         found = find_threshold("Minimum Power", 0, 5, 100, action, check, heartbeat_fn=heartbeat_fn)
 
-        print(f"\n--- Friction Test Summary ---")
-        print(f"Minimum Power Found: {found}%")
-        print(f"Ignored Commands (Too low power): {self.ignored_commands}")
-        print(f"Gyro Glitches: {self.gyro_glitches}")
-        print("Confidence: 95% (Simple threshold crossed)")
+        logger.info("\n--- Friction Test Summary ---")
+        logger.info(f"Minimum Power Found: {found}%")
+        logger.info(f"Ignored Commands (Too low power): {self.ignored_commands}")
+        logger.info(f"Gyro Glitches: {self.gyro_glitches}")
+        logger.info("Confidence: 95% (Simple threshold crossed)")
 
         if found is None:
             return StepStatus.FATAL, {}, {}
@@ -251,7 +251,7 @@ class DeriveKinematicsStep(CalibrationStep):
 
     def _pulse_and_measure(self, hw: RobotHardware, l_p: float, r_p: float, name: str) -> Tuple[glm.vec3, glm.vec3]:
         """Pulse motors and return average gyro and accel vectors."""
-        print(f"  Pulsing {name}...")
+        logger.info(f"  Pulsing {name}...")
 
         # Ramp up power
         steps = []
@@ -273,24 +273,24 @@ class DeriveKinematicsStep(CalibrationStep):
         time.sleep(1.0) # Settle
 
         if not res.samples:
-             print(f"  [FAILURE] No samples collected for {name} Pulse. Ignored command / System Glitch.")
+             logger.error(f"  [FAILURE] No samples collected for {name} Pulse. Ignored command / System Glitch.")
              return None, None
 
         error_count = sum(s.error_count > 0 for s in res.samples)
         if error_count > 0:
-            print(f"  [GLITCH] Encountered {error_count} IMU errors during {name} pulse.")
+            logger.warning(f"  [GLITCH] Encountered {error_count} IMU errors during {name} pulse.")
 
         gyro = self._avg_vec([s.gyro_raw for s in res.samples if s.gyro_raw])
         accel = self._avg_vec([s.accel_raw for s in res.samples if s.accel_raw])
 
         # Verify if the motor actually moved the robot
         if glm.length(gyro) < 5.0:
-            print(f"  [IGNORED] Command to {name} resulted in <5.0 deg/s rotation. Not enough power or glitch.")
+            logger.warning(f"  [IGNORED] Command to {name} resulted in <5.0 deg/s rotation. Not enough power or glitch.")
 
         return gyro, accel
 
     def run(self, hw: RobotHardware, config: HardwareConfig, state: LearningState) -> Tuple[StepStatus, Dict[str, Any], Dict[str, Any]]:
-        print("\n>>> Deriving Kinematics (Single Wiggle) <<<")
+        logger.info("\n>>> Deriving Kinematics (Single Wiggle) <<<")
         hw.wait_for_stability()
 
         # 0. Baseline (Resting)
@@ -305,7 +305,7 @@ class DeriveKinematicsStep(CalibrationStep):
         l_accel_delta = l_accel - baseline_accel
 
         # Wait for complete physical stability before Right motor test
-        print("  Waiting for stability before pulsing RIGHT Motor...")
+        logger.info("  Waiting for stability before pulsing RIGHT Motor...")
         hw.wait_for_stability()
 
         # 2. Pulse Right Only (+PWM)
@@ -315,7 +315,7 @@ class DeriveKinematicsStep(CalibrationStep):
         r_accel_delta = r_accel - baseline_accel
 
         # --- Phase Alignment ---
-        print("  [Analysis] Checking Motor Phase...")
+        logger.info("  [Analysis] Checking Motor Phase...")
         up_dir = glm.normalize(baseline_accel)
         yaw_mag_sum = abs(glm.dot(l_gyro + r_gyro, up_dir))
         yaw_mag_diff = abs(glm.dot(l_gyro - r_gyro, up_dir))
@@ -323,13 +323,13 @@ class DeriveKinematicsStep(CalibrationStep):
         motor_r_invert = False
 
         if yaw_mag_sum > yaw_mag_diff:
-            print("  -> Phase Mismatch Detected. Inverting Right Motor logic.")
+            logger.info("  -> Phase Mismatch Detected. Inverting Right Motor logic.")
             motor_r_invert = True
             # Flip R vectors to match L for math
             r_gyro = -r_gyro
             r_accel_delta = -r_accel_delta
         else:
-            print("  -> Phase Matched.")
+            logger.info("  -> Phase Matched.")
 
         # --- Pitch & Forward Axis ---
         sum_gyro = l_gyro + r_gyro
@@ -365,7 +365,7 @@ class DeriveKinematicsStep(CalibrationStep):
         accel_vertical_invert = vert_val < 0
 
         # --- Yaw & L/R Identity ---
-        print("  [Analysis] Checking L/R Identity...")
+        logger.info("  [Analysis] Checking L/R Identity...")
         # Yaw Axis: Dominant axis of (L_gyro_raw - R_gyro_raw) ?
         # Or just use Vertical Axis (Z)? Usually Yaw is around Vertical.
         # Let's use Vertical Axis as Yaw Axis.
@@ -378,14 +378,14 @@ class DeriveKinematicsStep(CalibrationStep):
         yaw_diff = l_gyro - r_gyro
 
         check_val = glm.dot(yaw_diff, raw_up)
-        print(f"    Yaw Check Dot Product: {check_val:.2f}")
+        logger.info(f"    Yaw Check Dot Product: {check_val:.2f}")
 
         swap_motors = False
         if check_val > 0:
-            print("  -> Yaw Direction Opposite. Motors are physically swapped.")
+            logger.info("  -> Yaw Direction Opposite. Motors are physically swapped.")
             swap_motors = True
         else:
-            print("  -> Yaw Direction Correct.")
+            logger.info("  -> Yaw Direction Correct.")
 
         # --- Calculate Yaw Invert ---
         raw_yaw_val = getattr(l_gyro, gyro_yaw_axis)
@@ -396,11 +396,11 @@ class DeriveKinematicsStep(CalibrationStep):
             # l_gyro was physically a RIGHT turn. We expect the mapped Yaw to be Negative.
             gyro_yaw_invert = raw_yaw_val > 0
 
-        print("\n--- Discovery Confidence Summary ---")
-        print(f"Motor Phase Match Confidence: High (Based on Sum > Diff)")
-        print(f"Pitch Axis Guess: {pitch_axis_name.upper()} Confidence: High (Based on Gyro Dominance)")
-        print(f"Forward Axis Guess: {fwd_axis_name.upper()} Confidence: Medium (Based on Accel Change)")
-        print(f"L/R Identity Match Confidence: High (Yaw cross product)")
+        logger.info("\n--- Discovery Confidence Summary ---")
+        logger.info("Motor Phase Match Confidence: High (Based on Sum > Diff)")
+        logger.info(f"Pitch Axis Guess: {pitch_axis_name.upper()} Confidence: High (Based on Gyro Dominance)")
+        logger.info(f"Forward Axis Guess: {fwd_axis_name.upper()} Confidence: Medium (Based on Accel Change)")
+        logger.info("L/R Identity Match Confidence: High (Yaw cross product)")
 
         # --- Updates ---
         config_updates = {
@@ -501,7 +501,7 @@ class MotorTrimStep(CalibrationStep):
         return steps
 
     def run(self, hw: RobotHardware, config: HardwareConfig, state: LearningState) -> Tuple[StepStatus, Dict[str, Any], Dict[str, Any]]:
-        print(">>> Motor Trim Calibration <<<")
+        logger.info(">>> Motor Trim Calibration <<<")
         hw.wait_for_stability()
 
         best_trim = state.motor_trim
@@ -522,10 +522,10 @@ class MotorTrimStep(CalibrationStep):
             if not res.samples:
                 continue
             avg_yaw = res.avg_yaw_rate
-            print(f"    Trim: {best_trim:.3f}, Drift: {avg_yaw:.2f} d/s")
+            logger.info(f"    Trim: {best_trim:.3f}, Drift: {avg_yaw:.2f} d/s")
 
             if abs(avg_yaw) < 2.0:
-                print("  [SUCCESS] Drift is negligible.")
+                logger.info("  [SUCCESS] Drift is negligible.")
                 return StepStatus.SUCCESS, {}, {'motor_trim': best_trim, 'motor_trim_verified': True}
 
             # Adaptive Correction
@@ -533,7 +533,7 @@ class MotorTrimStep(CalibrationStep):
             correction = avg_yaw * gain
             best_trim = max(-0.4, min(0.4, best_trim + correction))
 
-        print("  [WARNING] Could not perfectly trim. Saving best effort.")
+        logger.warning("  [WARNING] Could not perfectly trim. Saving best effort.")
         return StepStatus.SUCCESS, {}, {'motor_trim': best_trim, 'motor_trim_verified': True}
 
 # --- Step 6: Mechanical Backlash ---
@@ -546,7 +546,7 @@ class MechanicalBacklashStep(CalibrationStep):
         return state.backlash_verified
 
     def run(self, hw: RobotHardware, config: HardwareConfig, state: LearningState) -> Tuple[StepStatus, Dict[str, Any], Dict[str, Any]]:
-        print(">>> Measuring Mechanical Backlash <<<")
+        logger.info(">>> Measuring Mechanical Backlash <<<")
         hw.wait_for_stability(duration=1.0)
 
         test_power = state.min_power_visible + 10
@@ -612,7 +612,7 @@ class MechanicalBacklashStep(CalibrationStep):
 
         hw.stop()
         compensated = max(0.0, slop_time - 0.02)
-        print(f"  Backlash: {compensated:.3f}s")
+        logger.info(f"  Backlash: {compensated:.3f}s")
 
         return StepStatus.SUCCESS, {}, {
             'control': state.control.model_copy(update={'backlash_pulse_time': compensated}),
@@ -640,7 +640,7 @@ class KickupDynamicsStep(CalibrationStep):
         """Helper to force the robot into a specific posture (+1 for BACK, -1 for FRONT)."""
         target_name = "BACK" if target_sign > 0 else "FRONT"
 
-        print(f"  [Posture Check] Verifying initial physical state before trying to flop {target_name}...")
+        logger.info(f"  [Posture Check] Verifying initial physical state before trying to flop {target_name}...")
         hw.wait_for_stability(1.0)
 
         # Take multiple readings to be absolutely sure we're not just bouncing
@@ -652,25 +652,25 @@ class KickupDynamicsStep(CalibrationStep):
         avg_pitch = sum(samples) / len(samples)
         pitch_variance = max(samples) - min(samples)
 
-        print(f"  [Posture Check] Measured average pitch: {avg_pitch:.1f}° (Variance: {pitch_variance:.1f}°)")
+        logger.info(f"  [Posture Check] Measured average pitch: {avg_pitch:.1f}° (Variance: {pitch_variance:.1f}°)")
 
         # Define a high-confidence resting threshold (e.g. resting on bumpers usually means > 30 degrees)
         RESTING_THRESHOLD = 25.0
 
         # Check if we are already securely flopped in the correct direction
         if target_sign > 0 and avg_pitch < -RESTING_THRESHOLD and pitch_variance < 5.0:
-            print(f"  [Posture Check] I am REALLY sure I'm on my BACK. I know this because stable pitch is {avg_pitch:.1f}° (Threshold is < -{RESTING_THRESHOLD}°). No flop needed.")
+            logger.info(f"  [Posture Check] I am REALLY sure I'm on my BACK. I know this because stable pitch is {avg_pitch:.1f}° (Threshold is < -{RESTING_THRESHOLD}°). No flop needed.")
             return
         elif target_sign < 0 and avg_pitch > RESTING_THRESHOLD and pitch_variance < 5.0:
-            print(f"  [Posture Check] I am REALLY sure I'm on my FRONT. I know this because stable pitch is {avg_pitch:.1f}° (Threshold is > {RESTING_THRESHOLD}°). No flop needed.")
+            logger.info(f"  [Posture Check] I am REALLY sure I'm on my FRONT. I know this because stable pitch is {avg_pitch:.1f}° (Threshold is > {RESTING_THRESHOLD}°). No flop needed.")
             return
 
-        print(f"  [Posture Check] Current pitch is {avg_pitch:.1f}°. Need to actively flop to {target_name}. Initiating maneuver...")
+        logger.info(f"  [Posture Check] Current pitch is {avg_pitch:.1f}°. Need to actively flop to {target_name}. Initiating maneuver...")
 
         # Increment power until we reach max_power
         p = base_power
         while p <= 100:
-            print(f"  Flop to {target_name} (Power {p:.0f}%)...")
+            logger.info(f"  Flop to {target_name} (Power {p:.0f}%)...")
             motor_p = p * target_sign
 
             # Ramp
@@ -700,15 +700,15 @@ class KickupDynamicsStep(CalibrationStep):
 
             # Keep the old, less strict bounds for the actual flop attempt just to detect if we successfully passed the 0 degree point
             if target_sign > 0 and avg_pitch_post < -10:
-                print(f"  [Posture Check] Flop successful. Settled at {avg_pitch_post:.1f}°")
+                logger.info(f"  [Posture Check] Flop successful. Settled at {avg_pitch_post:.1f}°")
                 return
             if target_sign < 0 and avg_pitch_post > 10:
-                print(f"  [Posture Check] Flop successful. Settled at {avg_pitch_post:.1f}°")
+                logger.info(f"  [Posture Check] Flop successful. Settled at {avg_pitch_post:.1f}°")
                 return
 
             # Revert movement to avoid hitting walls
-            print("  [Posture Check] Flop failed. Reversing to start position...")
-            reverse_steps = [(-l, -r, d) for l, r, d in steps]
+            logger.info("  [Posture Check] Flop failed. Reversing to start position...")
+            reverse_steps = [(-l_p, -r_p, d) for l_p, r_p, d in steps]
             hw.execute_maneuver(reverse_steps)
             hw.wait_for_stability(1.0)
 
@@ -778,7 +778,7 @@ class KickupDynamicsStep(CalibrationStep):
                                heartbeat_fn=hw.watchdog.heartbeat if hw.watchdog else None)
 
     def run(self, hw: RobotHardware, config: HardwareConfig, state: LearningState) -> Tuple[StepStatus, Dict[str, Any], Dict[str, Any]]:
-        print(">>> Dynamic Kick-Up Calibration <<<")
+        logger.info(">>> Dynamic Kick-Up Calibration <<<")
 
         fwd = self._run_kickup_test(hw, state, 1.0) # Kickup Forward (from Back, +1)
         if fwd is None:

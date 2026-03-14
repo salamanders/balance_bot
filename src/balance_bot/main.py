@@ -103,10 +103,11 @@ def _handle_crash_reporting(e: Exception, bot_instance: Agent | None = None) -> 
 
 def main() -> None:
     """Entry point for the robot control application."""
-    # Ensure logging is set up early to capture imports/startup
-    setup_logging()
-
     args = parse_args()
+
+    # Ensure logging is set up early to capture imports/startup
+    # Redirect stdout and stderr to the logger if --auto-fix is enabled
+    setup_logging(capture_stdout=args.auto_fix)
 
     # Handle Mock Fallback Flag
     if args.allow_mocks:

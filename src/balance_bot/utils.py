@@ -186,10 +186,26 @@ def calculate_pitch(accel_y: float, accel_z: float) -> float:
     return math.degrees(math.atan2(accel_y, accel_z))
 
 
-def setup_logging(level: int = logging.INFO) -> None:
+class StdOutToLog(object):
+    """File-like object that redirects writes to a logger."""
+    def __init__(self, logger, level):
+        self.logger = logger
+        self.level = level
+        self.buffer = ""
+
+    def write(self, message):
+        if message != '\n':
+            self.logger.log(self.level, message.rstrip())
+
+    def flush(self):
+        pass
+
+
+def setup_logging(level: int = logging.INFO, capture_stdout: bool = False) -> None:
     """
     Configure standard logging format.
     :param level: Logging verbosity (default INFO).
+    :param capture_stdout: If True, redirect stdout and stderr to logging.
     """
     global _CAPTURE_HANDLER
     logging.basicConfig(
@@ -203,6 +219,10 @@ def setup_logging(level: int = logging.INFO) -> None:
     if _CAPTURE_HANDLER is None:
         _CAPTURE_HANDLER = LogCaptureHandler()
         root.addHandler(_CAPTURE_HANDLER)
+
+    if capture_stdout:
+        sys.stdout = StdOutToLog(logging.getLogger("STDOUT"), logging.INFO)
+        sys.stderr = StdOutToLog(logging.getLogger("STDERR"), logging.ERROR)
 
 
 def get_captured_logs() -> str:
@@ -254,26 +274,26 @@ def analyze_dominance(
 
     ratio = abs(winner_val) / (abs(runner_val) + 1e-9)
 
-    print(
+    logger.info(
         f"   [Analysis] {label}: Winner={winner.upper()} ({abs(winner_val):.2f}) vs Runner={runner.upper()} ({abs(runner_val):.2f}) -> Ratio: {ratio:.1f}"
     )
 
     success = True
 
     if expected_axis and winner != expected_axis:
-        print(
+        logger.error(
             f"   [FAILURE] Expected {expected_axis.upper()} to be dominant, but {winner.upper()} won!"
         )
         success = False
 
     if ratio < threshold:
-        print(f"   [WARNING] Ambiguous Result! Ratio {ratio:.1f} < {threshold}")
+        logger.warning(f"   [WARNING] Ambiguous Result! Ratio {ratio:.1f} < {threshold}")
         success = False
         if not expected_axis:
-            print("   The detected axis is not significantly stronger than others.")
+            logger.info("   The detected axis is not significantly stronger than others.")
 
     if success:
-        print(f"   [PASS] Strong signal for {label}.")
+        logger.info(f"   [PASS] Strong signal for {label}.")
 
     return winner, ratio, success
 
@@ -352,7 +372,7 @@ def scan_i2c_candidates(name: str, check_fn: Callable[[Any], bool]) -> int | Non
             bus = smbus.SMBus(bus_id)
             try:
                 if check_fn(bus):
-                    print(f"  [FOUND] {name} on Bus {bus_id}")
+                    logger.info(f"  [FOUND] {name} on Bus {bus_id}")
                     return bus_id
             except OSError:
                 pass
@@ -373,18 +393,18 @@ def scan_i2c(name: str, check_fn: Callable[[Any], bool]) -> Optional[int]:
     """
     bus = scan_i2c_candidates(name, check_fn)
     if bus is None:
-        print(f"  [FAILURE] Could not find {name} on any bus.")
+        logger.error(f"  [FAILURE] Could not find {name} on any bus.")
 
         # Use improved diagnostics for the likely bus (1 or 3)
         # Default to checking both or giving a hint
-        print("  [DIAGNOSTIC] Analyzing potential causes...")
+        logger.info("  [DIAGNOSTIC] Analyzing potential causes...")
         # We don't know the address here easily unless passed, but we can guess based on name
         addr = 0x22 if "PiconZero" in name else 0x68
 
         # Check likely buses
         for b in [1, 3]:
-            print(f"  --- Bus {b} Report ---")
-            print(get_i2c_failure_report(b, addr, name))
+            logger.info(f"  --- Bus {b} Report ---")
+            logger.info(get_i2c_failure_report(b, addr, name))
 
         return None
     return bus
@@ -398,23 +418,23 @@ def verify_with_retries(name: str, test_fn: Callable[[int], Any],
     or a string "FAIL_FATAL" / "FAIL_RETRY".
     Returns True if verified, False if failed.
     """
-    print(f">>> Verifying {name} <<<")
+    logger.info(f">>> Verifying {name} <<<")
     for i in range(max_attempts):
-        print(f"  [Attempt {i+1}] Checking {name}...")
+        logger.info(f"  [Attempt {i+1}] Checking {name}...")
         result = test_fn(i)
 
         outcome = check_fn(result)
         if outcome is True or outcome == "PASS":
-            print(f"  [SUCCESS] {name} Verified.")
+            logger.info(f"  [SUCCESS] {name} Verified.")
             return True
 
         if outcome == "FAIL_FATAL":
             break
 
         # If outcome is False or "FAIL_RETRY", loop continues
-        print(f"  [RETRY] {name} check failed/ambiguous.")
+        logger.info(f"  [RETRY] {name} check failed/ambiguous.")
 
-    print(f"  [FAILURE] Could not verify {name} after {max_attempts} attempts.")
+    logger.error(f"  [FAILURE] Could not verify {name} after {max_attempts} attempts.")
     return False
 
 def find_threshold(name: str, start: float, step: float, limit: float,
@@ -428,17 +448,17 @@ def find_threshold(name: str, start: float, step: float, limit: float,
     heartbeat_fn: Optional callback to keep watchdog alive.
     Returns the found value, or None if failed.
     """
-    print(f">>> Finding Threshold: {name} <<<")
+    logger.info(f">>> Finding Threshold: {name} <<<")
     val = start
     while val <= limit:
         if heartbeat_fn:
             heartbeat_fn()
 
-        print(f"  Testing {val}...")
+        logger.info(f"  Testing {val}...")
         result = action_fn(val)
 
         if check_fn(result):
-            print(f"  [FOUND] {name} at {val}.")
+            logger.info(f"  [FOUND] {name} at {val}.")
             return val
 
         retry_same = False
@@ -448,7 +468,7 @@ def find_threshold(name: str, start: float, step: float, limit: float,
         if not retry_same:
             val += step
 
-    print(f"  [FAILURE] Could not find {name} within limit {limit}.")
+    logger.error(f"  [FAILURE] Could not find {name} within limit {limit}.")
     return None
 
 
