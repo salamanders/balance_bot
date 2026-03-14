@@ -6,6 +6,7 @@ from balance_bot.discovery.step import StepStatus
 from balance_bot.discovery.discover_buses import DiscoverBusesStep
 from balance_bot.discovery.hardware_init import HardwareInitStep
 from balance_bot.discovery.manual_lean_calibration import ManualLeanCalibrationStep
+from balance_bot.discovery.broken_wire_check import BrokenWireCheckStep
 from balance_bot.discovery.friction_threshold import FrictionThresholdStep
 from balance_bot.discovery.derive_kinematics import DeriveKinematicsStep
 from balance_bot.discovery.mechanical_backlash import MechanicalBacklashStep
@@ -52,9 +53,12 @@ def test_hardware_init_step():
     assert_updates_valid(config_updates, state_updates)
 
 def test_manual_lean_calibration_step(monkeypatch):
-    def mock_analyze_dominance(back, front):
-        from balance_bot.enums import Axis
-        return Axis.Y, 1, Axis.Z, 1
+    def mock_analyze_dominance(readings, label):
+        # analyze_dominance returns (str, float, bool)
+        if "Vertical" in label:
+            return "y", 9.8, True
+        else:
+            return "z", 0.5, True
 
     monkeypatch.setattr("balance_bot.utils.analyze_dominance", mock_analyze_dominance)
 
@@ -69,29 +73,26 @@ def test_manual_lean_calibration_step(monkeypatch):
     # We'll mock the whole time.sleep to avoid hanging
     monkeypatch.setattr("time.sleep", lambda x: None)
 
-    # Create an IMUReading mock
-    imu_mock_back = MagicMock()
-    imu_mock_back.accel_x = 0.0
-    imu_mock_back.accel_y = 9.8
-    imu_mock_back.accel_z = 0.5
+    import glm
 
-    imu_mock_flop = MagicMock()
-    imu_mock_flop.accel_x = 0.0
-    imu_mock_flop.accel_y = -9.8
-    imu_mock_flop.accel_z = -0.5
+    accel_back = glm.vec3(0.0, 9.8, 0.5)
+    gyro_back = glm.vec3(0.0, 0.0, 0.0)
+
+    accel_flop = glm.vec3(0.0, -9.8, -0.5)
+    gyro_flop = glm.vec3(0.0, 0.0, 0.0)
 
     reading_index = [0]
-    def read_imu_mock():
+    def read_imu_raw_mock():
         reading_index[0] += 1
         if reading_index[0] <= 10:
-            return imu_mock_back
+            return accel_back, gyro_back
         elif reading_index[0] <= 11:
             # First flop reading that triggers the wait
-            return imu_mock_flop
+            return accel_flop, gyro_flop
         else:
-            return imu_mock_flop
+            return accel_flop, gyro_flop
 
-    hw_mock.sensor.read_imu = read_imu_mock
+    hw_mock.read_imu_raw = read_imu_raw_mock
 
     step = ManualLeanCalibrationStep()
     status, config_updates, state_updates = step.run(hw_mock, HardwareConfig(), LearningState())
@@ -99,6 +100,29 @@ def test_manual_lean_calibration_step(monkeypatch):
     # If the mock logic works, we check updates
     if status == StepStatus.SUCCESS:
         assert_updates_valid(config_updates, state_updates)
+
+def test_broken_wire_check_step(monkeypatch):
+    import glm
+
+    # Mock execute_maneuver to return samples that have max_mag > 10.0
+    hw_mock = MagicMock()
+
+    mock_sample = MagicMock()
+    mock_sample.error_count = 0
+    mock_sample.gyro_raw = glm.vec3(15.0, 0, 0)
+
+    mock_res = MagicMock()
+    mock_res.samples = [mock_sample]
+
+    hw_mock.execute_maneuver.return_value = mock_res
+
+    # Mock sleep to run fast
+    monkeypatch.setattr("time.sleep", lambda x: None)
+
+    step = BrokenWireCheckStep()
+    status, config_updates, state_updates = step.run(hw_mock, HardwareConfig(), LearningState())
+    assert status == StepStatus.SUCCESS
+    assert_updates_valid(config_updates, state_updates)
 
 def test_friction_threshold_step(monkeypatch):
     monkeypatch.setattr("balance_bot.discovery.friction_threshold.find_threshold", lambda *args, **kwargs: 25)

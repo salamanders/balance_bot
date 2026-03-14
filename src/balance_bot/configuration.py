@@ -202,6 +202,7 @@ class LearningState(BaseModel):
     i2c_buses_verified: bool = False
     hardware_init_verified: bool = False
     manual_lean_verified: bool = False
+    broken_wire_verified: bool = False
     friction_threshold_verified: bool = False
     spatial_orientation_verified: bool = False
     motor_direction_verified: bool = False
