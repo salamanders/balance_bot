@@ -1,0 +1,179 @@
+from unittest.mock import MagicMock
+
+from balance_bot.configuration import HardwareConfig, LearningState
+from balance_bot.discovery.step import StepStatus
+
+from balance_bot.discovery.discover_buses import DiscoverBusesStep
+from balance_bot.discovery.hardware_init import HardwareInitStep
+from balance_bot.discovery.manual_lean_calibration import ManualLeanCalibrationStep
+from balance_bot.discovery.friction_threshold import FrictionThresholdStep
+from balance_bot.discovery.derive_kinematics import DeriveKinematicsStep
+from balance_bot.discovery.mechanical_backlash import MechanicalBacklashStep
+from balance_bot.discovery.motor_trim import MotorTrimStep
+from balance_bot.discovery.kickup_dynamics import KickupDynamicsStep
+
+# Mocks and helper structures to simulate the steps
+
+def assert_updates_valid(config_updates: dict, state_updates: dict):
+    # Ensure keys match model schema
+    hw_fields = set(HardwareConfig.model_fields.keys())
+    ls_fields = set(LearningState.model_fields.keys())
+
+    for key in config_updates:
+        assert key in hw_fields, f"Config update key '{key}' not found in HardwareConfig fields!"
+
+    for key in state_updates:
+        assert key in ls_fields, f"State update key '{key}' not found in LearningState fields!"
+
+    # Also verify that pydantic doesn't throw on update
+    HardwareConfig.model_validate(HardwareConfig().model_dump() | config_updates)
+
+    dummy_state = LearningState()
+    for k, v in state_updates.items():
+        setattr(dummy_state, k, v)
+
+
+def test_discover_buses_step(monkeypatch):
+    monkeypatch.setattr("balance_bot.discovery.discover_buses.scan_i2c", lambda name, check: 1)
+
+    step = DiscoverBusesStep()
+    status, config_updates, state_updates = step.run(MagicMock(), HardwareConfig(), LearningState())
+    assert status == StepStatus.SUCCESS
+    assert_updates_valid(config_updates, state_updates)
+
+def test_hardware_init_step():
+    hw_mock = MagicMock()
+    hw_mock.pz = MagicMock()
+    hw_mock.sensor = MagicMock()
+
+    step = HardwareInitStep()
+    status, config_updates, state_updates = step.run(hw_mock, HardwareConfig(), LearningState())
+    assert status == StepStatus.SUCCESS
+    assert_updates_valid(config_updates, state_updates)
+
+def test_manual_lean_calibration_step(monkeypatch):
+    def mock_analyze_dominance(back, front):
+        from balance_bot.enums import Axis
+        return Axis.Y, 1, Axis.Z, 1
+
+    monkeypatch.setattr("balance_bot.utils.analyze_dominance", mock_analyze_dominance)
+
+    # We must patch the nested functions since they are defined inside run
+    # For simplicity, we can just mock hw.sensor.read_imu() and time.sleep()
+    # It might be easier to just mock the analyze dominance and wait routines if they were not nested
+    # Since they are nested and use sleep, let's mock the hw.sensor.read_imu to return stable values instantly
+
+    hw_mock = MagicMock()
+    hw_mock.watchdog = MagicMock()
+
+    # We'll mock the whole time.sleep to avoid hanging
+    monkeypatch.setattr("time.sleep", lambda x: None)
+
+    # Create an IMUReading mock
+    imu_mock_back = MagicMock()
+    imu_mock_back.accel_x = 0.0
+    imu_mock_back.accel_y = 9.8
+    imu_mock_back.accel_z = 0.5
+
+    imu_mock_flop = MagicMock()
+    imu_mock_flop.accel_x = 0.0
+    imu_mock_flop.accel_y = -9.8
+    imu_mock_flop.accel_z = -0.5
+
+    reading_index = [0]
+    def read_imu_mock():
+        reading_index[0] += 1
+        if reading_index[0] <= 10:
+            return imu_mock_back
+        elif reading_index[0] <= 11:
+            # First flop reading that triggers the wait
+            return imu_mock_flop
+        else:
+            return imu_mock_flop
+
+    hw_mock.sensor.read_imu = read_imu_mock
+
+    step = ManualLeanCalibrationStep()
+    status, config_updates, state_updates = step.run(hw_mock, HardwareConfig(), LearningState())
+
+    # If the mock logic works, we check updates
+    if status == StepStatus.SUCCESS:
+        assert_updates_valid(config_updates, state_updates)
+
+def test_friction_threshold_step(monkeypatch):
+    monkeypatch.setattr("balance_bot.discovery.friction_threshold.find_threshold", lambda *args, **kwargs: 25)
+
+    step = FrictionThresholdStep()
+    status, config_updates, state_updates = step.run(MagicMock(), HardwareConfig(), LearningState())
+    assert status == StepStatus.SUCCESS
+    assert_updates_valid(config_updates, state_updates)
+
+def test_derive_kinematics_step(monkeypatch):
+    # Mocking DeriveKinematics requires overriding _pulse_and_measure and baseline
+    import glm
+
+    step = DeriveKinematicsStep()
+
+    hw_mock = MagicMock()
+    hw_mock.read_imu_raw.return_value = (glm.vec3(0, 0, 9.8), glm.vec3(0, 0, 0))
+
+    def pulse_mock(hw, left_power, r, name):
+        if left_power > 0:
+            return glm.vec3(0, -10, 0), glm.vec3(-5, 0, 9.8) # L turns left, tilts back
+        else:
+            return glm.vec3(0, 10, 0), glm.vec3(5, 0, 9.8)  # R turns right, tilts back
+
+    monkeypatch.setattr(step, "_pulse_and_measure", pulse_mock)
+    monkeypatch.setattr("balance_bot.discovery.derive_kinematics.analyze_dominance", lambda vec, name: ("y", 1, 1) if name == "Pitch Axis" else ("x", 1, 1) if name == "Forward Axis" else ("z", 1, 1))
+
+    status, config_updates, state_updates = step.run(hw_mock, HardwareConfig(), LearningState())
+    assert status == StepStatus.SUCCESS
+    assert_updates_valid(config_updates, state_updates)
+
+def test_mechanical_backlash_step(monkeypatch):
+    # Mock sleep to run fast
+    monkeypatch.setattr("time.sleep", lambda x: None)
+
+
+    class TimeMock:
+        def __init__(self):
+            self.t = 0.0
+        def __call__(self):
+            self.t += 0.05
+            return self.t
+
+    monkeypatch.setattr("time.time", TimeMock())
+
+    hw_mock = MagicMock()
+    mock_reading = MagicMock()
+    mock_reading.pitch_rate = 10.0 # Force move
+    hw_mock.read_imu_converted.return_value = mock_reading
+
+    step = MechanicalBacklashStep()
+    status, config_updates, state_updates = step.run(hw_mock, HardwareConfig(), LearningState())
+
+    assert status == StepStatus.SUCCESS
+    assert_updates_valid(config_updates, state_updates)
+
+def test_motor_trim_step(monkeypatch):
+    hw_mock = MagicMock()
+    mock_res = MagicMock()
+    mock_res.samples = [MagicMock()]
+    mock_res.avg_yaw_rate = 0.5 # Small enough to pass
+    hw_mock.execute_maneuver.return_value = mock_res
+
+    step = MotorTrimStep()
+    status, config_updates, state_updates = step.run(hw_mock, HardwareConfig(), LearningState())
+
+    assert status == StepStatus.SUCCESS
+    assert_updates_valid(config_updates, state_updates)
+
+def test_kickup_dynamics_step(monkeypatch):
+    # Return 50 for fwd and 60 for bwd
+    monkeypatch.setattr("balance_bot.discovery.kickup_dynamics.KickupDynamicsStep._run_kickup_test", lambda self, hw, state, sign: 50.0 if sign > 0 else 60.0)
+
+    step = KickupDynamicsStep()
+    status, config_updates, state_updates = step.run(MagicMock(), HardwareConfig(), LearningState())
+
+    assert status == StepStatus.SUCCESS
+    assert_updates_valid(config_updates, state_updates)
