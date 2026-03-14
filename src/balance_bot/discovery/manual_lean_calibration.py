@@ -99,12 +99,12 @@ class ManualLeanCalibrationStep(CalibrationStep):
         logger.info(f"  Estimated Max Tilt: Back {max_tilt_back:.1f}°, Front {max_tilt_front:.1f}°")
 
         return StepStatus.SUCCESS, {
-            'imu_vertical_axis': vert_axis,
-            'imu_vertical_dir': vert_dir,
-            'imu_forward_axis': fwd_axis,
-            'imu_forward_dir': fwd_dir,
-            'max_tilt_back': max_tilt_back,
-            'max_tilt_front': max_tilt_front
+            'accel_vertical_axis': vert_axis,
+            'accel_vertical_invert': vert_dir < 0,
+            'accel_forward_axis': fwd_axis,
+            'accel_forward_invert': fwd_dir < 0,
         }, {
+            'rest_angle_backward': max_tilt_back,
+            'rest_angle_forward': max_tilt_front,
             'manual_lean_verified': True
         }
