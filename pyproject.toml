@@ -10,6 +10,10 @@ dependencies = [
     "simple-pid>=2.0.1",
     "PyGLM>=2.7.0",
     "smbus2",
+]
+
+[project.optional-dependencies]
+sim = [
     "pybullet>=3.2.7",
     "gymnasium>=1.2.3",
 ]

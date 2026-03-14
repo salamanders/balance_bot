@@ -16,13 +16,17 @@ name = "balance-bot"
 version = "0.1.0"
 source = { editable = "." }
 dependencies = [
-    { name = "gymnasium" },
     { name = "mpu6050-raspberrypi" },
-    { name = "pybullet" },
     { name = "pydantic" },
     { name = "pyglm" },
     { name = "simple-pid" },
     { name = "smbus2" },
+]
+
+[package.optional-dependencies]
+sim = [
+    { name = "gymnasium" },
+    { name = "pybullet" },
 ]
 
 [package.dev-dependencies]
@@ -33,14 +37,15 @@ dev = [
 
 [package.metadata]
 requires-dist = [
-    { name = "gymnasium", specifier = ">=1.2.3" },
+    { name = "gymnasium", marker = "extra == 'sim'", specifier = ">=1.2.3" },
     { name = "mpu6050-raspberrypi", specifier = ">=1.2" },
-    { name = "pybullet", specifier = ">=3.2.7" },
+    { name = "pybullet", marker = "extra == 'sim'", specifier = ">=3.2.7" },
     { name = "pydantic", specifier = ">=2.12.5" },
     { name = "pyglm", specifier = ">=2.7.0" },
     { name = "simple-pid", specifier = ">=2.0.1" },
     { name = "smbus2" },
 ]
+provides-extras = ["sim"]
 
 [package.metadata.requires-dev]
 dev = [
