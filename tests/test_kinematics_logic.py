@@ -65,6 +65,7 @@ class TestDeriveKinematics(unittest.TestCase):
             s = MagicMock(spec=IMUReading)
             s.gyro_raw = gyro
             s.accel_raw = accel_delta + glm.vec3(0, 0, 1.0) # Add baseline
+            s.error_count = 0
             res.samples = [s] * 10
             return res
 

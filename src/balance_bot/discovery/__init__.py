@@ -3,6 +3,7 @@ from .step import CalibrationStep, StepStatus
 from .steps import (
     DiscoverBusesStep,
     HardwareInitStep,
+    ManualLeanCalibrationStep,
     FrictionThresholdStep,
     DeriveKinematicsStep,
     MotorTrimStep,
@@ -16,6 +17,7 @@ __all__ = [
     "StepStatus",
     "DiscoverBusesStep",
     "HardwareInitStep",
+    "ManualLeanCalibrationStep",
     "FrictionThresholdStep",
     "DeriveKinematicsStep",
     "MotorTrimStep",

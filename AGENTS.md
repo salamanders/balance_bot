@@ -31,8 +31,8 @@ When generating control code for cyber-physical systems, AI agents frequently mi
 The robot deduces its configuration through pessimistic physics experiments. Failure = reverse polarity/increase threshold and retry.
 
 *   **Phase 1: Spark of Life (Presence).** Scan I2C for MPU-6050 and Picon Zero. Halt on failure.
-*   **Phase 2: Sense of Down (Gravity).** Motors off. Average 100 accel vectors. Normalized result = Down Vector.
-*   **Phase 3/4: Stiction, Phasing, & Polarity.** Ramp PWM to find deadband. Pulse both motors to observe Gyro around Up Vector.
+*   **Phase 2: Sense of Down (Gravity).** User-assisted lean step. Robot records backwards lean, waits for user to flop it forward, and records front lean. The robot infers vertical and forward axes and guesses the balance point range without moving motors.
+*   **Phase 3/4: Stiction, Phasing, & Polarity.** Ramp PWM to find deadband, explicitly tracking any hardware I2C glitches or ignored commands. Pulse both motors to observe Gyro around Up Vector.
     *   *Spinning Failure Mode:* If the bot spins in a circle, wheels slipped, causing pure Yaw rather than Pitch. **Fix:** Rely on Gyro yaw vectors (`yaw_mag_sum` vs `yaw_mag_diff`), not linear acceleration.
     *   *Forward Check:* Lean forward, pulse positive. If pitch decreases (stands up), Positive = Forward. If it increases, invert global polarity.
 *   **Phase 5: Absolute Identity (L/R).** Command +PWM on Port A, -PWM on Port B. By the Right-Hand Rule, Gyro pointing Up = Counter-Clockwise (Left) spin, meaning Port A = Right Motor.

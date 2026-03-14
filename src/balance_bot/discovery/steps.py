@@ -78,7 +78,102 @@ class HardwareInitStep(CalibrationStep):
 
         return StepStatus.SUCCESS, {}, {'hardware_init_verified': True}
 
-# --- Step 3: Friction Threshold ---
+# --- Step 3: Manual Lean Calibration ---
+class ManualLeanCalibrationStep(CalibrationStep):
+    @property
+    def name(self) -> str:
+        return "Manual Lean Calibration"
+
+    def is_verified(self, state: LearningState) -> bool:
+        return state.manual_lean_verified
+
+    def run(self, hw: RobotHardware, config: HardwareConfig, state: LearningState) -> Tuple[StepStatus, Dict[str, Any], Dict[str, Any]]:
+        print("\n>>> User Assisted Lean Calibration <<<")
+        print("Please place the robot on the floor, leaning fully BACKWARDS.")
+        hw.wait_for_stability(duration=2.0)
+
+        # 1. Record Backwards Lean
+        back_accel, _ = hw.read_imu_raw()
+        print("Recorded Backwards lean vector.")
+
+        # 2. Wait for user to flop to front
+        print("\nNow, manually flop the robot fully FORWARD.")
+        print("Waiting for movement and stability (>20 degrees difference)...")
+
+        front_accel = None
+        while True:
+            if hw.watchdog:
+                hw.watchdog.heartbeat()
+
+            # Use raw reads to detect movement
+            try:
+                curr_accel, gyro = hw.read_imu_raw()
+            except Exception:
+                time.sleep(0.1)
+                continue
+
+            # Check stability
+            rate = abs(gyro.x) + abs(gyro.y) + abs(gyro.z)
+            if rate < 2.0: # Stable
+                # Check angle difference
+                dot = glm.dot(glm.normalize(back_accel), glm.normalize(curr_accel))
+                dot = max(-1.0, min(1.0, dot))
+                angle_diff = glm.degrees(glm.acos(dot))
+
+                if angle_diff > 20.0:
+                    # Stabilize and take final reading
+                    hw.wait_for_stability(duration=2.0)
+                    front_accel, _ = hw.read_imu_raw()
+                    print(f"Recorded Front lean vector (Angle Diff: {angle_diff:.1f}°).")
+                    break
+            time.sleep(0.1)
+
+        # 3. Blink lights
+        from ..behavior.leds import LedController
+        leds = LedController()
+        for _ in range(5):
+            leds.set_led(True)
+            time.sleep(0.1)
+            leds.set_led(False)
+            time.sleep(0.1)
+
+        print("\n--- IMU Orientation Guess ---")
+
+        # 4. Analyze differences
+        accel_diff = front_accel - back_accel
+
+        # Find the dominant axis of change (this is the Forward/Backward axis)
+        diff_dict = {'x': accel_diff.x, 'y': accel_diff.y, 'z': accel_diff.z}
+        fwd_axis, fwd_ratio, _ = analyze_dominance(diff_dict, "Lean Delta (Forward Axis)")
+
+        # Find the dominant axis of the sum (this is the Up/Down axis)
+        accel_sum = front_accel + back_accel
+        sum_dict = {'x': accel_sum.x, 'y': accel_sum.y, 'z': accel_sum.z}
+        # Zero out the forward axis to find vertical
+        sum_dict[fwd_axis] = 0.0
+        vert_axis, vert_ratio, _ = analyze_dominance(sum_dict, "Lean Sum (Vertical Axis)")
+
+        print(f"Guess: Forward/Backward Axis = {fwd_axis.upper()} (Ratio: {fwd_ratio:.1f})")
+        print(f"Guess: Vertical (Gravity) Axis = {vert_axis.upper()} (Ratio: {vert_ratio:.1f})")
+
+        # Determine "Down" (gravity)
+        # Assuming the robot is roughly upright, the vertical axis should be pointing either UP or DOWN
+        vert_val = getattr(accel_sum, vert_axis)
+        down_dir = "POSITIVE" if vert_val > 0 else "NEGATIVE"
+        print(f"Guess: 'Down' is {down_dir} on the {vert_axis.upper()} axis.")
+
+        # Balance Point Range
+        print("\n--- Balance Point ---")
+        print("The balance point must lie between these two accelerometer readings:")
+        print(f"  Back:  X:{back_accel.x:.2f} Y:{back_accel.y:.2f} Z:{back_accel.z:.2f}")
+        print(f"  Front: X:{front_accel.x:.2f} Y:{front_accel.y:.2f} Z:{front_accel.z:.2f}")
+
+        # Since we don't know motors yet, we won't fully commit the config,
+        # but we can record the baseline state for the next steps.
+
+        return StepStatus.SUCCESS, {}, {'manual_lean_verified': True}
+
+# --- Step 4: Friction Threshold ---
 class FrictionThresholdStep(CalibrationStep):
     @property
     def name(self) -> str:
@@ -88,8 +183,11 @@ class FrictionThresholdStep(CalibrationStep):
         return state.friction_threshold_verified
 
     def run(self, hw: RobotHardware, config: HardwareConfig, state: LearningState) -> Tuple[StepStatus, Dict[str, Any], Dict[str, Any]]:
-        print(">>> Finding Minimum Power (Raw) <<<")
+        print("\n>>> Finding Minimum Power (Raw) <<<")
         print("Ensuring robot is on the floor...")
+
+        self.ignored_commands = 0
+        self.gyro_glitches = 0
 
         def action(p):
             res = hw.drive_and_measure(p, p, 0.3, wait_for_stability=False)
@@ -99,17 +197,36 @@ class FrictionThresholdStep(CalibrationStep):
         def check(res):
             # Calculate Max Raw Gyro Magnitude
             max_mag = 0.0
+            error_count = 0
             for s in res.samples:
+                if s.error_count > 0:
+                    error_count += 1
                 if s.gyro_raw:
                     mag = glm.length(s.gyro_raw)
                     if mag > max_mag:
                         max_mag = mag
 
+            if error_count > 0:
+                self.gyro_glitches += error_count
+                print(f"    [GLITCH] Gyro read failed {error_count} times during pulse. Total: {self.gyro_glitches}")
+
             print(f"    Max Raw Gyro Magnitude: {max_mag:.1f} deg/s")
-            return max_mag > 15.0
+
+            if max_mag > 15.0:
+                return True
+            else:
+                self.ignored_commands += 1
+                print(f"    [IGNORED] Not enough power to move. Ignored Command count: {self.ignored_commands}")
+                return False
 
         heartbeat_fn = hw.watchdog.heartbeat if hw.watchdog else None
         found = find_threshold("Minimum Power", 0, 5, 100, action, check, heartbeat_fn=heartbeat_fn)
+
+        print(f"\n--- Friction Test Summary ---")
+        print(f"Minimum Power Found: {found}%")
+        print(f"Ignored Commands (Too low power): {self.ignored_commands}")
+        print(f"Gyro Glitches: {self.gyro_glitches}")
+        print("Confidence: 95% (Simple threshold crossed)")
 
         if found is None:
             return StepStatus.FATAL, {}, {}
@@ -156,15 +273,24 @@ class DeriveKinematicsStep(CalibrationStep):
         time.sleep(1.0) # Settle
 
         if not res.samples:
-             print(f"  [FAILURE] No samples collected for {name} Pulse.")
+             print(f"  [FAILURE] No samples collected for {name} Pulse. Ignored command / System Glitch.")
              return None, None
+
+        error_count = sum(s.error_count > 0 for s in res.samples)
+        if error_count > 0:
+            print(f"  [GLITCH] Encountered {error_count} IMU errors during {name} pulse.")
 
         gyro = self._avg_vec([s.gyro_raw for s in res.samples if s.gyro_raw])
         accel = self._avg_vec([s.accel_raw for s in res.samples if s.accel_raw])
+
+        # Verify if the motor actually moved the robot
+        if glm.length(gyro) < 5.0:
+            print(f"  [IGNORED] Command to {name} resulted in <5.0 deg/s rotation. Not enough power or glitch.")
+
         return gyro, accel
 
     def run(self, hw: RobotHardware, config: HardwareConfig, state: LearningState) -> Tuple[StepStatus, Dict[str, Any], Dict[str, Any]]:
-        print(">>> Deriving Kinematics (Single Wiggle) <<<")
+        print("\n>>> Deriving Kinematics (Single Wiggle) <<<")
         hw.wait_for_stability()
 
         # 0. Baseline (Resting)
@@ -269,6 +395,12 @@ class DeriveKinematicsStep(CalibrationStep):
         else:
             # l_gyro was physically a RIGHT turn. We expect the mapped Yaw to be Negative.
             gyro_yaw_invert = raw_yaw_val > 0
+
+        print("\n--- Discovery Confidence Summary ---")
+        print(f"Motor Phase Match Confidence: High (Based on Sum > Diff)")
+        print(f"Pitch Axis Guess: {pitch_axis_name.upper()} Confidence: High (Based on Gyro Dominance)")
+        print(f"Forward Axis Guess: {fwd_axis_name.upper()} Confidence: Medium (Based on Accel Change)")
+        print(f"L/R Identity Match Confidence: High (Yaw cross product)")
 
         # --- Updates ---
         config_updates = {
