@@ -171,3 +171,33 @@ def test_log_capture_handler_error():
 
             mock_handle_error.assert_called_once_with(record)
             assert len(handler.buffer) == 0
+
+from balance_bot.utils import check_force_calibration_flag
+
+@patch("balance_bot.utils.Path.exists")
+@patch("sys.argv", ["script_name.py"])
+def test_check_force_calibration_flag_neither(mock_exists):
+    """Test when neither the file nor the flag are present."""
+    mock_exists.return_value = False
+    assert check_force_calibration_flag() is False
+
+@patch("balance_bot.utils.Path.exists")
+@patch("sys.argv", ["script_name.py"])
+def test_check_force_calibration_flag_file_only(mock_exists):
+    """Test when only the force calibration file is present."""
+    mock_exists.return_value = True
+    assert check_force_calibration_flag() is True
+
+@patch("balance_bot.utils.Path.exists")
+@patch("sys.argv", ["script_name.py", "--force-calibration"])
+def test_check_force_calibration_flag_flag_only(mock_exists):
+    """Test when only the force calibration flag is present."""
+    mock_exists.return_value = False
+    assert check_force_calibration_flag() is True
+
+@patch("balance_bot.utils.Path.exists")
+@patch("sys.argv", ["script_name.py", "--force-calibration"])
+def test_check_force_calibration_flag_both(mock_exists):
+    """Test when both the file and the flag are present."""
+    mock_exists.return_value = True
+    assert check_force_calibration_flag() is True
