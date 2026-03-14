@@ -2,15 +2,25 @@ import math
 import os
 import random
 import numpy as np
-import pybullet as pb
-import pybullet_data
-import gymnasium as gym
-from gymnasium import spaces
 
-class BalanceBotEnv(gym.Env):
+try:
+    import pybullet as pb
+    import pybullet_data
+    import gymnasium as gym
+    from gymnasium import spaces
+    _HAS_SIM = True
+    _BaseEnv = gym.Env
+except ImportError:
+    _HAS_SIM = False
+    _BaseEnv = object
+
+class BalanceBotEnv(_BaseEnv):
     metadata = {"render_modes": ["human", "rgb_array"], "render_fps": 100}
 
     def __init__(self, render_mode=None):
+        if not _HAS_SIM:
+            raise ImportError("pybullet and gymnasium are required to run the simulation environment. Install them with `uv sync --extra sim`.")
+
         self.render_mode = render_mode
 
         # 4 observations: pitch, pitch_rate, yaw, yaw_rate (all in radians)
