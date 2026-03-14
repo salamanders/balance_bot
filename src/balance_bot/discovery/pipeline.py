@@ -21,6 +21,8 @@ class SelfDiscoveryPipeline:
 
     def run(self):
         logger.info("Starting Linear Self-Discovery Pipeline...")
+        logger.info(f"Initial HardwareConfig: {self.config.model_dump()}")
+        logger.info(f"Initial LearningState: {self.state.model_dump()}")
 
         for step in self.steps:
             while True: # Retry Loop
