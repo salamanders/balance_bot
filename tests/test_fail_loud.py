@@ -4,7 +4,7 @@ import glm
 from balance_bot.hardware.robot_hardware import RobotHardware
 from balance_bot.configuration import HardwareConfig, LearningState
 from balance_bot.enums import Axis
-from balance_bot.discovery.steps import DiscoverBusesStep, StepStatus
+from balance_bot.discovery import DiscoverBusesStep, StepStatus
 
 class TestFailLoud:
 
@@ -109,7 +109,7 @@ class TestFailLoud:
         state = LearningState()
 
         # Mock scan_i2c to return buses
-        with patch('balance_bot.discovery.steps.scan_i2c', side_effect=[1, 1]):
+        with patch('balance_bot.discovery.discover_buses.scan_i2c', side_effect=[1, 1]):
             status, config_updates, state_updates = step.run(hw, config, state)
 
             assert status == StepStatus.SUCCESS
