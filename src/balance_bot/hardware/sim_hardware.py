@@ -184,9 +184,11 @@ class SimHardware:
         self.set_motors(0, 0)
         end_pitch = math.degrees(self.obs[0])
 
+        total_duration = sum(s[2] for s in steps)
+
         return MeasureResult(
-            avg_yaw_rate=yaw_sum / sum([s[2] for s in steps]),
-            abs_avg_yaw_rate=abs(yaw_sum / sum([s[2] for s in steps])),
+            avg_yaw_rate=yaw_sum / total_duration,
+            abs_avg_yaw_rate=abs(yaw_sum / total_duration),
             max_rate=max_rate,
             final_pitch=end_pitch
         )
