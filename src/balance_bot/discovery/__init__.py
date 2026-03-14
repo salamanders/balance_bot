@@ -1,15 +1,13 @@
 from .pipeline import SelfDiscoveryPipeline
 from .step import CalibrationStep, StepStatus
-from .steps import (
-    DiscoverBusesStep,
-    HardwareInitStep,
-    ManualLeanCalibrationStep,
-    FrictionThresholdStep,
-    DeriveKinematicsStep,
-    MotorTrimStep,
-    MechanicalBacklashStep,
-    KickupDynamicsStep
-)
+from .discover_buses import DiscoverBusesStep
+from .hardware_init import HardwareInitStep
+from .manual_lean_calibration import ManualLeanCalibrationStep
+from .friction_threshold import FrictionThresholdStep
+from .derive_kinematics import DeriveKinematicsStep
+from .motor_trim import MotorTrimStep
+from .mechanical_backlash import MechanicalBacklashStep
+from .kickup_dynamics import KickupDynamicsStep
 
 __all__ = [
     "SelfDiscoveryPipeline",
