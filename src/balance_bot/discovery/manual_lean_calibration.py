@@ -68,13 +68,29 @@ class ManualLeanCalibrationStep(CalibrationStep):
         logger.info("   Forward resting position locked.")
 
         # Analyze Dominance
-        try:
-            from ..utils import analyze_dominance
-            vert_axis, vert_dir, fwd_axis, fwd_dir = analyze_dominance(backward_readings, forward_readings)
-        except ValueError as e:
-            logger.error(f"  [FAILURE] Analysis Failed: {e}")
-            logger.error("  Ensure you actually flopped it in the correct order (Backwards -> Forwards).")
+        from ..utils import analyze_dominance
+
+        vert_axis_str, _, vert_success = analyze_dominance(backward_readings, "Backward Rest Vertical Dominance")
+        if not vert_success:
+            logger.error("  [FAILURE] Could not identify a clear vertical axis.")
             return StepStatus.NEEDS_RETRY, {}, {}
+
+        vert_axis = Axis(vert_axis_str)
+        vert_dir = 1.0 if backward_readings[vert_axis] > 0 else -1.0
+
+        # Calculate delta to find the forward axis (the axis that changed the most)
+        delta_readings = {
+            axis: forward_readings[axis] - backward_readings[axis]
+            for axis in backward_readings
+        }
+
+        fwd_axis_str, _, fwd_success = analyze_dominance(delta_readings, "Forward/Backward Swing Dominance")
+        if not fwd_success:
+            logger.error("  [FAILURE] Could not identify a clear forward axis.")
+            return StepStatus.NEEDS_RETRY, {}, {}
+
+        fwd_axis = Axis(fwd_axis_str)
+        fwd_dir = 1.0 if forward_readings[fwd_axis] > backward_readings[fwd_axis] else -1.0
 
         # The dominant vertical axis determines the range
         back_accel = backward_readings[fwd_axis] * fwd_dir
