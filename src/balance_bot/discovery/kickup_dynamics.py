@@ -18,7 +18,7 @@ class KickupDynamicsStep(CalibrationStep):
     def is_verified(self, state: LearningState) -> bool:
         return state.kickup_dynamics_verified
 
-    def _force_posture(self, hw: RobotHardware, target_sign: float, base_power: float) -> None:
+    def _force_posture(self, hw: RobotHardware, target_sign: float, base_power: float, state: LearningState) -> None:
         """Helper to force the robot into a specific posture (+1 for BACK, -1 for FRONT)."""
         target_name = "BACK" if target_sign > 0 else "FRONT"
 
@@ -36,15 +36,15 @@ class KickupDynamicsStep(CalibrationStep):
 
         logger.info(f"  [Posture Check] Measured average pitch: {avg_pitch:.1f}° (Variance: {pitch_variance:.1f}°)")
 
-        # Define a high-confidence resting threshold (e.g. resting on bumpers usually means > 30 degrees)
-        RESTING_THRESHOLD = 25.0
+        # Use an absolute margin against the calibrated resting angles
+        margin = 15.0
 
         # Check if we are already securely flopped in the correct direction
-        if target_sign > 0 and avg_pitch < -RESTING_THRESHOLD and pitch_variance < 5.0:
-            logger.info(f"  [Posture Check] I am REALLY sure I'm on my BACK. I know this because stable pitch is {avg_pitch:.1f}° (Threshold is < -{RESTING_THRESHOLD}°). No flop needed.")
+        if target_sign > 0 and state.rest_angle_backward is not None and abs(avg_pitch - state.rest_angle_backward) < margin and pitch_variance < 5.0:
+            logger.info(f"  [Posture Check] I am REALLY sure I'm on my BACK. I know this because stable pitch is {avg_pitch:.1f}° (Close to calibrated back rest {state.rest_angle_backward:.1f}°). No flop needed.")
             return
-        elif target_sign < 0 and avg_pitch > RESTING_THRESHOLD and pitch_variance < 5.0:
-            logger.info(f"  [Posture Check] I am REALLY sure I'm on my FRONT. I know this because stable pitch is {avg_pitch:.1f}° (Threshold is > {RESTING_THRESHOLD}°). No flop needed.")
+        elif target_sign < 0 and state.rest_angle_forward is not None and abs(avg_pitch - state.rest_angle_forward) < margin and pitch_variance < 5.0:
+            logger.info(f"  [Posture Check] I am REALLY sure I'm on my FRONT. I know this because stable pitch is {avg_pitch:.1f}° (Close to calibrated front rest {state.rest_angle_forward:.1f}°). No flop needed.")
             return
 
         logger.info(f"  [Posture Check] Current pitch is {avg_pitch:.1f}°. Need to actively flop to {target_name}. Initiating maneuver...")
@@ -80,11 +80,11 @@ class KickupDynamicsStep(CalibrationStep):
 
             avg_pitch_post = sum(samples_post) / len(samples_post)
 
-            # Keep the old, less strict bounds for the actual flop attempt just to detect if we successfully passed the 0 degree point
-            if target_sign > 0 and avg_pitch_post < -10:
+            # Verify success using the absolute margin against calibrated rest angles
+            if target_sign > 0 and state.rest_angle_backward is not None and abs(avg_pitch_post - state.rest_angle_backward) < margin:
                 logger.info(f"  [Posture Check] Flop successful. Settled at {avg_pitch_post:.1f}°")
                 return
-            if target_sign < 0 and avg_pitch_post > 10:
+            if target_sign < 0 and state.rest_angle_forward is not None and abs(avg_pitch_post - state.rest_angle_forward) < margin:
                 logger.info(f"  [Posture Check] Flop successful. Settled at {avg_pitch_post:.1f}°")
                 return
 
@@ -147,7 +147,7 @@ class KickupDynamicsStep(CalibrationStep):
 
         def action(p):
             try:
-                self._force_posture(hw, direction_sign, state.min_power_visible + 10)
+                self._force_posture(hw, direction_sign, state.min_power_visible + 10, state)
             except RuntimeError:
                 return "POSTURE_FAIL"
             return self._attempt_kick(hw, direction_sign, p)
