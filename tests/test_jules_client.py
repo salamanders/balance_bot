@@ -2,7 +2,7 @@ import os
 import json
 import unittest
 from unittest.mock import patch, MagicMock
-from balance_bot.jules_client import JulesClient
+from balance_bot.jules_client import JulesClient, CrashReport
 
 class TestJulesClient(unittest.TestCase):
     def setUp(self):
@@ -105,7 +105,7 @@ class TestJulesClient(unittest.TestCase):
         client = JulesClient(api_key="test_key")
         mock_create_session.return_value = {"name": "sessions/456"}
 
-        success, prompt = client.report_crash(
+        report = CrashReport(
             error_msg="ZeroDivisionError",
             stack_trace="traceback...",
             logs="logs...",
@@ -113,6 +113,7 @@ class TestJulesClient(unittest.TestCase):
             libs={"numpy": "1.2.3"},
             telemetry="telemetry..."
         )
+        success, prompt = client.report_crash(report)
 
         self.assertTrue(success)
         self.assertIn("ZeroDivisionError", prompt)
@@ -124,7 +125,8 @@ class TestJulesClient(unittest.TestCase):
         # Ensure no API key in environment or argument
         with patch.dict(os.environ, {}, clear=True):
             client = JulesClient(api_key=None)
-            success, prompt = client.report_crash("err", "trace", "logs", {}, {})
+            report = CrashReport("err", "trace", "logs", {}, {})
+            success, prompt = client.report_crash(report)
             self.assertFalse(success)
             self.assertIn("err", prompt)
 
@@ -133,7 +135,8 @@ class TestJulesClient(unittest.TestCase):
         client = JulesClient(api_key="test_key")
         mock_create_session.side_effect = Exception("API Down")
 
-        success, prompt = client.report_crash("err", "trace", "logs", {}, {})
+        report = CrashReport("err", "trace", "logs", {}, {})
+        success, prompt = client.report_crash(report)
 
         self.assertFalse(success)
         self.assertIn("err", prompt)

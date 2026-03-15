@@ -5,7 +5,7 @@ import importlib.metadata
 import datetime
 from .behavior.agent import Agent
 from .utils import setup_logging, get_captured_logs
-from .jules_client import JulesClient
+from .jules_client import JulesClient, CrashReport
 from .watchdog import SurvivalWatchdog
 
 def parse_args() -> argparse.Namespace:
@@ -87,7 +87,15 @@ def _handle_crash_reporting(e: Exception, bot_instance: Agent | None = None) -> 
 
     # 6. Report
     client = JulesClient()
-    success, prompt = client.report_crash(str(e), tb, logs, state_info, libs, telemetry_data)
+    report = CrashReport(
+        error_msg=str(e),
+        stack_trace=tb,
+        logs=logs,
+        state=state_info,
+        libs=libs,
+        telemetry=telemetry_data
+    )
+    success, prompt = client.report_crash(report)
 
     if success:
         print("Crash report submitted to Jules. Check your dashboard for the new session.")
