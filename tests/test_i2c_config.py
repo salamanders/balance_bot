@@ -39,39 +39,15 @@ def test_hardware_init_with_bus():
 
         # Ensure not in mock mode
         with patch.dict(os.environ, {}, clear=True):
-            # Fix: Create config and pass it
             config = HardwareConfig(motor_l=0, motor_r=1, motor_i2c_bus=0, imu_i2c_bus=3)
-
-            # Note: HardwareConfig is frozen, so we must initialize with args or copy.
-            # But wait, RobotHardware constructor takes config object?
-            # Yes. But RobotHardware also needs LearningState.
-            # We must mock that or provide it.
-            # Assuming RobotHardware(config, state=None) or similar.
-            # Let's inspect RobotHardware.
-
-            # Assuming RobotHardware(hw_config, learning_state) or defaults.
-            # For this test, we might just pass None for state if allowed, or mock it.
-            # Actually, let's fix the test to match RobotHardware signature later if needed.
-            # But here we just want to fix imports.
-
-            # Actually, HardwareConfig is frozen. We can't set attributes after creation.
-            # So `config.motor_l = 0` in original test is invalid for frozen config.
-            # The replacement `HardwareConfig(motor_l=0, ...)` is correct.
-
-            # We assume RobotHardware constructor signature is `RobotHardware(config: HardwareConfig)`.
-            # If it requires LearningState, we might need to mock it.
-
-            # Let's try minimal changes first.
             hw = RobotHardware(config, LearningState())
 
             # Verify mpu6050 was called with bus=3
             mock_mpu_class.assert_called_once_with(0x68, bus=3)
-            # Fix: Check config
             assert hw.hw_config.imu_i2c_bus == 3
 
             # Verify PiconZero was called with bus=0
             mock_pz_class.assert_called_once_with(bus_number=0)
-            # Fix: Check config
             assert hw.hw_config.motor_i2c_bus == 0
 
 def test_hardware_init_skips_if_none():
@@ -96,10 +72,7 @@ def test_hardware_init_skips_if_none():
         from balance_bot.hardware.robot_hardware import RobotHardware
 
         with patch.dict(os.environ, {}, clear=True):
-            # Fix: Create config with None
             config = HardwareConfig(motor_l=0, motor_r=1)
-            # Defaults are None.
-
             RobotHardware(config, LearningState())
 
             # Verify mpu6050 was NOT called
