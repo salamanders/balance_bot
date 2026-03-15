@@ -47,6 +47,19 @@ class IMUReading:
 
 
 @dataclass(frozen=True)
+class DriveCommand:
+    """
+    Command parameters for a drive and measure operation.
+    """
+    left_power: float
+    right_power: float
+    duration: float
+    sample_interval: float = 0.01
+    wait_for_stability: bool = False
+    trim_override: float | None = None
+
+
+@dataclass(frozen=True)
 class MeasureResult:
     """
     Result of a drive-and-measure maneuver.
@@ -608,20 +621,24 @@ class RobotHardware:
 
         return MeasureResult(duration=total_duration, samples=samples)
 
-    def drive_and_measure(self, left_power: float, right_power: float, duration: float, sample_interval: float = 0.01, wait_for_stability: bool = False, trim_override: float | None = None) -> MeasureResult:
+    def drive_and_measure(self, command: DriveCommand) -> MeasureResult:
         """
-        Drive motors for a duration and collect IMU readings.
+        Drive motors for a duration and collect IMU readings based on a DriveCommand.
         Returns a MeasureResult object containing samples and stats.
         """
-        if wait_for_stability:
+        if command.wait_for_stability:
             self.wait_for_stability()
-        return self.execute_maneuver([(left_power, right_power, duration)], sample_interval, trim_override=trim_override)
+        return self.execute_maneuver(
+            [(command.left_power, command.right_power, command.duration)],
+            command.sample_interval,
+            trim_override=command.trim_override
+        )
 
     def measure_gravity(self, duration: float = 1.0) -> glm.vec3:
         """
         Measure average gravity vector by staying still (0 power).
         """
-        res = self.drive_and_measure(0, 0, duration)
+        res = self.drive_and_measure(DriveCommand(0.0, 0.0, duration))
         if not res.samples:
             return glm.vec3(0.0)
 
