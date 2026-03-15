@@ -323,7 +323,7 @@ class Agent:
                 if last_telemetry:
                     ang_accel = (last_telemetry.pitch_rate - last_pitch_rate) / dt
                     last_pitch_rate = last_telemetry.pitch_rate
-                    comp_factor = self.battery.update(last_telemetry.motor_output, ang_accel, dt)
+                    comp_factor = self.battery.update(last_telemetry.motor_output, ang_accel)
                     if comp_factor < self.learning_state.control.low_battery_log_threshold and self.battery_logger.should_log():
                         logger.warning(f"-> Low Battery? Compensating: {int(comp_factor * 100)}%")
                 else:
