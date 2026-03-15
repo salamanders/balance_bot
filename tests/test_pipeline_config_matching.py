@@ -184,7 +184,13 @@ def test_motor_trim_step(monkeypatch):
     mock_res = MagicMock()
     mock_res.samples = [MagicMock()]
     mock_res.avg_yaw_rate = 0.5 # Small enough to pass
+    mock_res.abs_avg_yaw_rate = 0.5
     hw_mock.execute_maneuver.return_value = mock_res
+
+    # Mock IMU reading for the while loop in _run_square_validation
+    mock_reading = MagicMock()
+    mock_reading.yaw_rate = 10000.0  # High yaw rate to make the turn loop finish instantly in tests
+    hw_mock.read_imu_converted.return_value = mock_reading
 
     step = MotorTrimStep()
     status, config_updates, state_updates = step.run(hw_mock, HardwareConfig(), LearningState())
