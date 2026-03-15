@@ -6,7 +6,7 @@ import numpy as np
 import glm
 from typing import Optional
 
-from .robot_hardware import IMUReading, MeasureResult
+from .robot_hardware import IMUReading, MeasureResult, DriveCommand
 from ..configuration import HardwareConfig, LearningState
 from ..watchdog import SurvivalWatchdog
 from ..simulation.sim_env import BalanceBotEnv
@@ -193,5 +193,11 @@ class SimHardware:
             final_pitch=end_pitch
         )
 
-    def drive_and_measure(self, left_power: float, right_power: float, duration: float, sample_interval: float = 0.01, wait_for_stability: bool = False, trim_override: float | None = None) -> MeasureResult:
-        return self.execute_maneuver([(left_power, right_power, duration)], sample_interval, trim_override)
+    def drive_and_measure(self, command: DriveCommand) -> MeasureResult:
+        if command.wait_for_stability:
+            self.wait_for_stability()
+        return self.execute_maneuver(
+            [(command.left_power, command.right_power, command.duration)],
+            command.sample_interval,
+            command.trim_override
+        )
