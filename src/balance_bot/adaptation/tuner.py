@@ -34,6 +34,7 @@ class ContinuousTuner:
         self.cooldown_timer = 0
         self.current_scale = self.config.start_aggression_normal
         self.tick_counter = 0
+        self._zero_crossings = 0
 
     def reset_aggression(self, first_run: bool) -> None:
         """Reset the tuning aggression scale based on run mode."""
@@ -58,7 +59,21 @@ class ContinuousTuner:
         # during the initial startup phase.
         if abs(error) > self.config.crash_angle:
             self.errors.clear()
+            self._zero_crossings = 0
             return TuningAdjustment(0.0, 0.0, 0.0)
+
+        # If buffer is full, check if we're losing a zero crossing
+        if len(self.errors) == self.buffer_size and self.buffer_size >= 2:
+            oldest = self.errors[0]
+            second_oldest = self.errors[1]
+            if (oldest > 0 >= second_oldest) or (oldest < 0 <= second_oldest):
+                self._zero_crossings -= 1
+
+        # Check if the new error creates a zero crossing with the current newest error
+        if len(self.errors) > 0:
+            current_newest = self.errors[-1]
+            if (current_newest > 0 >= error) or (current_newest < 0 <= error):
+                self._zero_crossings += 1
 
         self.errors.append(error)
 
@@ -125,11 +140,7 @@ class ContinuousTuner:
 
     def _count_zero_crossings(self) -> int:
         """Count how many times the signal crosses zero in the buffer."""
-        crossings = 0
-        for e1, e2 in pairwise(self.errors):
-            if (e1 > 0 >= e2) or (e1 < 0 <= e2):
-                crossings += 1
-        return crossings
+        return max(0, self._zero_crossings)
 
 
 class BalancePointFinder:
