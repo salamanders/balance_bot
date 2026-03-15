@@ -487,6 +487,49 @@ class RobotHardware:
         else:
             return "FALLING"
 
+    def _calibrate_bias_if_static(self, history: deque[glm.vec3], rate: float, threshold: float) -> bool:
+        """
+        Check if the robot is static but reading a biased rate, and auto-calibrate if so.
+        Returns True if calibration was applied.
+        """
+        if len(history) != history.maxlen:
+            return False
+
+        # Calculate range (max - min) for each axis
+        xs = [v.x for v in history]
+        ys = [v.y for v in history]
+        zs = [v.z for v in history]
+
+        range_x = max(xs) - min(xs)
+        range_y = max(ys) - min(ys)
+        range_z = max(zs) - min(zs)
+
+        # If variance is low (< 0.5 deg/s noise), we are likely still.
+        # But rate > threshold means we are biased.
+        if max(range_x, range_y, range_z) < 0.5:
+            logger.warning(f"  [DRIFT] Rate {rate:.1f} > {threshold} but Variance is low. Auto-Calibrating...")
+
+            # Calculate observed bias (Average of current readings)
+            # Since read_imu_raw returns (Raw - OldBias),
+            # Observed = (Raw - OldBias)
+            # We want NewBias such that (Raw - NewBias) = 0
+            # So NewBias = Raw
+            # NewBias = Observed + OldBias
+
+            avg_x = sum(xs) / len(xs)
+            avg_y = sum(ys) / len(ys)
+            avg_z = sum(zs) / len(zs)
+
+            self.learning_state.gyro_bias_x += avg_x
+            self.learning_state.gyro_bias_y += avg_y
+            self.learning_state.gyro_bias_z += avg_z
+
+            self.learning_state.save()
+            logger.info(f"  [CALIBRATED] Bias Updated. New Offsets: ({self.learning_state.gyro_bias_x:.2f}, {self.learning_state.gyro_bias_y:.2f}, {self.learning_state.gyro_bias_z:.2f})")
+            return True
+
+        return False
+
     def wait_for_stability(self, duration: float = 2.0, threshold: float = 2.0) -> None:
         """
         Wait for the robot to be stable (gyro rates low) for a duration.
@@ -535,42 +578,10 @@ class RobotHardware:
                 start_stable_time = None
 
                 # Check for "Static but Biased" condition
-                if len(history) == history.maxlen:
-                    # Calculate range (max - min) for each axis
-                    xs = [v.x for v in history]
-                    ys = [v.y for v in history]
-                    zs = [v.z for v in history]
-
-                    range_x = max(xs) - min(xs)
-                    range_y = max(ys) - min(ys)
-                    range_z = max(zs) - min(zs)
-
-                    # If variance is low (< 0.5 deg/s noise), we are likely still.
-                    # But rate > threshold means we are biased.
-                    if max(range_x, range_y, range_z) < 0.5:
-                        logger.warning(f"  [DRIFT] Rate {rate:.1f} > {threshold} but Variance is low. Auto-Calibrating...")
-
-                        # Calculate observed bias (Average of current readings)
-                        # Since read_imu_raw returns (Raw - OldBias),
-                        # Observed = (Raw - OldBias)
-                        # We want NewBias such that (Raw - NewBias) = 0
-                        # So NewBias = Raw
-                        # NewBias = Observed + OldBias
-
-                        avg_x = sum(xs) / len(xs)
-                        avg_y = sum(ys) / len(ys)
-                        avg_z = sum(zs) / len(zs)
-
-                        self.learning_state.gyro_bias_x += avg_x
-                        self.learning_state.gyro_bias_y += avg_y
-                        self.learning_state.gyro_bias_z += avg_z
-
-                        self.learning_state.save()
-                        logger.info(f"  [CALIBRATED] Bias Updated. New Offsets: ({self.learning_state.gyro_bias_x:.2f}, {self.learning_state.gyro_bias_y:.2f}, {self.learning_state.gyro_bias_z:.2f})")
-
-                        # Clear history and retry immediately
-                        history.clear()
-                        continue
+                if self._calibrate_bias_if_static(history, rate, threshold):
+                    # Clear history and retry immediately
+                    history.clear()
+                    continue
 
                 if time.time() - last_log > 1.0:
                     logger.debug(f"  [MOVING] Rate {rate:.1f} > {threshold}. Waiting...")
