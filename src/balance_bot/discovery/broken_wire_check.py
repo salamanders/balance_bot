@@ -1,4 +1,3 @@
-import time
 import logging
 from typing import Tuple, Dict, Any
 import glm

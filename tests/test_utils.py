@@ -3,7 +3,7 @@ import math
 import logging
 from unittest.mock import patch
 import glm
-from balance_bot.utils import clamp, RateLimiter, ComplementaryFilter, calculate_pitch, to_signed, LogThrottler, LogCaptureHandler
+from balance_bot.utils import clamp, RateLimiter, ComplementaryFilter, calculate_pitch, to_signed, LogThrottler, LogCaptureHandler, check_force_calibration_flag
 
 def test_clamp():
     assert clamp(10, 0, 5) == 5.0
@@ -172,7 +172,7 @@ def test_log_capture_handler_error():
             mock_handle_error.assert_called_once_with(record)
             assert len(handler.buffer) == 0
 
-from balance_bot.utils import check_force_calibration_flag
+
 
 @patch("balance_bot.utils.Path.exists")
 @patch("sys.argv", ["script_name.py"])
