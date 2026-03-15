@@ -1,4 +1,5 @@
 import logging
+import time
 from typing import Tuple, Dict, Any
 
 from .step import CalibrationStep, StepStatus
@@ -37,6 +38,36 @@ class MotorTrimStep(CalibrationStep):
 
         return steps
 
+    def _run_square_validation(self, hw: RobotHardware, best_trim: float) -> None:
+        logger.info("  [VALIDATION] Running square pattern test (20% power, 3s per side)...")
+        total_wobble = 0.0
+
+        for i in range(4):
+            # Drive straight
+            res = hw.execute_maneuver([(20.0, 20.0, 3.0)], trim_override=best_trim)
+            wobble = res.abs_avg_yaw_rate
+            total_wobble += wobble
+            logger.info(f"    Side {i+1} Wobble: {wobble:.2f} d/s")
+
+            # Turn ~90 degrees
+            hw.set_motors(20.0, -20.0, trim_override=best_trim)
+            current_yaw = 0.0
+            last_time = time.time()
+
+            while abs(current_yaw) < 90.0:
+                reading = hw.read_imu_converted()
+                now = time.time()
+                dt = now - last_time
+                last_time = now
+
+                current_yaw += reading.yaw_rate * dt
+                time.sleep(0.01)
+
+            hw.stop()
+            hw.wait_for_stability()
+
+        logger.info(f"  [VALIDATION] Average Wobble (Straight Line Drift): {(total_wobble / 4):.2f} d/s")
+
     def run(self, hw: RobotHardware, config: HardwareConfig, state: LearningState) -> Tuple[StepStatus, Dict[str, Any], Dict[str, Any]]:
         logger.info(">>> Motor Trim Calibration <<<")
         hw.wait_for_stability()
@@ -63,6 +94,7 @@ class MotorTrimStep(CalibrationStep):
 
             if abs(avg_yaw) < 2.0:
                 logger.info("  [SUCCESS] Drift is negligible.")
+                self._run_square_validation(hw, best_trim)
                 return StepStatus.SUCCESS, {}, {'motor_trim': best_trim, 'motor_trim_verified': True}
 
             # Adaptive Correction
@@ -71,4 +103,5 @@ class MotorTrimStep(CalibrationStep):
             best_trim = max(-0.4, min(0.4, best_trim + correction))
 
         logger.warning("  [WARNING] Could not perfectly trim. Saving best effort.")
+        self._run_square_validation(hw, best_trim)
         return StepStatus.SUCCESS, {}, {'motor_trim': best_trim, 'motor_trim_verified': True}
