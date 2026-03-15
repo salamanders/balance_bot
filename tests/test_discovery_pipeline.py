@@ -1,4 +1,5 @@
 from unittest.mock import MagicMock, patch
+import pytest
 from balance_bot.discovery.pipeline import SelfDiscoveryPipeline
 from balance_bot.discovery.step import CalibrationStep, StepStatus
 
@@ -63,3 +64,65 @@ def test_pipeline_flow():
 
          # Verify HAL stop
          mock_hw.stop.assert_called_once()
+
+def test_pipeline_fatal_error():
+    """Verify that a FATAL step halts the pipeline and raises RuntimeError."""
+    mock_hw_cls = MagicMock()
+    mock_config_cls = MagicMock()
+    mock_state_cls = MagicMock()
+    mock_watchdog = MagicMock()
+
+    with patch("balance_bot.discovery.pipeline.RobotHardware", mock_hw_cls), \
+         patch("balance_bot.discovery.pipeline.HardwareConfig", mock_config_cls), \
+         patch("balance_bot.discovery.pipeline.LearningState", mock_state_cls):
+
+         mock_hw = mock_hw_cls.return_value
+
+         step = MagicMock(spec=CalibrationStep)
+         step.name = "FatalStep"
+         step.is_verified.return_value = False
+         step.run.return_value = (StepStatus.FATAL, {}, {})
+
+         pipeline = SelfDiscoveryPipeline([step], mock_watchdog)
+
+         with pytest.raises(RuntimeError, match="Pipeline halted at FatalStep"):
+             pipeline.run()
+
+         # Verify HW stopped before raising exception
+         mock_hw.stop.assert_called_once()
+
+def test_pipeline_needs_retry():
+    """Verify that NEEDS_RETRY stops HW, sleeps, and retries the step."""
+    mock_hw_cls = MagicMock()
+    mock_config_cls = MagicMock()
+    mock_state_cls = MagicMock()
+    mock_watchdog = MagicMock()
+
+    with patch("balance_bot.discovery.pipeline.RobotHardware", mock_hw_cls), \
+         patch("balance_bot.discovery.pipeline.HardwareConfig", mock_config_cls), \
+         patch("balance_bot.discovery.pipeline.LearningState", mock_state_cls), \
+         patch("balance_bot.discovery.pipeline.time.sleep") as mock_sleep:
+
+         mock_hw = mock_hw_cls.return_value
+
+         step = MagicMock(spec=CalibrationStep)
+         step.name = "RetryStep"
+         step.is_verified.return_value = False
+
+         # First call needs retry, second call succeeds
+         step.run.side_effect = [
+             (StepStatus.NEEDS_RETRY, {}, {}),
+             (StepStatus.SUCCESS, {}, {})
+         ]
+
+         pipeline = SelfDiscoveryPipeline([step], mock_watchdog)
+         pipeline.run()
+
+         # Verify step ran twice
+         assert step.run.call_count == 2
+
+         # Verify sleep was called for 2.0 seconds
+         mock_sleep.assert_called_once_with(2.0)
+
+         # Verify HW stopped between retries, and again at the end of pipeline
+         assert mock_hw.stop.call_count == 2
