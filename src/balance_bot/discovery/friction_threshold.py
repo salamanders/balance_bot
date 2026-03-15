@@ -27,8 +27,11 @@ class FrictionThresholdStep(CalibrationStep):
         self.gyro_glitches = 0
 
         def action(p):
-            res = hw.drive_and_measure(p, p, 0.3, wait_for_stability=False)
-            time.sleep(0.5)
+            steps = [
+                (p, p, 0.3),
+                (0.0, 0.0, 0.5)
+            ]
+            res = hw.execute_maneuver(steps)
             return res
 
         def check(res):

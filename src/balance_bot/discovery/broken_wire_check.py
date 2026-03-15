@@ -25,12 +25,12 @@ class BrokenWireCheckStep(CalibrationStep):
         def test_motor(name: str, power_l: float, power_r: float) -> bool:
             logger.info(f"  Pulsing {name}...")
 
-            # Pulse the motor with a short burst of high power
+            # Pulse the motor with a short burst of high power, then coast and record
             steps = [
                 (power_l, power_r, 0.2), # Power pulse
+                (0.0, 0.0, 0.5),         # Settle and record
             ]
             res = hw.execute_maneuver(steps)
-            time.sleep(0.5) # Settle
 
             if not res.samples:
                 logger.error(f"  [FAILURE] No samples collected for {name}. System Glitch.")

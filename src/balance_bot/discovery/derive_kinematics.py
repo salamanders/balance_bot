@@ -44,8 +44,10 @@ class DeriveKinematicsStep(CalibrationStep):
             factor = i / ramp_steps
             steps.append((l_p * factor, r_p * factor, ramp_duration / ramp_steps))
 
+        # Coast and settle
+        steps.append((0.0, 0.0, 1.0))
+
         res = hw.execute_maneuver(steps)
-        time.sleep(1.0) # Settle
 
         if not res.samples:
              logger.error(f"  [FAILURE] No samples collected for {name} Pulse. Ignored command / System Glitch.")

@@ -593,10 +593,10 @@ class RobotHardware:
         try:
             for left, right, duration in steps:
                 self.set_motors(left, right, trim_override=trim_override)
-                step_start = time.time()
+                step_end = time.time() + duration
 
                 # Run for the duration of this step
-                while time.time() - step_start < duration:
+                while time.time() < step_end:
                     if self.watchdog:
                         self.watchdog.heartbeat()
                     samples.append(self.read_imu_converted())
