@@ -25,7 +25,10 @@ class SelfDiscoveryPipeline:
         logger.info(f"Initial LearningState: {self.state.model_dump()}")
 
         for step in self.steps:
-            while True: # Retry Loop
+            max_retries = 3
+            attempts = 0
+            while attempts < max_retries: # Retry Loop
+                attempts += 1
                 if step.is_verified(self.state):
                     logger.info(f"Skipping [{step.name}] - Already verified.")
                     break
@@ -60,6 +63,10 @@ class SelfDiscoveryPipeline:
                     logger.warning(f"[{step.name}] Requested Retry. Stabilizing...")
                     self.hw.stop()
                     time.sleep(2.0)
+                    if attempts >= max_retries:
+                        logger.error(f"[{step.name}] FATAL ERROR: Max retries ({max_retries}) reached. Halting pipeline.")
+                        self.hw.stop()
+                        raise RuntimeError(f"Pipeline halted at {step.name} after {max_retries} failed attempts")
                     continue # Retry same step
 
                 elif status == StepStatus.FATAL:
