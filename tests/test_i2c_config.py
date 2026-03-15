@@ -66,12 +66,10 @@ def test_hardware_init_with_bus():
 
             # Verify mpu6050 was called with bus=3
             mock_mpu_class.assert_called_once_with(0x68, bus=3)
-            # Fix: Check config
             assert hw.hw_config.imu_i2c_bus == 3
 
             # Verify PiconZero was called with bus=0
             mock_pz_class.assert_called_once_with(bus_number=0)
-            # Fix: Check config
             assert hw.hw_config.motor_i2c_bus == 0
 
 def test_hardware_init_skips_if_none():
