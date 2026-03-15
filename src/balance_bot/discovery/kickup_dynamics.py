@@ -53,20 +53,26 @@ class KickupDynamicsStep(CalibrationStep):
         p = base_power
         while p <= 100:
             logger.info(f"  Flop to {target_name} (Power {p:.0f}%)...")
-            motor_p = p * target_sign
+            # 1. Drive opposite to current lean to build momentum
+            initial_p = p * -target_sign
 
-            # Ramp
+            # 2. Sudden reversal to throw the CG
+            reversal_p = p * target_sign
+
             steps = []
-            ramp_steps = 5
+
+            # Step 1: Short ramp up and hold in the opposite direction
+            ramp_steps = 3
             for i in range(1, ramp_steps + 1):
                 factor = i / ramp_steps
-                steps.append((motor_p * factor, motor_p * factor, 0.05))
-            steps.append((motor_p, motor_p, 0.4 - 0.25))
+                steps.append((initial_p * factor, initial_p * factor, 0.05))
+            steps.append((initial_p, initial_p, 0.2))
 
-            # Ramp down
-            for i in range(ramp_steps - 1, -1, -1):
-                factor = i / ramp_steps
-                steps.append((motor_p * factor, motor_p * factor, 0.05))
+            # Step 2: Immediate full reverse power (the "flop" trigger)
+            steps.append((reversal_p, reversal_p, 0.3))
+
+            # Step 3: Stop to allow gravity to finish the flop
+            steps.append((0.0, 0.0, 0.2))
 
             hw.execute_maneuver(steps)
 
@@ -88,10 +94,12 @@ class KickupDynamicsStep(CalibrationStep):
                 logger.info(f"  [Posture Check] Flop successful. Settled at {avg_pitch_post:.1f}°")
                 return
 
-            # Revert movement to avoid hitting walls
-            logger.info("  [Posture Check] Flop failed. Reversing to start position...")
-            reverse_steps = [(-l_p, -r_p, d) for l_p, r_p, d in steps]
-            hw.execute_maneuver(reverse_steps)
+            # Revert net movement to avoid hitting walls.
+            # Since the flop maneuver moved us slightly in the reversal_p direction,
+            # we apply a brief, low-power correction in the initial_p direction.
+            logger.info("  [Posture Check] Flop failed. Re-centering...")
+            recovery_p = initial_p * 0.5
+            hw.execute_maneuver([(recovery_p, recovery_p, 0.4)])
             hw.wait_for_stability(1.0)
 
             p += 10.0
