@@ -4,8 +4,19 @@ import logging
 import urllib.request
 import urllib.error
 from typing import Any, Dict, Optional
+from dataclasses import dataclass
 
 logger = logging.getLogger(__name__)
+
+@dataclass
+class CrashReport:
+    """Data object encapsulating all information needed for a crash report."""
+    error_msg: str
+    stack_trace: str
+    logs: str
+    state: Dict[str, Any]
+    libs: Dict[str, str]
+    telemetry: str = "No telemetry data found."
 
 JULES_API_BASE = "https://jules.googleapis.com/v1alpha"
 SOURCE_NAME = "sources/github/salamanders/balance_bot"
@@ -75,12 +86,7 @@ class JulesClient:
 
     def report_crash(
         self,
-        error_msg: str,
-        stack_trace: str,
-        logs: str,
-        state: Dict[str, Any],
-        libs: Dict[str, str],
-        telemetry: str = "No telemetry data found."
+        report: CrashReport
     ) -> tuple[bool, str]:
         """
         Constructs the prompt and initiates the fix session.
@@ -89,12 +95,12 @@ class JulesClient:
         # Construct a detailed prompt
         prompt = (
             f"The application crashed with the following error:\n\n"
-            f"{error_msg}\n\n"
-            f"Stack Trace:\n```\n{stack_trace}\n```\n\n"
-            f"Recent Logs:\n```\n{logs}\n```\n\n"
-            f"Recent Telemetry:\n```csv\n{telemetry}\n```\n\n"
-            f"Current Runtime State:\n```json\n{json.dumps(state, indent=2, default=str)}\n```\n\n"
-            f"Installed Libraries:\n```json\n{json.dumps(libs, indent=2)}\n```\n\n"
+            f"{report.error_msg}\n\n"
+            f"Stack Trace:\n```\n{report.stack_trace}\n```\n\n"
+            f"Recent Logs:\n```\n{report.logs}\n```\n\n"
+            f"Recent Telemetry:\n```csv\n{report.telemetry}\n```\n\n"
+            f"Current Runtime State:\n```json\n{json.dumps(report.state, indent=2, default=str)}\n```\n\n"
+            f"Installed Libraries:\n```json\n{json.dumps(report.libs, indent=2)}\n```\n\n"
             f"Please analyze this crash, identify the root cause, and create a Pull Request with a fix."
         )
 
