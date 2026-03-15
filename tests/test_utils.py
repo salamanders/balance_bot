@@ -201,3 +201,64 @@ def test_check_force_calibration_flag_both(mock_exists):
     """Test when both the file and the flag are present."""
     mock_exists.return_value = True
     assert check_force_calibration_flag() is True
+
+from balance_bot.utils import get_i2c_failure_report
+import subprocess
+
+@patch("balance_bot.utils.Path.exists")
+def test_get_i2c_failure_report_no_bus(mock_exists):
+    mock_exists.return_value = False
+    result = get_i2c_failure_report(1, 0x68, "MPU6050")
+    assert result == "CRITICAL FAILURE: I2C Bus 1 (/dev/i2c-1) does not exist. The kernel driver is not loaded. Enable I2C in raspi-config or /boot/config.txt."
+
+@patch("balance_bot.utils.Path.exists")
+@patch("os.access")
+@patch("os.environ.get")
+def test_get_i2c_failure_report_no_permission(mock_env_get, mock_access, mock_exists):
+    mock_exists.return_value = True
+    mock_access.return_value = False
+    mock_env_get.return_value = "testuser"
+    result = get_i2c_failure_report(1, 0x68, "MPU6050")
+    assert result == "CRITICAL FAILURE: Permission denied accessing /dev/i2c-1. User 'testuser' cannot read/write. Run: sudo usermod -aG i2c $USER"
+
+@patch("balance_bot.utils.Path.exists")
+@patch("os.access")
+@patch("subprocess.run")
+def test_get_i2c_failure_report_confusion(mock_run, mock_access, mock_exists):
+    mock_exists.return_value = True
+    mock_access.return_value = True
+    mock_process = subprocess.CompletedProcess(args=[], returncode=0, stdout=" 68 ")
+    mock_run.return_value = mock_process
+    result = get_i2c_failure_report(1, 0x68, "MPU6050")
+    assert result == "CONFUSION: Device MPU6050 (0x68) IS detected on Bus 1 by i2cdetect, but Python driver failed. Check for library version mismatch or intermittent wiring connection."
+
+@patch("balance_bot.utils.Path.exists")
+@patch("os.access")
+@patch("subprocess.run")
+def test_get_i2c_failure_report_not_found(mock_run, mock_access, mock_exists):
+    mock_exists.return_value = True
+    mock_access.return_value = True
+    mock_process = subprocess.CompletedProcess(args=[], returncode=0, stdout=" -- ")
+    mock_run.return_value = mock_process
+    result = get_i2c_failure_report(1, 0x68, "MPU6050")
+    assert result == "Hardware not found or failed.  You may be using a different bus, try 'Check I2C Bus'.  Also check wire connections."
+
+@patch("balance_bot.utils.Path.exists")
+@patch("os.access")
+@patch("subprocess.run")
+def test_get_i2c_failure_report_missing_i2cdetect(mock_run, mock_access, mock_exists):
+    mock_exists.return_value = True
+    mock_access.return_value = True
+    mock_run.side_effect = FileNotFoundError()
+    result = get_i2c_failure_report(1, 0x68, "MPU6050")
+    assert result == "DEPENDENCY FAILURE: 'i2cdetect' is missing. Install i2c-tools."
+
+@patch("balance_bot.utils.Path.exists")
+@patch("os.access")
+@patch("subprocess.run")
+def test_get_i2c_failure_report_unknown_error(mock_run, mock_access, mock_exists):
+    mock_exists.return_value = True
+    mock_access.return_value = True
+    mock_run.side_effect = Exception("Mocked Error")
+    result = get_i2c_failure_report(1, 0x68, "MPU6050")
+    assert result == "UNKNOWN FAILURE: Error running diagnostics: Mocked Error"
