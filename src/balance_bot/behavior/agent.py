@@ -329,6 +329,7 @@ class Agent:
                 else:
                     # Fallback if no telemetry (e.g. after Kickup)
                     comp_factor = 1.0
+                    _ = comp_factor
 
                 # Reflex Update
                 tuning_params.kp = tune_kp
@@ -480,7 +481,7 @@ class Agent:
                 )
 
                 # 1. Lift
-                drive_val = power * kick_direction
+                drive_val = power * kick_direction.value
                 self.core.hw.set_motors(drive_val, drive_val)
 
                 self._sleep_with_update(0.25)

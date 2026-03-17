@@ -1,7 +1,5 @@
-import time
 from unittest.mock import MagicMock, patch, call
 from pathlib import Path
-import pytest
 
 from balance_bot.behavior.leds import LedController
 from balance_bot.configuration import LedConfig

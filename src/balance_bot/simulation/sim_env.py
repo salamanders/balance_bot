@@ -124,6 +124,7 @@ class BalanceBotEnv(_BaseEnv):
         return np.array([obs_pitch, obs_pitch_rate, obs_yaw, obs_yaw_rate], dtype=np.float32)
 
     def reset(self, seed=None, options=None):
+        _ = options
         super().reset(seed=seed)
 
         pb.resetSimulation(physicsClientId=self.client_id)

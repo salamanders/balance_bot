@@ -1,6 +1,5 @@
 import statistics
 from collections import deque
-from itertools import pairwise
 from typing import NamedTuple
 
 from ..configuration import TunerConfig

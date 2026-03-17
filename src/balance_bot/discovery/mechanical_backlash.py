@@ -46,6 +46,7 @@ class MechanicalBacklashStep(CalibrationStep):
         # Execute the ramp while checking for movement to capture slop properly
         slop_time = 0.2
         reading = None
+        _ = reading
         moved = False
 
         for i in range(1, 4):

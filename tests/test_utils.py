@@ -1,4 +1,6 @@
 import time
+import subprocess
+from balance_bot.utils import get_i2c_failure_report
 import math
 import logging
 from unittest.mock import patch
@@ -202,8 +204,6 @@ def test_check_force_calibration_flag_both(mock_exists):
     mock_exists.return_value = True
     assert check_force_calibration_flag() is True
 
-from balance_bot.utils import get_i2c_failure_report
-import subprocess
 
 @patch("balance_bot.utils.Path.exists")
 def test_get_i2c_failure_report_no_bus(mock_exists):

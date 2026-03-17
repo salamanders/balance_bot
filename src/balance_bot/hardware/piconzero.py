@@ -23,7 +23,7 @@ class PiconZero:
         if self.bus:
             try:
                 self.bus.close()
-            except Exception:
+            except (OSError, IOError):
                 pass
         self.bus = smbus.SMBus(self.bus_number)
 
@@ -32,7 +32,7 @@ class PiconZero:
         for _ in range(self.retries):
             try:
                 return func()
-            except Exception:
+            except (OSError, IOError):
                 if self.debug:
                     print(f"Error in {name}(), retrying")
                 time.sleep(0.005)
@@ -41,11 +41,11 @@ class PiconZero:
         if self.bus:
             try:
                 self.bus.write_byte_data(self.I2C_ADDRESS, 0, 0)
-            except Exception:
+            except (OSError, IOError):
                 pass
             try:
                 self.bus.write_byte_data(self.I2C_ADDRESS, 1, 0)
-            except Exception:
+            except (OSError, IOError):
                 pass
         raise OSError(f"PiconZero {name}() failed after {self.retries} retries")
 
@@ -66,11 +66,11 @@ class PiconZero:
             # We must attempt to explicitly write 0 to PWMs before passing
             try:
                 self.bus.write_byte_data(self.I2C_ADDRESS, 0, 0)
-            except Exception:
+            except (OSError, IOError):
                 pass
             try:
                 self.bus.write_byte_data(self.I2C_ADDRESS, 1, 0)
-            except Exception:
+            except (OSError, IOError):
                 pass
             print("OSError during PiconZero cleanup. Halting.")
             raise
@@ -78,7 +78,7 @@ class PiconZero:
         if self.bus:
             try:
                 self.bus.close()
-            except Exception:
+            except (OSError, IOError):
                 pass
 
     def stop(self) -> None:

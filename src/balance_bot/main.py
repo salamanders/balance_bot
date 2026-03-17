@@ -62,7 +62,7 @@ def _handle_crash_reporting(e: Exception, bot_instance: Agent | None = None) -> 
                 "learning": bot_instance.learning_state.model_dump(),
                 "runtime_ticks": bot_instance.ticks
             }
-        except Exception:
+        except (AttributeError, ValueError, TypeError):
             state_info["serialization_error"] = "Could not serialize bot config"
 
     # 4. Capture Libs

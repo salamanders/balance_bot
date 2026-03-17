@@ -104,7 +104,6 @@ class SimHardware:
         # IMUReading expects degrees
         pitch_rad = self.obs[0]
         pitch_rate_rad = self.obs[1]
-        self.obs[2]
         yaw_rate_rad = self.obs[3]
 
         pitch_deg = math.degrees(pitch_rad)
@@ -168,31 +167,24 @@ class SimHardware:
 
     # Some basic maneuver methods
     def execute_maneuver(self, steps: list[tuple[float, float, float]], sample_interval: float = 0.01, trim_override: float | None = None) -> MeasureResult:
+        _ = sample_interval
+        _ = trim_override
         logger.info("Executing maneuver in simulation")
         # Step through the commands and record
-        math.degrees(self.obs[0])
-        yaw_sum = 0.0
-        max_rate = 0.0
-
+        samples = []
         for pwr_l, pwr_r, duration in steps:
             self.set_motors(pwr_l, pwr_r, trim_override)
             steps_needed = int(duration / self.control_dt)
             for _ in range(steps_needed):
                 imu = self.read_imu_converted()
-                yaw_sum += imu.yaw_rate * self.control_dt
-                if abs(imu.pitch_rate) > max_rate:
-                    max_rate = abs(imu.pitch_rate)
+                samples.append(imu)
 
         self.set_motors(0, 0)
-        end_pitch = math.degrees(self.obs[0])
-
         total_duration = sum(s[2] for s in steps)
 
         return MeasureResult(
-            avg_yaw_rate=yaw_sum / total_duration,
-            abs_avg_yaw_rate=abs(yaw_sum / total_duration),
-            max_rate=max_rate,
-            final_pitch=end_pitch
+            duration=total_duration,
+            samples=samples
         )
 
     def drive_and_measure(self, command: DriveCommand) -> MeasureResult:

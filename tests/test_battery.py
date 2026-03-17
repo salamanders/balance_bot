@@ -30,6 +30,7 @@ def test_battery_estimator_compensation():
     # Ratio = 1.0 / 2.0 = 0.5
     # The factor should slowly drift towards 0.5
 
+    factor = 1.0
     for _ in range(50):
         factor = estimator.update(50, 50)
 
