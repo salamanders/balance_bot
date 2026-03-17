@@ -56,7 +56,8 @@ class SimHardware:
     def stop(self) -> None:
         self.set_motors(0, 0)
 
-    def read_imu_raw(self) -> tuple[glm.vec3, glm.vec3]:
+    @staticmethod
+    def read_imu_raw() -> tuple[glm.vec3, glm.vec3]:
         # Not strictly needed since we use read_imu_converted usually
         return glm.vec3(0,0,0), glm.vec3(0,0,0)
 
@@ -160,7 +161,8 @@ class SimHardware:
         while time.time() - start < duration:
             self.read_imu_converted()
 
-    def measure_gravity(self, duration: float = 1.0) -> glm.vec3:
+    @staticmethod
+    def measure_gravity(duration: float = 1.0) -> glm.vec3:
         # Return a nominal gravity vector (Z is down in real world, but depends on accel orientation)
         return glm.vec3(0, 0, 9.81)
 

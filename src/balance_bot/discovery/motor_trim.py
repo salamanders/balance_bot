@@ -16,7 +16,8 @@ class MotorTrimStep(CalibrationStep):
     def is_verified(self, state: LearningState) -> bool:
         return state.motor_trim_verified
 
-    def _build_smooth_ramp(self, l_p: float, r_p: float, total_duration: float) -> list[tuple[float, float, float]]:
+    @staticmethod
+    def _build_smooth_ramp(l_p: float, r_p: float, total_duration: float) -> list[tuple[float, float, float]]:
         steps = []
         ramp_duration = 0.1
         ramp_steps = 5
@@ -38,7 +39,8 @@ class MotorTrimStep(CalibrationStep):
 
         return steps
 
-    def _run_square_validation(self, hw: RobotHardware, best_trim: float) -> None:
+    @staticmethod
+    def _run_square_validation(hw: RobotHardware, best_trim: float) -> None:
         logger.info("  [VALIDATION] Running square pattern test (20% power, 3s per side)...")
         total_wobble = 0.0
 

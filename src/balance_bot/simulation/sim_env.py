@@ -18,6 +18,9 @@ class BalanceBotEnv(_BaseEnv):
     metadata = {"render_modes": ["human", "rgb_array"], "render_fps": 100}
 
     def __init__(self, render_mode=None):
+        self.right_joint = 2
+        self.left_joint = 1
+        self.plane_id = pb.loadURDF("plane.urdf", physicsClientId=self.client_id)
         if not _HAS_SIM:
             raise ImportError("pybullet and gymnasium are required to run the simulation environment. Install them with `uv sync --extra sim`.")
 
@@ -128,7 +131,6 @@ class BalanceBotEnv(_BaseEnv):
         pb.setTimeStep(self.physics_dt, physicsClientId=self.client_id)
 
         # Load plane
-        self.plane_id = pb.loadURDF("plane.urdf", physicsClientId=self.client_id)
 
         # Load robot
         urdf_path = os.path.join(os.path.dirname(__file__), "robot.urdf")
@@ -144,8 +146,6 @@ class BalanceBotEnv(_BaseEnv):
         # 0: drag_bar_joint (fixed)
         # 1: left_wheel_joint (continuous)
         # 2: right_wheel_joint (continuous)
-        self.left_joint = 1
-        self.right_joint = 2
 
         # Disable default velocity control for wheels so we can use torque control
         pb.setJointMotorControl2(self.robot_id, self.left_joint, pb.VELOCITY_CONTROL, force=0, physicsClientId=self.client_id)

@@ -4,13 +4,16 @@ import glm
 
 
 class MockPiconZero:
-    def init(self) -> None:
+    @staticmethod
+    def init() -> None:
         print("[MockPiconZero] init")
 
-    def stop(self) -> None:
+    @staticmethod
+    def stop() -> None:
         print("[MockPiconZero] stop")
 
-    def set_retries(self, retries: int) -> None:
+    @staticmethod
+    def set_retries(retries: int) -> None:
         print(f"[MockPiconZero] set_retries: {retries}")
 
     def set_motor(self, motor: int, value: int) -> None:
@@ -21,7 +24,8 @@ class MockPiconZero:
         # Mock implementation, no-op or log if needed
         pass
 
-    def cleanup(self) -> None:
+    @staticmethod
+    def cleanup() -> None:
         print("[MockPiconZero] cleanup")
 
 
@@ -30,7 +34,8 @@ class MockMPU6050:
         self.address = address
         print(f"[MockMPU6050] init at {address}")
 
-    def get_accel_data(self) -> glm.vec3:
+    @staticmethod
+    def get_accel_data() -> glm.vec3:
         # Default vertical
         pitch = 0.0
 
@@ -54,5 +59,6 @@ class MockMPU6050:
 
         return glm.vec3(0.0, y, z)
 
-    def get_gyro_data(self) -> glm.vec3:
+    @staticmethod
+    def get_gyro_data() -> glm.vec3:
         return glm.vec3(0.0)

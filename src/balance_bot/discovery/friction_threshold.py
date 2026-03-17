@@ -11,6 +11,10 @@ logger = logging.getLogger(__name__)
 
 # --- Step 4: Friction Threshold ---
 class FrictionThresholdStep(CalibrationStep):
+    def __init__(self):
+        self.gyro_glitches = 0
+        self.ignored_commands = 0
+
     @property
     def name(self) -> str:
         return "Friction Threshold (Min Power)"
@@ -21,9 +25,6 @@ class FrictionThresholdStep(CalibrationStep):
     def run(self, hw: RobotHardware, config: HardwareConfig, state: LearningState) -> Tuple[StepStatus, Dict[str, Any], Dict[str, Any]]:
         logger.info("\n>>> Finding Minimum Power (Raw) <<<")
         logger.info("Ensuring robot is on the floor...")
-
-        self.ignored_commands = 0
-        self.gyro_glitches = 0
 
         def action(p):
             steps = [

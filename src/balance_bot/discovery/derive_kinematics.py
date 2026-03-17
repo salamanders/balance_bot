@@ -237,7 +237,8 @@ class DeriveKinematicsStep(CalibrationStep):
 
         return StepStatus.SUCCESS, config_updates, state_updates
 
-    def _avg_vec(self, vecs: List[glm.vec3]) -> glm.vec3:
+    @staticmethod
+    def _avg_vec(vecs: List[glm.vec3]) -> glm.vec3:
         if not vecs:
             return glm.vec3(0)
         s = glm.vec3(0)

@@ -240,7 +240,8 @@ class RobotHardware:
                 return Axis.X  # Fallback
         return None
 
-    def get_axis_value(self, vector: glm.vec3, axis: Axis | None, invert: bool) -> float:
+    @staticmethod
+    def get_axis_value(vector: glm.vec3, axis: Axis | None, invert: bool) -> float:
         """Helper to extract and optionally invert a vector component."""
         if axis is None:
             raise RuntimeError("CRITICAL: HAL attempted to read an unmapped sensor axis.")

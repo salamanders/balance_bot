@@ -369,7 +369,8 @@ class Agent:
                 self.learning_state.save()
             self.io_executor.shutdown(wait=True)
 
-    def _save_config_worker(self, config_data: dict) -> None:
+    @staticmethod
+    def _save_config_worker(config_data: dict) -> None:
         """Background worker to write config to disk."""
         try:
             # Serialize in background thread

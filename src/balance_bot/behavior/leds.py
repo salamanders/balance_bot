@@ -33,7 +33,8 @@ class LedController:
         # Turn off initially
         self.set_led(False)
 
-    def _find_led_path(self) -> Path | None:
+    @staticmethod
+    def _find_led_path() -> Path | None:
         """
         Locate the system path for controlling the status LED.
         Checks standard Pi paths (ACT led, etc.).

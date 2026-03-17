@@ -18,7 +18,8 @@ class KickupDynamicsStep(CalibrationStep):
     def is_verified(self, state: LearningState) -> bool:
         return state.kickup_dynamics_verified
 
-    def _force_posture(self, hw: RobotHardware, target_sign: float, base_power: float, state: LearningState) -> None:
+    @staticmethod
+    def _force_posture(hw: RobotHardware, target_sign: float, base_power: float, state: LearningState) -> None:
         """Helper to force the robot into a specific posture (+1 for BACK, -1 for FRONT)."""
         target_name = "BACK" if target_sign > 0 else "FRONT"
 
@@ -106,7 +107,8 @@ class KickupDynamicsStep(CalibrationStep):
 
         raise RuntimeError("Failed to posture")
 
-    def _attempt_kick(self, hw: RobotHardware, start_sign: float, p: float) -> str:
+    @staticmethod
+    def _attempt_kick(hw: RobotHardware, start_sign: float, p: float) -> str:
         """Helper to attempt a kick-up maneuver. start_sign: +1 for BACK, -1 for FRONT."""
         kick_sign = -start_sign
         setup_sign = -kick_sign
