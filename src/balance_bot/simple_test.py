@@ -68,8 +68,8 @@ def monitor_imu(sensor, duration=1.0):
             print(f"[{ts_ms:05d} ms] Gyro: X={gyro_data['x']:>6.2f}, Y={gyro_data['y']:>6.2f}, Z={gyro_data['z']:>6.2f} "
                   f"| Accel: X={accel_data['x']:>6.2f}, Y={accel_data['y']:>6.2f}, Z={accel_data['z']:>6.2f} | Tot G: {magnitude:.2f}")
 
-        except Exception as e:
-            print(f"[{ts_ms:05d} ms] ERROR reading IMU: {type(e).__name__} - {e}")
+        except Exception as err:
+            print(f"[{ts_ms:05d} ms] ERROR reading IMU: {type(err).__name__} - {err}")
 
         time.sleep(0.05) # Sample at ~20Hz
 
@@ -101,16 +101,16 @@ def main():
 
         motor_bus.write_byte_data(PICONZERO_ADDR, CMD_RESET, 0)
         time.sleep(0.1)
-    except Exception as e:
-        print(f"[{get_ms():05d} ms] CRITICAL: Failed to initialize hardware: {e}")
+    except Exception as err:
+        print(f"[{get_ms():05d} ms] CRITICAL: Failed to initialize hardware: {err}")
         return
 
     def set_motors(val_0, val_1):
         try:
             motor_bus.write_byte_data(PICONZERO_ADDR, 0, val_0 & 0xFF)
             motor_bus.write_byte_data(PICONZERO_ADDR, 1, val_1 & 0xFF)
-        except Exception as e:
-            print(f"[{get_ms():05d} ms] ERROR setting motors: {e}")
+        except Exception as err:
+            print(f"[{get_ms():05d} ms] ERROR setting motors: {err}")
 
     try:
         print(f"\n[{get_ms():05d} ms] --- Step 2: Sitting Still (Monitoring Static Gravity) ---")

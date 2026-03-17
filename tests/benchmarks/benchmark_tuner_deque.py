@@ -19,7 +19,7 @@ def benchmark_tuner_update():
 
     # Pre-fill buffer with small values
     print(f"Pre-filling buffer with {buffer_size} elements...")
-    for i in range(buffer_size):
+    for _ in range(buffer_size):
         tuner.update(1.0)
 
     # Ensure buffer is full
@@ -33,7 +33,7 @@ def benchmark_tuner_update():
     print(f"Running {iterations} iterations of update()...")
 
     def run_update():
-        for i in range(iterations):
+        for _ in range(iterations):
             tuner.update(1.0)
 
     # Measure time

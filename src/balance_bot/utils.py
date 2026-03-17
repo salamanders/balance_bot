@@ -37,7 +37,7 @@ class LogCaptureHandler(logging.Handler):
         try:
             msg = self.format(record)
             self.buffer.append(msg)
-        except Exception:
+        except (OSError, IOError, Exception):
             self.handleError(record)
 
 
@@ -188,8 +188,8 @@ def calculate_pitch(accel_y: float, accel_z: float) -> float:
 
 class StdOutToLog(object):
     """File-like object that redirects writes to a logger."""
-    def __init__(self, logger, level):
-        self.logger = logger
+    def __init__(self, target_logger, level):
+        self.logger = target_logger
         self.level = level
         self.buffer = ""
 
@@ -352,7 +352,7 @@ def make_i2c_check_fn(address: int, register: int = 0, expected_value: int = Non
             if expected_value is not None:
                 return val == expected_value
             return True
-        except Exception:
+        except (OSError, IOError, Exception):
             return False
     return check
 
@@ -379,9 +379,9 @@ def scan_i2c_candidates(name: str, check_fn: Callable[[Any], bool]) -> int | Non
             finally:
                 try:
                     bus.close()
-                except Exception:
+                except (OSError, IOError, Exception):
                     pass
-        except Exception:
+        except (OSError, IOError, Exception):
             pass
     return None
 
@@ -514,10 +514,10 @@ def sort_resting_vectors(vectors: list[glm.vec3]) -> tuple[glm.vec3, glm.vec3]:
             return glm.vec3(0.0)
 
         sum_x = sum_y = sum_z = 0.0
-        for v in bucket:
-            sum_x += v.x
-            sum_y += v.y
-            sum_z += v.z
+        for vec in bucket:
+            sum_x += vec.x
+            sum_y += vec.y
+            sum_z += vec.z
 
         count = len(bucket)
         return glm.vec3(sum_x / count, sum_y / count, sum_z / count)

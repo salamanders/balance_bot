@@ -61,6 +61,7 @@ class PIDController:
         input_val = self.pid.setpoint - error
 
         output = 0.0
+        _ = output
 
         # --- Derivative Strategy ---
         if measurement_rate is not None:

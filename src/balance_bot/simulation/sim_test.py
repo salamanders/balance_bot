@@ -13,7 +13,7 @@ def main():
     env = BalanceBotEnv(render_mode="human")
 
     # Reset the environment
-    obs, info = env.reset()
+    _, _ = env.reset()
 
     # Run a dummy control loop infinitely
     try:
@@ -22,7 +22,7 @@ def main():
             action = [0.0, 0.0]
 
             # Step the environment
-            obs, reward, terminated, truncated, info = env.step(action)
+            obs, _, terminated, truncated, _ = env.step(action)
 
             # Pitch is the first observation
             pitch = obs[0]
@@ -30,7 +30,7 @@ def main():
             # Reset if robot crashes/terminates
             if terminated:
                 print(f"Robot terminated at pitch: {pitch:.2f} rad. Resetting...")
-                obs, info = env.reset()
+                _, _ = env.reset()
 
             # Sleep slightly to match physical time
             time.sleep(1.0 / 100.0)
