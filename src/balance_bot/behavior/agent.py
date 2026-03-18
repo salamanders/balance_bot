@@ -107,7 +107,7 @@ class Agent:
             velocity=0.0, turn_rate=0.0, enable_control=False
         )
 
-    def run(self) -> None:
+    def run(self) -> None:  # noqa: C901
         """
         Main Event Loop.
         """
