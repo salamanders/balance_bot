@@ -1,4 +1,4 @@
-- [ ] Inspection Results 'Project Default' profile 240 errors 32 warnings 121 weak warnings 11 grammar errors 48 typos
+- [x] Inspection Results 'Project Default' profile 240 errors 32 warnings 121 weak warnings 11 grammar errors 48 typos
   - [ ] Markdown group 10 warnings 3 weak warnings
     - [ ] Incorrect table formatting inspection 3 weak warnings
       - [ ] file AGENTS.md 2 weak warnings
@@ -6,18 +6,18 @@
         - [ ] WEAK WARNING Table is not correctly formatted
       - [ ] file BLIND_SPOTS.md 1 weak warning
         - [ ] WEAK WARNING Table is not correctly formatted
-    - [ ] Unresolved file references inspection 10 warnings
+    - [x] Unresolved file references inspection 10 warnings
       - [ ] file README.md 10 warnings
-        - [ ] WARNING Cannot resolve file 'ITERATE.md'
-        - [ ] WARNING Cannot resolve file 'diagnostics.py'
-        - [ ] WARNING Cannot resolve file 'wiring_check.py'
-        - [ ] WARNING Cannot resolve file 'piconzero_adapter.py'
-        - [ ] WARNING Cannot resolve file ''
-        - [ ] WARNING Cannot resolve file 'test_cross_product.py'
-        - [ ] WARNING Cannot resolve file 'test_diagnostics.py'
-        - [ ] WARNING Cannot resolve file 'test_wiring_check_bus.py'
-        - [ ] WARNING Cannot resolve file 'wiring_check.py'
-        - [ ] WARNING Cannot resolve file 'wiring_check.py'
+        - [x] WARNING Cannot resolve file 'ITERATE.md'
+        - [x] WARNING Cannot resolve file 'diagnostics.py'
+        - [x] WARNING Cannot resolve file 'wiring_check.py'
+        - [x] WARNING Cannot resolve file 'piconzero_adapter.py'
+        - [x] WARNING Cannot resolve file ''
+        - [x] WARNING Cannot resolve file 'test_cross_product.py'
+        - [x] WARNING Cannot resolve file 'test_diagnostics.py'
+        - [x] WARNING Cannot resolve file 'test_wiring_check_bus.py'
+        - [x] WARNING Cannot resolve file 'wiring_check.py'
+        - [x] WARNING Cannot resolve file 'wiring_check.py'
   - [ ] Proofreading group 11 grammar errors 48 typos
     - [ ] Grammar inspection 11 grammar errors
       - [ ] file balance_core.py 2 grammar errors
@@ -102,7 +102,7 @@
         - [ ] TYPO Typo: In word 'cdetect'
   - [ ] Python group 240 errors 21 warnings 118 weak warnings
     - [x] Incorrect call arguments inspection 6 warnings
-      - [x] file sim_hardware.py 6 warnings
+      - [ ] file sim_hardware.py 6 warnings
         - [x] WARNING Unexpected argument
         - [x] WARNING Unexpected argument
         - [x] WARNING Unexpected argument
@@ -133,18 +133,18 @@
         - [ ] WEAK WARNING Argument name should be lowercase
         - [ ] WEAK WARNING Argument name should be lowercase
     - [x] Shadowing names from outer scopes inspection 4 weak warnings
-      - [x] file benchmark_tuner_deque.py 1 weak warning
+      - [ ] file benchmark_tuner_deque.py 1 weak warning
         - [ ] WEAK WARNING Shadows name 'i' from outer scope
       - [ ] file simple_test.py 1 weak warning
         - [ ] WEAK WARNING Shadows name 'e' from outer scope
-      - [x] file utils.py 2 weak warnings
+      - [ ] file utils.py 2 weak warnings
         - [x] WEAK WARNING Shadows name 'logger' from outer scope
         - [x] WEAK WARNING Shadows name 'v' from outer scope
     - [x] Statement has no effect inspection 1 warning
-      - [x] file sim_hardware.py 1 warning
+      - [ ] file sim_hardware.py 1 warning
         - [x] WARNING Statement seems to have no effect
     - [x] Unbound local variables inspection 1 warning
-      - [x] file test_battery.py 1 warning
+      - [ ] file test_battery.py 1 warning
         - [x] WARNING Local variable 'factor' might be referenced before assignment
     - [ ] Unclear exception clauses inspection 15 weak warnings
       - [ ] file main.py 1 weak warning
@@ -166,374 +166,374 @@
         - [ ] WEAK WARNING Too broad exception clause
         - [ ] WEAK WARNING Too broad exception clause
         - [ ] WEAK WARNING Too broad exception clause
-    - [ ] Unresolved references inspection 240 errors 4 warnings 2 weak warnings
+    - [x] Unresolved references inspection 240 errors 4 warnings 2 weak warnings
       - [ ] file benchmark_config_serialization.py 4 errors
-        - [ ] WARNING Unresolved reference 'balance_bot'
-        - [ ] WARNING Unresolved reference 'LearningState'
-        - [ ] WARNING Unresolved reference 'PIDParams'
-        - [ ] WARNING Unresolved reference 'TunerConfig'
+        - [x] WARNING Unresolved reference 'balance_bot'
+        - [x] WARNING Unresolved reference 'LearningState'
+        - [x] WARNING Unresolved reference 'PIDParams'
+        - [x] WARNING Unresolved reference 'TunerConfig'
       - [ ] file benchmark_logging_latency.py 2 errors
-        - [ ] WARNING Unresolved reference 'balance_bot'
-        - [ ] WARNING Unresolved reference 'LogThrottler'
+        - [x] WARNING Unresolved reference 'balance_bot'
+        - [x] WARNING Unresolved reference 'LogThrottler'
       - [ ] file benchmark_tuner_deque.py 4 errors
-        - [ ] WARNING Unresolved reference 'balance_bot'
-        - [ ] WARNING Unresolved reference 'ContinuousTuner'
-        - [ ] WARNING Unresolved reference 'balance_bot'
-        - [ ] WARNING Unresolved reference 'TunerConfig'
+        - [x] WARNING Unresolved reference 'balance_bot'
+        - [x] WARNING Unresolved reference 'ContinuousTuner'
+        - [x] WARNING Unresolved reference 'balance_bot'
+        - [x] WARNING Unresolved reference 'TunerConfig'
       - [ ] file benchmark_zero_crossings.py 4 errors
-        - [ ] WARNING Unresolved reference 'balance_bot'
-        - [ ] WARNING Unresolved reference 'ContinuousTuner'
-        - [ ] WARNING Unresolved reference 'balance_bot'
-        - [ ] WARNING Unresolved reference 'TunerConfig'
+        - [x] WARNING Unresolved reference 'balance_bot'
+        - [x] WARNING Unresolved reference 'ContinuousTuner'
+        - [x] WARNING Unresolved reference 'balance_bot'
+        - [x] WARNING Unresolved reference 'TunerConfig'
       - [ ] file broken_wire_check.py 1 error
-        - [ ] WARNING No module named 'glm'
+        - [x] WARNING No module named 'glm'
       - [ ] file derive_kinematics.py 1 error
-        - [ ] WARNING No module named 'glm'
+        - [x] WARNING No module named 'glm'
       - [ ] file friction_threshold.py 1 error
-        - [ ] WARNING No module named 'glm'
+        - [x] WARNING No module named 'glm'
       - [ ] file mocks.py 1 error
-        - [ ] WARNING No module named 'glm'
+        - [x] WARNING No module named 'glm'
       - [ ] file piconzero.py 1 error
-        - [ ] WARNING No module named 'smbus2'
+        - [x] WARNING No module named 'smbus2'
       - [ ] file pid.py 2 errors
-        - [ ] WARNING Unresolved reference 'simple_pid'
-        - [ ] WARNING Unresolved reference 'PID'
+        - [x] WARNING Unresolved reference 'simple_pid'
+        - [x] WARNING Unresolved reference 'PID'
       - [ ] file robot_hardware.py 2 errors 2 weak warnings
-        - [ ] WARNING No module named 'glm'
+        - [x] WARNING No module named 'glm'
         - [ ] WARNING Module 'smbus2' not found
-        - [ ] WARNING Unresolved reference 'mpu6050'
+        - [x] WARNING Unresolved reference 'mpu6050'
         - [ ] WARNING Module 'mpu6050' not found
       - [ ] file run_test.py 1 error
-        - [ ] WARNING No module named 'pytest'
+        - [x] WARNING No module named 'pytest'
       - [ ] file sim_env.py 1 error 1 warning
-        - [ ] WARNING No module named 'numpy'
+        - [x] WARNING No module named 'numpy'
         - [ ] WARNING Unresolved attribute reference 'reset' for class 'object'
       - [ ] file sim_hardware.py 2 errors
-        - [ ] WARNING No module named 'numpy'
-        - [ ] WARNING No module named 'glm'
+        - [x] WARNING No module named 'numpy'
+        - [x] WARNING No module named 'glm'
       - [ ] file sim_test.py 2 errors
-        - [ ] WARNING Unresolved reference 'balance_bot'
-        - [ ] WARNING Unresolved reference 'BalanceBotEnv'
+        - [x] WARNING Unresolved reference 'balance_bot'
+        - [x] WARNING Unresolved reference 'BalanceBotEnv'
       - [ ] file simple_test.py 3 errors
-        - [ ] WARNING No module named 'smbus2'
-        - [ ] WARNING Unresolved reference 'mpu6050'
-        - [ ] WARNING Unresolved reference 'mpu6050'
+        - [x] WARNING No module named 'smbus2'
+        - [x] WARNING Unresolved reference 'mpu6050'
+        - [x] WARNING Unresolved reference 'mpu6050'
       - [ ] file telemetry.py 1 warning
         - [ ] WARNING Unresolved attribute reference 'Full' for class 'Queue'
       - [ ] file test_agent_config_save.py 6 errors
-        - [ ] WARNING Unresolved reference 'balance_bot'
-        - [ ] WARNING Unresolved reference 'Agent'
-        - [ ] WARNING Unresolved reference 'balance_bot'
-        - [ ] WARNING Unresolved reference 'HardwareConfig'
-        - [ ] WARNING Unresolved reference 'LearningState'
-        - [ ] WARNING Unresolved reference 'PIDParams'
+        - [x] WARNING Unresolved reference 'balance_bot'
+        - [x] WARNING Unresolved reference 'Agent'
+        - [x] WARNING Unresolved reference 'balance_bot'
+        - [x] WARNING Unresolved reference 'HardwareConfig'
+        - [x] WARNING Unresolved reference 'LearningState'
+        - [x] WARNING Unresolved reference 'PIDParams'
       - [ ] file test_agent_state_machine.py 3 errors
-        - [ ] WARNING Unresolved reference 'balance_bot'
-        - [ ] WARNING Unresolved reference 'Agent'
-        - [ ] WARNING Unresolved reference 'BotState'
+        - [x] WARNING Unresolved reference 'balance_bot'
+        - [x] WARNING Unresolved reference 'Agent'
+        - [x] WARNING Unresolved reference 'BotState'
       - [ ] file test_balance_core_params.py 10 errors
-        - [ ] WARNING No module named 'pytest'
-        - [ ] WARNING Unresolved reference 'balance_bot'
-        - [ ] WARNING Unresolved reference 'BalanceCore'
-        - [ ] WARNING Unresolved reference 'MotionRequest'
-        - [ ] WARNING Unresolved reference 'TuningParams'
-        - [ ] WARNING Unresolved reference 'BalanceTelemetry'
-        - [ ] WARNING Unresolved reference 'balance_bot'
-        - [ ] WARNING Unresolved reference 'HardwareConfig'
-        - [ ] WARNING Unresolved reference 'LearningState'
-        - [ ] WARNING Unresolved reference 'PIDParams'
+        - [x] WARNING No module named 'pytest'
+        - [x] WARNING Unresolved reference 'balance_bot'
+        - [x] WARNING Unresolved reference 'BalanceCore'
+        - [x] WARNING Unresolved reference 'MotionRequest'
+        - [x] WARNING Unresolved reference 'TuningParams'
+        - [x] WARNING Unresolved reference 'BalanceTelemetry'
+        - [x] WARNING Unresolved reference 'balance_bot'
+        - [x] WARNING Unresolved reference 'HardwareConfig'
+        - [x] WARNING Unresolved reference 'LearningState'
+        - [x] WARNING Unresolved reference 'PIDParams'
       - [ ] file test_balance_finder.py 4 errors
-        - [ ] WARNING Unresolved reference 'balance_bot'
-        - [ ] WARNING Unresolved reference 'BalancePointFinder'
-        - [ ] WARNING Unresolved reference 'balance_bot'
-        - [ ] WARNING Unresolved reference 'TunerConfig'
+        - [x] WARNING Unresolved reference 'balance_bot'
+        - [x] WARNING Unresolved reference 'BalancePointFinder'
+        - [x] WARNING Unresolved reference 'balance_bot'
+        - [x] WARNING Unresolved reference 'TunerConfig'
       - [ ] file test_battery.py 4 errors
-        - [ ] WARNING Unresolved reference 'balance_bot'
-        - [ ] WARNING Unresolved reference 'BatteryEstimator'
-        - [ ] WARNING Unresolved reference 'balance_bot'
-        - [ ] WARNING Unresolved reference 'BatteryConfig'
+        - [x] WARNING Unresolved reference 'balance_bot'
+        - [x] WARNING Unresolved reference 'BatteryEstimator'
+        - [x] WARNING Unresolved reference 'balance_bot'
+        - [x] WARNING Unresolved reference 'BatteryConfig'
       - [ ] file test_discovery_pipeline.py 6 errors
-        - [ ] WARNING No module named 'pytest'
-        - [ ] WARNING Unresolved reference 'balance_bot'
-        - [ ] WARNING Unresolved reference 'SelfDiscoveryPipeline'
-        - [ ] WARNING Unresolved reference 'balance_bot'
-        - [ ] WARNING Unresolved reference 'CalibrationStep'
-        - [ ] WARNING Unresolved reference 'StepStatus'
+        - [x] WARNING No module named 'pytest'
+        - [x] WARNING Unresolved reference 'balance_bot'
+        - [x] WARNING Unresolved reference 'SelfDiscoveryPipeline'
+        - [x] WARNING Unresolved reference 'balance_bot'
+        - [x] WARNING Unresolved reference 'CalibrationStep'
+        - [x] WARNING Unresolved reference 'StepStatus'
       - [ ] file test_fail_loud.py 12 errors
-        - [ ] WARNING No module named 'pytest'
-        - [ ] WARNING No module named 'glm'
-        - [ ] WARNING Unresolved reference 'balance_bot'
-        - [ ] WARNING Unresolved reference 'RobotHardware'
-        - [ ] WARNING Unresolved reference 'balance_bot'
-        - [ ] WARNING Unresolved reference 'HardwareConfig'
-        - [ ] WARNING Unresolved reference 'LearningState'
-        - [ ] WARNING Unresolved reference 'balance_bot'
-        - [ ] WARNING Unresolved reference 'Axis'
-        - [ ] WARNING Unresolved reference 'balance_bot'
-        - [ ] WARNING Unresolved reference 'DiscoverBusesStep'
-        - [ ] WARNING Unresolved reference 'StepStatus'
+        - [x] WARNING No module named 'pytest'
+        - [x] WARNING No module named 'glm'
+        - [x] WARNING Unresolved reference 'balance_bot'
+        - [x] WARNING Unresolved reference 'RobotHardware'
+        - [x] WARNING Unresolved reference 'balance_bot'
+        - [x] WARNING Unresolved reference 'HardwareConfig'
+        - [x] WARNING Unresolved reference 'LearningState'
+        - [x] WARNING Unresolved reference 'balance_bot'
+        - [x] WARNING Unresolved reference 'Axis'
+        - [x] WARNING Unresolved reference 'balance_bot'
+        - [x] WARNING Unresolved reference 'DiscoverBusesStep'
+        - [x] WARNING Unresolved reference 'StepStatus'
       - [ ] file test_gyro_drift.py 8 errors
-        - [ ] WARNING No module named 'pytest'
-        - [ ] WARNING Unresolved reference 'balance_bot'
-        - [ ] WARNING Unresolved reference 'RobotHardware'
-        - [ ] WARNING Unresolved reference 'balance_bot'
-        - [ ] WARNING Unresolved reference 'HardwareConfig'
-        - [ ] WARNING Unresolved reference 'LearningState'
-        - [ ] WARNING Unresolved reference 'PIDParams'
-        - [ ] WARNING No module named 'glm'
+        - [x] WARNING No module named 'pytest'
+        - [x] WARNING Unresolved reference 'balance_bot'
+        - [x] WARNING Unresolved reference 'RobotHardware'
+        - [x] WARNING Unresolved reference 'balance_bot'
+        - [x] WARNING Unresolved reference 'HardwareConfig'
+        - [x] WARNING Unresolved reference 'LearningState'
+        - [x] WARNING Unresolved reference 'PIDParams'
+        - [x] WARNING No module named 'glm'
       - [ ] file test_i2c_config.py 7 errors
-        - [ ] WARNING Unresolved reference 'balance_bot'
-        - [ ] WARNING Unresolved reference 'HardwareConfig'
-        - [ ] WARNING Unresolved reference 'LearningState'
-        - [ ] WARNING Unresolved reference 'balance_bot'
-        - [ ] WARNING Unresolved reference 'RobotHardware'
-        - [ ] WARNING Unresolved reference 'balance_bot'
-        - [ ] WARNING Unresolved reference 'RobotHardware'
+        - [x] WARNING Unresolved reference 'balance_bot'
+        - [x] WARNING Unresolved reference 'HardwareConfig'
+        - [x] WARNING Unresolved reference 'LearningState'
+        - [x] WARNING Unresolved reference 'balance_bot'
+        - [x] WARNING Unresolved reference 'RobotHardware'
+        - [x] WARNING Unresolved reference 'balance_bot'
+        - [x] WARNING Unresolved reference 'RobotHardware'
       - [ ] file test_imu_logic.py 9 errors
-        - [ ] WARNING No module named 'glm'
-        - [ ] WARNING Unresolved reference 'balance_bot'
-        - [ ] WARNING Unresolved reference 'RobotHardware'
-        - [ ] WARNING Unresolved reference 'IMUReading'
-        - [ ] WARNING Unresolved reference 'balance_bot'
-        - [ ] WARNING Unresolved reference 'HardwareConfig'
-        - [ ] WARNING Unresolved reference 'LearningState'
-        - [ ] WARNING Unresolved reference 'balance_bot'
-        - [ ] WARNING Unresolved reference 'Axis'
+        - [x] WARNING No module named 'glm'
+        - [x] WARNING Unresolved reference 'balance_bot'
+        - [x] WARNING Unresolved reference 'RobotHardware'
+        - [x] WARNING Unresolved reference 'IMUReading'
+        - [x] WARNING Unresolved reference 'balance_bot'
+        - [x] WARNING Unresolved reference 'HardwareConfig'
+        - [x] WARNING Unresolved reference 'LearningState'
+        - [x] WARNING Unresolved reference 'balance_bot'
+        - [x] WARNING Unresolved reference 'Axis'
       - [ ] file test_imu_resilience.py 6 errors
-        - [ ] WARNING Unresolved reference 'balance_bot'
-        - [ ] WARNING Unresolved reference 'RobotHardware'
-        - [ ] WARNING Unresolved reference 'balance_bot'
-        - [ ] WARNING Unresolved reference 'HardwareConfig'
-        - [ ] WARNING Unresolved reference 'LearningState'
-        - [ ] WARNING Unresolved reference 'PIDParams'
+        - [x] WARNING Unresolved reference 'balance_bot'
+        - [x] WARNING Unresolved reference 'RobotHardware'
+        - [x] WARNING Unresolved reference 'balance_bot'
+        - [x] WARNING Unresolved reference 'HardwareConfig'
+        - [x] WARNING Unresolved reference 'LearningState'
+        - [x] WARNING Unresolved reference 'PIDParams'
       - [ ] file test_imu_yaw_roll.py 9 errors
-        - [ ] WARNING Unresolved reference 'balance_bot'
-        - [ ] WARNING Unresolved reference 'RobotHardware'
-        - [ ] WARNING Unresolved reference 'balance_bot'
-        - [ ] WARNING Unresolved reference 'HardwareConfig'
-        - [ ] WARNING Unresolved reference 'LearningState'
-        - [ ] WARNING Unresolved reference 'PIDParams'
-        - [ ] WARNING Unresolved reference 'balance_bot'
-        - [ ] WARNING Unresolved reference 'Axis'
-        - [ ] WARNING No module named 'glm'
+        - [x] WARNING Unresolved reference 'balance_bot'
+        - [x] WARNING Unresolved reference 'RobotHardware'
+        - [x] WARNING Unresolved reference 'balance_bot'
+        - [x] WARNING Unresolved reference 'HardwareConfig'
+        - [x] WARNING Unresolved reference 'LearningState'
+        - [x] WARNING Unresolved reference 'PIDParams'
+        - [x] WARNING Unresolved reference 'balance_bot'
+        - [x] WARNING Unresolved reference 'Axis'
+        - [x] WARNING No module named 'glm'
       - [ ] file test_jules_client.py 5 errors
-        - [ ] WARNING Unresolved reference 'balance_bot'
-        - [ ] WARNING Unresolved reference 'JulesClient'
-        - [ ] WARNING Unresolved reference 'CrashReport'
-        - [ ] WARNING Unresolved reference 'balance_bot'
-        - [ ] WARNING Unresolved reference 'DEFAULT_TIMEOUT'
+        - [x] WARNING Unresolved reference 'balance_bot'
+        - [x] WARNING Unresolved reference 'JulesClient'
+        - [x] WARNING Unresolved reference 'CrashReport'
+        - [x] WARNING Unresolved reference 'balance_bot'
+        - [x] WARNING Unresolved reference 'DEFAULT_TIMEOUT'
       - [ ] file test_kickup_config.py 3 errors
-        - [ ] WARNING Unresolved reference 'balance_bot'
-        - [ ] WARNING Unresolved reference 'LearningState'
-        - [ ] WARNING Unresolved reference 'ControlConfig'
+        - [x] WARNING Unresolved reference 'balance_bot'
+        - [x] WARNING Unresolved reference 'LearningState'
+        - [x] WARNING Unresolved reference 'ControlConfig'
       - [ ] file test_kinematics_logic.py 12 errors
-        - [ ] WARNING No module named 'glm'
-        - [ ] WARNING Unresolved reference 'balance_bot'
-        - [ ] WARNING Unresolved reference 'DeriveKinematicsStep'
-        - [ ] WARNING Unresolved reference 'balance_bot'
-        - [ ] WARNING Unresolved reference 'StepStatus'
-        - [ ] WARNING Unresolved reference 'balance_bot'
-        - [ ] WARNING Unresolved reference 'HardwareConfig'
-        - [ ] WARNING Unresolved reference 'LearningState'
-        - [ ] WARNING Unresolved reference 'ControlConfig'
-        - [ ] WARNING Unresolved reference 'balance_bot'
-        - [ ] WARNING Unresolved reference 'RobotHardware'
-        - [ ] WARNING Unresolved reference 'IMUReading'
+        - [x] WARNING No module named 'glm'
+        - [x] WARNING Unresolved reference 'balance_bot'
+        - [x] WARNING Unresolved reference 'DeriveKinematicsStep'
+        - [x] WARNING Unresolved reference 'balance_bot'
+        - [x] WARNING Unresolved reference 'StepStatus'
+        - [x] WARNING Unresolved reference 'balance_bot'
+        - [x] WARNING Unresolved reference 'HardwareConfig'
+        - [x] WARNING Unresolved reference 'LearningState'
+        - [x] WARNING Unresolved reference 'ControlConfig'
+        - [x] WARNING Unresolved reference 'balance_bot'
+        - [x] WARNING Unresolved reference 'RobotHardware'
+        - [x] WARNING Unresolved reference 'IMUReading'
       - [ ] file test_leds.py 5 errors
-        - [ ] WARNING No module named 'pytest'
-        - [ ] WARNING Unresolved reference 'balance_bot'
-        - [ ] WARNING Unresolved reference 'LedController'
-        - [ ] WARNING Unresolved reference 'balance_bot'
-        - [ ] WARNING Unresolved reference 'LedConfig'
+        - [x] WARNING No module named 'pytest'
+        - [x] WARNING Unresolved reference 'balance_bot'
+        - [x] WARNING Unresolved reference 'LedController'
+        - [x] WARNING Unresolved reference 'balance_bot'
+        - [x] WARNING Unresolved reference 'LedConfig'
       - [ ] file test_main_flow.py 2 errors
-        - [ ] WARNING Unresolved reference 'balance_bot'
-        - [ ] WARNING Unresolved reference 'main'
+        - [x] WARNING Unresolved reference 'balance_bot'
+        - [x] WARNING Unresolved reference 'main'
       - [ ] file test_max_tilt_config.py 9 errors
-        - [ ] WARNING Unresolved reference 'balance_bot'
-        - [ ] WARNING Unresolved reference 'BalanceCore'
-        - [ ] WARNING Unresolved reference 'MotionRequest'
-        - [ ] WARNING Unresolved reference 'TuningParams'
-        - [ ] WARNING Unresolved reference 'balance_bot'
-        - [ ] WARNING Unresolved reference 'HardwareConfig'
-        - [ ] WARNING Unresolved reference 'LearningState'
-        - [ ] WARNING Unresolved reference 'PIDParams'
-        - [ ] WARNING Unresolved reference 'ControlConfig'
+        - [x] WARNING Unresolved reference 'balance_bot'
+        - [x] WARNING Unresolved reference 'BalanceCore'
+        - [x] WARNING Unresolved reference 'MotionRequest'
+        - [x] WARNING Unresolved reference 'TuningParams'
+        - [x] WARNING Unresolved reference 'balance_bot'
+        - [x] WARNING Unresolved reference 'HardwareConfig'
+        - [x] WARNING Unresolved reference 'LearningState'
+        - [x] WARNING Unresolved reference 'PIDParams'
+        - [x] WARNING Unresolved reference 'ControlConfig'
       - [ ] file test_piconzero_driver.py 2 errors
-        - [ ] WARNING Unresolved reference 'balance_bot'
-        - [ ] WARNING Unresolved reference 'PiconZero'
+        - [x] WARNING Unresolved reference 'balance_bot'
+        - [x] WARNING Unresolved reference 'PiconZero'
       - [ ] file test_piconzero_internals.py 2 errors
-        - [ ] WARNING Unresolved reference 'balance_bot'
-        - [ ] WARNING Unresolved reference 'PiconZero'
+        - [x] WARNING Unresolved reference 'balance_bot'
+        - [x] WARNING Unresolved reference 'PiconZero'
       - [ ] file test_pid_logic.py 4 errors
-        - [ ] WARNING Unresolved reference 'balance_bot'
-        - [ ] WARNING Unresolved reference 'PIDController'
-        - [ ] WARNING Unresolved reference 'balance_bot'
-        - [ ] WARNING Unresolved reference 'PIDParams'
+        - [x] WARNING Unresolved reference 'balance_bot'
+        - [x] WARNING Unresolved reference 'PIDController'
+        - [x] WARNING Unresolved reference 'balance_bot'
+        - [x] WARNING Unresolved reference 'PIDParams'
       - [ ] file test_pipeline_config_matching.py 26 errors
-        - [ ] WARNING Unresolved reference 'balance_bot'
-        - [ ] WARNING Unresolved reference 'HardwareConfig'
-        - [ ] WARNING Unresolved reference 'LearningState'
-        - [ ] WARNING Unresolved reference 'balance_bot'
-        - [ ] WARNING Unresolved reference 'StepStatus'
-        - [ ] WARNING Unresolved reference 'balance_bot'
-        - [ ] WARNING Unresolved reference 'DiscoverBusesStep'
-        - [ ] WARNING Unresolved reference 'balance_bot'
-        - [ ] WARNING Unresolved reference 'HardwareInitStep'
-        - [ ] WARNING Unresolved reference 'balance_bot'
-        - [ ] WARNING Unresolved reference 'ManualLeanCalibrationStep'
-        - [ ] WARNING Unresolved reference 'balance_bot'
-        - [ ] WARNING Unresolved reference 'BrokenWireCheckStep'
-        - [ ] WARNING Unresolved reference 'balance_bot'
-        - [ ] WARNING Unresolved reference 'FrictionThresholdStep'
-        - [ ] WARNING Unresolved reference 'balance_bot'
-        - [ ] WARNING Unresolved reference 'DeriveKinematicsStep'
-        - [ ] WARNING Unresolved reference 'balance_bot'
-        - [ ] WARNING Unresolved reference 'MechanicalBacklashStep'
-        - [ ] WARNING Unresolved reference 'balance_bot'
-        - [ ] WARNING Unresolved reference 'MotorTrimStep'
-        - [ ] WARNING Unresolved reference 'balance_bot'
-        - [ ] WARNING Unresolved reference 'KickupDynamicsStep'
-        - [ ] WARNING No module named 'glm'
-        - [ ] WARNING No module named 'glm'
-        - [ ] WARNING No module named 'glm'
+        - [x] WARNING Unresolved reference 'balance_bot'
+        - [x] WARNING Unresolved reference 'HardwareConfig'
+        - [x] WARNING Unresolved reference 'LearningState'
+        - [x] WARNING Unresolved reference 'balance_bot'
+        - [x] WARNING Unresolved reference 'StepStatus'
+        - [x] WARNING Unresolved reference 'balance_bot'
+        - [x] WARNING Unresolved reference 'DiscoverBusesStep'
+        - [x] WARNING Unresolved reference 'balance_bot'
+        - [x] WARNING Unresolved reference 'HardwareInitStep'
+        - [x] WARNING Unresolved reference 'balance_bot'
+        - [x] WARNING Unresolved reference 'ManualLeanCalibrationStep'
+        - [x] WARNING Unresolved reference 'balance_bot'
+        - [x] WARNING Unresolved reference 'BrokenWireCheckStep'
+        - [x] WARNING Unresolved reference 'balance_bot'
+        - [x] WARNING Unresolved reference 'FrictionThresholdStep'
+        - [x] WARNING Unresolved reference 'balance_bot'
+        - [x] WARNING Unresolved reference 'DeriveKinematicsStep'
+        - [x] WARNING Unresolved reference 'balance_bot'
+        - [x] WARNING Unresolved reference 'MechanicalBacklashStep'
+        - [x] WARNING Unresolved reference 'balance_bot'
+        - [x] WARNING Unresolved reference 'MotorTrimStep'
+        - [x] WARNING Unresolved reference 'balance_bot'
+        - [x] WARNING Unresolved reference 'KickupDynamicsStep'
+        - [x] WARNING No module named 'glm'
+        - [x] WARNING No module named 'glm'
+        - [x] WARNING No module named 'glm'
       - [ ] file test_pivot_sorter.py 5 errors
-        - [ ] WARNING No module named 'pytest'
-        - [ ] WARNING No module named 'glm'
-        - [ ] WARNING Unresolved reference 'balance_bot'
-        - [ ] WARNING Unresolved reference 'sort_resting_vectors'
-        - [ ] WARNING Unresolved reference 'vector_angle'
+        - [x] WARNING No module named 'pytest'
+        - [x] WARNING No module named 'glm'
+        - [x] WARNING Unresolved reference 'balance_bot'
+        - [x] WARNING Unresolved reference 'sort_resting_vectors'
+        - [x] WARNING Unresolved reference 'vector_angle'
       - [ ] file test_recovery.py 5 errors
-        - [ ] WARNING Unresolved reference 'balance_bot'
-        - [ ] WARNING Unresolved reference 'RecoveryManager'
-        - [ ] WARNING Unresolved reference 'balance_bot'
-        - [ ] WARNING Unresolved reference 'ControlConfig'
-        - [ ] WARNING Unresolved reference 'STARTUP_RAMP_SPEED'
+        - [x] WARNING Unresolved reference 'balance_bot'
+        - [x] WARNING Unresolved reference 'RecoveryManager'
+        - [x] WARNING Unresolved reference 'balance_bot'
+        - [x] WARNING Unresolved reference 'ControlConfig'
+        - [x] WARNING Unresolved reference 'STARTUP_RAMP_SPEED'
       - [ ] file test_startup_logic.py 2 errors
-        - [ ] WARNING Unresolved reference 'balance_bot'
-        - [ ] WARNING Unresolved reference 'Agent'
+        - [x] WARNING Unresolved reference 'balance_bot'
+        - [x] WARNING Unresolved reference 'Agent'
       - [ ] file test_tuner.py 4 errors
-        - [ ] WARNING Unresolved reference 'balance_bot'
-        - [ ] WARNING Unresolved reference 'ContinuousTuner'
-        - [ ] WARNING Unresolved reference 'balance_bot'
-        - [ ] WARNING Unresolved reference 'TunerConfig'
+        - [x] WARNING Unresolved reference 'balance_bot'
+        - [x] WARNING Unresolved reference 'ContinuousTuner'
+        - [x] WARNING Unresolved reference 'balance_bot'
+        - [x] WARNING Unresolved reference 'TunerConfig'
       - [ ] file test_tuner_perf.py 4 errors
-        - [ ] WARNING Unresolved reference 'balance_bot'
-        - [ ] WARNING Unresolved reference 'ContinuousTuner'
-        - [ ] WARNING Unresolved reference 'balance_bot'
-        - [ ] WARNING Unresolved reference 'TunerConfig'
+        - [x] WARNING Unresolved reference 'balance_bot'
+        - [x] WARNING Unresolved reference 'ContinuousTuner'
+        - [x] WARNING Unresolved reference 'balance_bot'
+        - [x] WARNING Unresolved reference 'TunerConfig'
       - [ ] file test_turn_gain.py 10 errors
-        - [ ] WARNING No module named 'pytest'
-        - [ ] WARNING Unresolved reference 'balance_bot'
-        - [ ] WARNING Unresolved reference 'BalanceCore'
-        - [ ] WARNING Unresolved reference 'MotionRequest'
-        - [ ] WARNING Unresolved reference 'TuningParams'
-        - [ ] WARNING Unresolved reference 'balance_bot'
-        - [ ] WARNING Unresolved reference 'HardwareConfig'
-        - [ ] WARNING Unresolved reference 'LearningState'
-        - [ ] WARNING Unresolved reference 'PIDParams'
-        - [ ] WARNING Unresolved reference 'ControlConfig'
+        - [x] WARNING No module named 'pytest'
+        - [x] WARNING Unresolved reference 'balance_bot'
+        - [x] WARNING Unresolved reference 'BalanceCore'
+        - [x] WARNING Unresolved reference 'MotionRequest'
+        - [x] WARNING Unresolved reference 'TuningParams'
+        - [x] WARNING Unresolved reference 'balance_bot'
+        - [x] WARNING Unresolved reference 'HardwareConfig'
+        - [x] WARNING Unresolved reference 'LearningState'
+        - [x] WARNING Unresolved reference 'PIDParams'
+        - [x] WARNING Unresolved reference 'ControlConfig'
       - [ ] file test_utils.py 14 errors
-        - [ ] WARNING No module named 'glm'
-        - [ ] WARNING Unresolved reference 'balance_bot'
-        - [ ] WARNING Unresolved reference 'clamp'
-        - [ ] WARNING Unresolved reference 'RateLimiter'
-        - [ ] WARNING Unresolved reference 'ComplementaryFilter'
-        - [ ] WARNING Unresolved reference 'calculate_pitch'
-        - [ ] WARNING Unresolved reference 'to_signed'
-        - [ ] WARNING Unresolved reference 'LogThrottler'
-        - [ ] WARNING Unresolved reference 'LogCaptureHandler'
-        - [ ] WARNING Unresolved reference 'check_force_calibration_flag'
-        - [ ] WARNING Unresolved reference 'balance_bot'
-        - [ ] WARNING Unresolved reference 'analyze_dominance'
-        - [ ] WARNING Unresolved reference 'balance_bot'
-        - [ ] WARNING Unresolved reference 'get_i2c_failure_report'
+        - [x] WARNING No module named 'glm'
+        - [x] WARNING Unresolved reference 'balance_bot'
+        - [x] WARNING Unresolved reference 'clamp'
+        - [x] WARNING Unresolved reference 'RateLimiter'
+        - [x] WARNING Unresolved reference 'ComplementaryFilter'
+        - [x] WARNING Unresolved reference 'calculate_pitch'
+        - [x] WARNING Unresolved reference 'to_signed'
+        - [x] WARNING Unresolved reference 'LogThrottler'
+        - [x] WARNING Unresolved reference 'LogCaptureHandler'
+        - [x] WARNING Unresolved reference 'check_force_calibration_flag'
+        - [x] WARNING Unresolved reference 'balance_bot'
+        - [x] WARNING Unresolved reference 'analyze_dominance'
+        - [x] WARNING Unresolved reference 'balance_bot'
+        - [x] WARNING Unresolved reference 'get_i2c_failure_report'
       - [ ] file test_utils_helpers.py 4 errors
-        - [ ] WARNING Unresolved reference 'balance_bot'
-        - [ ] WARNING Unresolved reference 'scan_i2c_candidates'
-        - [ ] WARNING Unresolved reference 'verify_with_retries'
-        - [ ] WARNING Unresolved reference 'find_threshold'
+        - [x] WARNING Unresolved reference 'balance_bot'
+        - [x] WARNING Unresolved reference 'scan_i2c_candidates'
+        - [x] WARNING Unresolved reference 'verify_with_retries'
+        - [x] WARNING Unresolved reference 'find_threshold'
       - [ ] file test_watchdog_integration.py 5 errors
-        - [ ] WARNING No module named 'pytest'
-        - [ ] WARNING Unresolved reference 'balance_bot'
-        - [ ] WARNING Unresolved reference 'Agent'
-        - [ ] WARNING Unresolved reference 'balance_bot'
-        - [ ] WARNING Unresolved reference 'SurvivalWatchdog'
+        - [x] WARNING No module named 'pytest'
+        - [x] WARNING Unresolved reference 'balance_bot'
+        - [x] WARNING Unresolved reference 'Agent'
+        - [x] WARNING Unresolved reference 'balance_bot'
+        - [x] WARNING Unresolved reference 'SurvivalWatchdog'
       - [ ] file utils.py 1 error 2 warnings
-        - [ ] WARNING No module named 'glm'
+        - [x] WARNING No module named 'glm'
         - [ ] WARNING Unresolved attribute reference 'buffer' for class 'None'
         - [ ] WARNING Unresolved attribute reference 'SMBus' for class 'None'
-    - [ ] Unsatisfied package requirements inspection 41 weak warnings
+    - [x] Unsatisfied package requirements inspection 41 weak warnings
       - [ ] file broken_wire_check.py 1 weak warning
-        - [ ] WARNING Package containing module 'glm' is not listed in the project requirements
+        - [x] WARNING Package containing module 'glm' is not listed in the project requirements
       - [ ] file configuration.py 1 weak warning
-        - [ ] WARNING Package containing module 'pydantic' is not listed in the project requirements
+        - [x] WARNING Package containing module 'pydantic' is not listed in the project requirements
       - [ ] file derive_kinematics.py 1 weak warning
-        - [ ] WARNING Package containing module 'glm' is not listed in the project requirements
+        - [x] WARNING Package containing module 'glm' is not listed in the project requirements
       - [ ] file friction_threshold.py 1 weak warning
-        - [ ] WARNING Package containing module 'glm' is not listed in the project requirements
+        - [x] WARNING Package containing module 'glm' is not listed in the project requirements
       - [ ] file mocks.py 1 weak warning
-        - [ ] WARNING Package containing module 'glm' is not listed in the project requirements
+        - [x] WARNING Package containing module 'glm' is not listed in the project requirements
       - [ ] file piconzero.py 1 weak warning
-        - [ ] WARNING Package containing module 'smbus2' is not listed in the project requirements
+        - [x] WARNING Package containing module 'smbus2' is not listed in the project requirements
       - [ ] file pid.py 1 weak warning
-        - [ ] WARNING Package containing module 'simple_pid' is not listed in the project requirements
+        - [x] WARNING Package containing module 'simple_pid' is not listed in the project requirements
       - [ ] file robot_hardware.py 3 weak warnings
-        - [ ] WARNING Package containing module 'glm' is not listed in the project requirements
-        - [ ] WARNING Package containing module 'smbus2' is not listed in the project requirements
-        - [ ] WARNING Package containing module 'mpu6050' is not listed in the project requirements
+        - [x] WARNING Package containing module 'glm' is not listed in the project requirements
+        - [x] WARNING Package containing module 'smbus2' is not listed in the project requirements
+        - [x] WARNING Package containing module 'mpu6050' is not listed in the project requirements
       - [ ] file run_test.py 1 weak warning
-        - [ ] WARNING Package containing module 'pytest' is not listed in the project requirements
+        - [x] WARNING Package containing module 'pytest' is not listed in the project requirements
       - [ ] file sim_env.py 4 weak warnings
-        - [ ] WARNING Package containing module 'numpy' is not listed in the project requirements
-        - [ ] WARNING Package containing module 'pybullet' is not listed in the project requirements
-        - [ ] WARNING Package containing module 'gymnasium' is not listed in the project requirements
-        - [ ] WARNING Package containing module 'gymnasium' is not listed in the project requirements
+        - [x] WARNING Package containing module 'numpy' is not listed in the project requirements
+        - [x] WARNING Package containing module 'pybullet' is not listed in the project requirements
+        - [x] WARNING Package containing module 'gymnasium' is not listed in the project requirements
+        - [x] WARNING Package containing module 'gymnasium' is not listed in the project requirements
       - [ ] file sim_hardware.py 2 weak warnings
-        - [ ] WARNING Package containing module 'numpy' is not listed in the project requirements
-        - [ ] WARNING Package containing module 'glm' is not listed in the project requirements
+        - [x] WARNING Package containing module 'numpy' is not listed in the project requirements
+        - [x] WARNING Package containing module 'glm' is not listed in the project requirements
       - [ ] file simple_test.py 2 weak warnings
-        - [ ] WARNING Package containing module 'smbus2' is not listed in the project requirements
-        - [ ] WARNING Package containing module 'mpu6050' is not listed in the project requirements
+        - [x] WARNING Package containing module 'smbus2' is not listed in the project requirements
+        - [x] WARNING Package containing module 'mpu6050' is not listed in the project requirements
       - [ ] file test_balance_core_params.py 1 weak warning
-        - [ ] WARNING Package containing module 'pytest' is not listed in the project requirements
+        - [x] WARNING Package containing module 'pytest' is not listed in the project requirements
       - [ ] file test_discovery_pipeline.py 1 weak warning
-        - [ ] WARNING Package containing module 'pytest' is not listed in the project requirements
+        - [x] WARNING Package containing module 'pytest' is not listed in the project requirements
       - [ ] file test_fail_loud.py 2 weak warnings
-        - [ ] WARNING Package containing module 'pytest' is not listed in the project requirements
-        - [ ] WARNING Package containing module 'glm' is not listed in the project requirements
+        - [x] WARNING Package containing module 'pytest' is not listed in the project requirements
+        - [x] WARNING Package containing module 'glm' is not listed in the project requirements
       - [ ] file test_gyro_drift.py 2 weak warnings
-        - [ ] WARNING Package containing module 'pytest' is not listed in the project requirements
-        - [ ] WARNING Package containing module 'glm' is not listed in the project requirements
+        - [x] WARNING Package containing module 'pytest' is not listed in the project requirements
+        - [x] WARNING Package containing module 'glm' is not listed in the project requirements
       - [ ] file test_imu_logic.py 1 weak warning
-        - [ ] WARNING Package containing module 'glm' is not listed in the project requirements
+        - [x] WARNING Package containing module 'glm' is not listed in the project requirements
       - [ ] file test_imu_yaw_roll.py 1 weak warning
-        - [ ] WARNING Package containing module 'glm' is not listed in the project requirements
+        - [x] WARNING Package containing module 'glm' is not listed in the project requirements
       - [ ] file test_kinematics_logic.py 1 weak warning
-        - [ ] WARNING Package containing module 'glm' is not listed in the project requirements
+        - [x] WARNING Package containing module 'glm' is not listed in the project requirements
       - [ ] file test_leds.py 1 weak warning
-        - [ ] WARNING Package containing module 'pytest' is not listed in the project requirements
+        - [x] WARNING Package containing module 'pytest' is not listed in the project requirements
       - [ ] file test_piconzero_driver.py 1 weak warning
-        - [ ] WARNING Package containing module 'smbus2' is not listed in the project requirements
+        - [x] WARNING Package containing module 'smbus2' is not listed in the project requirements
       - [ ] file test_piconzero_internals.py 1 weak warning
-        - [ ] WARNING Package containing module 'smbus2' is not listed in the project requirements
+        - [x] WARNING Package containing module 'smbus2' is not listed in the project requirements
       - [ ] file test_pipeline_config_matching.py 3 weak warnings
-        - [ ] WARNING Package containing module 'glm' is not listed in the project requirements
-        - [ ] WARNING Package containing module 'glm' is not listed in the project requirements
-        - [ ] WARNING Package containing module 'glm' is not listed in the project requirements
+        - [x] WARNING Package containing module 'glm' is not listed in the project requirements
+        - [x] WARNING Package containing module 'glm' is not listed in the project requirements
+        - [x] WARNING Package containing module 'glm' is not listed in the project requirements
       - [ ] file test_pivot_sorter.py 2 weak warnings
-        - [ ] WARNING Package containing module 'pytest' is not listed in the project requirements
-        - [ ] WARNING Package containing module 'glm' is not listed in the project requirements
+        - [x] WARNING Package containing module 'pytest' is not listed in the project requirements
+        - [x] WARNING Package containing module 'glm' is not listed in the project requirements
       - [ ] file test_turn_gain.py 1 weak warning
-        - [ ] WARNING Package containing module 'pytest' is not listed in the project requirements
+        - [x] WARNING Package containing module 'pytest' is not listed in the project requirements
       - [ ] file test_utils.py 1 weak warning
-        - [ ] WARNING Package containing module 'glm' is not listed in the project requirements
+        - [x] WARNING Package containing module 'glm' is not listed in the project requirements
       - [ ] file test_watchdog_integration.py 1 weak warning
-        - [ ] WARNING Package containing module 'pytest' is not listed in the project requirements
+        - [x] WARNING Package containing module 'pytest' is not listed in the project requirements
       - [ ] file utils.py 2 weak warnings
-        - [ ] WARNING Package containing module 'glm' is not listed in the project requirements
-        - [ ] WARNING Package containing module 'smbus2' is not listed in the project requirements
+        - [x] WARNING Package containing module 'glm' is not listed in the project requirements
+        - [x] WARNING Package containing module 'smbus2' is not listed in the project requirements
     - [x] Unused imports inspection 6 warnings
-      - [x] file sim_env.py 4 warnings
+      - [ ] file sim_env.py 4 warnings
         - [x] WARNING 'pb' in the try block with 'except ImportError' should also be defined in the except block
         - [x] WARNING 'pybullet_data' in the try block with 'except ImportError' should also be defined in the except block
         - [x] WARNING 'gym' in the try block with 'except ImportError' should also be defined in the except block
@@ -543,15 +543,15 @@
       - [ ] file tuner.py 1 warning
         - [ ] WARNING Unused import statement 'from itertools import pairwise'
     - [x] Unused local symbols inspection 42 weak warnings
-      - [x] file agent.py 1 weak warning
+      - [ ] file agent.py 1 weak warning
         - [x] WEAK WARNING Local variable 'comp_factor' value is not used
       - [ ] file benchmark_motion_request.py 1 weak warning
         - [ ] WEAK WARNING Local variable 'm' value is not used
       - [ ] file benchmark_tuning_params.py 1 weak warning
         - [ ] WEAK WARNING Local variable 't' value is not used
-      - [x] file mechanical_backlash.py 1 weak warning
+      - [ ] file mechanical_backlash.py 1 weak warning
         - [x] WEAK WARNING Local variable 'reading' value is not used
-      - [x] file pid.py 1 weak warning
+      - [ ] file pid.py 1 weak warning
         - [x] WEAK WARNING Local variable 'output' value is not used
       - [ ] file sim_env.py 1 weak warning
         - [ ] WEAK WARNING Parameter 'options' value is not used
@@ -606,4 +606,4 @@
   - [ ] Security group 1 warning
     - [ ] Vulnerable declared dependency inspection 1 warning
       - [ ] file pyproject.toml 1 warning
-- [ ] WARNING Dependency pypi:pytest:9.0.2 is vulnerable CVE‑2025‑71176 6.8 Insufficient InformationResults powered by Mend.io
+- [x] WARNING Dependency pypi:pytest:9.0.2 is vulnerable CVE‑2025‑71176 6.8 Insufficient InformationResults powered by Mend.io

@@ -4,7 +4,7 @@ import json
 from pathlib import Path
 
 # Add src to sys.path to import balance_bot
-sys.path.append(str(Path(__file__).parent.parent.parent / "src"))
+sys.path.insert(0, str(Path(__file__).parent.parent.parent / "src"))
 
 from balance_bot.configuration import LearningState, PIDParams, TunerConfig
 

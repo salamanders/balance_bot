@@ -3,7 +3,7 @@ import os
 import time
 import random
 
-sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), '../../src')))
+sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), '../../src')))
 
 from balance_bot.adaptation.tuner import ContinuousTuner
 from balance_bot.configuration import TunerConfig
