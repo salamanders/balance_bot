@@ -459,7 +459,7 @@ class Agent:
                     base_fix_power = self.learning_state.min_power_visible + 15
 
                     for p_try in range(int(base_fix_power), 101, 10):
-                        fix_power = float(p_try * (-kick_direction.value))
+                        fix_power = float(p_try) * float(-kick_direction.value)
                         self.core.hw.set_motors(fix_power, fix_power)
                         self._sleep_with_update(0.5)
                         self.core.hw.stop()
@@ -480,7 +480,7 @@ class Agent:
                 )
 
                 # 1. Lift
-                drive_val = float(power * kick_direction.value)
+                drive_val = float(power) * float(kick_direction.value)
                 self.core.hw.set_motors(drive_val, drive_val)
 
                 self._sleep_with_update(0.25)

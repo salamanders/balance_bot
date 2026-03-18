@@ -2,7 +2,7 @@ import sys
 from unittest.mock import MagicMock, patch
 
 # Ensure import
-sys.path.insert(0, ".")
+sys.path.insert(0, "src")
 
 from balance_bot.main import main
 
