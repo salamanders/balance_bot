@@ -107,6 +107,15 @@ module TiltedVanes(tilt=1) {
         rotate([0,0,30])
         circle(r = vane_gap_r*.745, $fn=6); 
     }
+
+    // fill some gaps
+    color("orange")
+    for (i = [0 : num_vanes-1]) {
+        rotate([0, 0, i * (360 / num_vanes)+0.7])
+        translate([tire_outer_radius, 0, 0])
+        cylinder(h=n20_shaft_length*0.3, r=tread_r, center=true);
+    }
+    
 }
 
 

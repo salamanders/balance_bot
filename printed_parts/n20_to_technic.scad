@@ -51,8 +51,9 @@ include <BOSL2/std.scad>
 difference() { 
     union() {
         technic_axle( length = 3, stop = false );
+        color("blue")
         translate([0,0,(n20_shaft_length+1)/2])
-        cyl(l=n20_shaft_length+1, r=2.486, rounding1=0, rounding2=1, $fa=1, $fs=1);
+        cyl(l=n20_shaft_length+1, r=2.486+.5, rounding1=0, rounding2=1, $fa=1, $fs=1);
     }
     n20_motor();
 }
