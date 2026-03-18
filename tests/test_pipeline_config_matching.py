@@ -64,7 +64,7 @@ def test_manual_lean_calibration_step(monkeypatch):
 
     # We must patch the nested functions since they are defined inside run
     # For simplicity, we can just mock hw.sensor.read_imu() and time.sleep()
-    # It might be easier to just mock the analyze dominance and wait routines if they were not nested
+    # It might be easier to just mock the analysis of dominance and wait routines if they were not nested
     # Since they are nested and use sleep, let's mock the hw.sensor.read_imu to return stable values instantly
 
     hw_mock = MagicMock()

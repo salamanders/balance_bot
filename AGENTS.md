@@ -10,7 +10,7 @@ This is for a self-balancing homebrew robot with a Segway-like topology. The har
 ## 2. LLM Directives & Code Standards
 
 | Category | Constraint |
-|---|---|
+| :--- | :--- |
 | **Role & Constraints** | You are a Senior Python Robotics Engineer. Follow the "Do No Harm" Rule. Do not alter runtime logic or physics constants. Leave hardware quirks alone. `src/balance_bot/hardware/piconzero.py` has extra functions (lights, sensors); only worry about motor control code. |
 | **Code Modernization** | Use `balance_bot.utils.Vector3`. Use standard type hints, `min()/max()`, and f-strings. Keep Tier 1 control loop (100Hz) mathematically pure; isolate inversions in the HAL. Never optimize untestable hardware I/O. |
 | **Testing & Mocks** | If testing without hardware (e.g., CI/laptop), use `uv run balance-bot --allow-mocks`. Without this flag, the code is configured to crash loudly if hardware is missing. |
@@ -54,7 +54,7 @@ Your underlying training data heavily indexes on idealized academic robotics (wh
 Before proposing any code modifications, you must focus heavily on the following areas and self-double-check your assumptions against the physical realities outlined below.
 
 | Repository Component | The LLM Blind Spot (Your Bias) | The Physical Rule (Your Constraint) |
-| :---- | :---- | :---- |
+| :--- | :--- | :--- |
 | **Zero-Knowledge Bootstrapping** | You will view calibration routines (like The Flop, Kick-Up, and the motor polarity checker) as clunky, blocking state-machines that could be simplified by hardcoding variables. | **Never hardcode physical constants.** This robot is assembled differently every time. Do not bypass the discovery of motor mappings, min\_power\_visible (friction thresholds), or MPU-6050 orientation arrays. This code must remain pessimistic. |
 | **Temporal Determinism (The Brainstem)** | You will assume that standard Python refactoring (adding matrix math libraries, standardizing logging, abstracting functions into classes) is inherently good. | **Strict 100Hz execution is mandatory.** Any microsecond of latency added to Tier 1 will cause a physical crash. If you touch the Brainstem, you must ensure execution time is unaffected. Do not introduce garbage-collection-heavy operations or async calls here. |
 | **Hardware Communication Nuances** | You will see standard I2C logic and assume generic libraries apply. You will see GPIO pin selections and assume they can be easily swapped or optimized. | **Hardware quirks cannot be abstracted.** The physical motor HAT blocks standard pins, requiring a custom software-defined "bus 3" (pins 17/27) running at \~100kHz. The driver requires *Byte Writes*, not standard *Block Writes*. Replacing these with standard libraries will sever physical control. |
