@@ -60,9 +60,6 @@ class PIDController:
         # Since Error = Setpoint - Input, we have Input = Setpoint - Error.
         input_val = self.pid.setpoint - error
 
-        output = 0.0
-        _ = output
-
         # --- Derivative Strategy ---
         if measurement_rate is not None:
             # STRATEGY: Use Gyro Rate for D-term.

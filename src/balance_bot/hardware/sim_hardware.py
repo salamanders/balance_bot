@@ -167,8 +167,6 @@ class SimHardware:
 
     # Some basic maneuver methods
     def execute_maneuver(self, steps: list[tuple[float, float, float]], sample_interval: float = 0.01, trim_override: float | None = None) -> MeasureResult:
-        _ = sample_interval
-        _ = trim_override
         logger.info("Executing maneuver in simulation")
         # Step through the commands and record
         samples = []
@@ -192,6 +190,6 @@ class SimHardware:
             self.wait_for_stability()
         return self.execute_maneuver(
             [(command.left_power, command.right_power, command.duration)],
-            command.sample_interval,
-            command.trim_override
+            sample_interval=command.sample_interval,
+            trim_override=command.trim_override
         )

@@ -8,6 +8,7 @@ def test_battery_estimator_baseline():
 
     # 1. Establish Baseline
     # Simulate constant "Responsiveness" = 2.0 (Accel=100, PWM=50)
+    factor = 1.0
     for _ in range(10):
         factor = estimator.update(pwm=50, angular_accel=100)
         assert factor == 1.0
@@ -20,6 +21,7 @@ def test_battery_estimator_compensation():
     estimator = BatteryEstimator(config=config)
 
     # 1. Establish Baseline (Ratio=2.0)
+    factor = 1.0
     for _ in range(10):
         estimator.update(50, 100)
 
@@ -56,6 +58,7 @@ def test_battery_estimator_smoothing():
     estimator = BatteryEstimator(config=config)
 
     # Baseline
+    factor = 1.0
     for _ in range(10):
         estimator.update(50, 100)
 
