@@ -76,12 +76,12 @@ class SimHardware:
 
             # Return old reading with incremented error count
             return IMUReading(
-                pitch_angle=self.last_valid_imu.pitch_angle,
-                pitch_rate=self.last_valid_imu.pitch_rate,
-                yaw_rate=self.last_valid_imu.yaw_rate,
-                roll_angle=self.last_valid_imu.roll_angle,
-                roll_rate=self.last_valid_imu.roll_rate,
-                error_count=self.error_count
+                self.last_valid_imu.pitch_angle,
+                self.last_valid_imu.pitch_rate,
+                self.last_valid_imu.yaw_rate,
+                self.last_valid_imu.roll_angle,
+                self.last_valid_imu.roll_rate,
+                self.error_count
             )
 
         self.error_count = 0
@@ -116,12 +116,12 @@ class SimHardware:
 
         # Also need error_count to simulate transient I2C glitches (we can just pass 0)
         reading = IMUReading(
-            pitch_angle=pitch_deg,
-            pitch_rate=pitch_rate_deg,
-            yaw_rate=yaw_rate_deg,
-            roll_angle=roll_deg,
-            roll_rate=roll_rate_deg,
-            error_count=self.error_count
+            pitch_deg,
+            pitch_rate_deg,
+            yaw_rate_deg,
+            roll_deg,
+            roll_rate_deg,
+            self.error_count
         )
         self.last_valid_imu = reading
         return reading
@@ -158,7 +158,7 @@ class SimHardware:
         logger.info("Simulated wait_for_stability")
         start = time.time()
         while time.time() - start < duration:
-            self.read_imu_converted()
+            _ = self.read_imu_converted()
 
     @staticmethod
     def measure_gravity(duration: float = 1.0) -> glm.vec3:
@@ -181,8 +181,8 @@ class SimHardware:
         total_duration = sum(s[2] for s in steps)
 
         return MeasureResult(
-            duration=total_duration,
-            samples=samples
+            total_duration,
+            samples
         )
 
     def drive_and_measure(self, command: DriveCommand) -> MeasureResult:
