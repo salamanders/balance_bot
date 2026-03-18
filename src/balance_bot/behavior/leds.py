@@ -62,7 +62,7 @@ class LedController:
             pass
 
     def signal_setup(self) -> None:
-        """Set mode to SETUP (Fast Blink)."""
+        """Set mode to setup (Fast Blink)."""
         if self.mode != "SETUP":
             self.mode = "SETUP"
             self.blink_interval = self.config.setup_blink_interval

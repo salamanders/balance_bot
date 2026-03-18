@@ -66,7 +66,7 @@ class MechanicalBacklashStep(CalibrationStep):
             if moved:
                 break
 
-        # If hasn't moved yet during ramp, hold full power and keep timing
+        # If it hasn't moved yet during ramp, hold full power and keep timing
         if not moved:
             hw.set_motors(-test_power, -test_power)
             while time.time() - start_time < 1.0:

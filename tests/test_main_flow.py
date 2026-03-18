@@ -14,7 +14,7 @@ from balance_bot.main import main
 @patch("balance_bot.configuration.HardwareConfig")
 @patch("balance_bot.discovery.pipeline.SelfDiscoveryPipeline")
 def test_main_toddler_phase(mock_pipeline, mock_hw, mock_state, mock_agent, mock_jules, mock_watchdog, mock_log):
-    """Test that main runs Pipeline if needs_discovery is True."""
+    """Test that the main loop runs Pipeline if needs_discovery is True."""
 
     # Mock State
     mock_state_inst = MagicMock()
