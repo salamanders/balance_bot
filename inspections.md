@@ -101,21 +101,21 @@
         - [ ] TYPO Typo: In word 'cdetect'
         - [ ] TYPO Typo: In word 'cdetect'
   - [ ] Python group 240 errors 21 warnings 118 weak warnings
-    - [ ] Incorrect call arguments inspection 6 warnings
-      - [ ] file sim_hardware.py 6 warnings
-        - [ ] WARNING Unexpected argument
-        - [ ] WARNING Unexpected argument
-        - [ ] WARNING Unexpected argument
-        - [ ] WARNING Unexpected argument
-        - [ ] WARNING Parameter 'duration' unfilled
-        - [ ] WARNING Parameter 'samples' unfilled
-    - [ ] Incorrect type inspection 3 warnings
-      - [ ] file agent.py 1 warning
-        - [ ] WARNING Expected type 'float', got 'Literal[Direction.BACKWARD, Direction.FORWARD]' instead
-      - [ ] file configuration.py 1 warning
-        - [ ] WARNING Expected type 'collections.Iterable', got '() ‑> Any' instead
-      - [ ] file robot_hardware.py 1 warning
-        - [ ] WARNING Expected type 'str', got '() ‑> Any' instead
+    - [x] Incorrect call arguments inspection 6 warnings
+      - [x] file sim_hardware.py 6 warnings
+        - [x] WARNING Unexpected argument
+        - [x] WARNING Unexpected argument
+        - [x] WARNING Unexpected argument
+        - [x] WARNING Unexpected argument
+        - [x] WARNING Parameter 'duration' unfilled
+        - [x] WARNING Parameter 'samples' unfilled
+    - [x] Incorrect type inspection 3 warnings
+      - [x] file agent.py 1 warning
+        - [x] WARNING Expected type 'float', got 'Literal[Direction.BACKWARD, Direction.FORWARD]' instead
+      - [x] file configuration.py 1 warning
+        - [x] WARNING Expected type 'collections.Iterable', got '() ‑> Any' instead
+      - [x] file robot_hardware.py 1 warning
+        - [x] WARNING Expected type 'str', got '() ‑> Any' instead
     - [ ] PEP 8 naming convention violation inspection 14 weak warnings
       - [ ] file test_main_flow.py 14 weak warnings
         - [ ] WEAK WARNING Argument name should be lowercase
@@ -132,20 +132,20 @@
         - [ ] WEAK WARNING Argument name should be lowercase
         - [ ] WEAK WARNING Argument name should be lowercase
         - [ ] WEAK WARNING Argument name should be lowercase
-    - [ ] Shadowing names from outer scopes inspection 4 weak warnings
-      - [ ] file benchmark_tuner_deque.py 1 weak warning
+    - [x] Shadowing names from outer scopes inspection 4 weak warnings
+      - [x] file benchmark_tuner_deque.py 1 weak warning
         - [ ] WEAK WARNING Shadows name 'i' from outer scope
       - [ ] file simple_test.py 1 weak warning
         - [ ] WEAK WARNING Shadows name 'e' from outer scope
-      - [ ] file utils.py 2 weak warnings
-        - [ ] WEAK WARNING Shadows name 'logger' from outer scope
-        - [ ] WEAK WARNING Shadows name 'v' from outer scope
-    - [ ] Statement has no effect inspection 1 warning
-      - [ ] file sim_hardware.py 1 warning
-        - [ ] WARNING Statement seems to have no effect
-    - [ ] Unbound local variables inspection 1 warning
-      - [ ] file test_battery.py 1 warning
-        - [ ] WARNING Local variable 'factor' might be referenced before assignment
+      - [x] file utils.py 2 weak warnings
+        - [x] WEAK WARNING Shadows name 'logger' from outer scope
+        - [x] WEAK WARNING Shadows name 'v' from outer scope
+    - [x] Statement has no effect inspection 1 warning
+      - [x] file sim_hardware.py 1 warning
+        - [x] WARNING Statement seems to have no effect
+    - [x] Unbound local variables inspection 1 warning
+      - [x] file test_battery.py 1 warning
+        - [x] WARNING Local variable 'factor' might be referenced before assignment
     - [ ] Unclear exception clauses inspection 15 weak warnings
       - [ ] file main.py 1 weak warning
         - [ ] WEAK WARNING Too broad exception clause
@@ -532,27 +532,27 @@
       - [ ] file utils.py 2 weak warnings
         - [ ] WARNING Package containing module 'glm' is not listed in the project requirements
         - [ ] WARNING Package containing module 'smbus2' is not listed in the project requirements
-    - [ ] Unused imports inspection 6 warnings
-      - [ ] file sim_env.py 4 warnings
-        - [ ] WARNING 'pb' in the try block with 'except ImportError' should also be defined in the except block
-        - [ ] WARNING 'pybullet_data' in the try block with 'except ImportError' should also be defined in the except block
-        - [ ] WARNING 'gym' in the try block with 'except ImportError' should also be defined in the except block
-        - [ ] WARNING 'spaces' in the try block with 'except ImportError' should also be defined in the except block
+    - [x] Unused imports inspection 6 warnings
+      - [x] file sim_env.py 4 warnings
+        - [x] WARNING 'pb' in the try block with 'except ImportError' should also be defined in the except block
+        - [x] WARNING 'pybullet_data' in the try block with 'except ImportError' should also be defined in the except block
+        - [x] WARNING 'gym' in the try block with 'except ImportError' should also be defined in the except block
+        - [x] WARNING 'spaces' in the try block with 'except ImportError' should also be defined in the except block
       - [ ] file test_leds.py 1 warning
         - [ ] WARNING Unused import statement 'import time'
       - [ ] file tuner.py 1 warning
         - [ ] WARNING Unused import statement 'from itertools import pairwise'
-    - [ ] Unused local symbols inspection 42 weak warnings
-      - [ ] file agent.py 1 weak warning
-        - [ ] WEAK WARNING Local variable 'comp_factor' value is not used
+    - [x] Unused local symbols inspection 42 weak warnings
+      - [x] file agent.py 1 weak warning
+        - [x] WEAK WARNING Local variable 'comp_factor' value is not used
       - [ ] file benchmark_motion_request.py 1 weak warning
         - [ ] WEAK WARNING Local variable 'm' value is not used
       - [ ] file benchmark_tuning_params.py 1 weak warning
         - [ ] WEAK WARNING Local variable 't' value is not used
-      - [ ] file mechanical_backlash.py 1 weak warning
-        - [ ] WEAK WARNING Local variable 'reading' value is not used
-      - [ ] file pid.py 1 weak warning
-        - [ ] WEAK WARNING Local variable 'output' value is not used
+      - [x] file mechanical_backlash.py 1 weak warning
+        - [x] WEAK WARNING Local variable 'reading' value is not used
+      - [x] file pid.py 1 weak warning
+        - [x] WEAK WARNING Local variable 'output' value is not used
       - [ ] file sim_env.py 1 weak warning
         - [ ] WEAK WARNING Parameter 'options' value is not used
       - [ ] file sim_hardware.py 4 weak warnings

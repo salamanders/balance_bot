@@ -240,5 +240,5 @@ class LearningState(BaseModel):
         # Since we are modifying 'self', we need to reset fields.
         # Easier to just replace the object in the caller, but here we can reset fields.
         defaults = self.__class__()
-        for field in self.model_fields.keys():
+        for field in list(self.model_fields.keys()):
             setattr(self, field, getattr(defaults, field))

@@ -328,8 +328,7 @@ class Agent:
                         logger.warning(f"-> Low Battery? Compensating: {int(comp_factor * 100)}%")
                 else:
                     # Fallback if no telemetry (e.g. after Kickup)
-                    comp_factor = 1.0
-                    _ = comp_factor
+                    pass
 
                 # Reflex Update
                 tuning_params.kp = tune_kp
@@ -460,7 +459,7 @@ class Agent:
                     base_fix_power = self.learning_state.min_power_visible + 15
 
                     for p_try in range(int(base_fix_power), 101, 10):
-                        fix_power = p_try * (-kick_direction)
+                        fix_power = float(p_try * (-kick_direction.value))
                         self.core.hw.set_motors(fix_power, fix_power)
                         self._sleep_with_update(0.5)
                         self.core.hw.stop()
@@ -481,7 +480,7 @@ class Agent:
                 )
 
                 # 1. Lift
-                drive_val = power * kick_direction.value
+                drive_val = float(power * kick_direction.value)
                 self.core.hw.set_motors(drive_val, drive_val)
 
                 self._sleep_with_update(0.25)

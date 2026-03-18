@@ -255,7 +255,7 @@ class RobotHardware:
         """
         axis = getattr(self.hw_config, f"{config_name}_axis")
         invert = getattr(self.hw_config, f"{config_name}_invert")
-        return self.get_axis_value(vector, axis, invert)
+        return RobotHardware.get_axis_value(vector, axis, bool(invert))
 
     def initialize_drivers(self) -> None:
         """

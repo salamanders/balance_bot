@@ -189,13 +189,13 @@ def calculate_pitch(accel_y: float, accel_z: float) -> float:
 class StdOutToLog(object):
     """File-like object that redirects writes to a logger."""
     def __init__(self, target_logger, level):
-        self.logger = target_logger
+        self._logger = target_logger
         self.level = level
         self.buffer = ""
 
     def write(self, message):
         if message != '\n':
-            self.logger.log(self.level, message.rstrip())
+            self._logger.log(self.level, message.rstrip())
 
     def flush(self):
         pass
@@ -494,12 +494,12 @@ def sort_resting_vectors(vectors: list[glm.vec3]) -> tuple[glm.vec3, glm.vec3]:
     bucket_a = []
     bucket_b = []
 
-    for v in vectors:
-        angle = vector_angle(pivot, v)
+    for vec in vectors:
+        angle = vector_angle(pivot, vec)
         if angle < 20.0:
-            bucket_a.append(v)
+            bucket_a.append(vec)
         else:
-            bucket_b.append(v)
+            bucket_b.append(vec)
 
     if not bucket_b:
         raise ValueError("Failed to find two distinct resting positions (all vectors clustered near pivot).")

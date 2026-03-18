@@ -11,6 +11,10 @@ try:
     _HAS_SIM = True
     _BaseEnv = gym.Env
 except ImportError:
+    pb = None
+    pybullet_data = None
+    gym = None
+    spaces = None
     _HAS_SIM = False
     _BaseEnv = object
 
