@@ -4,12 +4,12 @@ import random
 import numpy as np
 
 try:
-    import pybullet as pb
-    import pybullet_data
-    import gymnasium as gym
-    from gymnasium import spaces
+    import pybullet as pb # type: ignore
+    import pybullet_data # type: ignore
+    import gymnasium as gym # type: ignore
+    from gymnasium import spaces # type: ignore
     _HAS_SIM = True
-    _BaseEnv = gym.Env
+    _BaseEnv = gym.Env # type: ignore
 except ImportError:
     pb = None  # type: ignore
     pybullet_data = None  # type: ignore
@@ -24,9 +24,9 @@ class BalanceBotEnv(_BaseEnv):
     def __init__(self, render_mode=None):
         self.right_joint = 2
         self.left_joint = 1
-        self.plane_id = pb.loadURDF("plane.urdf", physicsClientId=self.client_id)
         if not _HAS_SIM:
             raise ImportError("pybullet and gymnasium are required to run the simulation environment. Install them with `uv sync --extra sim`.")
+        self.plane_id = pb.loadURDF("plane.urdf", physicsClientId=self.client_id)
 
         self.render_mode = render_mode
 

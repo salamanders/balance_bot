@@ -18,6 +18,9 @@ class MotionRequestMutable:
 # Optimization 2: Mutable Class with explicit __slots__
 class MotionRequestSlots:
     __slots__ = ['velocity', 'turn_rate', 'enable_control']
+    velocity: float
+    turn_rate: float
+    enable_control: bool
 
     def __init__(self, velocity: float = 0.0, turn_rate: float = 0.0, enable_control: bool = True):
         self.velocity = velocity

@@ -11,9 +11,9 @@ from typing import Union, Callable, Any, Optional
 import glm
 
 try:
-    import smbus2 as smbus
+    import smbus2 as smbus # type: ignore
 except ImportError:
-    smbus = None
+    smbus = None # type: ignore
 
 logger = logging.getLogger(__name__)
 
@@ -26,7 +26,7 @@ class LogCaptureHandler(logging.Handler):
 
     def __init__(self, capacity: int = 50):
         super().__init__()
-        self.buffer = deque(maxlen=capacity)
+        self.buffer: deque[str] = deque(maxlen=capacity)
         self.setFormatter(
             logging.Formatter(
                 "%(asctime)s [%(levelname)s] %(message)s", datefmt="%H:%M:%S"
@@ -514,10 +514,10 @@ def sort_resting_vectors(vectors: list[glm.vec3]) -> tuple[glm.vec3, glm.vec3]:
             return glm.vec3(0.0)
 
         sum_x = sum_y = sum_z = 0.0
-        for vec in bucket:
-            sum_x += vec.x
-            sum_y += vec.y
-            sum_z += vec.z
+        for v in bucket:
+            sum_x += v.x
+            sum_y += v.y
+            sum_z += v.z
 
         count = len(bucket)
         return glm.vec3(sum_x / count, sum_y / count, sum_z / count)
