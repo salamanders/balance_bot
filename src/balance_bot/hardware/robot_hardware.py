@@ -8,7 +8,7 @@ from dataclasses import dataclass
 from collections import deque
 
 import glm
-from ..utils import clamp, calculate_pitch, get_i2c_failure_report
+from ..utils import clamp, calculate_pitch, get_i2c_failure_report, average_vector
 from ..configuration import (
     BALANCING_THRESHOLD,
     REST_ANGLE_MIN,
@@ -652,15 +652,4 @@ class RobotHardware:
         Measure average gravity vector by staying still (0 power).
         """
         res = self.drive_and_measure(DriveCommand(0.0, 0.0, duration))
-        if not res.samples:
-            return glm.vec3(0.0)
-
-        avg = glm.vec3(0.0)
-        count = 0
-        for s in res.samples:
-            if s.accel_raw:
-                avg += s.accel_raw
-                count += 1
-        if count > 0:
-            return avg / count
-        return glm.vec3(0.0)
+        return average_vector([s.accel_raw for s in res.samples if s.accel_raw])

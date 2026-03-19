@@ -6,7 +6,7 @@ import subprocess
 import os
 from pathlib import Path
 from collections import deque
-from typing import Union, Callable, Any, Optional
+from typing import Union, Callable, Any, Optional, Sequence
 
 import glm
 
@@ -482,6 +482,27 @@ def vector_angle(v1: glm.vec3, v2: glm.vec3) -> float:
     return math.degrees(math.acos(val))
 
 
+def average_vector(vectors: Sequence[glm.vec3]) -> glm.vec3:
+    """
+    Calculate the average vector from a sequence of vectors.
+    """
+    if not vectors:
+        return glm.vec3(0.0)
+
+    # We use a loop rather than `sum(vectors, start=glm.vec3(0.0))`
+    # to maintain high-frequency performance and avoid creating
+    # unnecessary temporary intermediate objects, which is
+    # crucial for tight loops per memory constraints.
+    sum_x = sum_y = sum_z = 0.0
+    for v in vectors:
+        sum_x += v.x
+        sum_y += v.y
+        sum_z += v.z
+
+    count = len(vectors)
+    return glm.vec3(sum_x / count, sum_y / count, sum_z / count)
+
+
 def sort_resting_vectors(vectors: list[glm.vec3]) -> tuple[glm.vec3, glm.vec3]:
     """
     Sort resting vectors into two distinct groups based on angle separation.
@@ -505,25 +526,8 @@ def sort_resting_vectors(vectors: list[glm.vec3]) -> tuple[glm.vec3, glm.vec3]:
         raise ValueError("Failed to find two distinct resting positions (all vectors clustered near pivot).")
 
     # Average buckets
-    def avg_bucket(bucket: list[glm.vec3]) -> glm.vec3:
-        """
-        Calculate the average vector from a list of vectors in a single pass.
-        This optimizes out multiple iterations and generator overhead.
-        """
-        if not bucket:
-            return glm.vec3(0.0)
-
-        sum_x = sum_y = sum_z = 0.0
-        for v in bucket:
-            sum_x += v.x
-            sum_y += v.y
-            sum_z += v.z
-
-        count = len(bucket)
-        return glm.vec3(sum_x / count, sum_y / count, sum_z / count)
-
-    avg_a = avg_bucket(bucket_a)
-    avg_b = avg_bucket(bucket_b)
+    avg_a = average_vector(bucket_a)
+    avg_b = average_vector(bucket_b)
 
     return avg_a, avg_b
 

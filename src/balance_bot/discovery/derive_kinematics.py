@@ -1,12 +1,12 @@
 import logging
-from typing import Tuple, Dict, Any, List
+from typing import Tuple, Dict, Any
 import glm
 
 from .step import CalibrationStep, StepStatus
 from ..configuration import HardwareConfig, LearningState
 from ..hardware.robot_hardware import RobotHardware
 from ..enums import Axis
-from ..utils import analyze_dominance
+from ..utils import analyze_dominance, average_vector
 
 logger = logging.getLogger(__name__)
 
@@ -56,8 +56,8 @@ class DeriveKinematicsStep(CalibrationStep):
         if error_count > 0:
             logger.warning(f"  [GLITCH] Encountered {error_count} IMU errors during {name} pulse.")
 
-        gyro = self._avg_vec([s.gyro_raw for s in res.samples if s.gyro_raw])
-        accel = self._avg_vec([s.accel_raw for s in res.samples if s.accel_raw])
+        gyro = average_vector([s.gyro_raw for s in res.samples if s.gyro_raw])
+        accel = average_vector([s.accel_raw for s in res.samples if s.accel_raw])
 
         # Verify if the motor actually moved the robot
         if glm.length(gyro) < 5.0:
@@ -236,12 +236,3 @@ class DeriveKinematicsStep(CalibrationStep):
         }
 
         return StepStatus.SUCCESS, config_updates, state_updates
-
-    @staticmethod
-    def _avg_vec(vecs: List[glm.vec3]) -> glm.vec3:
-        if not vecs:
-            return glm.vec3(0)
-        s = glm.vec3(0)
-        for v in vecs:
-            s += v
-        return s / len(vecs)
