@@ -179,7 +179,7 @@ def test_mechanical_backlash_step(monkeypatch):
     assert status == StepStatus.SUCCESS
     assert_updates_valid(config_updates, state_updates)
 
-def test_motor_trim_step(monkeypatch):
+def test_motor_trim_step():
     hw_mock = MagicMock()
     mock_res = MagicMock()
     mock_res.samples = [MagicMock()]

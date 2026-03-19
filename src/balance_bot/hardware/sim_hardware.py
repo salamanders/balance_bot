@@ -129,7 +129,7 @@ class SimHardware:
     def set_motor_retries(self, retries: int) -> None:
         pass
 
-    def set_motors(self, left: float, right: float, trim_override: float | None = None) -> None:
+    def set_motors(self, left: float, right: float, _trim_override: float | None = None) -> None:
         # Simulate occasional I2C write failures to motors (10% chance)
         if random.random() < 0.10:
             logger.debug("Simulated motor write failure - ignoring command")
@@ -153,7 +153,7 @@ class SimHardware:
         else:
             return "Crashed"
 
-    def wait_for_stability(self, duration: float = 2.0, threshold: float = 2.0) -> None:
+    def wait_for_stability(self, duration: float = 2.0, _threshold: float = 2.0) -> None:
         # In simulation, we can just skip or loop
         logger.info("Simulated wait_for_stability")
         start = time.time()
@@ -161,12 +161,12 @@ class SimHardware:
             _ = self.read_imu_converted()
 
     @staticmethod
-    def measure_gravity(duration: float = 1.0) -> glm.vec3:
+    def measure_gravity(_duration: float = 1.0) -> glm.vec3:
         # Return a nominal gravity vector (Z is down in real world, but depends on accel orientation)
         return glm.vec3(0, 0, 9.81)
 
     # Some basic maneuver methods
-    def execute_maneuver(self, steps: list[tuple[float, float, float]], sample_interval: float = 0.01, trim_override: float | None = None) -> MeasureResult:
+    def execute_maneuver(self, steps: list[tuple[float, float, float]], _sample_interval: float = 0.01, trim_override: float | None = None) -> MeasureResult:
         logger.info("Executing maneuver in simulation")
         # Step through the commands and record
         samples = []

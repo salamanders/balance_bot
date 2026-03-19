@@ -37,26 +37,26 @@ def benchmark():
     print(f"Baseline (NamedTuple instantiation): {nt_time:.4f} s")
 
     # Option 1: Mutable object reuse (slots)
-    t1 = TuningParamsSlots(1.0, 0.1, 0.01, 0.0)
+    _t1 = TuningParamsSlots(1.0, 0.1, 0.01, 0.0)
     start = time.perf_counter()
     for _ in range(iterations):
-        t1.kp = 1.0
-        t1.ki = 0.1
-        t1.kd = 0.01
-        t1.target_angle_offset = 0.0
+        _t1.kp = 1.0
+        _t1.ki = 0.1
+        _t1.kd = 0.01
+        _t1.target_angle_offset = 0.0
     end = time.perf_counter()
     slots_time = end - start
     print(f"Optimization (Mutable object reuse w/ slots): {slots_time:.4f} s")
     print(f"Improvement: {nt_time / slots_time:.2f}x faster")
 
     # Option 2: Dataclass reuse
-    t2 = TuningParamsDC(1.0, 0.1, 0.01, 0.0)
+    _t2 = TuningParamsDC(1.0, 0.1, 0.01, 0.0)
     start = time.perf_counter()
     for _ in range(iterations):
-        t2.kp = 1.0
-        t2.ki = 0.1
-        t2.kd = 0.01
-        t2.target_angle_offset = 0.0
+        _t2.kp = 1.0
+        _t2.ki = 0.1
+        _t2.kd = 0.01
+        _t2.target_angle_offset = 0.0
     end = time.perf_counter()
     dc_time = end - start
     print(f"Dataclass reuse: {dc_time:.4f} s")

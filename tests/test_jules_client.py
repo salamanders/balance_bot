@@ -68,7 +68,7 @@ class TestJulesClient(unittest.TestCase):
         self.assertEqual(kwargs["timeout"], DEFAULT_TIMEOUT)
 
     @patch("urllib.request.urlopen")
-    def test_make_request_missing_key(self, mock_urlopen):
+    def test_make_request_missing_key(self, _mock_urlopen):
         # Init without key
         with patch.dict(os.environ, {}, clear=True):
             client = JulesClient()
