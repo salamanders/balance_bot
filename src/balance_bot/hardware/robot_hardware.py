@@ -418,8 +418,9 @@ class RobotHardware:
         roll_rate = self.get_mapped_value(gyro, "gyro_roll") if self.hw_config.gyro_roll_axis else 0.0
 
         # Roll Angle (Approximate from Accel)
-        if self.accel_roll_axis:
-            accel_roll = getattr(accel, self.accel_roll_axis.value)
+        roll_axis = self.accel_roll_axis
+        if roll_axis:
+            accel_roll = getattr(accel, roll_axis.value)
             # Calculate angle of side vector relative to vertical
             roll_angle = calculate_pitch(accel_roll, accel_vertical)
         else:

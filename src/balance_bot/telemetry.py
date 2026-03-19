@@ -36,7 +36,7 @@ class TelemetryBlackbox:
                 time.time(), state_name, round(pitch, 2), round(pitch_rate, 2),
                 round(yaw_rate, 2), left_pwm, right_pwm, round(pid_target, 2)
             ))
-        except Queue.Full:
+        except Exception:
             pass # Drop frame rather than block the 100Hz control loop
 
     def _writer_thread(self):

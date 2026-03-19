@@ -5,93 +5,93 @@
       - [ ] Line 56: WEAK WARNING - Table is not correctly formatted (Highlighted: `| Repository Component | The LLM Blind Spot (Your Bias) | The Physical Rule (Your Constraint) | | :-...`)
     - [ ] `BLIND_SPOTS.md`
       - [ ] Line 9: WEAK WARNING - Table is not correctly formatted (Highlighted: `| Repository Component | Vulnerable Files & Functions | Explicitly Missing / Most Vulnerable Section...`)
-  - [ ] Incorrect type
-    - [ ] `src/balance_bot/hardware/robot_hardware.py`
-      - [ ] Line 422: WARNING - Expected type 'str', got '() -> Any' instead (Highlighted: `self.accel_roll_axis.value`)
-  - [ ] Invalid usages of classes with '__slots__' definitions
-    - [ ] `src/balance_bot/behavior/agent.py`
-      - [ ] Line 167: WARNING - 'MotionRequest' object has no attribute 'enable_control' (Highlighted: `motion_req.enable_control`)
-      - [ ] Line 168: WARNING - 'MotionRequest' object has no attribute 'velocity' (Highlighted: `motion_req.velocity`)
-      - [ ] Line 169: WARNING - 'MotionRequest' object has no attribute 'turn_rate' (Highlighted: `motion_req.turn_rate`)
-      - [ ] Line 233: WARNING - 'MotionRequest' object has no attribute 'enable_control' (Highlighted: `motion_req.enable_control`)
-      - [ ] Line 244: WARNING - 'MotionRequest' object has no attribute 'enable_control' (Highlighted: `motion_req.enable_control`)
-      - [ ] Line 294: WARNING - 'MotionRequest' object has no attribute 'enable_control' (Highlighted: `motion_req.enable_control`)
-      - [ ] Line 302: WARNING - 'MotionRequest' object has no attribute 'enable_control' (Highlighted: `motion_req.enable_control`)
-    - [ ] `tests/benchmarks/benchmark_motion_request.py`
-      - [ ] Line 55: WARNING - 'MotionRequestSlots' object has no attribute 'velocity' (Highlighted: `m.velocity`)
-      - [ ] Line 56: WARNING - 'MotionRequestSlots' object has no attribute 'turn_rate' (Highlighted: `m.turn_rate`)
-      - [ ] Line 57: WARNING - 'MotionRequestSlots' object has no attribute 'enable_control' (Highlighted: `m.enable_control`)
-  - [ ] Shadowing names from outer scopes
-    - [ ] `src/balance_bot/simple_test.py`
-      - [ ] Line 112: WEAK WARNING - Shadows name 'err' from outer scope (Highlighted: `err`)
-    - [ ] `src/balance_bot/utils.py`
-      - [ ] Line 517: WEAK WARNING - Shadows name 'vec' from outer scope (Highlighted: `vec`)
-  - [ ] Unclear exception clauses
-    - [ ] `src/balance_bot/simple_test.py`
-      - [ ] Line 36: WEAK WARNING - Too broad exception clause (Highlighted: `Exception`)
-      - [ ] Line 43: WEAK WARNING - Too broad exception clause (Highlighted: `Exception`)
-      - [ ] Line 45: WEAK WARNING - Too broad exception clause (Highlighted: `Exception`)
-  - [ ] Unresolved file references
-    - [ ] `README.md`
+  - [x] Incorrect type
+    - [x] `src/balance_bot/hardware/robot_hardware.py`
+      - [x] Line 422: WARNING - Expected type 'str', got '() -> Any' instead (Highlighted: `self.accel_roll_axis.value`)
+  - [x] Invalid usages of classes with '__slots__' definitions
+    - [x] `src/balance_bot/behavior/agent.py`
+      - [x] Line 167: WARNING - 'MotionRequest' object has no attribute 'enable_control' (Highlighted: `motion_req.enable_control`)
+      - [x] Line 168: WARNING - 'MotionRequest' object has no attribute 'velocity' (Highlighted: `motion_req.velocity`)
+      - [x] Line 169: WARNING - 'MotionRequest' object has no attribute 'turn_rate' (Highlighted: `motion_req.turn_rate`)
+      - [x] Line 233: WARNING - 'MotionRequest' object has no attribute 'enable_control' (Highlighted: `motion_req.enable_control`)
+      - [x] Line 244: WARNING - 'MotionRequest' object has no attribute 'enable_control' (Highlighted: `motion_req.enable_control`)
+      - [x] Line 294: WARNING - 'MotionRequest' object has no attribute 'enable_control' (Highlighted: `motion_req.enable_control`)
+      - [x] Line 302: WARNING - 'MotionRequest' object has no attribute 'enable_control' (Highlighted: `motion_req.enable_control`)
+    - [x] `tests/benchmarks/benchmark_motion_request.py`
+      - [x] Line 55: WARNING - 'MotionRequestSlots' object has no attribute 'velocity' (Highlighted: `m.velocity`)
+      - [x] Line 56: WARNING - 'MotionRequestSlots' object has no attribute 'turn_rate' (Highlighted: `m.turn_rate`)
+      - [x] Line 57: WARNING - 'MotionRequestSlots' object has no attribute 'enable_control' (Highlighted: `m.enable_control`)
+  - [x] Shadowing names from outer scopes
+    - [x] `src/balance_bot/simple_test.py`
+      - [x] Line 112: WEAK WARNING - Shadows name 'err' from outer scope (Highlighted: `err`)
+    - [x] `src/balance_bot/utils.py`
+      - [x] Line 517: WEAK WARNING - Shadows name 'vec' from outer scope (Highlighted: `vec`)
+  - [x] Unclear exception clauses
+    - [x] `src/balance_bot/simple_test.py`
+      - [x] Line 36: WEAK WARNING - Too broad exception clause (Highlighted: `Exception`)
+      - [x] Line 43: WEAK WARNING - Too broad exception clause (Highlighted: `Exception`)
+      - [x] Line 45: WEAK WARNING - Too broad exception clause (Highlighted: `Exception`)
+  - [x] Unresolved file references
+    - [x] `README.md`
 
-    - [ ] `run_test.py`
+    - [x] `run_test.py`
 
-    - [ ] `src/balance_bot/behavior/agent.py`
-      - [ ] Line 167: WARNING - 'MotionRequest' object has no attribute 'enable_control' (Highlighted: `enable_control`)
-      - [ ] Line 168: WARNING - 'MotionRequest' object has no attribute 'velocity' (Highlighted: `velocity`)
-      - [ ] Line 169: WARNING - 'MotionRequest' object has no attribute 'turn_rate' (Highlighted: `turn_rate`)
-      - [ ] Line 233: WARNING - 'MotionRequest' object has no attribute 'enable_control' (Highlighted: `enable_control`)
-      - [ ] Line 244: WARNING - 'MotionRequest' object has no attribute 'enable_control' (Highlighted: `enable_control`)
-      - [ ] Line 294: WARNING - 'MotionRequest' object has no attribute 'enable_control' (Highlighted: `enable_control`)
-      - [ ] Line 302: WARNING - 'MotionRequest' object has no attribute 'enable_control' (Highlighted: `enable_control`)
-    - [ ] `src/balance_bot/simulation/sim_env.py`
-      - [ ] Line 27: WARNING - Unresolved attribute reference 'loadURDF' for class 'None' (Highlighted: `loadURDF`)
-      - [ ] Line 35: WARNING - Unresolved attribute reference 'Box' for class 'None' (Highlighted: `Box`)
-      - [ ] Line 38: WARNING - Unresolved attribute reference 'Box' for class 'None' (Highlighted: `Box`)
-      - [ ] Line 42: WARNING - Unresolved attribute reference 'connect' for class 'None' (Highlighted: `connect`)
-      - [ ] Line 42: WARNING - Unresolved attribute reference 'GUI' for class 'None' (Highlighted: `GUI`)
-      - [ ] Line 44: WARNING - Unresolved attribute reference 'connect' for class 'None' (Highlighted: `connect`)
-      - [ ] Line 44: WARNING - Unresolved attribute reference 'DIRECT' for class 'None' (Highlighted: `DIRECT`)
-      - [ ] Line 46: WARNING - Unresolved attribute reference 'setAdditionalSearchPath' for class 'None' (Highlighted: `setAdditionalSearchPath`)
-      - [ ] Line 46: WARNING - Unresolved attribute reference 'getDataPath' for class 'None' (Highlighted: `getDataPath`)
-      - [ ] Line 52: WARNING - Unresolved attribute reference 'setTimeStep' for class 'None' (Highlighted: `setTimeStep`)
-      - [ ] Line 72: WARNING - Unresolved attribute reference 'getBasePositionAndOrientation' for class 'None' (Highlighted: `getBasePositionAndOrientation`)
-      - [ ] Line 79: WARNING - Unresolved attribute reference 'getBaseVelocity' for class 'None' (Highlighted: `getBaseVelocity`)
-      - [ ] Line 86: WARNING - Unresolved attribute reference 'multiplyTransforms' for class 'None' (Highlighted: `multiplyTransforms`)
-      - [ ] Line 98: WARNING - Unresolved attribute reference 'multiplyTransforms' for class 'None' (Highlighted: `multiplyTransforms`)
-      - [ ] Line 114: WARNING - Unresolved attribute reference 'getEulerFromQuaternion' for class 'None' (Highlighted: `getEulerFromQuaternion`)
-      - [ ] Line 132: WARNING - Unresolved attribute reference 'reset' for class 'object' (Highlighted: `reset`)
-      - [ ] Line 134: WARNING - Unresolved attribute reference 'resetSimulation' for class 'None' (Highlighted: `resetSimulation`)
-      - [ ] Line 135: WARNING - Unresolved attribute reference 'setGravity' for class 'None' (Highlighted: `setGravity`)
-      - [ ] Line 136: WARNING - Unresolved attribute reference 'setTimeStep' for class 'None' (Highlighted: `setTimeStep`)
-      - [ ] Line 146: WARNING - Unresolved attribute reference 'getQuaternionFromEuler' for class 'None' (Highlighted: `getQuaternionFromEuler`)
-      - [ ] Line 148: WARNING - Unresolved attribute reference 'loadURDF' for class 'None' (Highlighted: `loadURDF`)
-      - [ ] Line 156: WARNING - Unresolved attribute reference 'setJointMotorControl2' for class 'None' (Highlighted: `setJointMotorControl2`)
-      - [ ] Line 156: WARNING - Unresolved attribute reference 'VELOCITY_CONTROL' for class 'None' (Highlighted: `VELOCITY_CONTROL`)
-      - [ ] Line 157: WARNING - Unresolved attribute reference 'setJointMotorControl2' for class 'None' (Highlighted: `setJointMotorControl2`)
-      - [ ] Line 157: WARNING - Unresolved attribute reference 'VELOCITY_CONTROL' for class 'None' (Highlighted: `VELOCITY_CONTROL`)
-      - [ ] Line 166: WARNING - Unresolved attribute reference 'getQuaternionFromEuler' for class 'None' (Highlighted: `getQuaternionFromEuler`)
-      - [ ] Line 167: WARNING - Unresolved attribute reference 'getMatrixFromQuaternion' for class 'None' (Highlighted: `getMatrixFromQuaternion`)
-      - [ ] Line 196: WARNING - Unresolved attribute reference 'setJointMotorControl2' for class 'None' (Highlighted: `setJointMotorControl2`)
-      - [ ] Line 199: WARNING - Unresolved attribute reference 'TORQUE_CONTROL' for class 'None' (Highlighted: `TORQUE_CONTROL`)
-      - [ ] Line 204: WARNING - Unresolved attribute reference 'setJointMotorControl2' for class 'None' (Highlighted: `setJointMotorControl2`)
-      - [ ] Line 207: WARNING - Unresolved attribute reference 'TORQUE_CONTROL' for class 'None' (Highlighted: `TORQUE_CONTROL`)
-      - [ ] Line 214: WARNING - Unresolved attribute reference 'stepSimulation' for class 'None' (Highlighted: `stepSimulation`)
-      - [ ] Line 235: WARNING - Unresolved attribute reference 'disconnect' for class 'None' (Highlighted: `disconnect`)
-    - [ ] `src/balance_bot/telemetry.py`
-      - [ ] Line 39: WARNING - Unresolved attribute reference 'Full' for class 'Queue' (Highlighted: `Full`)
-    - [ ] `src/balance_bot/utils.py`
+    - [x] `src/balance_bot/behavior/agent.py`
+      - [x] Line 167: WARNING - 'MotionRequest' object has no attribute 'enable_control' (Highlighted: `enable_control`)
+      - [x] Line 168: WARNING - 'MotionRequest' object has no attribute 'velocity' (Highlighted: `velocity`)
+      - [x] Line 169: WARNING - 'MotionRequest' object has no attribute 'turn_rate' (Highlighted: `turn_rate`)
+      - [x] Line 233: WARNING - 'MotionRequest' object has no attribute 'enable_control' (Highlighted: `enable_control`)
+      - [x] Line 244: WARNING - 'MotionRequest' object has no attribute 'enable_control' (Highlighted: `enable_control`)
+      - [x] Line 294: WARNING - 'MotionRequest' object has no attribute 'enable_control' (Highlighted: `enable_control`)
+      - [x] Line 302: WARNING - 'MotionRequest' object has no attribute 'enable_control' (Highlighted: `enable_control`)
+    - [x] `src/balance_bot/simulation/sim_env.py`
+      - [x] Line 27: WARNING - Unresolved attribute reference 'loadURDF' for class 'None' (Highlighted: `loadURDF`)
+      - [x] Line 35: WARNING - Unresolved attribute reference 'Box' for class 'None' (Highlighted: `Box`)
+      - [x] Line 38: WARNING - Unresolved attribute reference 'Box' for class 'None' (Highlighted: `Box`)
+      - [x] Line 42: WARNING - Unresolved attribute reference 'connect' for class 'None' (Highlighted: `connect`)
+      - [x] Line 42: WARNING - Unresolved attribute reference 'GUI' for class 'None' (Highlighted: `GUI`)
+      - [x] Line 44: WARNING - Unresolved attribute reference 'connect' for class 'None' (Highlighted: `connect`)
+      - [x] Line 44: WARNING - Unresolved attribute reference 'DIRECT' for class 'None' (Highlighted: `DIRECT`)
+      - [x] Line 46: WARNING - Unresolved attribute reference 'setAdditionalSearchPath' for class 'None' (Highlighted: `setAdditionalSearchPath`)
+      - [x] Line 46: WARNING - Unresolved attribute reference 'getDataPath' for class 'None' (Highlighted: `getDataPath`)
+      - [x] Line 52: WARNING - Unresolved attribute reference 'setTimeStep' for class 'None' (Highlighted: `setTimeStep`)
+      - [x] Line 72: WARNING - Unresolved attribute reference 'getBasePositionAndOrientation' for class 'None' (Highlighted: `getBasePositionAndOrientation`)
+      - [x] Line 79: WARNING - Unresolved attribute reference 'getBaseVelocity' for class 'None' (Highlighted: `getBaseVelocity`)
+      - [x] Line 86: WARNING - Unresolved attribute reference 'multiplyTransforms' for class 'None' (Highlighted: `multiplyTransforms`)
+      - [x] Line 98: WARNING - Unresolved attribute reference 'multiplyTransforms' for class 'None' (Highlighted: `multiplyTransforms`)
+      - [x] Line 114: WARNING - Unresolved attribute reference 'getEulerFromQuaternion' for class 'None' (Highlighted: `getEulerFromQuaternion`)
+      - [x] Line 132: WARNING - Unresolved attribute reference 'reset' for class 'object' (Highlighted: `reset`)
+      - [x] Line 134: WARNING - Unresolved attribute reference 'resetSimulation' for class 'None' (Highlighted: `resetSimulation`)
+      - [x] Line 135: WARNING - Unresolved attribute reference 'setGravity' for class 'None' (Highlighted: `setGravity`)
+      - [x] Line 136: WARNING - Unresolved attribute reference 'setTimeStep' for class 'None' (Highlighted: `setTimeStep`)
+      - [x] Line 146: WARNING - Unresolved attribute reference 'getQuaternionFromEuler' for class 'None' (Highlighted: `getQuaternionFromEuler`)
+      - [x] Line 148: WARNING - Unresolved attribute reference 'loadURDF' for class 'None' (Highlighted: `loadURDF`)
+      - [x] Line 156: WARNING - Unresolved attribute reference 'setJointMotorControl2' for class 'None' (Highlighted: `setJointMotorControl2`)
+      - [x] Line 156: WARNING - Unresolved attribute reference 'VELOCITY_CONTROL' for class 'None' (Highlighted: `VELOCITY_CONTROL`)
+      - [x] Line 157: WARNING - Unresolved attribute reference 'setJointMotorControl2' for class 'None' (Highlighted: `setJointMotorControl2`)
+      - [x] Line 157: WARNING - Unresolved attribute reference 'VELOCITY_CONTROL' for class 'None' (Highlighted: `VELOCITY_CONTROL`)
+      - [x] Line 166: WARNING - Unresolved attribute reference 'getQuaternionFromEuler' for class 'None' (Highlighted: `getQuaternionFromEuler`)
+      - [x] Line 167: WARNING - Unresolved attribute reference 'getMatrixFromQuaternion' for class 'None' (Highlighted: `getMatrixFromQuaternion`)
+      - [x] Line 196: WARNING - Unresolved attribute reference 'setJointMotorControl2' for class 'None' (Highlighted: `setJointMotorControl2`)
+      - [x] Line 199: WARNING - Unresolved attribute reference 'TORQUE_CONTROL' for class 'None' (Highlighted: `TORQUE_CONTROL`)
+      - [x] Line 204: WARNING - Unresolved attribute reference 'setJointMotorControl2' for class 'None' (Highlighted: `setJointMotorControl2`)
+      - [x] Line 207: WARNING - Unresolved attribute reference 'TORQUE_CONTROL' for class 'None' (Highlighted: `TORQUE_CONTROL`)
+      - [x] Line 214: WARNING - Unresolved attribute reference 'stepSimulation' for class 'None' (Highlighted: `stepSimulation`)
+      - [x] Line 235: WARNING - Unresolved attribute reference 'disconnect' for class 'None' (Highlighted: `disconnect`)
+    - [x] `src/balance_bot/telemetry.py`
+      - [x] Line 39: WARNING - Unresolved attribute reference 'Full' for class 'Queue' (Highlighted: `Full`)
+    - [x] `src/balance_bot/utils.py`
 
-      - [ ] Line 231: WARNING - Unresolved attribute reference 'buffer' for class 'None' (Highlighted: `buffer`)
-      - [ ] Line 372: WARNING - Unresolved attribute reference 'SMBus' for class 'None' (Highlighted: `SMBus`)
-    - [ ] `tests/benchmarks/benchmark_config_serialization.py`
+      - [x] Line 231: WARNING - Unresolved attribute reference 'buffer' for class 'None' (Highlighted: `buffer`)
+      - [x] Line 372: WARNING - Unresolved attribute reference 'SMBus' for class 'None' (Highlighted: `SMBus`)
+    - [x] `tests/benchmarks/benchmark_config_serialization.py`
 
-    - [ ] `tests/benchmarks/benchmark_logging_latency.py`
+    - [x] `tests/benchmarks/benchmark_logging_latency.py`
 
-    - [ ] `tests/benchmarks/benchmark_motion_request.py`
-      - [ ] Line 55: WARNING - 'MotionRequestSlots' object has no attribute 'velocity' (Highlighted: `velocity`)
-      - [ ] Line 56: WARNING - 'MotionRequestSlots' object has no attribute 'turn_rate' (Highlighted: `turn_rate`)
-      - [ ] Line 57: WARNING - 'MotionRequestSlots' object has no attribute 'enable_control' (Highlighted: `enable_control`)
+    - [x] `tests/benchmarks/benchmark_motion_request.py`
+      - [x] Line 55: WARNING - 'MotionRequestSlots' object has no attribute 'velocity' (Highlighted: `velocity`)
+      - [x] Line 56: WARNING - 'MotionRequestSlots' object has no attribute 'turn_rate' (Highlighted: `turn_rate`)
+      - [x] Line 57: WARNING - 'MotionRequestSlots' object has no attribute 'enable_control' (Highlighted: `enable_control`)
   
 
 

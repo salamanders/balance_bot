@@ -13,6 +13,9 @@ class MotionRequest:
     Tier 3 -> Tier 1 Command Interface.
     """
     __slots__ = ['velocity', 'turn_rate', 'enable_control']
+    velocity: float
+    turn_rate: float
+    enable_control: bool
 
     def __init__(self, velocity: float = 0.0, turn_rate: float = 0.0, enable_control: bool = True):
         self.velocity = velocity

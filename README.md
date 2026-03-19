@@ -8,7 +8,6 @@
 * [.python-version](.python-version): Specifies the Python version used by the project/tools.
 * [AGENTS.md](AGENTS.md): Instructions/Context for AI agents working on this codebase, including documentation of the "Self-Discovery" protocol and implemented algorithms.
 * [AUTO_RUN.md](AUTO_RUN.md): Instructions for setting up the robot to run automatically on boot via systemd.
-* [ITERATE.md](ITERATE.md): Guidelines and prompts for AI-driven code refactoring and maintenance.
 * [LICENSE](LICENSE): Project license file.
 * [Makefile](Makefile): Shortcut commands for installation, linting, formatting, and running.
 * [README.md](README.md): The main entry point documentation.
@@ -25,7 +24,6 @@
 * [src/balance_bot/__init__.py](src/balance_bot/__init__.py): Package initialization.
 * [src/balance_bot/configuration.py](src/balance_bot/configuration.py): Centralized configuration (constants, dataclasses) for the
   robot.
-* [src/balance_bot/diagnostics.py](src/balance_bot/diagnostics.py): Tools for checking system health (I2C, imports).
 * [src/balance_bot/enums.py](src/balance_bot/enums.py): Enumerations for direction and orientation.
 * [src/balance_bot/jules_client.py](src/balance_bot/jules_client.py): Client for reporting crashes to Jules.
 * [src/balance_bot/main.py](src/balance_bot/main.py): Main application entry point.
@@ -69,8 +67,6 @@
 * [tests/test_balance_core_params.py](tests/test_balance_core_params.py): Tests for balance core parameters.
 * [tests/test_balance_finder.py](tests/test_balance_finder.py): Tests for the Balance Point Finder logic.
 * [tests/test_battery.py](tests/test_battery.py): Unit tests for battery estimation logic.
-* [tests/test_cross_product.py](tests/test_cross_product.py): Tests for vector math utilities.
-* [tests/test_diagnostics.py](tests/test_diagnostics.py): Tests for diagnostic functions.
 * [tests/test_i2c_config.py](tests/test_i2c_config.py): Tests for I2C bus configuration logic.
 * [tests/test_imu_logic.py](tests/test_imu_logic.py): Tests for IMU math and pitch calculation.
 * [tests/test_imu_resilience.py](tests/test_imu_resilience.py): Tests for IMU error handling and resilience.

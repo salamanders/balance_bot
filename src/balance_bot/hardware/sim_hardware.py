@@ -166,12 +166,12 @@ class SimHardware:
         return glm.vec3(0, 0, 9.81)
 
     # Some basic maneuver methods
-    def execute_maneuver(self, steps: list[tuple[float, float, float]], _sample_interval: float = 0.01, trim_override: float | None = None) -> MeasureResult:
+    def execute_maneuver(self, steps: list[tuple[float, float, float]], _sample_interval: float = 0.01, _trim_override: float | None = None) -> MeasureResult:
         logger.info("Executing maneuver in simulation")
         # Step through the commands and record
         samples = []
         for pwr_l, pwr_r, duration in steps:
-            self.set_motors(pwr_l, pwr_r, trim_override)
+            self.set_motors(pwr_l, pwr_r, _trim_override)
             steps_needed = int(duration / self.control_dt)
             for _ in range(steps_needed):
                 imu = self.read_imu_converted()

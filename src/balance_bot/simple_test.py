@@ -109,8 +109,8 @@ def main():
         try:
             motor_bus.write_byte_data(PICONZERO_ADDR, 0, val_0 & 0xFF)
             motor_bus.write_byte_data(PICONZERO_ADDR, 1, val_1 & 0xFF)
-        except Exception as err:
-            print(f"[{get_ms():05d} ms] ERROR setting motors: {err}")
+        except Exception as e:
+            print(f"[{get_ms():05d} ms] ERROR setting motors: {e}")
 
     try:
         print(f"\n[{get_ms():05d} ms] --- Step 2: Sitting Still (Monitoring Static Gravity) ---")
