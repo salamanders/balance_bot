@@ -8,14 +8,19 @@ from ..watchdog import SurvivalWatchdog
 from .pid import PIDController
 
 
-@dataclass(slots=True)
 class MotionRequest:
     """
     Tier 3 -> Tier 1 Command Interface.
     """
-    velocity: float = 0.0  # -1.0 to 1.0 (Forward/Backward)
-    turn_rate: float = 0.0  # -1.0 to 1.0 (Left/Right)
-    enable_control: bool = True  # If False, disables PID and sets motors to 0 (Idle/Parked)
+    __slots__ = ['velocity', 'turn_rate', 'enable_control']
+
+    def __init__(self, velocity: float = 0.0, turn_rate: float = 0.0, enable_control: bool = True):
+        self.velocity = velocity
+        self.turn_rate = turn_rate
+        self.enable_control = enable_control
+
+    def __repr__(self):
+        return f"MotionRequest(velocity={self.velocity}, turn_rate={self.turn_rate}, enable_control={self.enable_control})"
 
 
 @dataclass(frozen=True)
