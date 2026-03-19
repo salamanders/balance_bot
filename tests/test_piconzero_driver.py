@@ -57,7 +57,7 @@ class TestPiconZeroDriver(unittest.TestCase):
         mock_smbus_cls.assert_called_with(0)
 
     @patch('balance_bot.hardware.piconzero.smbus.SMBus')
-    def test_set_retries(self, mock_smbus_cls):
+    def test_set_retries(self, _mock_smbus_cls):
         """Test that set_retries updates the instance retry count."""
         pz = PiconZero()
         pz.set_retries(5)

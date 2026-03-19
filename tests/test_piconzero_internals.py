@@ -23,7 +23,7 @@ class TestPiconZeroInternals(unittest.TestCase):
 
     @patch('balance_bot.hardware.piconzero.smbus.SMBus')
     @patch('balance_bot.hardware.piconzero.time.sleep')
-    def test_init_sets_debug_instance(self, mock_sleep, mock_smbus):
+    def test_init_sets_debug_instance(self, mock_sleep, _mock_smbus):
         pz = PiconZero(bus_number=1)
 
         pz.init(debug=True)
@@ -72,7 +72,7 @@ class TestPiconZeroInternals(unittest.TestCase):
 
     @patch('balance_bot.hardware.piconzero.smbus.SMBus')
     @patch('balance_bot.hardware.piconzero.time.sleep')
-    def test_cleanup(self, mock_sleep, mock_smbus_cls):
+    def test_cleanup(self, _mock_sleep, mock_smbus_cls):
         mock_bus = mock_smbus_cls.return_value
         pz = PiconZero()
 

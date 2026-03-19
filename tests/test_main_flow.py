@@ -13,7 +13,7 @@ from balance_bot.main import main
 @patch("balance_bot.configuration.LearningState")
 @patch("balance_bot.configuration.HardwareConfig")
 @patch("balance_bot.discovery.pipeline.SelfDiscoveryPipeline")
-def test_main_toddler_phase(mock_pipeline, mock_hw, mock_state, mock_agent, mock_jules, mock_watchdog, mock_log):
+def test_main_toddler_phase(mock_pipeline, _mock_hw, mock_state, mock_agent, _mock_jules, _mock_watchdog, _mock_log):
     """Test that the main loop runs Pipeline if needs_discovery is True."""
 
     # Mock State
@@ -38,7 +38,7 @@ def test_main_toddler_phase(mock_pipeline, mock_hw, mock_state, mock_agent, mock
 @patch("balance_bot.configuration.LearningState")
 @patch("balance_bot.configuration.HardwareConfig")
 @patch("balance_bot.discovery.pipeline.SelfDiscoveryPipeline")
-def test_main_adult_phase(mock_pipeline, mock_hw, mock_state, mock_agent, mock_jules, mock_watchdog, mock_log):
+def test_main_adult_phase(mock_pipeline, _mock_hw, mock_state, mock_agent, _mock_jules, _mock_watchdog, _mock_log):
     """Test that main skips Pipeline if verified."""
 
     # Mock State
@@ -65,7 +65,7 @@ def test_main_adult_phase(mock_pipeline, mock_hw, mock_state, mock_agent, mock_j
 @patch("builtins.open", side_effect=Exception("Disk full"))
 @patch("builtins.print")
 def test_main_crash_reporting_local_write_failure(
-    mock_print, mock_open, mock_pipeline, mock_hw, mock_state, mock_agent, mock_jules, mock_watchdog, mock_log
+    mock_print, _mock_open, _mock_pipeline, _mock_hw, mock_state, mock_agent, mock_jules, _mock_watchdog, _mock_log
 ):
     """Test that main reports local fallback write failure when Jules upload fails."""
 
