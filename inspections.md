@@ -512,7 +512,7 @@
         - [x] WARNING Package containing module 'glm' is not listed in the project requirements
       - [ ] file test_leds.py 1 weak warning
         - [x] WARNING Package containing module 'pytest' is not listed in the project requirements
-      - [ ] file test_piconzero_driver.py 1 weak warning
+      - [x] file test_piconzero_driver.py 1 weak warning
         - [x] WARNING Package containing module 'smbus2' is not listed in the project requirements
       - [ ] file test_piconzero_internals.py 1 weak warning
         - [x] WARNING Package containing module 'smbus2' is not listed in the project requirements
@@ -533,15 +533,15 @@
         - [x] WARNING Package containing module 'glm' is not listed in the project requirements
         - [x] WARNING Package containing module 'smbus2' is not listed in the project requirements
     - [x] Unused imports inspection 6 warnings
-      - [ ] file sim_env.py 4 warnings
+      - [x] file sim_env.py 4 warnings
         - [x] WARNING 'pb' in the try block with 'except ImportError' should also be defined in the except block
         - [x] WARNING 'pybullet_data' in the try block with 'except ImportError' should also be defined in the except block
         - [x] WARNING 'gym' in the try block with 'except ImportError' should also be defined in the except block
         - [x] WARNING 'spaces' in the try block with 'except ImportError' should also be defined in the except block
-      - [ ] file test_leds.py 1 warning
-        - [ ] WARNING Unused import statement 'import time'
-      - [ ] file tuner.py 1 warning
-        - [ ] WARNING Unused import statement 'from itertools import pairwise'
+      - [x] file test_leds.py 1 warning
+        - [x] WARNING Unused import statement 'import time'
+      - [x] file tuner.py 1 warning
+        - [x] WARNING Unused import statement 'from itertools import pairwise'
     - [x] Unused local symbols inspection 42 weak warnings
       - [ ] file agent.py 1 weak warning
         - [x] WEAK WARNING Local variable 'comp_factor' value is not used
@@ -578,31 +578,31 @@
         - [ ] WEAK WARNING Local variable 'adj' value is not used
       - [ ] file test_jules_client.py 1 weak warning
         - [ ] WEAK WARNING Parameter 'mock_urlopen' value is not used
-      - [ ] file test_main_flow.py 8 weak warnings
-        - [ ] WEAK WARNING Parameter 'MockHW' value is not used
-        - [ ] WEAK WARNING Parameter 'MockJules' value is not used
-        - [ ] WEAK WARNING Parameter 'MockWatchdog' value is not used
-        - [ ] WEAK WARNING Parameter 'MockLog' value is not used
-        - [ ] WEAK WARNING Parameter 'MockHW' value is not used
-        - [ ] WEAK WARNING Parameter 'MockJules' value is not used
-        - [ ] WEAK WARNING Parameter 'MockWatchdog' value is not used
-        - [ ] WEAK WARNING Parameter 'MockLog' value is not used
-      - [ ] file test_piconzero_driver.py 1 weak warning
-        - [ ] WEAK WARNING Parameter 'mock_smbus_cls' value is not used
-      - [ ] file test_piconzero_internals.py 2 weak warnings
-        - [ ] WEAK WARNING Parameter 'mock_smbus' value is not used
-        - [ ] WEAK WARNING Parameter 'mock_sleep' value is not used
-      - [ ] file test_pipeline_config_matching.py 5 weak warnings
-        - [ ] WEAK WARNING Parameter 'readings' value is not used
-        - [ ] WEAK WARNING Parameter 'hw' value is not used
-        - [ ] WEAK WARNING Parameter 'r' value is not used
-        - [ ] WEAK WARNING Parameter 'name' value is not used
-        - [ ] WEAK WARNING Parameter 'monkeypatch' value is not used
-      - [ ] file test_utils_helpers.py 1 weak warning
-        - [ ] WEAK WARNING Parameter 'res' value is not used
-      - [ ] file test_watchdog_integration.py 2 weak warnings
-        - [ ] WEAK WARNING Parameter 'mock_balance_core' value is not used
-        - [ ] WEAK WARNING Parameter 'mock_balance_core' value is not used
+      - [x] file test_main_flow.py 8 weak warnings
+        - [x] WEAK WARNING Parameter 'MockHW' value is not used
+        - [x] WEAK WARNING Parameter 'MockJules' value is not used
+        - [x] WEAK WARNING Parameter 'MockWatchdog' value is not used
+        - [x] WEAK WARNING Parameter 'MockLog' value is not used
+        - [x] WEAK WARNING Parameter 'MockHW' value is not used
+        - [x] WEAK WARNING Parameter 'MockJules' value is not used
+        - [x] WEAK WARNING Parameter 'MockWatchdog' value is not used
+        - [x] WEAK WARNING Parameter 'MockLog' value is not used
+      - [x] file test_piconzero_driver.py 1 weak warning
+        - [x] WEAK WARNING Parameter 'mock_smbus_cls' value is not used
+      - [x] file test_piconzero_internals.py 2 weak warnings
+        - [x] WEAK WARNING Parameter 'mock_smbus' value is not used
+        - [x] WEAK WARNING Parameter 'mock_sleep' value is not used
+      - [x] file test_pipeline_config_matching.py 5 weak warnings
+        - [x] WEAK WARNING Parameter 'readings' value is not used
+        - [x] WEAK WARNING Parameter 'hw' value is not used
+        - [x] WEAK WARNING Parameter 'r' value is not used
+        - [x] WEAK WARNING Parameter 'name' value is not used
+        - [x] WEAK WARNING Parameter 'monkeypatch' value is not used
+      - [x] file test_utils_helpers.py 1 weak warning
+        - [x] WEAK WARNING Parameter 'res' value is not used
+      - [x] file test_watchdog_integration.py 2 weak warnings
+        - [x] WEAK WARNING Parameter 'mock_balance_core' value is not used
+        - [x] WEAK WARNING Parameter 'mock_balance_core' value is not used
   - [ ] Security group 1 warning
     - [ ] Vulnerable declared dependency inspection 1 warning
       - [ ] file pyproject.toml 1 warning

@@ -30,7 +30,7 @@ class TestUtilsHelpers(unittest.TestCase):
     def test_scan_i2c_candidates_not_found(self, mock_smbus):
         mock_smbus.SMBus.side_effect = OSError("Bus Error")
 
-        result = scan_i2c_candidates("TestDevice", lambda b: True)
+        result = scan_i2c_candidates("TestDevice", lambda _b: True)
         self.assertIsNone(result)
 
     def test_verify_with_retries_success(self):
@@ -54,7 +54,7 @@ class TestUtilsHelpers(unittest.TestCase):
     def test_verify_with_retries_fail_retry(self):
         test_fn = MagicMock(return_value="Fail")
 
-        result = verify_with_retries("Test", test_fn, lambda x: False, max_attempts=2)
+        result = verify_with_retries("Test", test_fn, lambda _x: False, max_attempts=2)
         self.assertFalse(result)
         self.assertEqual(test_fn.call_count, 2)
         test_fn.assert_has_calls([call(0), call(1)])
@@ -63,7 +63,7 @@ class TestUtilsHelpers(unittest.TestCase):
         # If check_fn returns "FAIL_FATAL", the loop breaks immediately and returns False
         test_fn = MagicMock(return_value="Fatal")
 
-        def check_fn(res):
+        def check_fn(_res):
             return "FAIL_FATAL"
 
         result = verify_with_retries("Test", test_fn, check_fn, max_attempts=3)
@@ -113,5 +113,5 @@ class TestUtilsHelpers(unittest.TestCase):
         # Always fail
         action_fn = MagicMock(return_value=False)
 
-        result = find_threshold("Test", 10, 5, 15, action_fn, lambda x: False)
+        result = find_threshold("Test", 10, 5, 15, action_fn, lambda _x: False)
         self.assertIsNone(result)

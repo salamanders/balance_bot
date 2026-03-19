@@ -35,7 +35,7 @@ def assert_updates_valid(config_updates: dict, state_updates: dict):
 
 
 def test_discover_buses_step(monkeypatch):
-    monkeypatch.setattr("balance_bot.discovery.discover_buses.scan_i2c", lambda name, check: 1)
+    monkeypatch.setattr("balance_bot.discovery.discover_buses.scan_i2c", lambda _name, _check: 1)
 
     step = DiscoverBusesStep()
     status, config_updates, state_updates = step.run(MagicMock(), HardwareConfig(), LearningState())
@@ -53,7 +53,7 @@ def test_hardware_init_step():
     assert_updates_valid(config_updates, state_updates)
 
 def test_manual_lean_calibration_step(monkeypatch):
-    def mock_analyze_dominance(readings, label):
+    def mock_analyze_dominance(_readings, label):
         # analyze_dominance returns (str, float, bool)
         if "Vertical" in label:
             return "y", 9.8, True
@@ -71,7 +71,7 @@ def test_manual_lean_calibration_step(monkeypatch):
     hw_mock.watchdog = MagicMock()
 
     # We'll mock the whole time.sleep to avoid hanging
-    monkeypatch.setattr("time.sleep", lambda x: None)
+    monkeypatch.setattr("time.sleep", lambda _x: None)
 
     import glm
 
@@ -117,7 +117,7 @@ def test_broken_wire_check_step(monkeypatch):
     hw_mock.execute_maneuver.return_value = mock_res
 
     # Mock sleep to run fast
-    monkeypatch.setattr("time.sleep", lambda x: None)
+    monkeypatch.setattr("time.sleep", lambda _x: None)
 
     step = BrokenWireCheckStep()
     status, config_updates, state_updates = step.run(hw_mock, HardwareConfig(), LearningState())
@@ -125,7 +125,7 @@ def test_broken_wire_check_step(monkeypatch):
     assert_updates_valid(config_updates, state_updates)
 
 def test_friction_threshold_step(monkeypatch):
-    monkeypatch.setattr("balance_bot.discovery.friction_threshold.find_threshold", lambda *args, **kwargs: 25)
+    monkeypatch.setattr("balance_bot.discovery.friction_threshold.find_threshold", lambda *_args, **_kwargs: 25)
 
     step = FrictionThresholdStep()
     status, config_updates, state_updates = step.run(MagicMock(), HardwareConfig(), LearningState())
@@ -141,7 +141,7 @@ def test_derive_kinematics_step(monkeypatch):
     hw_mock = MagicMock()
     hw_mock.read_imu_raw.return_value = (glm.vec3(0, 0, 9.8), glm.vec3(0, 0, 0))
 
-    def pulse_mock(hw, left_power, r, name):
+    def pulse_mock(_hw, left_power, _r, _name):
         if left_power > 0:
             return glm.vec3(0, -10, 0), glm.vec3(-5, 0, 9.8) # L turns left, tilts back
         else:
@@ -156,7 +156,7 @@ def test_derive_kinematics_step(monkeypatch):
 
 def test_mechanical_backlash_step(monkeypatch):
     # Mock sleep to run fast
-    monkeypatch.setattr("time.sleep", lambda x: None)
+    monkeypatch.setattr("time.sleep", lambda _x: None)
 
 
     class TimeMock:
