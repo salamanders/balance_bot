@@ -1,0 +1,122 @@
+<problems>
+<problem>
+  <file>file://$PROJECT_DIR$/src/balance_bot/behavior/agent.py</file>
+  <line>167</line>
+  <module>balance_bot</module>
+  <entry_point TYPE="file" FQNAME="file://$PROJECT_DIR$/src/balance_bot/behavior/agent.py" />
+  <problem_class id="PyDunderSlotsInspection" severity="WARNING" attribute_key="WARNING_ATTRIBUTES">Invalid usages of classes with '__slots__' definitions</problem_class>
+  <description>'MotionRequest' object has no attribute 'enable_control'</description>
+  <highlighted_element>motion_req.enable_control</highlighted_element>
+  <language>Python</language>
+  <offset>16</offset>
+  <length>25</length>
+</problem>
+<problem>
+  <file>file://$PROJECT_DIR$/src/balance_bot/behavior/agent.py</file>
+  <line>168</line>
+  <module>balance_bot</module>
+  <entry_point TYPE="file" FQNAME="file://$PROJECT_DIR$/src/balance_bot/behavior/agent.py" />
+  <problem_class id="PyDunderSlotsInspection" severity="WARNING" attribute_key="WARNING_ATTRIBUTES">Invalid usages of classes with '__slots__' definitions</problem_class>
+  <description>'MotionRequest' object has no attribute 'velocity'</description>
+  <highlighted_element>motion_req.velocity</highlighted_element>
+  <language>Python</language>
+  <offset>16</offset>
+  <length>19</length>
+</problem>
+<problem>
+  <file>file://$PROJECT_DIR$/src/balance_bot/behavior/agent.py</file>
+  <line>169</line>
+  <module>balance_bot</module>
+  <entry_point TYPE="file" FQNAME="file://$PROJECT_DIR$/src/balance_bot/behavior/agent.py" />
+  <problem_class id="PyDunderSlotsInspection" severity="WARNING" attribute_key="WARNING_ATTRIBUTES">Invalid usages of classes with '__slots__' definitions</problem_class>
+  <description>'MotionRequest' object has no attribute 'turn_rate'</description>
+  <highlighted_element>motion_req.turn_rate</highlighted_element>
+  <language>Python</language>
+  <offset>16</offset>
+  <length>20</length>
+</problem>
+<problem>
+  <file>file://$PROJECT_DIR$/src/balance_bot/behavior/agent.py</file>
+  <line>233</line>
+  <module>balance_bot</module>
+  <entry_point TYPE="file" FQNAME="file://$PROJECT_DIR$/src/balance_bot/behavior/agent.py" />
+  <problem_class id="PyDunderSlotsInspection" severity="WARNING" attribute_key="WARNING_ATTRIBUTES">Invalid usages of classes with '__slots__' definitions</problem_class>
+  <description>'MotionRequest' object has no attribute 'enable_control'</description>
+  <highlighted_element>motion_req.enable_control</highlighted_element>
+  <language>Python</language>
+  <offset>24</offset>
+  <length>25</length>
+</problem>
+<problem>
+  <file>file://$PROJECT_DIR$/src/balance_bot/behavior/agent.py</file>
+  <line>244</line>
+  <module>balance_bot</module>
+  <entry_point TYPE="file" FQNAME="file://$PROJECT_DIR$/src/balance_bot/behavior/agent.py" />
+  <problem_class id="PyDunderSlotsInspection" severity="WARNING" attribute_key="WARNING_ATTRIBUTES">Invalid usages of classes with '__slots__' definitions</problem_class>
+  <description>'MotionRequest' object has no attribute 'enable_control'</description>
+  <highlighted_element>motion_req.enable_control</highlighted_element>
+  <language>Python</language>
+  <offset>28</offset>
+  <length>25</length>
+</problem>
+<problem>
+  <file>file://$PROJECT_DIR$/src/balance_bot/behavior/agent.py</file>
+  <line>294</line>
+  <module>balance_bot</module>
+  <entry_point TYPE="file" FQNAME="file://$PROJECT_DIR$/src/balance_bot/behavior/agent.py" />
+  <problem_class id="PyDunderSlotsInspection" severity="WARNING" attribute_key="WARNING_ATTRIBUTES">Invalid usages of classes with '__slots__' definitions</problem_class>
+  <description>'MotionRequest' object has no attribute 'enable_control'</description>
+  <highlighted_element>motion_req.enable_control</highlighted_element>
+  <language>Python</language>
+  <offset>24</offset>
+  <length>25</length>
+</problem>
+<problem>
+  <file>file://$PROJECT_DIR$/src/balance_bot/behavior/agent.py</file>
+  <line>302</line>
+  <module>balance_bot</module>
+  <entry_point TYPE="file" FQNAME="file://$PROJECT_DIR$/src/balance_bot/behavior/agent.py" />
+  <problem_class id="PyDunderSlotsInspection" severity="WARNING" attribute_key="WARNING_ATTRIBUTES">Invalid usages of classes with '__slots__' definitions</problem_class>
+  <description>'MotionRequest' object has no attribute 'enable_control'</description>
+  <highlighted_element>motion_req.enable_control</highlighted_element>
+  <language>Python</language>
+  <offset>24</offset>
+  <length>25</length>
+</problem>
+<problem>
+  <file>file://$PROJECT_DIR$/tests/benchmarks/benchmark_motion_request.py</file>
+  <line>55</line>
+  <module>balance_bot</module>
+  <entry_point TYPE="file" FQNAME="file://$PROJECT_DIR$/tests/benchmarks/benchmark_motion_request.py" />
+  <problem_class id="PyDunderSlotsInspection" severity="WARNING" attribute_key="WARNING_ATTRIBUTES">Invalid usages of classes with '__slots__' definitions</problem_class>
+  <description>'MotionRequestSlots' object has no attribute 'velocity'</description>
+  <highlighted_element>m.velocity</highlighted_element>
+  <language>Python</language>
+  <offset>8</offset>
+  <length>10</length>
+</problem>
+<problem>
+  <file>file://$PROJECT_DIR$/tests/benchmarks/benchmark_motion_request.py</file>
+  <line>56</line>
+  <module>balance_bot</module>
+  <entry_point TYPE="file" FQNAME="file://$PROJECT_DIR$/tests/benchmarks/benchmark_motion_request.py" />
+  <problem_class id="PyDunderSlotsInspection" severity="WARNING" attribute_key="WARNING_ATTRIBUTES">Invalid usages of classes with '__slots__' definitions</problem_class>
+  <description>'MotionRequestSlots' object has no attribute 'turn_rate'</description>
+  <highlighted_element>m.turn_rate</highlighted_element>
+  <language>Python</language>
+  <offset>8</offset>
+  <length>11</length>
+</problem>
+<problem>
+  <file>file://$PROJECT_DIR$/tests/benchmarks/benchmark_motion_request.py</file>
+  <line>57</line>
+  <module>balance_bot</module>
+  <entry_point TYPE="file" FQNAME="file://$PROJECT_DIR$/tests/benchmarks/benchmark_motion_request.py" />
+  <problem_class id="PyDunderSlotsInspection" severity="WARNING" attribute_key="WARNING_ATTRIBUTES">Invalid usages of classes with '__slots__' definitions</problem_class>
+  <description>'MotionRequestSlots' object has no attribute 'enable_control'</description>
+  <highlighted_element>m.enable_control</highlighted_element>
+  <language>Python</language>
+  <offset>8</offset>
+  <length>16</length>
+</problem>
+</problems>

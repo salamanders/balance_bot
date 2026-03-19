@@ -1,0 +1,26 @@
+<problems>
+<problem>
+  <file>file://$PROJECT_DIR$/src/balance_bot/simple_test.py</file>
+  <line>112</line>
+  <module>balance_bot</module>
+  <entry_point TYPE="file" FQNAME="file://$PROJECT_DIR$/src/balance_bot/simple_test.py" />
+  <problem_class id="PyShadowingNamesInspection" severity="WEAK WARNING" attribute_key="INFO_ATTRIBUTES">Shadowing names from outer scopes</problem_class>
+  <description>Shadows name 'err' from outer scope</description>
+  <highlighted_element>err</highlighted_element>
+  <language>Python</language>
+  <offset>28</offset>
+  <length>3</length>
+</problem>
+<problem>
+  <file>file://$PROJECT_DIR$/src/balance_bot/utils.py</file>
+  <line>517</line>
+  <module>balance_bot</module>
+  <entry_point TYPE="file" FQNAME="file://$PROJECT_DIR$/src/balance_bot/utils.py" />
+  <problem_class id="PyShadowingNamesInspection" severity="WEAK WARNING" attribute_key="INFO_ATTRIBUTES">Shadowing names from outer scopes</problem_class>
+  <description>Shadows name 'vec' from outer scope</description>
+  <highlighted_element>vec</highlighted_element>
+  <language>Python</language>
+  <offset>12</offset>
+  <length>3</length>
+</problem>
+</problems>

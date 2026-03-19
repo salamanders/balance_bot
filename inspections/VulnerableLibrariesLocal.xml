@@ -1,0 +1,15 @@
+<problems>
+<problem>
+  <file>file://$PROJECT_DIR$/pyproject.toml</file>
+  <line>28</line>
+  <module>balance_bot</module>
+  <entry_point TYPE="file" FQNAME="file://$PROJECT_DIR$/pyproject.toml" />
+  <problem_class id="VulnerableLibrariesLocal" severity="WARNING" attribute_key="WARNING_ATTRIBUTES">Vulnerable declared dependency</problem_class>
+  <description>&lt;html&gt;&lt;body&gt; Dependency pypi:pytest:9.0.1 is vulnerable &lt;ul&gt;&lt;li&gt;&lt;a href=&quot;https://www.mend.io/vulnerability-database/CVE-2025-71176?utm_source=Jetbrains&quot;&gt;CVE-2025-71176&lt;/a&gt; 6.8 Insufficient Information &lt;/li&gt;&lt;/ul&gt; Results powered by &lt;a href=&quot;https://www.mend.io/jetbrains-lp/?utm_source=JetBrains&quot;&gt;Mend.io&lt;/a&gt;&lt;/body&gt; &lt;/html&gt;</description>
+  <highlighted_element>&quot;pytest&gt;=9.0.0,!=9.0.2&quot;</highlighted_element>
+  <language>TOML</language>
+  <offset>4</offset>
+  <length>23</length>
+  <fingerprint sourcePackage="pypi:pytest:9.0.1" vulnerabilityIds="05fffa66-3a28-4804-b4be-4f5429bcd162" />
+</problem>
+</problems>

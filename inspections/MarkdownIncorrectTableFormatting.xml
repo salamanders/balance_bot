@@ -1,0 +1,38 @@
+<problems>
+<problem>
+  <file>file://$PROJECT_DIR$/AGENTS.md</file>
+  <line>12</line>
+  <module>balance_bot</module>
+  <entry_point TYPE="file" FQNAME="file://$PROJECT_DIR$/AGENTS.md" />
+  <problem_class id="MarkdownIncorrectTableFormatting" severity="WEAK WARNING" attribute_key="INFO_ATTRIBUTES">Incorrect table formatting</problem_class>
+  <description>Table is not correctly formatted</description>
+  <highlighted_element>| Category | Constraint | | :--- | :--- | | **Role &amp; Constraints** | You are a Senior Python Robotic...</highlighted_element>
+  <language>Markdown</language>
+  <offset>0</offset>
+  <length>1209</length>
+</problem>
+<problem>
+  <file>file://$PROJECT_DIR$/AGENTS.md</file>
+  <line>56</line>
+  <module>balance_bot</module>
+  <entry_point TYPE="file" FQNAME="file://$PROJECT_DIR$/AGENTS.md" />
+  <problem_class id="MarkdownIncorrectTableFormatting" severity="WEAK WARNING" attribute_key="INFO_ATTRIBUTES">Incorrect table formatting</problem_class>
+  <description>Table is not correctly formatted</description>
+  <highlighted_element>| Repository Component | The LLM Blind Spot (Your Bias) | The Physical Rule (Your Constraint) | | :-...</highlighted_element>
+  <language>Markdown</language>
+  <offset>0</offset>
+  <length>2073</length>
+</problem>
+<problem>
+  <file>file://$PROJECT_DIR$/BLIND_SPOTS.md</file>
+  <line>9</line>
+  <module>balance_bot</module>
+  <entry_point TYPE="file" FQNAME="file://$PROJECT_DIR$/BLIND_SPOTS.md" />
+  <problem_class id="MarkdownIncorrectTableFormatting" severity="WEAK WARNING" attribute_key="INFO_ATTRIBUTES">Incorrect table formatting</problem_class>
+  <description>Table is not correctly formatted</description>
+  <highlighted_element>| Repository Component | Vulnerable Files &amp; Functions | Explicitly Missing / Most Vulnerable Section...</highlighted_element>
+  <language>Markdown</language>
+  <offset>0</offset>
+  <length>7202</length>
+</problem>
+</problems>
