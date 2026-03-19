@@ -6,7 +6,7 @@ import numpy as np
 import glm
 from typing import Optional
 
-from .robot_hardware import IMUReading, MeasureResult, DriveCommand
+from .types import IMUReading, MeasureResult, DriveCommand
 from ..configuration import HardwareConfig, LearningState
 from ..watchdog import SurvivalWatchdog
 from ..simulation.sim_env import BalanceBotEnv
