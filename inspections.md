@@ -1,609 +1,682 @@
-- [x] Inspection Results 'Project Default' profile 240 errors 32 warnings 121 weak warnings 11 grammar errors 48 typos
-  - [ ] Markdown group 10 warnings 3 weak warnings
-    - [ ] Incorrect table formatting inspection 3 weak warnings
-      - [ ] file AGENTS.md 2 weak warnings
-        - [ ] WEAK WARNING Table is not correctly formatted
-        - [ ] WEAK WARNING Table is not correctly formatted
-      - [ ] file BLIND_SPOTS.md 1 weak warning
-        - [ ] WEAK WARNING Table is not correctly formatted
-    - [x] Unresolved file references inspection 10 warnings
-      - [ ] file README.md 10 warnings
-        - [x] WARNING Cannot resolve file 'ITERATE.md'
-        - [x] WARNING Cannot resolve file 'diagnostics.py'
-        - [x] WARNING Cannot resolve file 'wiring_check.py'
-        - [x] WARNING Cannot resolve file 'piconzero_adapter.py'
-        - [x] WARNING Cannot resolve file ''
-        - [x] WARNING Cannot resolve file 'test_cross_product.py'
-        - [x] WARNING Cannot resolve file 'test_diagnostics.py'
-        - [x] WARNING Cannot resolve file 'test_wiring_check_bus.py'
-        - [x] WARNING Cannot resolve file 'wiring_check.py'
-        - [x] WARNING Cannot resolve file 'wiring_check.py'
-  - [ ] Proofreading group 11 grammar errors 48 typos
-    - [ ] Grammar inspection 11 grammar errors
-      - [ ] file balance_core.py 2 grammar errors
-        - [ ] GRAMMAR ERROR You've repeated a verb. Did you mean to only write one of them?
-        - [ ] GRAMMAR ERROR You've repeated a verb. Did you mean to only write one of them?
-      - [ ] file leds.py 1 grammar error
-        - [ ] GRAMMAR ERROR The verb 'set up' is spelled as two words. The noun 'setup' is spelled as one.
-      - [ ] file mechanical_backlash.py 1 grammar error
-        - [ ] GRAMMAR ERROR It seems that a pronoun is missing.
-      - [ ] file README.md 2 grammar errors
-        - [ ] GRAMMAR ERROR The word 'installs' is not a noun.
-        - [ ] GRAMMAR ERROR Possible agreement error. The noun hardware seems to be uncountable; consider using: some hardware.
-      - [ ] file simple_test.py 1 grammar error
-        - [ ] GRAMMAR ERROR This word is normally spelled with a hyphen.
-      - [ ] file test_main_flow.py 1 grammar error
-        - [ ] GRAMMAR ERROR It seems that a pronoun is missing.
-      - [ ] file test_pipeline_config_matching.py 1 grammar error
-        - [ ] GRAMMAR ERROR The word 'analyze' is a verb. Did you mean the noun analysis?
-      - [ ] file utils.py 2 grammar errors
-        - [ ] GRAMMAR ERROR Possible typo detected.
-        - [ ] GRAMMAR ERROR This word is normally spelled with a hyphen.
-    - [ ] Spelling inspection 48 typos
-      - [ ] file environment.sh 3 typos
-        - [ ] TYPO Typo: In word 'libffi'
-        - [ ] TYPO Typo: In word 'libffi'
-        - [ ] TYPO Typo: In word 'libffi'
-      - [ ] file README.md 3 typos
-        - [ ] TYPO Typo: In word 'Brainstem'
-        - [ ] TYPO Typo: In word 'ATmega'
-      - [ ] file sim_env.py 4 typos
-        - [ ] TYPO Typo: In word 'URDF'
-        - [ ] TYPO Typo: In word 'quats'
-        - [ ] TYPO Typo: In word '' No longer valid
-        - [ ] TYPO Typo: In word 'urdf'
-        - [ ] TYPO Typo: In word 'urdf'
-      - [ ] file simple_test.py 1 typo
-        - [ ] TYPO Typo: In word 'PICONZERO'
-      - [ ] file test_battery.py 1 typo
-        - [ ] TYPO Typo: In word 'deadzone'
-      - [ ] file test_i2c_config.py 2 typos
-        - [ ] TYPO Typo: In word 'piconzero'
-        - [ ] TYPO Typo: In word 'piconzero'
-      - [ ] file test_imu_logic.py 2 typos
-        - [ ] TYPO Typo: In word 'atan'
-        - [ ] TYPO Typo: In word 'atan'
-      - [ ] file test_piconzero_driver.py 6 typos
-        - [ ] TYPO Typo: In word 'piconzero'
-        - [ ] TYPO Typo: In word 'piconzero'
-        - [ ] TYPO Typo: In word 'piconzero'
-        - [ ] TYPO Typo: In word 'piconzero'
-        - [ ] TYPO Typo: In word 'piconzero'
-        - [ ] TYPO Typo: In word 'piconzero'
-      - [ ] file test_piconzero_internals.py 13 typos
-        - [ ] TYPO Typo: In word 'piconzero'
-        - [ ] TYPO Typo: In word 'piconzero'
-        - [ ] TYPO Typo: In word 'piconzero'
-        - [ ] TYPO Typo: In word 'piconzero'
-        - [ ] TYPO Typo: In word 'piconzero'
-        - [ ] TYPO Typo: In word 'piconzero'
-        - [ ] TYPO Typo: In word 'piconzero'
-        - [ ] TYPO Typo: In word 'piconzero'
-        - [ ] TYPO Typo: In word 'piconzero'
-        - [ ] TYPO Typo: In word 'piconzero'
-        - [ ] TYPO Typo: In word 'piconzero'
-        - [ ] TYPO Typo: In word 'piconzero'
-        - [ ] TYPO Typo: In word 'piconzero'
-      - [ ] file test_pivot_sorter.py 2 typos
-        - [ ] TYPO Typo: In word 'excinfo'
-        - [ ] TYPO Typo: In word 'excinfo'
-      - [ ] file test_utils.py 5 typos
-        - [ ] TYPO Typo: In word 'testuser'
-        - [ ] TYPO Typo: In word 'testuser'
-        - [ ] TYPO Typo: In word 'cdetect'
-        - [ ] TYPO Typo: In word 'cdetect'
-        - [ ] TYPO Typo: In word 'cdetect'
-      - [ ] file utils.py 6 typos
-        - [ ] TYPO Typo: In word 'atan'
-        - [ ] TYPO Typo: In word 'cdetect'
-        - [ ] TYPO Typo: In word 'cdetect'
-        - [ ] TYPO Typo: In word 'cdetect'
-        - [ ] TYPO Typo: In word 'cdetect'
-        - [ ] TYPO Typo: In word 'cdetect'
-  - [ ] Python group 240 errors 21 warnings 118 weak warnings
-    - [x] Incorrect call arguments inspection 6 warnings
-      - [ ] file sim_hardware.py 6 warnings
-        - [x] WARNING Unexpected argument
-        - [x] WARNING Unexpected argument
-        - [x] WARNING Unexpected argument
-        - [x] WARNING Unexpected argument
-        - [x] WARNING Parameter 'duration' unfilled
-        - [x] WARNING Parameter 'samples' unfilled
-    - [x] Incorrect type inspection 3 warnings
-      - [x] file agent.py 1 warning
-        - [x] WARNING Expected type 'float', got 'Literal[Direction.BACKWARD, Direction.FORWARD]' instead
-      - [x] file configuration.py 1 warning
-        - [x] WARNING Expected type 'collections.Iterable', got '() ‑> Any' instead
-      - [x] file robot_hardware.py 1 warning
-        - [x] WARNING Expected type 'str', got '() ‑> Any' instead
-    - [ ] PEP 8 naming convention violation inspection 14 weak warnings
-      - [ ] file test_main_flow.py 14 weak warnings
-        - [ ] WEAK WARNING Argument name should be lowercase
-        - [ ] WEAK WARNING Argument name should be lowercase
-        - [ ] WEAK WARNING Argument name should be lowercase
-        - [ ] WEAK WARNING Argument name should be lowercase
-        - [ ] WEAK WARNING Argument name should be lowercase
-        - [ ] WEAK WARNING Argument name should be lowercase
-        - [ ] WEAK WARNING Argument name should be lowercase
-        - [ ] WEAK WARNING Argument name should be lowercase
-        - [ ] WEAK WARNING Argument name should be lowercase
-        - [ ] WEAK WARNING Argument name should be lowercase
-        - [ ] WEAK WARNING Argument name should be lowercase
-        - [ ] WEAK WARNING Argument name should be lowercase
-        - [ ] WEAK WARNING Argument name should be lowercase
-        - [ ] WEAK WARNING Argument name should be lowercase
-    - [x] Shadowing names from outer scopes inspection 4 weak warnings
-      - [ ] file benchmark_tuner_deque.py 1 weak warning
-        - [ ] WEAK WARNING Shadows name 'i' from outer scope
-      - [ ] file simple_test.py 1 weak warning
-        - [ ] WEAK WARNING Shadows name 'e' from outer scope
-      - [ ] file utils.py 2 weak warnings
-        - [x] WEAK WARNING Shadows name 'logger' from outer scope
-        - [x] WEAK WARNING Shadows name 'v' from outer scope
-    - [x] Statement has no effect inspection 1 warning
-      - [ ] file sim_hardware.py 1 warning
-        - [x] WARNING Statement seems to have no effect
-    - [x] Unbound local variables inspection 1 warning
-      - [ ] file test_battery.py 1 warning
-        - [x] WARNING Local variable 'factor' might be referenced before assignment
-    - [ ] Unclear exception clauses inspection 15 weak warnings
-      - [ ] file main.py 1 weak warning
-        - [ ] WEAK WARNING Too broad exception clause
-      - [ ] file piconzero.py 7 weak warnings
-        - [ ] WEAK WARNING Too broad exception clause
-        - [ ] WEAK WARNING Too broad exception clause
-        - [ ] WEAK WARNING Too broad exception clause
-        - [ ] WEAK WARNING Too broad exception clause
-        - [ ] WEAK WARNING Too broad exception clause
-        - [ ] WEAK WARNING Too broad exception clause
-        - [ ] WEAK WARNING Too broad exception clause
-      - [ ] file simple_test.py 3 weak warnings
-        - [ ] WEAK WARNING Too broad exception clause
-        - [ ] WEAK WARNING Too broad exception clause
-        - [ ] WEAK WARNING Too broad exception clause
-      - [ ] file utils.py 4 weak warnings
-        - [ ] WEAK WARNING Too broad exception clause
-        - [ ] WEAK WARNING Too broad exception clause
-        - [ ] WEAK WARNING Too broad exception clause
-        - [ ] WEAK WARNING Too broad exception clause
-    - [x] Unresolved references inspection 240 errors 4 warnings 2 weak warnings
-      - [ ] file benchmark_config_serialization.py 4 errors
-        - [x] WARNING Unresolved reference 'balance_bot'
-        - [x] WARNING Unresolved reference 'LearningState'
-        - [x] WARNING Unresolved reference 'PIDParams'
-        - [x] WARNING Unresolved reference 'TunerConfig'
-      - [ ] file benchmark_logging_latency.py 2 errors
-        - [x] WARNING Unresolved reference 'balance_bot'
-        - [x] WARNING Unresolved reference 'LogThrottler'
-      - [ ] file benchmark_tuner_deque.py 4 errors
-        - [x] WARNING Unresolved reference 'balance_bot'
-        - [x] WARNING Unresolved reference 'ContinuousTuner'
-        - [x] WARNING Unresolved reference 'balance_bot'
-        - [x] WARNING Unresolved reference 'TunerConfig'
-      - [ ] file benchmark_zero_crossings.py 4 errors
-        - [x] WARNING Unresolved reference 'balance_bot'
-        - [x] WARNING Unresolved reference 'ContinuousTuner'
-        - [x] WARNING Unresolved reference 'balance_bot'
-        - [x] WARNING Unresolved reference 'TunerConfig'
-      - [ ] file broken_wire_check.py 1 error
-        - [x] WARNING No module named 'glm'
-      - [ ] file derive_kinematics.py 1 error
-        - [x] WARNING No module named 'glm'
-      - [ ] file friction_threshold.py 1 error
-        - [x] WARNING No module named 'glm'
-      - [ ] file mocks.py 1 error
-        - [x] WARNING No module named 'glm'
-      - [ ] file piconzero.py 1 error
-        - [x] WARNING No module named 'smbus2'
-      - [ ] file pid.py 2 errors
-        - [x] WARNING Unresolved reference 'simple_pid'
-        - [x] WARNING Unresolved reference 'PID'
-      - [ ] file robot_hardware.py 2 errors 2 weak warnings
-        - [x] WARNING No module named 'glm'
-        - [ ] WARNING Module 'smbus2' not found
-        - [x] WARNING Unresolved reference 'mpu6050'
-        - [ ] WARNING Module 'mpu6050' not found
-      - [ ] file run_test.py 1 error
-        - [x] WARNING No module named 'pytest'
-      - [ ] file sim_env.py 1 error 1 warning
-        - [x] WARNING No module named 'numpy'
-        - [ ] WARNING Unresolved attribute reference 'reset' for class 'object'
-      - [ ] file sim_hardware.py 2 errors
-        - [x] WARNING No module named 'numpy'
-        - [x] WARNING No module named 'glm'
-      - [ ] file sim_test.py 2 errors
-        - [x] WARNING Unresolved reference 'balance_bot'
-        - [x] WARNING Unresolved reference 'BalanceBotEnv'
-      - [ ] file simple_test.py 3 errors
-        - [x] WARNING No module named 'smbus2'
-        - [x] WARNING Unresolved reference 'mpu6050'
-        - [x] WARNING Unresolved reference 'mpu6050'
-      - [ ] file telemetry.py 1 warning
-        - [ ] WARNING Unresolved attribute reference 'Full' for class 'Queue'
-      - [ ] file test_agent_config_save.py 6 errors
-        - [x] WARNING Unresolved reference 'balance_bot'
-        - [x] WARNING Unresolved reference 'Agent'
-        - [x] WARNING Unresolved reference 'balance_bot'
-        - [x] WARNING Unresolved reference 'HardwareConfig'
-        - [x] WARNING Unresolved reference 'LearningState'
-        - [x] WARNING Unresolved reference 'PIDParams'
-      - [ ] file test_agent_state_machine.py 3 errors
-        - [x] WARNING Unresolved reference 'balance_bot'
-        - [x] WARNING Unresolved reference 'Agent'
-        - [x] WARNING Unresolved reference 'BotState'
-      - [ ] file test_balance_core_params.py 10 errors
-        - [x] WARNING No module named 'pytest'
-        - [x] WARNING Unresolved reference 'balance_bot'
-        - [x] WARNING Unresolved reference 'BalanceCore'
-        - [x] WARNING Unresolved reference 'MotionRequest'
-        - [x] WARNING Unresolved reference 'TuningParams'
-        - [x] WARNING Unresolved reference 'BalanceTelemetry'
-        - [x] WARNING Unresolved reference 'balance_bot'
-        - [x] WARNING Unresolved reference 'HardwareConfig'
-        - [x] WARNING Unresolved reference 'LearningState'
-        - [x] WARNING Unresolved reference 'PIDParams'
-      - [ ] file test_balance_finder.py 4 errors
-        - [x] WARNING Unresolved reference 'balance_bot'
-        - [x] WARNING Unresolved reference 'BalancePointFinder'
-        - [x] WARNING Unresolved reference 'balance_bot'
-        - [x] WARNING Unresolved reference 'TunerConfig'
-      - [ ] file test_battery.py 4 errors
-        - [x] WARNING Unresolved reference 'balance_bot'
-        - [x] WARNING Unresolved reference 'BatteryEstimator'
-        - [x] WARNING Unresolved reference 'balance_bot'
-        - [x] WARNING Unresolved reference 'BatteryConfig'
-      - [ ] file test_discovery_pipeline.py 6 errors
-        - [x] WARNING No module named 'pytest'
-        - [x] WARNING Unresolved reference 'balance_bot'
-        - [x] WARNING Unresolved reference 'SelfDiscoveryPipeline'
-        - [x] WARNING Unresolved reference 'balance_bot'
-        - [x] WARNING Unresolved reference 'CalibrationStep'
-        - [x] WARNING Unresolved reference 'StepStatus'
-      - [ ] file test_fail_loud.py 12 errors
-        - [x] WARNING No module named 'pytest'
-        - [x] WARNING No module named 'glm'
-        - [x] WARNING Unresolved reference 'balance_bot'
-        - [x] WARNING Unresolved reference 'RobotHardware'
-        - [x] WARNING Unresolved reference 'balance_bot'
-        - [x] WARNING Unresolved reference 'HardwareConfig'
-        - [x] WARNING Unresolved reference 'LearningState'
-        - [x] WARNING Unresolved reference 'balance_bot'
-        - [x] WARNING Unresolved reference 'Axis'
-        - [x] WARNING Unresolved reference 'balance_bot'
-        - [x] WARNING Unresolved reference 'DiscoverBusesStep'
-        - [x] WARNING Unresolved reference 'StepStatus'
-      - [ ] file test_gyro_drift.py 8 errors
-        - [x] WARNING No module named 'pytest'
-        - [x] WARNING Unresolved reference 'balance_bot'
-        - [x] WARNING Unresolved reference 'RobotHardware'
-        - [x] WARNING Unresolved reference 'balance_bot'
-        - [x] WARNING Unresolved reference 'HardwareConfig'
-        - [x] WARNING Unresolved reference 'LearningState'
-        - [x] WARNING Unresolved reference 'PIDParams'
-        - [x] WARNING No module named 'glm'
-      - [ ] file test_i2c_config.py 7 errors
-        - [x] WARNING Unresolved reference 'balance_bot'
-        - [x] WARNING Unresolved reference 'HardwareConfig'
-        - [x] WARNING Unresolved reference 'LearningState'
-        - [x] WARNING Unresolved reference 'balance_bot'
-        - [x] WARNING Unresolved reference 'RobotHardware'
-        - [x] WARNING Unresolved reference 'balance_bot'
-        - [x] WARNING Unresolved reference 'RobotHardware'
-      - [ ] file test_imu_logic.py 9 errors
-        - [x] WARNING No module named 'glm'
-        - [x] WARNING Unresolved reference 'balance_bot'
-        - [x] WARNING Unresolved reference 'RobotHardware'
-        - [x] WARNING Unresolved reference 'IMUReading'
-        - [x] WARNING Unresolved reference 'balance_bot'
-        - [x] WARNING Unresolved reference 'HardwareConfig'
-        - [x] WARNING Unresolved reference 'LearningState'
-        - [x] WARNING Unresolved reference 'balance_bot'
-        - [x] WARNING Unresolved reference 'Axis'
-      - [ ] file test_imu_resilience.py 6 errors
-        - [x] WARNING Unresolved reference 'balance_bot'
-        - [x] WARNING Unresolved reference 'RobotHardware'
-        - [x] WARNING Unresolved reference 'balance_bot'
-        - [x] WARNING Unresolved reference 'HardwareConfig'
-        - [x] WARNING Unresolved reference 'LearningState'
-        - [x] WARNING Unresolved reference 'PIDParams'
-      - [ ] file test_imu_yaw_roll.py 9 errors
-        - [x] WARNING Unresolved reference 'balance_bot'
-        - [x] WARNING Unresolved reference 'RobotHardware'
-        - [x] WARNING Unresolved reference 'balance_bot'
-        - [x] WARNING Unresolved reference 'HardwareConfig'
-        - [x] WARNING Unresolved reference 'LearningState'
-        - [x] WARNING Unresolved reference 'PIDParams'
-        - [x] WARNING Unresolved reference 'balance_bot'
-        - [x] WARNING Unresolved reference 'Axis'
-        - [x] WARNING No module named 'glm'
-      - [ ] file test_jules_client.py 5 errors
-        - [x] WARNING Unresolved reference 'balance_bot'
-        - [x] WARNING Unresolved reference 'JulesClient'
-        - [x] WARNING Unresolved reference 'CrashReport'
-        - [x] WARNING Unresolved reference 'balance_bot'
-        - [x] WARNING Unresolved reference 'DEFAULT_TIMEOUT'
-      - [ ] file test_kickup_config.py 3 errors
-        - [x] WARNING Unresolved reference 'balance_bot'
-        - [x] WARNING Unresolved reference 'LearningState'
-        - [x] WARNING Unresolved reference 'ControlConfig'
-      - [ ] file test_kinematics_logic.py 12 errors
-        - [x] WARNING No module named 'glm'
-        - [x] WARNING Unresolved reference 'balance_bot'
-        - [x] WARNING Unresolved reference 'DeriveKinematicsStep'
-        - [x] WARNING Unresolved reference 'balance_bot'
-        - [x] WARNING Unresolved reference 'StepStatus'
-        - [x] WARNING Unresolved reference 'balance_bot'
-        - [x] WARNING Unresolved reference 'HardwareConfig'
-        - [x] WARNING Unresolved reference 'LearningState'
-        - [x] WARNING Unresolved reference 'ControlConfig'
-        - [x] WARNING Unresolved reference 'balance_bot'
-        - [x] WARNING Unresolved reference 'RobotHardware'
-        - [x] WARNING Unresolved reference 'IMUReading'
-      - [ ] file test_leds.py 5 errors
-        - [x] WARNING No module named 'pytest'
-        - [x] WARNING Unresolved reference 'balance_bot'
-        - [x] WARNING Unresolved reference 'LedController'
-        - [x] WARNING Unresolved reference 'balance_bot'
-        - [x] WARNING Unresolved reference 'LedConfig'
-      - [ ] file test_main_flow.py 2 errors
-        - [x] WARNING Unresolved reference 'balance_bot'
-        - [x] WARNING Unresolved reference 'main'
-      - [ ] file test_max_tilt_config.py 9 errors
-        - [x] WARNING Unresolved reference 'balance_bot'
-        - [x] WARNING Unresolved reference 'BalanceCore'
-        - [x] WARNING Unresolved reference 'MotionRequest'
-        - [x] WARNING Unresolved reference 'TuningParams'
-        - [x] WARNING Unresolved reference 'balance_bot'
-        - [x] WARNING Unresolved reference 'HardwareConfig'
-        - [x] WARNING Unresolved reference 'LearningState'
-        - [x] WARNING Unresolved reference 'PIDParams'
-        - [x] WARNING Unresolved reference 'ControlConfig'
-      - [ ] file test_piconzero_driver.py 2 errors
-        - [x] WARNING Unresolved reference 'balance_bot'
-        - [x] WARNING Unresolved reference 'PiconZero'
-      - [ ] file test_piconzero_internals.py 2 errors
-        - [x] WARNING Unresolved reference 'balance_bot'
-        - [x] WARNING Unresolved reference 'PiconZero'
-      - [ ] file test_pid_logic.py 4 errors
-        - [x] WARNING Unresolved reference 'balance_bot'
-        - [x] WARNING Unresolved reference 'PIDController'
-        - [x] WARNING Unresolved reference 'balance_bot'
-        - [x] WARNING Unresolved reference 'PIDParams'
-      - [ ] file test_pipeline_config_matching.py 26 errors
-        - [x] WARNING Unresolved reference 'balance_bot'
-        - [x] WARNING Unresolved reference 'HardwareConfig'
-        - [x] WARNING Unresolved reference 'LearningState'
-        - [x] WARNING Unresolved reference 'balance_bot'
-        - [x] WARNING Unresolved reference 'StepStatus'
-        - [x] WARNING Unresolved reference 'balance_bot'
-        - [x] WARNING Unresolved reference 'DiscoverBusesStep'
-        - [x] WARNING Unresolved reference 'balance_bot'
-        - [x] WARNING Unresolved reference 'HardwareInitStep'
-        - [x] WARNING Unresolved reference 'balance_bot'
-        - [x] WARNING Unresolved reference 'ManualLeanCalibrationStep'
-        - [x] WARNING Unresolved reference 'balance_bot'
-        - [x] WARNING Unresolved reference 'BrokenWireCheckStep'
-        - [x] WARNING Unresolved reference 'balance_bot'
-        - [x] WARNING Unresolved reference 'FrictionThresholdStep'
-        - [x] WARNING Unresolved reference 'balance_bot'
-        - [x] WARNING Unresolved reference 'DeriveKinematicsStep'
-        - [x] WARNING Unresolved reference 'balance_bot'
-        - [x] WARNING Unresolved reference 'MechanicalBacklashStep'
-        - [x] WARNING Unresolved reference 'balance_bot'
-        - [x] WARNING Unresolved reference 'MotorTrimStep'
-        - [x] WARNING Unresolved reference 'balance_bot'
-        - [x] WARNING Unresolved reference 'KickupDynamicsStep'
-        - [x] WARNING No module named 'glm'
-        - [x] WARNING No module named 'glm'
-        - [x] WARNING No module named 'glm'
-      - [ ] file test_pivot_sorter.py 5 errors
-        - [x] WARNING No module named 'pytest'
-        - [x] WARNING No module named 'glm'
-        - [x] WARNING Unresolved reference 'balance_bot'
-        - [x] WARNING Unresolved reference 'sort_resting_vectors'
-        - [x] WARNING Unresolved reference 'vector_angle'
-      - [ ] file test_recovery.py 5 errors
-        - [x] WARNING Unresolved reference 'balance_bot'
-        - [x] WARNING Unresolved reference 'RecoveryManager'
-        - [x] WARNING Unresolved reference 'balance_bot'
-        - [x] WARNING Unresolved reference 'ControlConfig'
-        - [x] WARNING Unresolved reference 'STARTUP_RAMP_SPEED'
-      - [ ] file test_startup_logic.py 2 errors
-        - [x] WARNING Unresolved reference 'balance_bot'
-        - [x] WARNING Unresolved reference 'Agent'
-      - [ ] file test_tuner.py 4 errors
-        - [x] WARNING Unresolved reference 'balance_bot'
-        - [x] WARNING Unresolved reference 'ContinuousTuner'
-        - [x] WARNING Unresolved reference 'balance_bot'
-        - [x] WARNING Unresolved reference 'TunerConfig'
-      - [ ] file test_tuner_perf.py 4 errors
-        - [x] WARNING Unresolved reference 'balance_bot'
-        - [x] WARNING Unresolved reference 'ContinuousTuner'
-        - [x] WARNING Unresolved reference 'balance_bot'
-        - [x] WARNING Unresolved reference 'TunerConfig'
-      - [ ] file test_turn_gain.py 10 errors
-        - [x] WARNING No module named 'pytest'
-        - [x] WARNING Unresolved reference 'balance_bot'
-        - [x] WARNING Unresolved reference 'BalanceCore'
-        - [x] WARNING Unresolved reference 'MotionRequest'
-        - [x] WARNING Unresolved reference 'TuningParams'
-        - [x] WARNING Unresolved reference 'balance_bot'
-        - [x] WARNING Unresolved reference 'HardwareConfig'
-        - [x] WARNING Unresolved reference 'LearningState'
-        - [x] WARNING Unresolved reference 'PIDParams'
-        - [x] WARNING Unresolved reference 'ControlConfig'
-      - [ ] file test_utils.py 14 errors
-        - [x] WARNING No module named 'glm'
-        - [x] WARNING Unresolved reference 'balance_bot'
-        - [x] WARNING Unresolved reference 'clamp'
-        - [x] WARNING Unresolved reference 'RateLimiter'
-        - [x] WARNING Unresolved reference 'ComplementaryFilter'
-        - [x] WARNING Unresolved reference 'calculate_pitch'
-        - [x] WARNING Unresolved reference 'to_signed'
-        - [x] WARNING Unresolved reference 'LogThrottler'
-        - [x] WARNING Unresolved reference 'LogCaptureHandler'
-        - [x] WARNING Unresolved reference 'check_force_calibration_flag'
-        - [x] WARNING Unresolved reference 'balance_bot'
-        - [x] WARNING Unresolved reference 'analyze_dominance'
-        - [x] WARNING Unresolved reference 'balance_bot'
-        - [x] WARNING Unresolved reference 'get_i2c_failure_report'
-      - [ ] file test_utils_helpers.py 4 errors
-        - [x] WARNING Unresolved reference 'balance_bot'
-        - [x] WARNING Unresolved reference 'scan_i2c_candidates'
-        - [x] WARNING Unresolved reference 'verify_with_retries'
-        - [x] WARNING Unresolved reference 'find_threshold'
-      - [ ] file test_watchdog_integration.py 5 errors
-        - [x] WARNING No module named 'pytest'
-        - [x] WARNING Unresolved reference 'balance_bot'
-        - [x] WARNING Unresolved reference 'Agent'
-        - [x] WARNING Unresolved reference 'balance_bot'
-        - [x] WARNING Unresolved reference 'SurvivalWatchdog'
-      - [ ] file utils.py 1 error 2 warnings
-        - [x] WARNING No module named 'glm'
-        - [ ] WARNING Unresolved attribute reference 'buffer' for class 'None'
-        - [ ] WARNING Unresolved attribute reference 'SMBus' for class 'None'
-    - [x] Unsatisfied package requirements inspection 41 weak warnings
-      - [ ] file broken_wire_check.py 1 weak warning
-        - [x] WARNING Package containing module 'glm' is not listed in the project requirements
-      - [ ] file configuration.py 1 weak warning
-        - [x] WARNING Package containing module 'pydantic' is not listed in the project requirements
-      - [ ] file derive_kinematics.py 1 weak warning
-        - [x] WARNING Package containing module 'glm' is not listed in the project requirements
-      - [ ] file friction_threshold.py 1 weak warning
-        - [x] WARNING Package containing module 'glm' is not listed in the project requirements
-      - [ ] file mocks.py 1 weak warning
-        - [x] WARNING Package containing module 'glm' is not listed in the project requirements
-      - [ ] file piconzero.py 1 weak warning
-        - [x] WARNING Package containing module 'smbus2' is not listed in the project requirements
-      - [ ] file pid.py 1 weak warning
-        - [x] WARNING Package containing module 'simple_pid' is not listed in the project requirements
-      - [ ] file robot_hardware.py 3 weak warnings
-        - [x] WARNING Package containing module 'glm' is not listed in the project requirements
-        - [x] WARNING Package containing module 'smbus2' is not listed in the project requirements
-        - [x] WARNING Package containing module 'mpu6050' is not listed in the project requirements
-      - [ ] file run_test.py 1 weak warning
-        - [x] WARNING Package containing module 'pytest' is not listed in the project requirements
-      - [ ] file sim_env.py 4 weak warnings
-        - [x] WARNING Package containing module 'numpy' is not listed in the project requirements
-        - [x] WARNING Package containing module 'pybullet' is not listed in the project requirements
-        - [x] WARNING Package containing module 'gymnasium' is not listed in the project requirements
-        - [x] WARNING Package containing module 'gymnasium' is not listed in the project requirements
-      - [ ] file sim_hardware.py 2 weak warnings
-        - [x] WARNING Package containing module 'numpy' is not listed in the project requirements
-        - [x] WARNING Package containing module 'glm' is not listed in the project requirements
-      - [ ] file simple_test.py 2 weak warnings
-        - [x] WARNING Package containing module 'smbus2' is not listed in the project requirements
-        - [x] WARNING Package containing module 'mpu6050' is not listed in the project requirements
-      - [ ] file test_balance_core_params.py 1 weak warning
-        - [x] WARNING Package containing module 'pytest' is not listed in the project requirements
-      - [ ] file test_discovery_pipeline.py 1 weak warning
-        - [x] WARNING Package containing module 'pytest' is not listed in the project requirements
-      - [ ] file test_fail_loud.py 2 weak warnings
-        - [x] WARNING Package containing module 'pytest' is not listed in the project requirements
-        - [x] WARNING Package containing module 'glm' is not listed in the project requirements
-      - [ ] file test_gyro_drift.py 2 weak warnings
-        - [x] WARNING Package containing module 'pytest' is not listed in the project requirements
-        - [x] WARNING Package containing module 'glm' is not listed in the project requirements
-      - [ ] file test_imu_logic.py 1 weak warning
-        - [x] WARNING Package containing module 'glm' is not listed in the project requirements
-      - [ ] file test_imu_yaw_roll.py 1 weak warning
-        - [x] WARNING Package containing module 'glm' is not listed in the project requirements
-      - [ ] file test_kinematics_logic.py 1 weak warning
-        - [x] WARNING Package containing module 'glm' is not listed in the project requirements
-      - [ ] file test_leds.py 1 weak warning
-        - [x] WARNING Package containing module 'pytest' is not listed in the project requirements
-      - [x] file test_piconzero_driver.py 1 weak warning
-        - [x] WARNING Package containing module 'smbus2' is not listed in the project requirements
-      - [ ] file test_piconzero_internals.py 1 weak warning
-        - [x] WARNING Package containing module 'smbus2' is not listed in the project requirements
-      - [ ] file test_pipeline_config_matching.py 3 weak warnings
-        - [x] WARNING Package containing module 'glm' is not listed in the project requirements
-        - [x] WARNING Package containing module 'glm' is not listed in the project requirements
-        - [x] WARNING Package containing module 'glm' is not listed in the project requirements
-      - [ ] file test_pivot_sorter.py 2 weak warnings
-        - [x] WARNING Package containing module 'pytest' is not listed in the project requirements
-        - [x] WARNING Package containing module 'glm' is not listed in the project requirements
-      - [ ] file test_turn_gain.py 1 weak warning
-        - [x] WARNING Package containing module 'pytest' is not listed in the project requirements
-      - [ ] file test_utils.py 1 weak warning
-        - [x] WARNING Package containing module 'glm' is not listed in the project requirements
-      - [ ] file test_watchdog_integration.py 1 weak warning
-        - [x] WARNING Package containing module 'pytest' is not listed in the project requirements
-      - [ ] file utils.py 2 weak warnings
-        - [x] WARNING Package containing module 'glm' is not listed in the project requirements
-        - [x] WARNING Package containing module 'smbus2' is not listed in the project requirements
-    - [x] Unused imports inspection 6 warnings
-      - [x] file sim_env.py 4 warnings
-        - [x] WARNING 'pb' in the try block with 'except ImportError' should also be defined in the except block
-        - [x] WARNING 'pybullet_data' in the try block with 'except ImportError' should also be defined in the except block
-        - [x] WARNING 'gym' in the try block with 'except ImportError' should also be defined in the except block
-        - [x] WARNING 'spaces' in the try block with 'except ImportError' should also be defined in the except block
-      - [x] file test_leds.py 1 warning
-        - [x] WARNING Unused import statement 'import time'
-      - [x] file tuner.py 1 warning
-        - [x] WARNING Unused import statement 'from itertools import pairwise'
-    - [x] Unused local symbols inspection 42 weak warnings
-      - [ ] file agent.py 1 weak warning
-        - [x] WEAK WARNING Local variable 'comp_factor' value is not used
-      - [ ] file benchmark_motion_request.py 1 weak warning
-        - [ ] WEAK WARNING Local variable 'm' value is not used
-      - [ ] file benchmark_tuning_params.py 1 weak warning
-        - [ ] WEAK WARNING Local variable 't' value is not used
-      - [ ] file mechanical_backlash.py 1 weak warning
-        - [x] WEAK WARNING Local variable 'reading' value is not used
-      - [ ] file pid.py 1 weak warning
-        - [x] WEAK WARNING Local variable 'output' value is not used
-      - [ ] file sim_env.py 1 weak warning
-        - [ ] WEAK WARNING Parameter 'options' value is not used
-      - [ ] file sim_hardware.py 4 weak warnings
-        - [ ] WEAK WARNING Parameter 'trim_override' value is not used
-        - [ ] WEAK WARNING Parameter 'threshold' value is not used
-        - [ ] WEAK WARNING Parameter 'duration' value is not used
-        - [ ] WEAK WARNING Parameter 'sample_interval' value is not used
-      - [ ] file sim_test.py 4 weak warnings
-        - [ ] WEAK WARNING Local variable 'obs' value is not used
-        - [ ] WEAK WARNING Local variable 'info' value is not used
-        - [ ] WEAK WARNING Local variable 'obs' value is not used
-        - [ ] WEAK WARNING Local variable 'info' value is not used
-      - [ ] file test_agent_config_save.py 6 weak warnings
-        - [ ] WEAK WARNING Parameter 'mock_logging' value is not used
-        - [ ] WEAK WARNING Parameter 'mock_led' value is not used
-        - [ ] WEAK WARNING Parameter 'mock_core' value is not used
-        - [ ] WEAK WARNING Parameter 'mock_logging' value is not used
-        - [ ] WEAK WARNING Parameter 'mock_led' value is not used
-        - [ ] WEAK WARNING Parameter 'mock_core' value is not used
-      - [ ] file test_balance_core_params.py 1 weak warning
-        - [ ] WEAK WARNING Local variable 'telemetry' value is not used
-      - [ ] file test_balance_finder.py 1 weak warning
-        - [ ] WEAK WARNING Local variable 'adj' value is not used
-      - [ ] file test_jules_client.py 1 weak warning
-        - [ ] WEAK WARNING Parameter 'mock_urlopen' value is not used
-      - [x] file test_main_flow.py 8 weak warnings
-        - [x] WEAK WARNING Parameter 'MockHW' value is not used
-        - [x] WEAK WARNING Parameter 'MockJules' value is not used
-        - [x] WEAK WARNING Parameter 'MockWatchdog' value is not used
-        - [x] WEAK WARNING Parameter 'MockLog' value is not used
-        - [x] WEAK WARNING Parameter 'MockHW' value is not used
-        - [x] WEAK WARNING Parameter 'MockJules' value is not used
-        - [x] WEAK WARNING Parameter 'MockWatchdog' value is not used
-        - [x] WEAK WARNING Parameter 'MockLog' value is not used
-      - [x] file test_piconzero_driver.py 1 weak warning
-        - [x] WEAK WARNING Parameter 'mock_smbus_cls' value is not used
-      - [x] file test_piconzero_internals.py 2 weak warnings
-        - [x] WEAK WARNING Parameter 'mock_smbus' value is not used
-        - [x] WEAK WARNING Parameter 'mock_sleep' value is not used
-      - [x] file test_pipeline_config_matching.py 5 weak warnings
-        - [x] WEAK WARNING Parameter 'readings' value is not used
-        - [x] WEAK WARNING Parameter 'hw' value is not used
-        - [x] WEAK WARNING Parameter 'r' value is not used
-        - [x] WEAK WARNING Parameter 'name' value is not used
-        - [x] WEAK WARNING Parameter 'monkeypatch' value is not used
-      - [x] file test_utils_helpers.py 1 weak warning
-        - [x] WEAK WARNING Parameter 'res' value is not used
-      - [x] file test_watchdog_integration.py 2 weak warnings
-        - [x] WEAK WARNING Parameter 'mock_balance_core' value is not used
-        - [x] WEAK WARNING Parameter 'mock_balance_core' value is not used
-  - [ ] Security group 1 warning
-    - [ ] Vulnerable declared dependency inspection 1 warning
-      - [ ] file pyproject.toml 1 warning
-- [x] WARNING Dependency pypi:pytest:9.0.2 is vulnerable CVE‑2025‑71176 6.8 Insufficient InformationResults powered by Mend.io
+- [ ] Inspection Results
+  - [ ] Grammar
+    - [ ] `README.md`
+      - [ ] Line 19: GRAMMAR_ERROR - The word 'installs' is not a noun. (Highlighted: `installs`)
+      - [ ] Line 221: GRAMMAR_ERROR - Possible agreement error. The noun hardware seems to be uncountable; consider using: some hardware. (Highlighted: `several hardware`)
+    - [ ] `inspections.md`
+      - [ ] Line 48: GRAMMAR_ERROR - Possible typo: you repeated a word. (Highlighted: `TYPO Typo`)
+      - [ ] Line 49: GRAMMAR_ERROR - Possible typo: you repeated a word. (Highlighted: `TYPO Typo`)
+      - [ ] Line 53: GRAMMAR_ERROR - Possible typo: you repeated a word. (Highlighted: `TYPO Typo`)
+      - [ ] Line 57: GRAMMAR_ERROR - Possible typo: you repeated a word. (Highlighted: `TYPO Typo`)
+      - [ ] Line 61: GRAMMAR_ERROR - Possible typo: you repeated a word. (Highlighted: `TYPO Typo`)
+      - [ ] Line 62: GRAMMAR_ERROR - Possible typo: you repeated a word. (Highlighted: `TYPO Typo`)
+      - [ ] Line 67: GRAMMAR_ERROR - Possible typo: you repeated a word. (Highlighted: `TYPO Typo`)
+      - [ ] Line 68: GRAMMAR_ERROR - Possible typo: you repeated a word. (Highlighted: `TYPO Typo`)
+      - [ ] Line 69: GRAMMAR_ERROR - Possible typo: you repeated a word. (Highlighted: `TYPO Typo`)
+      - [ ] Line 70: GRAMMAR_ERROR - Possible typo: you repeated a word. (Highlighted: `TYPO Typo`)
+      - [ ] Line 71: GRAMMAR_ERROR - Possible typo: you repeated a word. (Highlighted: `TYPO Typo`)
+      - [ ] Line 72: GRAMMAR_ERROR - Possible typo: you repeated a word. (Highlighted: `TYPO Typo`)
+      - [ ] Line 74: GRAMMAR_ERROR - Possible typo: you repeated a word. (Highlighted: `TYPO Typo`)
+      - [ ] Line 75: GRAMMAR_ERROR - Possible typo: you repeated a word. (Highlighted: `TYPO Typo`)
+      - [ ] Line 76: GRAMMAR_ERROR - Possible typo: you repeated a word. (Highlighted: `TYPO Typo`)
+      - [ ] Line 77: GRAMMAR_ERROR - Possible typo: you repeated a word. (Highlighted: `TYPO Typo`)
+      - [ ] Line 78: GRAMMAR_ERROR - Possible typo: you repeated a word. (Highlighted: `TYPO Typo`)
+      - [ ] Line 79: GRAMMAR_ERROR - Possible typo: you repeated a word. (Highlighted: `TYPO Typo`)
+      - [ ] Line 80: GRAMMAR_ERROR - Possible typo: you repeated a word. (Highlighted: `TYPO Typo`)
+      - [ ] Line 81: GRAMMAR_ERROR - Possible typo: you repeated a word. (Highlighted: `TYPO Typo`)
+      - [ ] Line 82: GRAMMAR_ERROR - Possible typo: you repeated a word. (Highlighted: `TYPO Typo`)
+      - [ ] Line 83: GRAMMAR_ERROR - Possible typo: you repeated a word. (Highlighted: `TYPO Typo`)
+      - [ ] Line 84: GRAMMAR_ERROR - Possible typo: you repeated a word. (Highlighted: `TYPO Typo`)
+      - [ ] Line 85: GRAMMAR_ERROR - Possible typo: you repeated a word. (Highlighted: `TYPO Typo`)
+      - [ ] Line 86: GRAMMAR_ERROR - Possible typo: you repeated a word. (Highlighted: `TYPO Typo`)
+      - [ ] Line 91: GRAMMAR_ERROR - Possible typo: you repeated a word. (Highlighted: `TYPO Typo`)
+      - [ ] Line 92: GRAMMAR_ERROR - Possible typo: you repeated a word. (Highlighted: `TYPO Typo`)
+      - [ ] Line 114: GRAMMAR_ERROR - If a new sentence starts here, add a space and start with an uppercase letter. (Highlighted: `FORWARD`)
+    - [ ] `src/balance_bot/adaptation/recovery.py`
+      - [ ] Line 8: GRAMMAR_ERROR - The verb after "to" should be in the base form as part of the to-infinitive. A verb can take many forms, but the base form is always used in the to-infinitive. (Highlighted: `Balanced`)
+    - [ ] `src/balance_bot/behavior/leds.py`
+      - [ ] Line 65: GRAMMAR_ERROR - The verb 'set up' is spelled as two words. The noun 'setup' is spelled as one. (Highlighted: `setup`)
+    - [ ] `src/balance_bot/reflex/balance_core.py`
+      - [ ] Line 167: GRAMMAR_ERROR - You've repeated a verb. Did you mean to only write one of them? (Highlighted: `Turning`)
+      - [ ] Line 168: GRAMMAR_ERROR - You've repeated a verb. Did you mean to only write one of them? (Highlighted: `Turn`)
+    - [ ] `src/balance_bot/simple_test.py`
+      - [ ] Line 149: GRAMMAR_ERROR - This word is normally spelled with a hyphen. (Highlighted: `mid gravity`)
+    - [ ] `src/balance_bot/utils.py`
+      - [ ] Line 309: GRAMMAR_ERROR - Possible typo detected. (Highlighted: `i2cdetect`)
+      - [ ] Line 313: GRAMMAR_ERROR - This word is normally spelled with a hyphen. (Highlighted: `Human readable`)
+    - [ ] `tests/test_main_flow.py`
+      - [ ] Line 17: GRAMMAR_ERROR - It seems that a pronoun is missing. (Highlighted: `if`)
+  - [ ] Incorrect table formatting
+    - [ ] `AGENTS.md`
+      - [ ] Line 12: WEAK WARNING - Table is not correctly formatted (Highlighted: `| Category | Constraint | | :--- | :--- | | **Role & Constraints** | You are a Senior Python Robotic...`)
+      - [ ] Line 56: WEAK WARNING - Table is not correctly formatted (Highlighted: `| Repository Component | The LLM Blind Spot (Your Bias) | The Physical Rule (Your Constraint) | | :-...`)
+    - [ ] `BLIND_SPOTS.md`
+      - [ ] Line 9: WEAK WARNING - Table is not correctly formatted (Highlighted: `| Repository Component | Vulnerable Files & Functions | Explicitly Missing / Most Vulnerable Section...`)
+  - [ ] Incorrect type
+    - [ ] `src/balance_bot/hardware/robot_hardware.py`
+      - [ ] Line 422: WARNING - Expected type 'str', got '() -> Any' instead (Highlighted: `self.accel_roll_axis.value`)
+  - [ ] Invalid usages of classes with '__slots__' definitions
+    - [ ] `src/balance_bot/behavior/agent.py`
+      - [ ] Line 167: WARNING - 'MotionRequest' object has no attribute 'enable_control' (Highlighted: `motion_req.enable_control`)
+      - [ ] Line 168: WARNING - 'MotionRequest' object has no attribute 'velocity' (Highlighted: `motion_req.velocity`)
+      - [ ] Line 169: WARNING - 'MotionRequest' object has no attribute 'turn_rate' (Highlighted: `motion_req.turn_rate`)
+      - [ ] Line 233: WARNING - 'MotionRequest' object has no attribute 'enable_control' (Highlighted: `motion_req.enable_control`)
+      - [ ] Line 244: WARNING - 'MotionRequest' object has no attribute 'enable_control' (Highlighted: `motion_req.enable_control`)
+      - [ ] Line 294: WARNING - 'MotionRequest' object has no attribute 'enable_control' (Highlighted: `motion_req.enable_control`)
+      - [ ] Line 302: WARNING - 'MotionRequest' object has no attribute 'enable_control' (Highlighted: `motion_req.enable_control`)
+    - [ ] `tests/benchmarks/benchmark_motion_request.py`
+      - [ ] Line 55: WARNING - 'MotionRequestSlots' object has no attribute 'velocity' (Highlighted: `m.velocity`)
+      - [ ] Line 56: WARNING - 'MotionRequestSlots' object has no attribute 'turn_rate' (Highlighted: `m.turn_rate`)
+      - [ ] Line 57: WARNING - 'MotionRequestSlots' object has no attribute 'enable_control' (Highlighted: `m.enable_control`)
+  - [ ] Shadowing names from outer scopes
+    - [ ] `src/balance_bot/simple_test.py`
+      - [ ] Line 112: WEAK WARNING - Shadows name 'err' from outer scope (Highlighted: `err`)
+    - [ ] `src/balance_bot/utils.py`
+      - [ ] Line 517: WEAK WARNING - Shadows name 'vec' from outer scope (Highlighted: `vec`)
+  - [ ] Spelling
+    - [ ] `README.md`
+      - [ ] Line 36: TYPO - Typo: In word 'Brainstem' (Highlighted: `Brainstem`)
+      - [ ] Line 97: TYPO - Typo: In word 'Brainstem' (Highlighted: `Brainstem`)
+      - [ ] Line 234: TYPO - Typo: In word 'ATmega' (Highlighted: `ATmega`)
+    - [ ] `environment.sh`
+      - [ ] Line 4: TYPO - Typo: In word 'libffi' (Highlighted: `libffi`)
+      - [ ] Line 6: TYPO - Typo: In word 'libffi' (Highlighted: `libffi`)
+      - [ ] Line 9: TYPO - Typo: In word 'libffi' (Highlighted: `libffi`)
+    - [ ] `inspections.md`
+      - [ ] Line 44: TYPO - Typo: In word 'libffi' (Highlighted: `libffi`)
+      - [ ] Line 45: TYPO - Typo: In word 'libffi' (Highlighted: `libffi`)
+      - [ ] Line 46: TYPO - Typo: In word 'libffi' (Highlighted: `libffi`)
+      - [ ] Line 48: TYPO - Typo: In word 'Brainstem' (Highlighted: `Brainstem`)
+      - [ ] Line 49: TYPO - Typo: In word 'ATmega' (Highlighted: `ATmega`)
+      - [ ] Line 52: TYPO - Typo: In word 'quats' (Highlighted: `quats`)
+      - [ ] Line 54: TYPO - Typo: In word 'urdf' (Highlighted: `urdf`)
+      - [ ] Line 55: TYPO - Typo: In word 'urdf' (Highlighted: `urdf`)
+      - [ ] Line 57: TYPO - Typo: In word 'PICONZERO' (Highlighted: `PICONZERO`)
+      - [ ] Line 59: TYPO - Typo: In word 'deadzone' (Highlighted: `deadzone`)
+      - [ ] Line 61: TYPO - Typo: In word 'piconzero' (Highlighted: `piconzero`)
+      - [ ] Line 62: TYPO - Typo: In word 'piconzero' (Highlighted: `piconzero`)
+      - [ ] Line 64: TYPO - Typo: In word 'atan' (Highlighted: `atan`)
+      - [ ] Line 65: TYPO - Typo: In word 'atan' (Highlighted: `atan`)
+      - [ ] Line 67: TYPO - Typo: In word 'piconzero' (Highlighted: `piconzero`)
+      - [ ] Line 68: TYPO - Typo: In word 'piconzero' (Highlighted: `piconzero`)
+      - [ ] Line 69: TYPO - Typo: In word 'piconzero' (Highlighted: `piconzero`)
+      - [ ] Line 70: TYPO - Typo: In word 'piconzero' (Highlighted: `piconzero`)
+      - [ ] Line 71: TYPO - Typo: In word 'piconzero' (Highlighted: `piconzero`)
+      - [ ] Line 72: TYPO - Typo: In word 'piconzero' (Highlighted: `piconzero`)
+      - [ ] Line 74: TYPO - Typo: In word 'piconzero' (Highlighted: `piconzero`)
+      - [ ] Line 75: TYPO - Typo: In word 'piconzero' (Highlighted: `piconzero`)
+      - [ ] Line 76: TYPO - Typo: In word 'piconzero' (Highlighted: `piconzero`)
+      - [ ] Line 77: TYPO - Typo: In word 'piconzero' (Highlighted: `piconzero`)
+      - [ ] Line 78: TYPO - Typo: In word 'piconzero' (Highlighted: `piconzero`)
+      - [ ] Line 79: TYPO - Typo: In word 'piconzero' (Highlighted: `piconzero`)
+      - [ ] Line 80: TYPO - Typo: In word 'piconzero' (Highlighted: `piconzero`)
+      - [ ] Line 81: TYPO - Typo: In word 'piconzero' (Highlighted: `piconzero`)
+      - [ ] Line 82: TYPO - Typo: In word 'piconzero' (Highlighted: `piconzero`)
+      - [ ] Line 83: TYPO - Typo: In word 'piconzero' (Highlighted: `piconzero`)
+      - [ ] Line 84: TYPO - Typo: In word 'piconzero' (Highlighted: `piconzero`)
+      - [ ] Line 85: TYPO - Typo: In word 'piconzero' (Highlighted: `piconzero`)
+      - [ ] Line 86: TYPO - Typo: In word 'piconzero' (Highlighted: `piconzero`)
+      - [ ] Line 88: TYPO - Typo: In word 'excinfo' (Highlighted: `excinfo`)
+      - [ ] Line 89: TYPO - Typo: In word 'excinfo' (Highlighted: `excinfo`)
+      - [ ] Line 91: TYPO - Typo: In word 'testuser' (Highlighted: `testuser`)
+      - [ ] Line 92: TYPO - Typo: In word 'testuser' (Highlighted: `testuser`)
+      - [ ] Line 93: TYPO - Typo: In word 'cdetect' (Highlighted: `cdetect`)
+      - [ ] Line 94: TYPO - Typo: In word 'cdetect' (Highlighted: `cdetect`)
+      - [ ] Line 95: TYPO - Typo: In word 'cdetect' (Highlighted: `cdetect`)
+      - [ ] Line 97: TYPO - Typo: In word 'atan' (Highlighted: `atan`)
+      - [ ] Line 98: TYPO - Typo: In word 'cdetect' (Highlighted: `cdetect`)
+      - [ ] Line 99: TYPO - Typo: In word 'cdetect' (Highlighted: `cdetect`)
+      - [ ] Line 100: TYPO - Typo: In word 'cdetect' (Highlighted: `cdetect`)
+      - [ ] Line 101: TYPO - Typo: In word 'cdetect' (Highlighted: `cdetect`)
+      - [ ] Line 102: TYPO - Typo: In word 'cdetect' (Highlighted: `cdetect`)
+      - [ ] Line 296: TYPO - Typo: In word 'IMUReading' (Highlighted: `IMUReading`)
+      - [ ] Line 341: TYPO - Typo: In word 'IMUReading' (Highlighted: `IMUReading`)
+      - [ ] Line 395: TYPO - Typo: In word 'KickupDynamicsStep' (Highlighted: `KickupDynamicsStep`)
+    - [ ] `printed_parts/dcmotor.scad`
+      - [ ] Line 30: TYPO - Typo: In word 'Weel' (Highlighted: `Weel`)
+      - [ ] Line 48: TYPO - Typo: In word 'zmirror' (Highlighted: `zmirror`)
+    - [ ] `printed_parts/n20_to_technic.scad`
+      - [ ] Line 2: TYPO - Typo: In word 'BOSL' (Highlighted: `BOSL`)
+    - [ ] `src/balance_bot/adaptation/tuner.py`
+      - [ ] Line 96: TYPO - Typo: In word 'stdev' (Highlighted: `stdev`)
+      - [ ] Line 98: TYPO - Typo: In word 'stdev' (Highlighted: `stdev`)
+    - [ ] `src/balance_bot/behavior/agent.py`
+      - [ ] Line 93: TYPO - Typo: In word 'kickup' (Highlighted: `kickup`)
+      - [ ] Line 189: TYPO - Typo: In word 'kickup' (Highlighted: `kickup`)
+      - [ ] Line 193: TYPO - Typo: In word 'KICKUP' (Highlighted: `KICKUP`)
+      - [ ] Line 215: TYPO - Typo: In word 'kickup' (Highlighted: `kickup`)
+      - [ ] Line 219: TYPO - Typo: In word 'Kickup' (Highlighted: `Kickup`)
+      - [ ] Line 330: TYPO - Typo: In word 'Kickup' (Highlighted: `Kickup`)
+      - [ ] Line 421: TYPO - Typo: In word 'kickup' (Highlighted: `kickup`)
+      - [ ] Line 450: TYPO - Typo: In word 'kickup' (Highlighted: `kickup`)
+      - [ ] Line 472: TYPO - Typo: In word 'telem' (Highlighted: `telem`)
+      - [ ] Line 491: TYPO - Typo: In word 'kickup' (Highlighted: `kickup`)
+    - [ ] `src/balance_bot/configuration.py`
+      - [ ] Line 97: TYPO - Typo: In word 'kickup' (Highlighted: `kickup`)
+      - [ ] Line 98: TYPO - Typo: In word 'kickup' (Highlighted: `kickup`)
+      - [ ] Line 213: TYPO - Typo: In word 'kickup' (Highlighted: `kickup`)
+    - [ ] `src/balance_bot/discovery/__init__.py`
+      - [ ] Line 25: TYPO - Typo: In word 'Kickup' (Highlighted: `Kickup`)
+    - [ ] `src/balance_bot/discovery/kickup_dynamics.py`
+      - [ ] Line 12: TYPO - Typo: In word 'Kickup' (Highlighted: `Kickup`)
+      - [ ] Line 13: TYPO - Typo: In word 'Kickup' (Highlighted: `Kickup`)
+      - [ ] Line 154: TYPO - Typo: In word 'kickup' (Highlighted: `kickup`)
+      - [ ] Line 175: TYPO - Typo: In word 'Kickup' (Highlighted: `Kickup`)
+      - [ ] Line 179: TYPO - Typo: In word 'Kickup' (Highlighted: `Kickup`)
+      - [ ] Line 185: TYPO - Typo: In word 'kickup' (Highlighted: `kickup`)
+      - [ ] Line 186: TYPO - Typo: In word 'kickup' (Highlighted: `kickup`)
+      - [ ] Line 191: TYPO - Typo: In word 'kickup' (Highlighted: `kickup`)
+    - [ ] `src/balance_bot/enums.py`
+      - [ ] Line 22: TYPO - Typo: In word 'KICKUP' (Highlighted: `KICKUP`)
+    - [ ] `src/balance_bot/hardware/mocks.py`
+      - [ ] Line 53: TYPO - Typo: In word 'atan' (Highlighted: `atan`)
+    - [ ] `src/balance_bot/hardware/piconzero.py`
+      - [ ] Line 7: TYPO - Typo: In word 'tronix' (Highlighted: `tronix`)
+      - [ ] Line 7: TYPO - Typo: In word 'tronix' (Highlighted: `tronix`)
+      - [ ] Line 9: TYPO - Typo: In word 'piconzero' (Highlighted: `piconzero`)
+      - [ ] Line 9: TYPO - Typo: In word 'piconzero' (Highlighted: `piconzero`)
+    - [ ] `src/balance_bot/simple_test.py`
+      - [ ] Line 14: TYPO - Typo: In word 'PICONZERO' (Highlighted: `PICONZERO`)
+    - [ ] `src/balance_bot/simulation/sim_env.py`
+      - [ ] Line 27: TYPO - Typo: In word 'urdf' (Highlighted: `urdf`)
+      - [ ] Line 71: TYPO - Typo: In word 'URDF' (Highlighted: `URDF`)
+      - [ ] Line 85: TYPO - Typo: In word 'quats' (Highlighted: `quats`)
+      - [ ] Line 141: TYPO - Typo: In word 'urdf' (Highlighted: `urdf`)
+      - [ ] Line 141: TYPO - Typo: In word 'urdf' (Highlighted: `urdf`)
+    - [ ] `src/balance_bot/utils.py`
+      - [ ] Line 180: TYPO - Typo: In word 'atan' (Highlighted: `atan`)
+      - [ ] Line 309: TYPO - Typo: In word 'cdetect' (Highlighted: `cdetect`)
+      - [ ] Line 325: TYPO - Typo: In word 'cdetect' (Highlighted: `cdetect`)
+      - [ ] Line 327: TYPO - Typo: In word 'cdetect' (Highlighted: `cdetect`)
+      - [ ] Line 330: TYPO - Typo: In word 'cdetect' (Highlighted: `cdetect`)
+      - [ ] Line 334: TYPO - Typo: In word 'cdetect' (Highlighted: `cdetect`)
+    - [ ] `tests/benchmarks/benchmark_config_serialization.py`
+      - [ ] Line 27: TYPO - Typo: In word 'asdict' (Highlighted: `asdict`)
+    - [ ] `tests/test_agent_state_machine.py`
+      - [ ] Line 46: TYPO - Typo: In word 'kickup' (Highlighted: `kickup`)
+      - [ ] Line 47: TYPO - Typo: In word 'kickup' (Highlighted: `kickup`)
+      - [ ] Line 107: TYPO - Typo: In word 'kickup' (Highlighted: `kickup`)
+      - [ ] Line 108: TYPO - Typo: In word 'KICKUP' (Highlighted: `KICKUP`)
+      - [ ] Line 112: TYPO - Typo: In word 'kickup' (Highlighted: `kickup`)
+      - [ ] Line 118: TYPO - Typo: In word 'kickup' (Highlighted: `kickup`)
+      - [ ] Line 119: TYPO - Typo: In word 'KICKUP' (Highlighted: `KICKUP`)
+      - [ ] Line 124: TYPO - Typo: In word 'kickup' (Highlighted: `kickup`)
+      - [ ] Line 131: TYPO - Typo: In word 'kickup' (Highlighted: `kickup`)
+      - [ ] Line 132: TYPO - Typo: In word 'KICKUP' (Highlighted: `KICKUP`)
+      - [ ] Line 134: TYPO - Typo: In word 'kickup' (Highlighted: `kickup`)
+      - [ ] Line 138: TYPO - Typo: In word 'kickup' (Highlighted: `kickup`)
+    - [ ] `tests/test_battery.py`
+      - [ ] Line 43: TYPO - Typo: In word 'deadzone' (Highlighted: `deadzone`)
+    - [ ] `tests/test_i2c_config.py`
+      - [ ] Line 32: TYPO - Typo: In word 'piconzero' (Highlighted: `piconzero`)
+      - [ ] Line 66: TYPO - Typo: In word 'piconzero' (Highlighted: `piconzero`)
+    - [ ] `tests/test_imu_logic.py`
+      - [ ] Line 32: TYPO - Typo: In word 'atan' (Highlighted: `atan`)
+      - [ ] Line 119: TYPO - Typo: In word 'atan' (Highlighted: `atan`)
+    - [ ] `tests/test_kickup_config.py`
+      - [ ] Line 8: TYPO - Typo: In word 'kickup' (Highlighted: `kickup`)
+      - [ ] Line 13: TYPO - Typo: In word 'kickup' (Highlighted: `kickup`)
+      - [ ] Line 14: TYPO - Typo: In word 'kickup' (Highlighted: `kickup`)
+      - [ ] Line 19: TYPO - Typo: In word 'kickup' (Highlighted: `kickup`)
+      - [ ] Line 20: TYPO - Typo: In word 'kickup' (Highlighted: `kickup`)
+      - [ ] Line 25: TYPO - Typo: In word 'kickup' (Highlighted: `kickup`)
+      - [ ] Line 26: TYPO - Typo: In word 'kickup' (Highlighted: `kickup`)
+      - [ ] Line 40: TYPO - Typo: In word 'kickup' (Highlighted: `kickup`)
+      - [ ] Line 41: TYPO - Typo: In word 'kickup' (Highlighted: `kickup`)
+    - [ ] `tests/test_main_flow.py`
+      - [ ] Line 22: TYPO - Typo: In word 'kickup' (Highlighted: `kickup`)
+      - [ ] Line 47: TYPO - Typo: In word 'kickup' (Highlighted: `kickup`)
+      - [ ] Line 78: TYPO - Typo: In word 'kickup' (Highlighted: `kickup`)
+    - [ ] `tests/test_piconzero_driver.py`
+      - [ ] Line 6: TYPO - Typo: In word 'piconzero' (Highlighted: `piconzero`)
+      - [ ] Line 7: TYPO - Typo: In word 'piconzero' (Highlighted: `piconzero`)
+      - [ ] Line 8: TYPO - Typo: In word 'piconzero' (Highlighted: `piconzero`)
+      - [ ] Line 24: TYPO - Typo: In word 'piconzero' (Highlighted: `piconzero`)
+      - [ ] Line 51: TYPO - Typo: In word 'piconzero' (Highlighted: `piconzero`)
+      - [ ] Line 59: TYPO - Typo: In word 'piconzero' (Highlighted: `piconzero`)
+    - [ ] `tests/test_piconzero_internals.py`
+      - [ ] Line 5: TYPO - Typo: In word 'piconzero' (Highlighted: `piconzero`)
+      - [ ] Line 6: TYPO - Typo: In word 'piconzero' (Highlighted: `piconzero`)
+      - [ ] Line 7: TYPO - Typo: In word 'piconzero' (Highlighted: `piconzero`)
+      - [ ] Line 9: TYPO - Typo: In word 'piconzero' (Highlighted: `piconzero`)
+      - [ ] Line 24: TYPO - Typo: In word 'piconzero' (Highlighted: `piconzero`)
+      - [ ] Line 25: TYPO - Typo: In word 'piconzero' (Highlighted: `piconzero`)
+      - [ ] Line 34: TYPO - Typo: In word 'piconzero' (Highlighted: `piconzero`)
+      - [ ] Line 42: TYPO - Typo: In word 'piconzero' (Highlighted: `piconzero`)
+      - [ ] Line 43: TYPO - Typo: In word 'piconzero' (Highlighted: `piconzero`)
+      - [ ] Line 57: TYPO - Typo: In word 'piconzero' (Highlighted: `piconzero`)
+      - [ ] Line 58: TYPO - Typo: In word 'piconzero' (Highlighted: `piconzero`)
+      - [ ] Line 73: TYPO - Typo: In word 'piconzero' (Highlighted: `piconzero`)
+      - [ ] Line 74: TYPO - Typo: In word 'piconzero' (Highlighted: `piconzero`)
+    - [ ] `tests/test_pipeline_config_matching.py`
+      - [ ] Line 201: TYPO - Typo: In word 'kickup' (Highlighted: `kickup`)
+      - [ ] Line 203: TYPO - Typo: In word 'kickup' (Highlighted: `kickup`)
+      - [ ] Line 203: TYPO - Typo: In word 'Kickup' (Highlighted: `Kickup`)
+    - [ ] `tests/test_pivot_sorter.py`
+      - [ ] Line 52: TYPO - Typo: In word 'excinfo' (Highlighted: `excinfo`)
+      - [ ] Line 58: TYPO - Typo: In word 'excinfo' (Highlighted: `excinfo`)
+    - [ ] `tests/test_startup_logic.py`
+      - [ ] Line 77: TYPO - Typo: In word 'kickup' (Highlighted: `kickup`)
+      - [ ] Line 88: TYPO - Typo: In word 'kickup' (Highlighted: `kickup`)
+      - [ ] Line 92: TYPO - Typo: In word 'KICKUP' (Highlighted: `KICKUP`)
+      - [ ] Line 93: TYPO - Typo: In word 'KICKUP' (Highlighted: `KICKUP`)
+      - [ ] Line 114: TYPO - Typo: In word 'kickup' (Highlighted: `kickup`)
+      - [ ] Line 125: TYPO - Typo: In word 'kickup' (Highlighted: `kickup`)
+    - [ ] `tests/test_tuner.py`
+      - [ ] Line 72: TYPO - Typo: In word 'stdev' (Highlighted: `stdev`)
+      - [ ] Line 74: TYPO - Typo: In word 'stdev' (Highlighted: `stdev`)
+      - [ ] Line 80: TYPO - Typo: In word 'stdev' (Highlighted: `stdev`)
+      - [ ] Line 81: TYPO - Typo: In word 'stdev' (Highlighted: `stdev`)
+      - [ ] Line 84: TYPO - Typo: In word 'stdev' (Highlighted: `stdev`)
+    - [ ] `tests/test_utils.py`
+      - [ ] Line 220: TYPO - Typo: In word 'testuser' (Highlighted: `testuser`)
+      - [ ] Line 222: TYPO - Typo: In word 'testuser' (Highlighted: `testuser`)
+      - [ ] Line 233: TYPO - Typo: In word 'cdetect' (Highlighted: `cdetect`)
+      - [ ] Line 249: TYPO - Typo: In word 'cdetect' (Highlighted: `cdetect`)
+      - [ ] Line 254: TYPO - Typo: In word 'cdetect' (Highlighted: `cdetect`)
+  - [ ] Unclear exception clauses
+    - [ ] `src/balance_bot/simple_test.py`
+      - [ ] Line 36: WEAK WARNING - Too broad exception clause (Highlighted: `Exception`)
+      - [ ] Line 43: WEAK WARNING - Too broad exception clause (Highlighted: `Exception`)
+      - [ ] Line 45: WEAK WARNING - Too broad exception clause (Highlighted: `Exception`)
+  - [ ] Unresolved file references
+    - [ ] `README.md`
+      - [ ] Line 11: WARNING - Cannot resolve file 'ITERATE.md' (Highlighted: `ITERATE.md`)
+      - [ ] Line 28: WARNING - Cannot resolve file 'diagnostics.py' (Highlighted: `diagnostics.py`)
+      - [ ] Line 33: WARNING - Cannot resolve file 'wiring_check.py' (Highlighted: `wiring_check.py`)
+      - [ ] Line 63: WARNING - Cannot resolve file 'piconzero_adapter.py' (Highlighted: `piconzero_adapter.py`)
+      - [ ] Line 68: WARNING - Cannot resolve file ''
+      - [ ] Line 72: WARNING - Cannot resolve file 'test_cross_product.py' (Highlighted: `test_cross_product.py`)
+      - [ ] Line 73: WARNING - Cannot resolve file 'test_diagnostics.py' (Highlighted: `test_diagnostics.py`)
+      - [ ] Line 83: WARNING - Cannot resolve file 'test_wiring_check_bus.py' (Highlighted: `test_wiring_check_bus.py`)
+      - [ ] Line 230: WARNING - Cannot resolve file 'wiring_check.py' (Highlighted: `wiring_check.py`)
+      - [ ] Line 235: WARNING - Cannot resolve file 'wiring_check.py' (Highlighted: `wiring_check.py`)
+  - [ ] Unresolved references
+    - [ ] `run_test.py`
+      - [ ] Line 1: ERROR - No module named 'pytest' (Highlighted: `pytest`)
+    - [ ] `src/balance_bot/behavior/agent.py`
+      - [ ] Line 167: WARNING - 'MotionRequest' object has no attribute 'enable_control' (Highlighted: `enable_control`)
+      - [ ] Line 168: WARNING - 'MotionRequest' object has no attribute 'velocity' (Highlighted: `velocity`)
+      - [ ] Line 169: WARNING - 'MotionRequest' object has no attribute 'turn_rate' (Highlighted: `turn_rate`)
+      - [ ] Line 233: WARNING - 'MotionRequest' object has no attribute 'enable_control' (Highlighted: `enable_control`)
+      - [ ] Line 244: WARNING - 'MotionRequest' object has no attribute 'enable_control' (Highlighted: `enable_control`)
+      - [ ] Line 294: WARNING - 'MotionRequest' object has no attribute 'enable_control' (Highlighted: `enable_control`)
+      - [ ] Line 302: WARNING - 'MotionRequest' object has no attribute 'enable_control' (Highlighted: `enable_control`)
+    - [ ] `src/balance_bot/configuration.py`
+      - [ ] Line 5: ERROR - Unresolved reference 'pydantic' (Highlighted: `pydantic`)
+      - [ ] Line 5: ERROR - Unresolved reference 'BaseModel' (Highlighted: `BaseModel`)
+      - [ ] Line 5: ERROR - Unresolved reference 'Field' (Highlighted: `Field`)
+      - [ ] Line 5: ERROR - Unresolved reference 'ConfigDict' (Highlighted: `ConfigDict`)
+    - [ ] `src/balance_bot/discovery/broken_wire_check.py`
+      - [ ] Line 3: ERROR - No module named 'glm' (Highlighted: `glm`)
+    - [ ] `src/balance_bot/discovery/derive_kinematics.py`
+      - [ ] Line 3: ERROR - No module named 'glm' (Highlighted: `glm`)
+    - [ ] `src/balance_bot/discovery/friction_threshold.py`
+      - [ ] Line 3: ERROR - No module named 'glm' (Highlighted: `glm`)
+    - [ ] `src/balance_bot/hardware/mocks.py`
+      - [ ] Line 3: ERROR - No module named 'glm' (Highlighted: `glm`)
+    - [ ] `src/balance_bot/hardware/piconzero.py`
+      - [ ] Line 1: ERROR - No module named 'smbus2' (Highlighted: `smbus2`)
+      - [ ] Line 1: ERROR - No module named 'smbus2' (Highlighted: `smbus2`)
+    - [ ] `src/balance_bot/hardware/robot_hardware.py`
+      - [ ] Line 10: ERROR - No module named 'glm' (Highlighted: `glm`)
+      - [ ] Line 285: WEAK WARNING - Module 'smbus2' not found (Highlighted: `smbus2`)
+      - [ ] Line 289: ERROR - Unresolved reference 'mpu6050' (Highlighted: `mpu6050`)
+      - [ ] Line 289: WEAK WARNING - Module 'mpu6050' not found (Highlighted: `mpu6050`)
+    - [ ] `src/balance_bot/hardware/sim_hardware.py`
+      - [ ] Line 5: ERROR - No module named 'numpy' (Highlighted: `numpy`)
+      - [ ] Line 6: ERROR - No module named 'glm' (Highlighted: `glm`)
+    - [ ] `src/balance_bot/reflex/pid.py`
+      - [ ] Line 1: ERROR - Unresolved reference 'simple_pid' (Highlighted: `simple_pid`)
+      - [ ] Line 1: ERROR - Unresolved reference 'PID' (Highlighted: `PID`)
+    - [ ] `src/balance_bot/simple_test.py`
+      - [ ] Line 4: ERROR - No module named 'smbus2' (Highlighted: `smbus2`)
+      - [ ] Line 9: ERROR - Unresolved reference 'mpu6050' (Highlighted: `mpu6050`)
+      - [ ] Line 9: ERROR - Unresolved reference 'mpu6050' (Highlighted: `mpu6050`)
+    - [ ] `src/balance_bot/simulation/sim_env.py`
+      - [ ] Line 4: ERROR - No module named 'numpy' (Highlighted: `numpy`)
+      - [ ] Line 27: WARNING - Unresolved attribute reference 'loadURDF' for class 'None' (Highlighted: `loadURDF`)
+      - [ ] Line 35: WARNING - Unresolved attribute reference 'Box' for class 'None' (Highlighted: `Box`)
+      - [ ] Line 38: WARNING - Unresolved attribute reference 'Box' for class 'None' (Highlighted: `Box`)
+      - [ ] Line 42: WARNING - Unresolved attribute reference 'connect' for class 'None' (Highlighted: `connect`)
+      - [ ] Line 42: WARNING - Unresolved attribute reference 'GUI' for class 'None' (Highlighted: `GUI`)
+      - [ ] Line 44: WARNING - Unresolved attribute reference 'connect' for class 'None' (Highlighted: `connect`)
+      - [ ] Line 44: WARNING - Unresolved attribute reference 'DIRECT' for class 'None' (Highlighted: `DIRECT`)
+      - [ ] Line 46: WARNING - Unresolved attribute reference 'setAdditionalSearchPath' for class 'None' (Highlighted: `setAdditionalSearchPath`)
+      - [ ] Line 46: WARNING - Unresolved attribute reference 'getDataPath' for class 'None' (Highlighted: `getDataPath`)
+      - [ ] Line 52: WARNING - Unresolved attribute reference 'setTimeStep' for class 'None' (Highlighted: `setTimeStep`)
+      - [ ] Line 72: WARNING - Unresolved attribute reference 'getBasePositionAndOrientation' for class 'None' (Highlighted: `getBasePositionAndOrientation`)
+      - [ ] Line 79: WARNING - Unresolved attribute reference 'getBaseVelocity' for class 'None' (Highlighted: `getBaseVelocity`)
+      - [ ] Line 86: WARNING - Unresolved attribute reference 'multiplyTransforms' for class 'None' (Highlighted: `multiplyTransforms`)
+      - [ ] Line 98: WARNING - Unresolved attribute reference 'multiplyTransforms' for class 'None' (Highlighted: `multiplyTransforms`)
+      - [ ] Line 114: WARNING - Unresolved attribute reference 'getEulerFromQuaternion' for class 'None' (Highlighted: `getEulerFromQuaternion`)
+      - [ ] Line 132: WARNING - Unresolved attribute reference 'reset' for class 'object' (Highlighted: `reset`)
+      - [ ] Line 134: WARNING - Unresolved attribute reference 'resetSimulation' for class 'None' (Highlighted: `resetSimulation`)
+      - [ ] Line 135: WARNING - Unresolved attribute reference 'setGravity' for class 'None' (Highlighted: `setGravity`)
+      - [ ] Line 136: WARNING - Unresolved attribute reference 'setTimeStep' for class 'None' (Highlighted: `setTimeStep`)
+      - [ ] Line 146: WARNING - Unresolved attribute reference 'getQuaternionFromEuler' for class 'None' (Highlighted: `getQuaternionFromEuler`)
+      - [ ] Line 148: WARNING - Unresolved attribute reference 'loadURDF' for class 'None' (Highlighted: `loadURDF`)
+      - [ ] Line 156: WARNING - Unresolved attribute reference 'setJointMotorControl2' for class 'None' (Highlighted: `setJointMotorControl2`)
+      - [ ] Line 156: WARNING - Unresolved attribute reference 'VELOCITY_CONTROL' for class 'None' (Highlighted: `VELOCITY_CONTROL`)
+      - [ ] Line 157: WARNING - Unresolved attribute reference 'setJointMotorControl2' for class 'None' (Highlighted: `setJointMotorControl2`)
+      - [ ] Line 157: WARNING - Unresolved attribute reference 'VELOCITY_CONTROL' for class 'None' (Highlighted: `VELOCITY_CONTROL`)
+      - [ ] Line 166: WARNING - Unresolved attribute reference 'getQuaternionFromEuler' for class 'None' (Highlighted: `getQuaternionFromEuler`)
+      - [ ] Line 167: WARNING - Unresolved attribute reference 'getMatrixFromQuaternion' for class 'None' (Highlighted: `getMatrixFromQuaternion`)
+      - [ ] Line 196: WARNING - Unresolved attribute reference 'setJointMotorControl2' for class 'None' (Highlighted: `setJointMotorControl2`)
+      - [ ] Line 199: WARNING - Unresolved attribute reference 'TORQUE_CONTROL' for class 'None' (Highlighted: `TORQUE_CONTROL`)
+      - [ ] Line 204: WARNING - Unresolved attribute reference 'setJointMotorControl2' for class 'None' (Highlighted: `setJointMotorControl2`)
+      - [ ] Line 207: WARNING - Unresolved attribute reference 'TORQUE_CONTROL' for class 'None' (Highlighted: `TORQUE_CONTROL`)
+      - [ ] Line 214: WARNING - Unresolved attribute reference 'stepSimulation' for class 'None' (Highlighted: `stepSimulation`)
+      - [ ] Line 235: WARNING - Unresolved attribute reference 'disconnect' for class 'None' (Highlighted: `disconnect`)
+    - [ ] `src/balance_bot/simulation/sim_test.py`
+      - [ ] Line 8: ERROR - Unresolved reference 'balance_bot' (Highlighted: `balance_bot`)
+      - [ ] Line 8: ERROR - Unresolved reference 'BalanceBotEnv' (Highlighted: `BalanceBotEnv`)
+    - [ ] `src/balance_bot/telemetry.py`
+      - [ ] Line 39: WARNING - Unresolved attribute reference 'Full' for class 'Queue' (Highlighted: `Full`)
+    - [ ] `src/balance_bot/utils.py`
+      - [ ] Line 11: ERROR - No module named 'glm' (Highlighted: `glm`)
+      - [ ] Line 231: WARNING - Unresolved attribute reference 'buffer' for class 'None' (Highlighted: `buffer`)
+      - [ ] Line 372: WARNING - Unresolved attribute reference 'SMBus' for class 'None' (Highlighted: `SMBus`)
+    - [ ] `tests/benchmarks/benchmark_config_serialization.py`
+      - [ ] Line 9: ERROR - Unresolved reference 'balance_bot' (Highlighted: `balance_bot`)
+      - [ ] Line 9: ERROR - Unresolved reference 'LearningState' (Highlighted: `LearningState`)
+      - [ ] Line 9: ERROR - Unresolved reference 'PIDParams' (Highlighted: `PIDParams`)
+      - [ ] Line 9: ERROR - Unresolved reference 'TunerConfig' (Highlighted: `TunerConfig`)
+    - [ ] `tests/benchmarks/benchmark_logging_latency.py`
+      - [ ] Line 10: ERROR - Unresolved reference 'balance_bot' (Highlighted: `balance_bot`)
+      - [ ] Line 10: ERROR - Unresolved reference 'LogThrottler' (Highlighted: `LogThrottler`)
+    - [ ] `tests/benchmarks/benchmark_motion_request.py`
+      - [ ] Line 55: WARNING - 'MotionRequestSlots' object has no attribute 'velocity' (Highlighted: `velocity`)
+      - [ ] Line 56: WARNING - 'MotionRequestSlots' object has no attribute 'turn_rate' (Highlighted: `turn_rate`)
+      - [ ] Line 57: WARNING - 'MotionRequestSlots' object has no attribute 'enable_control' (Highlighted: `enable_control`)
+    - [ ] `tests/benchmarks/benchmark_tuner_deque.py`
+      - [ ] Line 8: ERROR - Unresolved reference 'balance_bot' (Highlighted: `balance_bot`)
+      - [ ] Line 8: ERROR - Unresolved reference 'ContinuousTuner' (Highlighted: `ContinuousTuner`)
+      - [ ] Line 9: ERROR - Unresolved reference 'balance_bot' (Highlighted: `balance_bot`)
+      - [ ] Line 9: ERROR - Unresolved reference 'TunerConfig' (Highlighted: `TunerConfig`)
+    - [ ] `tests/benchmarks/benchmark_zero_crossings.py`
+      - [ ] Line 8: ERROR - Unresolved reference 'balance_bot' (Highlighted: `balance_bot`)
+      - [ ] Line 8: ERROR - Unresolved reference 'ContinuousTuner' (Highlighted: `ContinuousTuner`)
+      - [ ] Line 9: ERROR - Unresolved reference 'balance_bot' (Highlighted: `balance_bot`)
+      - [ ] Line 9: ERROR - Unresolved reference 'TunerConfig' (Highlighted: `TunerConfig`)
+    - [ ] `tests/benchmarks/test_tuner_perf.py`
+      - [ ] Line 10: ERROR - Unresolved reference 'balance_bot' (Highlighted: `balance_bot`)
+      - [ ] Line 10: ERROR - Unresolved reference 'ContinuousTuner' (Highlighted: `ContinuousTuner`)
+      - [ ] Line 11: ERROR - Unresolved reference 'balance_bot' (Highlighted: `balance_bot`)
+      - [ ] Line 11: ERROR - Unresolved reference 'TunerConfig' (Highlighted: `TunerConfig`)
+    - [ ] `tests/test_agent_config_save.py`
+      - [ ] Line 9: ERROR - Unresolved reference 'balance_bot' (Highlighted: `balance_bot`)
+      - [ ] Line 9: ERROR - Unresolved reference 'Agent' (Highlighted: `Agent`)
+      - [ ] Line 10: ERROR - Unresolved reference 'balance_bot' (Highlighted: `balance_bot`)
+      - [ ] Line 10: ERROR - Unresolved reference 'HardwareConfig' (Highlighted: `HardwareConfig`)
+      - [ ] Line 10: ERROR - Unresolved reference 'LearningState' (Highlighted: `LearningState`)
+      - [ ] Line 10: ERROR - Unresolved reference 'PIDParams' (Highlighted: `PIDParams`)
+    - [ ] `tests/test_agent_state_machine.py`
+      - [ ] Line 4: ERROR - Unresolved reference 'balance_bot' (Highlighted: `balance_bot`)
+      - [ ] Line 4: ERROR - Unresolved reference 'Agent' (Highlighted: `Agent`)
+      - [ ] Line 4: ERROR - Unresolved reference 'BotState' (Highlighted: `BotState`)
+    - [ ] `tests/test_balance_core_params.py`
+      - [ ] Line 1: ERROR - No module named 'pytest' (Highlighted: `pytest`)
+      - [ ] Line 3: ERROR - Unresolved reference 'balance_bot' (Highlighted: `balance_bot`)
+      - [ ] Line 3: ERROR - Unresolved reference 'BalanceCore' (Highlighted: `BalanceCore`)
+      - [ ] Line 3: ERROR - Unresolved reference 'MotionRequest' (Highlighted: `MotionRequest`)
+      - [ ] Line 3: ERROR - Unresolved reference 'TuningParams' (Highlighted: `TuningParams`)
+      - [ ] Line 3: ERROR - Unresolved reference 'BalanceTelemetry' (Highlighted: `BalanceTelemetry`)
+      - [ ] Line 4: ERROR - Unresolved reference 'balance_bot' (Highlighted: `balance_bot`)
+      - [ ] Line 4: ERROR - Unresolved reference 'HardwareConfig' (Highlighted: `HardwareConfig`)
+      - [ ] Line 4: ERROR - Unresolved reference 'LearningState' (Highlighted: `LearningState`)
+      - [ ] Line 4: ERROR - Unresolved reference 'PIDParams' (Highlighted: `PIDParams`)
+    - [ ] `tests/test_balance_finder.py`
+      - [ ] Line 1: ERROR - Unresolved reference 'balance_bot' (Highlighted: `balance_bot`)
+      - [ ] Line 1: ERROR - Unresolved reference 'BalancePointFinder' (Highlighted: `BalancePointFinder`)
+      - [ ] Line 2: ERROR - Unresolved reference 'balance_bot' (Highlighted: `balance_bot`)
+      - [ ] Line 2: ERROR - Unresolved reference 'TunerConfig' (Highlighted: `TunerConfig`)
+    - [ ] `tests/test_battery.py`
+      - [ ] Line 1: ERROR - Unresolved reference 'balance_bot' (Highlighted: `balance_bot`)
+      - [ ] Line 1: ERROR - Unresolved reference 'BatteryEstimator' (Highlighted: `BatteryEstimator`)
+      - [ ] Line 2: ERROR - Unresolved reference 'balance_bot' (Highlighted: `balance_bot`)
+      - [ ] Line 2: ERROR - Unresolved reference 'BatteryConfig' (Highlighted: `BatteryConfig`)
+    - [ ] `tests/test_discovery_pipeline.py`
+      - [ ] Line 2: ERROR - No module named 'pytest' (Highlighted: `pytest`)
+      - [ ] Line 3: ERROR - Unresolved reference 'balance_bot' (Highlighted: `balance_bot`)
+      - [ ] Line 3: ERROR - Unresolved reference 'SelfDiscoveryPipeline' (Highlighted: `SelfDiscoveryPipeline`)
+      - [ ] Line 4: ERROR - Unresolved reference 'balance_bot' (Highlighted: `balance_bot`)
+      - [ ] Line 4: ERROR - Unresolved reference 'CalibrationStep' (Highlighted: `CalibrationStep`)
+      - [ ] Line 4: ERROR - Unresolved reference 'StepStatus' (Highlighted: `StepStatus`)
+    - [ ] `tests/test_fail_loud.py`
+      - [ ] Line 1: ERROR - No module named 'pytest' (Highlighted: `pytest`)
+      - [ ] Line 1: ERROR - No module named 'pytest' (Highlighted: `pytest`)
+      - [ ] Line 3: ERROR - No module named 'glm' (Highlighted: `glm`)
+      - [ ] Line 3: ERROR - No module named 'glm' (Highlighted: `glm`)
+      - [ ] Line 4: ERROR - Unresolved reference 'balance_bot' (Highlighted: `balance_bot`)
+      - [ ] Line 4: ERROR - Unresolved reference 'balance_bot' (Highlighted: `balance_bot`)
+      - [ ] Line 4: ERROR - Unresolved reference 'RobotHardware' (Highlighted: `RobotHardware`)
+      - [ ] Line 4: ERROR - Unresolved reference 'RobotHardware' (Highlighted: `RobotHardware`)
+      - [ ] Line 5: ERROR - Unresolved reference 'balance_bot' (Highlighted: `balance_bot`)
+      - [ ] Line 5: ERROR - Unresolved reference 'balance_bot' (Highlighted: `balance_bot`)
+      - [ ] Line 5: ERROR - Unresolved reference 'HardwareConfig' (Highlighted: `HardwareConfig`)
+      - [ ] Line 5: ERROR - Unresolved reference 'HardwareConfig' (Highlighted: `HardwareConfig`)
+      - [ ] Line 5: ERROR - Unresolved reference 'LearningState' (Highlighted: `LearningState`)
+      - [ ] Line 5: ERROR - Unresolved reference 'LearningState' (Highlighted: `LearningState`)
+      - [ ] Line 6: ERROR - Unresolved reference 'balance_bot' (Highlighted: `balance_bot`)
+      - [ ] Line 6: ERROR - Unresolved reference 'balance_bot' (Highlighted: `balance_bot`)
+      - [ ] Line 6: ERROR - Unresolved reference 'Axis' (Highlighted: `Axis`)
+      - [ ] Line 6: ERROR - Unresolved reference 'Axis' (Highlighted: `Axis`)
+      - [ ] Line 7: ERROR - Unresolved reference 'balance_bot' (Highlighted: `balance_bot`)
+      - [ ] Line 7: ERROR - Unresolved reference 'balance_bot' (Highlighted: `balance_bot`)
+      - [ ] Line 7: ERROR - Unresolved reference 'DiscoverBusesStep' (Highlighted: `DiscoverBusesStep`)
+      - [ ] Line 7: ERROR - Unresolved reference 'DiscoverBusesStep' (Highlighted: `DiscoverBusesStep`)
+      - [ ] Line 7: ERROR - Unresolved reference 'StepStatus' (Highlighted: `StepStatus`)
+      - [ ] Line 7: ERROR - Unresolved reference 'StepStatus' (Highlighted: `StepStatus`)
+    - [ ] `tests/test_gyro_drift.py`
+      - [ ] Line 1: ERROR - No module named 'pytest' (Highlighted: `pytest`)
+      - [ ] Line 10: ERROR - Unresolved reference 'balance_bot' (Highlighted: `balance_bot`)
+      - [ ] Line 10: ERROR - Unresolved reference 'RobotHardware' (Highlighted: `RobotHardware`)
+      - [ ] Line 11: ERROR - Unresolved reference 'balance_bot' (Highlighted: `balance_bot`)
+      - [ ] Line 11: ERROR - Unresolved reference 'HardwareConfig' (Highlighted: `HardwareConfig`)
+      - [ ] Line 11: ERROR - Unresolved reference 'LearningState' (Highlighted: `LearningState`)
+      - [ ] Line 11: ERROR - Unresolved reference 'PIDParams' (Highlighted: `PIDParams`)
+      - [ ] Line 12: ERROR - No module named 'glm' (Highlighted: `glm`)
+    - [ ] `tests/test_i2c_config.py`
+      - [ ] Line 4: ERROR - Unresolved reference 'balance_bot' (Highlighted: `balance_bot`)
+      - [ ] Line 4: ERROR - Unresolved reference 'HardwareConfig' (Highlighted: `HardwareConfig`)
+      - [ ] Line 4: ERROR - Unresolved reference 'LearningState' (Highlighted: `LearningState`)
+      - [ ] Line 38: ERROR - Unresolved reference 'balance_bot' (Highlighted: `balance_bot`)
+      - [ ] Line 38: ERROR - Unresolved reference 'RobotHardware' (Highlighted: `RobotHardware`)
+      - [ ] Line 72: ERROR - Unresolved reference 'balance_bot' (Highlighted: `balance_bot`)
+      - [ ] Line 72: ERROR - Unresolved reference 'RobotHardware' (Highlighted: `RobotHardware`)
+    - [ ] `tests/test_imu_logic.py`
+      - [ ] Line 2: ERROR - No module named 'glm' (Highlighted: `glm`)
+      - [ ] Line 4: ERROR - Unresolved reference 'balance_bot' (Highlighted: `balance_bot`)
+      - [ ] Line 4: ERROR - Unresolved reference 'RobotHardware' (Highlighted: `RobotHardware`)
+      - [ ] Line 4: ERROR - Unresolved reference 'IMUReading' (Highlighted: `IMUReading`)
+      - [ ] Line 5: ERROR - Unresolved reference 'balance_bot' (Highlighted: `balance_bot`)
+      - [ ] Line 5: ERROR - Unresolved reference 'HardwareConfig' (Highlighted: `HardwareConfig`)
+      - [ ] Line 5: ERROR - Unresolved reference 'LearningState' (Highlighted: `LearningState`)
+      - [ ] Line 6: ERROR - Unresolved reference 'balance_bot' (Highlighted: `balance_bot`)
+      - [ ] Line 6: ERROR - Unresolved reference 'Axis' (Highlighted: `Axis`)
+    - [ ] `tests/test_imu_resilience.py`
+      - [ ] Line 2: ERROR - Unresolved reference 'balance_bot' (Highlighted: `balance_bot`)
+      - [ ] Line 2: ERROR - Unresolved reference 'RobotHardware' (Highlighted: `RobotHardware`)
+      - [ ] Line 3: ERROR - Unresolved reference 'balance_bot' (Highlighted: `balance_bot`)
+      - [ ] Line 3: ERROR - Unresolved reference 'HardwareConfig' (Highlighted: `HardwareConfig`)
+      - [ ] Line 3: ERROR - Unresolved reference 'LearningState' (Highlighted: `LearningState`)
+      - [ ] Line 3: ERROR - Unresolved reference 'PIDParams' (Highlighted: `PIDParams`)
+    - [ ] `tests/test_imu_yaw_roll.py`
+      - [ ] Line 2: ERROR - Unresolved reference 'balance_bot' (Highlighted: `balance_bot`)
+      - [ ] Line 2: ERROR - Unresolved reference 'RobotHardware' (Highlighted: `RobotHardware`)
+      - [ ] Line 3: ERROR - Unresolved reference 'balance_bot' (Highlighted: `balance_bot`)
+      - [ ] Line 3: ERROR - Unresolved reference 'HardwareConfig' (Highlighted: `HardwareConfig`)
+      - [ ] Line 3: ERROR - Unresolved reference 'LearningState' (Highlighted: `LearningState`)
+      - [ ] Line 3: ERROR - Unresolved reference 'PIDParams' (Highlighted: `PIDParams`)
+      - [ ] Line 4: ERROR - Unresolved reference 'balance_bot' (Highlighted: `balance_bot`)
+      - [ ] Line 4: ERROR - Unresolved reference 'Axis' (Highlighted: `Axis`)
+      - [ ] Line 5: ERROR - No module named 'glm' (Highlighted: `glm`)
+    - [ ] `tests/test_jules_client.py`
+      - [ ] Line 5: ERROR - Unresolved reference 'balance_bot' (Highlighted: `balance_bot`)
+      - [ ] Line 5: ERROR - Unresolved reference 'JulesClient' (Highlighted: `JulesClient`)
+      - [ ] Line 5: ERROR - Unresolved reference 'CrashReport' (Highlighted: `CrashReport`)
+      - [ ] Line 67: ERROR - Unresolved reference 'balance_bot' (Highlighted: `balance_bot`)
+      - [ ] Line 67: ERROR - Unresolved reference 'DEFAULT_TIMEOUT' (Highlighted: `DEFAULT_TIMEOUT`)
+    - [ ] `tests/test_kickup_config.py`
+      - [ ] Line 2: ERROR - Unresolved reference 'balance_bot' (Highlighted: `balance_bot`)
+      - [ ] Line 2: ERROR - Unresolved reference 'LearningState' (Highlighted: `LearningState`)
+      - [ ] Line 2: ERROR - Unresolved reference 'ControlConfig' (Highlighted: `ControlConfig`)
+    - [ ] `tests/test_kinematics_logic.py`
+      - [ ] Line 5: ERROR - No module named 'glm' (Highlighted: `glm`)
+      - [ ] Line 10: ERROR - Unresolved reference 'balance_bot' (Highlighted: `balance_bot`)
+      - [ ] Line 10: ERROR - Unresolved reference 'DeriveKinematicsStep' (Highlighted: `DeriveKinematicsStep`)
+      - [ ] Line 11: ERROR - Unresolved reference 'balance_bot' (Highlighted: `balance_bot`)
+      - [ ] Line 11: ERROR - Unresolved reference 'StepStatus' (Highlighted: `StepStatus`)
+      - [ ] Line 12: ERROR - Unresolved reference 'balance_bot' (Highlighted: `balance_bot`)
+      - [ ] Line 12: ERROR - Unresolved reference 'HardwareConfig' (Highlighted: `HardwareConfig`)
+      - [ ] Line 12: ERROR - Unresolved reference 'LearningState' (Highlighted: `LearningState`)
+      - [ ] Line 12: ERROR - Unresolved reference 'ControlConfig' (Highlighted: `ControlConfig`)
+      - [ ] Line 13: ERROR - Unresolved reference 'balance_bot' (Highlighted: `balance_bot`)
+      - [ ] Line 13: ERROR - Unresolved reference 'RobotHardware' (Highlighted: `RobotHardware`)
+      - [ ] Line 13: ERROR - Unresolved reference 'IMUReading' (Highlighted: `IMUReading`)
+    - [ ] `tests/test_leds.py`
+      - [ ] Line 4: ERROR - Unresolved reference 'balance_bot' (Highlighted: `balance_bot`)
+      - [ ] Line 4: ERROR - Unresolved reference 'LedController' (Highlighted: `LedController`)
+      - [ ] Line 5: ERROR - Unresolved reference 'balance_bot' (Highlighted: `balance_bot`)
+      - [ ] Line 5: ERROR - Unresolved reference 'LedConfig' (Highlighted: `LedConfig`)
+    - [ ] `tests/test_main_flow.py`
+      - [ ] Line 7: ERROR - Unresolved reference 'balance_bot' (Highlighted: `balance_bot`)
+      - [ ] Line 7: ERROR - Unresolved reference 'main' (Highlighted: `main`)
+    - [ ] `tests/test_max_tilt_config.py`
+      - [ ] Line 2: ERROR - Unresolved reference 'balance_bot' (Highlighted: `balance_bot`)
+      - [ ] Line 2: ERROR - Unresolved reference 'BalanceCore' (Highlighted: `BalanceCore`)
+      - [ ] Line 2: ERROR - Unresolved reference 'MotionRequest' (Highlighted: `MotionRequest`)
+      - [ ] Line 2: ERROR - Unresolved reference 'TuningParams' (Highlighted: `TuningParams`)
+      - [ ] Line 3: ERROR - Unresolved reference 'balance_bot' (Highlighted: `balance_bot`)
+      - [ ] Line 3: ERROR - Unresolved reference 'HardwareConfig' (Highlighted: `HardwareConfig`)
+      - [ ] Line 3: ERROR - Unresolved reference 'LearningState' (Highlighted: `LearningState`)
+      - [ ] Line 3: ERROR - Unresolved reference 'PIDParams' (Highlighted: `PIDParams`)
+      - [ ] Line 3: ERROR - Unresolved reference 'ControlConfig' (Highlighted: `ControlConfig`)
+    - [ ] `tests/test_piconzero_driver.py`
+      - [ ] Line 20: ERROR - Unresolved reference 'balance_bot' (Highlighted: `balance_bot`)
+      - [ ] Line 20: ERROR - Unresolved reference 'PiconZero' (Highlighted: `PiconZero`)
+    - [ ] `tests/test_piconzero_internals.py`
+      - [ ] Line 20: ERROR - Unresolved reference 'balance_bot' (Highlighted: `balance_bot`)
+      - [ ] Line 20: ERROR - Unresolved reference 'PiconZero' (Highlighted: `PiconZero`)
+    - [ ] `tests/test_pid_logic.py`
+      - [ ] Line 2: ERROR - Unresolved reference 'balance_bot' (Highlighted: `balance_bot`)
+      - [ ] Line 2: ERROR - Unresolved reference 'PIDController' (Highlighted: `PIDController`)
+      - [ ] Line 3: ERROR - Unresolved reference 'balance_bot' (Highlighted: `balance_bot`)
+      - [ ] Line 3: ERROR - Unresolved reference 'PIDParams' (Highlighted: `PIDParams`)
+    - [ ] `tests/test_pipeline_config_matching.py`
+      - [ ] Line 3: ERROR - Unresolved reference 'balance_bot' (Highlighted: `balance_bot`)
+      - [ ] Line 3: ERROR - Unresolved reference 'HardwareConfig' (Highlighted: `HardwareConfig`)
+      - [ ] Line 3: ERROR - Unresolved reference 'LearningState' (Highlighted: `LearningState`)
+      - [ ] Line 4: ERROR - Unresolved reference 'balance_bot' (Highlighted: `balance_bot`)
+      - [ ] Line 4: ERROR - Unresolved reference 'StepStatus' (Highlighted: `StepStatus`)
+      - [ ] Line 6: ERROR - Unresolved reference 'balance_bot' (Highlighted: `balance_bot`)
+      - [ ] Line 6: ERROR - Unresolved reference 'DiscoverBusesStep' (Highlighted: `DiscoverBusesStep`)
+      - [ ] Line 7: ERROR - Unresolved reference 'balance_bot' (Highlighted: `balance_bot`)
+      - [ ] Line 7: ERROR - Unresolved reference 'HardwareInitStep' (Highlighted: `HardwareInitStep`)
+      - [ ] Line 8: ERROR - Unresolved reference 'balance_bot' (Highlighted: `balance_bot`)
+      - [ ] Line 8: ERROR - Unresolved reference 'ManualLeanCalibrationStep' (Highlighted: `ManualLeanCalibrationStep`)
+      - [ ] Line 9: ERROR - Unresolved reference 'balance_bot' (Highlighted: `balance_bot`)
+      - [ ] Line 9: ERROR - Unresolved reference 'BrokenWireCheckStep' (Highlighted: `BrokenWireCheckStep`)
+      - [ ] Line 10: ERROR - Unresolved reference 'balance_bot' (Highlighted: `balance_bot`)
+      - [ ] Line 10: ERROR - Unresolved reference 'FrictionThresholdStep' (Highlighted: `FrictionThresholdStep`)
+      - [ ] Line 11: ERROR - Unresolved reference 'balance_bot' (Highlighted: `balance_bot`)
+      - [ ] Line 11: ERROR - Unresolved reference 'DeriveKinematicsStep' (Highlighted: `DeriveKinematicsStep`)
+      - [ ] Line 12: ERROR - Unresolved reference 'balance_bot' (Highlighted: `balance_bot`)
+      - [ ] Line 12: ERROR - Unresolved reference 'MechanicalBacklashStep' (Highlighted: `MechanicalBacklashStep`)
+      - [ ] Line 13: ERROR - Unresolved reference 'balance_bot' (Highlighted: `balance_bot`)
+      - [ ] Line 13: ERROR - Unresolved reference 'MotorTrimStep' (Highlighted: `MotorTrimStep`)
+      - [ ] Line 14: ERROR - Unresolved reference 'balance_bot' (Highlighted: `balance_bot`)
+      - [ ] Line 14: ERROR - Unresolved reference 'KickupDynamicsStep' (Highlighted: `KickupDynamicsStep`)
+      - [ ] Line 76: ERROR - No module named 'glm' (Highlighted: `glm`)
+      - [ ] Line 105: ERROR - No module named 'glm' (Highlighted: `glm`)
+      - [ ] Line 137: ERROR - No module named 'glm' (Highlighted: `glm`)
+    - [ ] `tests/test_pivot_sorter.py`
+      - [ ] Line 2: ERROR - No module named 'pytest' (Highlighted: `pytest`)
+      - [ ] Line 3: ERROR - No module named 'glm' (Highlighted: `glm`)
+      - [ ] Line 4: ERROR - Unresolved reference 'balance_bot' (Highlighted: `balance_bot`)
+      - [ ] Line 4: ERROR - Unresolved reference 'sort_resting_vectors' (Highlighted: `sort_resting_vectors`)
+      - [ ] Line 4: ERROR - Unresolved reference 'vector_angle' (Highlighted: `vector_angle`)
+    - [ ] `tests/test_recovery.py`
+      - [ ] Line 2: ERROR - Unresolved reference 'balance_bot' (Highlighted: `balance_bot`)
+      - [ ] Line 2: ERROR - Unresolved reference 'RecoveryManager' (Highlighted: `RecoveryManager`)
+      - [ ] Line 3: ERROR - Unresolved reference 'balance_bot' (Highlighted: `balance_bot`)
+      - [ ] Line 3: ERROR - Unresolved reference 'ControlConfig' (Highlighted: `ControlConfig`)
+      - [ ] Line 3: ERROR - Unresolved reference 'STARTUP_RAMP_SPEED' (Highlighted: `STARTUP_RAMP_SPEED`)
+    - [ ] `tests/test_startup_logic.py`
+      - [ ] Line 8: ERROR - Unresolved reference 'balance_bot' (Highlighted: `balance_bot`)
+      - [ ] Line 8: ERROR - Unresolved reference 'Agent' (Highlighted: `Agent`)
+    - [ ] `tests/test_tuner.py`
+      - [ ] Line 1: ERROR - Unresolved reference 'balance_bot' (Highlighted: `balance_bot`)
+      - [ ] Line 1: ERROR - Unresolved reference 'ContinuousTuner' (Highlighted: `ContinuousTuner`)
+      - [ ] Line 2: ERROR - Unresolved reference 'balance_bot' (Highlighted: `balance_bot`)
+      - [ ] Line 2: ERROR - Unresolved reference 'TunerConfig' (Highlighted: `TunerConfig`)
+    - [ ] `tests/test_turn_gain.py`
+      - [ ] Line 1: ERROR - No module named 'pytest' (Highlighted: `pytest`)
+      - [ ] Line 3: ERROR - Unresolved reference 'balance_bot' (Highlighted: `balance_bot`)
+      - [ ] Line 3: ERROR - Unresolved reference 'BalanceCore' (Highlighted: `BalanceCore`)
+      - [ ] Line 3: ERROR - Unresolved reference 'MotionRequest' (Highlighted: `MotionRequest`)
+      - [ ] Line 3: ERROR - Unresolved reference 'TuningParams' (Highlighted: `TuningParams`)
+      - [ ] Line 4: ERROR - Unresolved reference 'balance_bot' (Highlighted: `balance_bot`)
+      - [ ] Line 4: ERROR - Unresolved reference 'HardwareConfig' (Highlighted: `HardwareConfig`)
+      - [ ] Line 4: ERROR - Unresolved reference 'LearningState' (Highlighted: `LearningState`)
+      - [ ] Line 4: ERROR - Unresolved reference 'PIDParams' (Highlighted: `PIDParams`)
+      - [ ] Line 4: ERROR - Unresolved reference 'ControlConfig' (Highlighted: `ControlConfig`)
+    - [ ] `tests/test_utils.py`
+      - [ ] Line 3: ERROR - Unresolved reference 'balance_bot' (Highlighted: `balance_bot`)
+      - [ ] Line 3: ERROR - Unresolved reference 'get_i2c_failure_report' (Highlighted: `get_i2c_failure_report`)
+      - [ ] Line 7: ERROR - No module named 'glm' (Highlighted: `glm`)
+      - [ ] Line 8: ERROR - Unresolved reference 'balance_bot' (Highlighted: `balance_bot`)
+      - [ ] Line 8: ERROR - Unresolved reference 'clamp' (Highlighted: `clamp`)
+      - [ ] Line 8: ERROR - Unresolved reference 'RateLimiter' (Highlighted: `RateLimiter`)
+      - [ ] Line 8: ERROR - Unresolved reference 'ComplementaryFilter' (Highlighted: `ComplementaryFilter`)
+      - [ ] Line 8: ERROR - Unresolved reference 'calculate_pitch' (Highlighted: `calculate_pitch`)
+      - [ ] Line 8: ERROR - Unresolved reference 'to_signed' (Highlighted: `to_signed`)
+      - [ ] Line 8: ERROR - Unresolved reference 'LogThrottler' (Highlighted: `LogThrottler`)
+      - [ ] Line 8: ERROR - Unresolved reference 'LogCaptureHandler' (Highlighted: `LogCaptureHandler`)
+      - [ ] Line 8: ERROR - Unresolved reference 'check_force_calibration_flag' (Highlighted: `check_force_calibration_flag`)
+      - [ ] Line 91: ERROR - Unresolved reference 'balance_bot' (Highlighted: `balance_bot`)
+      - [ ] Line 91: ERROR - Unresolved reference 'analyze_dominance' (Highlighted: `analyze_dominance`)
+    - [ ] `tests/test_utils_helpers.py`
+      - [ ] Line 3: ERROR - Unresolved reference 'balance_bot' (Highlighted: `balance_bot`)
+      - [ ] Line 3: ERROR - Unresolved reference 'scan_i2c_candidates' (Highlighted: `scan_i2c_candidates`)
+      - [ ] Line 3: ERROR - Unresolved reference 'verify_with_retries' (Highlighted: `verify_with_retries`)
+      - [ ] Line 3: ERROR - Unresolved reference 'find_threshold' (Highlighted: `find_threshold`)
+    - [ ] `tests/test_watchdog_integration.py`
+      - [ ] Line 1: ERROR - No module named 'pytest' (Highlighted: `pytest`)
+      - [ ] Line 3: ERROR - Unresolved reference 'balance_bot' (Highlighted: `balance_bot`)
+      - [ ] Line 3: ERROR - Unresolved reference 'Agent' (Highlighted: `Agent`)
+      - [ ] Line 4: ERROR - Unresolved reference 'balance_bot' (Highlighted: `balance_bot`)
+      - [ ] Line 4: ERROR - Unresolved reference 'SurvivalWatchdog' (Highlighted: `SurvivalWatchdog`)
+  - [ ] Unused local symbols
+    - [ ] `src/balance_bot/hardware/sim_hardware.py`
+      - [ ] Line 132: WEAK WARNING - Parameter 'trim_override' value is not used (Highlighted: `trim_override: float | None = None`)
+      - [ ] Line 156: WEAK WARNING - Parameter 'threshold' value is not used (Highlighted: `threshold: float = 2.0`)
+      - [ ] Line 164: WEAK WARNING - Parameter 'duration' value is not used (Highlighted: `duration: float = 1.0`)
+      - [ ] Line 169: WEAK WARNING - Parameter 'sample_interval' value is not used (Highlighted: `sample_interval: float = 0.01`)
+    - [ ] `tests/benchmarks/benchmark_motion_request.py`
+      - [ ] Line 34: WEAK WARNING - Local variable 'm' value is not used (Highlighted: `m`)
+    - [ ] `tests/benchmarks/benchmark_tuning_params.py`
+      - [ ] Line 34: WEAK WARNING - Local variable 't' value is not used (Highlighted: `t`)
+    - [ ] `tests/test_agent_config_save.py`
+      - [ ] Line 15: WEAK WARNING - Parameter 'mock_logging' value is not used (Highlighted: `mock_logging`)
+      - [ ] Line 15: WEAK WARNING - Parameter 'mock_led' value is not used (Highlighted: `mock_led`)
+      - [ ] Line 15: WEAK WARNING - Parameter 'mock_core' value is not used (Highlighted: `mock_core`)
+      - [ ] Line 40: WEAK WARNING - Parameter 'mock_logging' value is not used (Highlighted: `mock_logging`)
+      - [ ] Line 40: WEAK WARNING - Parameter 'mock_led' value is not used (Highlighted: `mock_led`)
+      - [ ] Line 40: WEAK WARNING - Parameter 'mock_core' value is not used (Highlighted: `mock_core`)
+    - [ ] `tests/test_balance_core_params.py`
+      - [ ] Line 51: WEAK WARNING - Local variable 'telemetry' value is not used (Highlighted: `telemetry`)
+    - [ ] `tests/test_balance_finder.py`
+      - [ ] Line 85: WEAK WARNING - Local variable 'adj' value is not used (Highlighted: `adj`)
+    - [ ] `tests/test_battery.py`
+      - [ ] Line 11: WEAK WARNING - Local variable 'factor' value is not used (Highlighted: `factor`)
+      - [ ] Line 24: WEAK WARNING - Local variable 'factor' value is not used (Highlighted: `factor`)
+      - [ ] Line 61: WEAK WARNING - Local variable 'factor' value is not used (Highlighted: `factor`)
+    - [ ] `tests/test_jules_client.py`
+      - [ ] Line 71: WEAK WARNING - Parameter 'mock_urlopen' value is not used (Highlighted: `mock_urlopen`)
+    - [ ] `tests/test_pipeline_config_matching.py`
+      - [ ] Line 182: WEAK WARNING - Parameter 'monkeypatch' value is not used (Highlighted: `monkeypatch`)
+  - [ ] Vulnerable declared dependency
+    - [ ] `pyproject.toml`
+      - [ ] Line 28: WARNING - Dependency pypi:pytest:9.0.1 is vulnerable <ul><li><a href="https://www.mend.io/vulnerability-database/CVE-2025-71176?utm_source=Jetbrains">CVE-2025-71176</a> 6.8 Insufficient Information </li></ul> Results powered by <a href="https://www.mend.io/jetbrains-lp/?utm_source=JetBrains">Mend.io</a> (Highlighted: `"pytest>=9.0.0,!=9.0.2"`)
