@@ -31,30 +31,30 @@ def benchmark():
     # Baseline: Instantiation
     start = time.perf_counter()
     for _ in range(iterations):
-        m = MotionRequestBaseline(velocity=0.0, turn_rate=0.0, enable_control=True)
+        _ = MotionRequestBaseline(velocity=0.0, turn_rate=0.0, enable_control=True)
     end = time.perf_counter()
     baseline_time = end - start
     print(f"Baseline (Frozen Dataclass instantiation): {baseline_time:.4f} s")
 
     # Optimization 1: Reuse Mutable Dataclass
-    m = MotionRequestMutable()
+    m1 = MotionRequestMutable()
     start = time.perf_counter()
     for _ in range(iterations):
-        m.velocity = 0.0
-        m.turn_rate = 0.0
-        m.enable_control = True
+        m1.velocity = 0.0
+        m1.turn_rate = 0.0
+        m1.enable_control = True
     end = time.perf_counter()
     mutable_time = end - start
     print(f"Optimization 1 (Mutable Dataclass reuse): {mutable_time:.4f} s")
     print(f"Improvement: {baseline_time / mutable_time:.2f}x faster")
 
     # Optimization 2: Reuse Mutable Dataclass with slots
-    m = MotionRequestSlots()
+    m2 = MotionRequestSlots()
     start = time.perf_counter()
     for _ in range(iterations):
-        m.velocity = 0.0
-        m.turn_rate = 0.0
-        m.enable_control = True
+        m2.velocity = 0.0
+        m2.turn_rate = 0.0
+        m2.enable_control = True
     end = time.perf_counter()
     slots_time = end - start
     print(f"Optimization 2 (Mutable Dataclass w/ slots reuse): {slots_time:.4f} s")
