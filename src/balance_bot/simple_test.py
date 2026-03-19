@@ -33,16 +33,16 @@ def scan_for_devices():
                 try:
                     bus.read_byte(PICONZERO_ADDR)
                     motor_bus = bus_num
-                except Exception:
+                except OSError:
                     pass
 
                 # Check for MPU6050
                 try:
                     bus.read_byte(MPU6050_ADDR)
                     gyro_bus = bus_num
-                except Exception:
+                except OSError:
                     pass
-        except Exception:
+        except OSError:
             pass
 
     print(f"[{get_ms():05d} ms] Results: Motor Bus = {motor_bus}, Gyro Bus = {gyro_bus}")
