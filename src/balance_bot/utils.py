@@ -504,28 +504,27 @@ def sort_resting_vectors(vectors: list[glm.vec3]) -> tuple[glm.vec3, glm.vec3]:
     if not bucket_b:
         raise ValueError("Failed to find two distinct resting positions (all vectors clustered near pivot).")
 
-    # Average buckets
-    def avg_bucket(bucket: list[glm.vec3]) -> glm.vec3:
-        """
-        Calculate the average vector from a list of vectors in a single pass.
-        This optimizes out multiple iterations and generator overhead.
-        """
-        if not bucket:
-            return glm.vec3(0.0)
-
-        sum_x = sum_y = sum_z = 0.0
-        for v in bucket:
-            sum_x += v.x
-            sum_y += v.y
-            sum_z += v.z
-
-        count = len(bucket)
-        return glm.vec3(sum_x / count, sum_y / count, sum_z / count)
-
-    avg_a = avg_bucket(bucket_a)
-    avg_b = avg_bucket(bucket_b)
+    avg_a = average_vector(bucket_a)
+    avg_b = average_vector(bucket_b)
 
     return avg_a, avg_b
+
+def average_vector(vectors: list[glm.vec3]) -> glm.vec3:
+    """
+    Calculate the average vector from a list of vectors in a single pass.
+    This optimizes out multiple iterations and generator overhead.
+    """
+    if not vectors:
+        return glm.vec3(0.0)
+
+    sum_x = sum_y = sum_z = 0.0
+    for v in vectors:
+        sum_x += v.x
+        sum_y += v.y
+        sum_z += v.z
+
+    count = len(vectors)
+    return glm.vec3(sum_x / count, sum_y / count, sum_z / count)
 
 def circular_difference(target: float, current: float) -> float:
     """
