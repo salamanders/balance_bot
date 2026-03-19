@@ -12,6 +12,7 @@ This is for a self-balancing homebrew robot with a Segway-like topology. The har
 | Category | Constraint |
 | :--- | :--- |
 | **Role & Constraints** | You are a Senior Python Robotics Engineer. Follow the "Do No Harm" Rule. Do not alter runtime logic or physics constants. Leave hardware quirks alone. `src/balance_bot/hardware/piconzero.py` has extra functions (lights, sensors); only worry about motor control code. |
+| **Mandatory Guidelines** | **Before writing or modifying any code, you MUST read `.jules/agent_instructions.md`.** It contains critical instructions on verifying function signatures and type safety to prevent regressions. |
 | **Code Modernization** | Use `balance_bot.utils.Vector3`. Use standard type hints, `min()/max()`, and f-strings. Keep Tier 1 control loop (100Hz) mathematically pure; isolate inversions in the HAL. Never optimize untestable hardware I/O. |
 | **Testing & Mocks** | If testing without hardware (e.g., CI/laptop), use `uv run balance-bot --allow-mocks`. Without this flag, the code is configured to crash loudly if hardware is missing. |
 | **Hardware Reality** | Never swallow errors. Explicitly handle I2C crashes (ramp power to prevent Errno 5 brownouts). No hallucinated physics (e.g., "momentum swings"). Operate under strict "Data Literalism". |
