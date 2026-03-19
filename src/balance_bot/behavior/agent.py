@@ -417,6 +417,77 @@ class Agent:
             self.core.update(self._zero_motion_enabled, self._zero_tuning, dt)
             dt = rate.sleep()
 
+    def _check_and_fix_position(self, kick_direction: Direction, start_label: str) -> bool:
+        """Check if robot is in position for kickup and reposition if necessary. Returns True if good/fixed, False if failed."""
+        wrong_position = False
+        if kick_direction == Direction.BACKWARD and self.core.pitch > -10:
+            wrong_position = True
+        elif kick_direction == Direction.FORWARD and self.core.pitch < 10:
+            wrong_position = True
+
+        if not wrong_position:
+            return True
+
+        logger.warning(f"-> Not at {start_label} Limit? Repositioning...")
+
+        fix_success = False
+        base_fix_power = self.learning_state.min_power_visible + 15
+
+        for p_try in range(int(base_fix_power), 101, 10):
+            fix_power = float(p_try) * float(-kick_direction.value)
+            self.core.hw.set_motors(fix_power, fix_power)
+            self._sleep_with_update(0.5)
+            self.core.hw.stop()
+            self._wait_for_settle()
+
+            if (kick_direction == Direction.BACKWARD and self.core.pitch < -10) or (
+                kick_direction == Direction.FORWARD and self.core.pitch > 10
+            ):
+                fix_success = True
+                break
+
+        if not fix_success:
+            logger.warning("-> Reposition failed or confused. Aborting kickup.")
+            return False
+
+        return True
+
+    def _attempt_catch(self, target_angle: float) -> bool:
+        """Attempt to catch the robot in PID loop after lift. Returns True if caught."""
+        logger.info("-> Attempting Catch...")
+        catch_start = time.perf_counter()
+
+        catch_params = TuningParams(
+            kp=self.learning_state.pid.kp * 1.5,
+            ki=self.learning_state.pid.ki,
+            kd=self.learning_state.pid.kd * 2.0,
+            target_angle_offset=0,
+        )
+
+        rate = RateLimiter(1.0 / self.hw_config.loop_time)
+        dt = self.hw_config.loop_time
+        while time.perf_counter() - catch_start < 2.5:
+            if self.watchdog:
+                self.watchdog.heartbeat()
+            telem = self.core.update(self._zero_motion_enabled, catch_params, dt)
+
+            error = abs(telem.pitch_angle - target_angle)
+            if error < 5.0 and abs(telem.pitch_rate) < 30.0:
+                pass # Looks good
+
+            if abs(telem.pitch_angle - target_angle) > 40.0:
+                pass # Failed?
+
+            dt = rate.sleep()
+
+        # Check result
+        final_error = abs(self.core.pitch - target_angle)
+        if final_error < 10.0:
+            logger.info("-> Catch Success!")
+            return True
+
+        return False
+
     def _incremental_kickup(self, target_angle: float, start_power: float) -> bool:
         """
         Incrementally attempt to kick up to balance.
@@ -446,34 +517,8 @@ class Agent:
                 self._wait_for_settle()
 
                 # Safety Check: Are we still in position?
-                wrong_position = False
-                if kick_direction == Direction.BACKWARD and self.core.pitch > -10:
-                    wrong_position = True
-                elif kick_direction == Direction.FORWARD and self.core.pitch < 10:
-                    wrong_position = True
-
-                if wrong_position:
-                    logger.warning(f"-> Not at {start_label} Limit? Repositioning...")
-
-                    fix_success = False
-                    base_fix_power = self.learning_state.min_power_visible + 15
-
-                    for p_try in range(int(base_fix_power), 101, 10):
-                        fix_power = float(p_try) * float(-kick_direction.value)
-                        self.core.hw.set_motors(fix_power, fix_power)
-                        self._sleep_with_update(0.5)
-                        self.core.hw.stop()
-                        self._wait_for_settle()
-
-                        if (kick_direction == Direction.BACKWARD and self.core.pitch < -10) or (
-                            kick_direction == Direction.FORWARD and self.core.pitch > 10
-                        ):
-                            fix_success = True
-                            break
-
-                    if not fix_success:
-                        logger.warning("-> Reposition failed or confused. Aborting kickup.")
-                        return False
+                if not self._check_and_fix_position(kick_direction, start_label):
+                    return False
 
                 logger.info(
                     f"-> Kick-Up Attempt: Power {power:.1f} Direction {kick_direction}"
@@ -486,36 +531,7 @@ class Agent:
                 self._sleep_with_update(0.25)
 
                 # 2. Catch (Enter PID Loop)
-                logger.info("-> Attempting Catch...")
-                catch_start = time.perf_counter()
-
-                catch_params = TuningParams(
-                    kp=self.learning_state.pid.kp * 1.5,
-                    ki=self.learning_state.pid.ki,
-                    kd=self.learning_state.pid.kd * 2.0,
-                    target_angle_offset=0,
-                )
-
-                rate = RateLimiter(1.0 / self.hw_config.loop_time)
-                dt = self.hw_config.loop_time
-                while time.perf_counter() - catch_start < 2.5:
-                    if self.watchdog:
-                        self.watchdog.heartbeat()
-                    telem = self.core.update(self._zero_motion_enabled, catch_params, dt)
-
-                    error = abs(telem.pitch_angle - target_angle)
-                    if error < 5.0 and abs(telem.pitch_rate) < 30.0:
-                        pass # Looks good
-
-                    if abs(telem.pitch_angle - target_angle) > 40.0:
-                        pass # Failed?
-
-                    dt = rate.sleep()
-
-                # Check result
-                final_error = abs(self.core.pitch - target_angle)
-                if final_error < 10.0:
-                    logger.info("-> Catch Success!")
+                if self._attempt_catch(target_angle):
                     return True
 
                 self.core.hw.stop()
