@@ -1,10 +1,10 @@
-- [ ] Inspection Results
-  - [ ] Incorrect table formatting
-    - [ ] `AGENTS.md`
-      - [ ] Line 12: WEAK WARNING - Table is not correctly formatted (Highlighted: `| Category | Constraint | | :--- | :--- | | **Role & Constraints** | You are a Senior Python Robotic...`)
-      - [ ] Line 56: WEAK WARNING - Table is not correctly formatted (Highlighted: `| Repository Component | The LLM Blind Spot (Your Bias) | The Physical Rule (Your Constraint) | | :-...`)
-    - [ ] `BLIND_SPOTS.md`
-      - [ ] Line 9: WEAK WARNING - Table is not correctly formatted (Highlighted: `| Repository Component | Vulnerable Files & Functions | Explicitly Missing / Most Vulnerable Section...`)
+- [x] Inspection Results
+  - [x] Incorrect table formatting
+    - [x] `AGENTS.md`
+      - [x] Line 12: WEAK WARNING - Table is not correctly formatted (Highlighted: `| Category | Constraint | | :--- | :--- | | **Role & Constraints** | You are a Senior Python Robotic...`)
+      - [x] Line 56: WEAK WARNING - Table is not correctly formatted (Highlighted: `| Repository Component | The LLM Blind Spot (Your Bias) | The Physical Rule (Your Constraint) | | :-...`)
+    - [x] `BLIND_SPOTS.md`
+      - [x] Line 9: WEAK WARNING - Table is not correctly formatted (Highlighted: `| Repository Component | Vulnerable Files & Functions | Explicitly Missing / Most Vulnerable Section...`)
   - [x] Incorrect type
     - [x] `src/balance_bot/hardware/robot_hardware.py`
       - [x] Line 422: WARNING - Expected type 'str', got '() -> Any' instead (Highlighted: `self.accel_roll_axis.value`)
@@ -95,35 +95,35 @@
   
 
 
-  - [ ] Unused local symbols
-    - [ ] `src/balance_bot/hardware/sim_hardware.py`
-      - [ ] Line 132: WEAK WARNING - Parameter 'trim_override' value is not used (Highlighted: `trim_override: float | None = None`)
-      - [ ] Line 156: WEAK WARNING - Parameter 'threshold' value is not used (Highlighted: `threshold: float = 2.0`)
-      - [ ] Line 164: WEAK WARNING - Parameter 'duration' value is not used (Highlighted: `duration: float = 1.0`)
-      - [ ] Line 169: WEAK WARNING - Parameter 'sample_interval' value is not used (Highlighted: `sample_interval: float = 0.01`)
-    - [ ] `tests/benchmarks/benchmark_motion_request.py`
-      - [ ] Line 34: WEAK WARNING - Local variable 'm' value is not used (Highlighted: `m`)
-    - [ ] `tests/benchmarks/benchmark_tuning_params.py`
-      - [ ] Line 34: WEAK WARNING - Local variable 't' value is not used (Highlighted: `t`)
-    - [ ] `tests/test_agent_config_save.py`
-      - [ ] Line 15: WEAK WARNING - Parameter 'mock_logging' value is not used (Highlighted: `mock_logging`)
-      - [ ] Line 15: WEAK WARNING - Parameter 'mock_led' value is not used (Highlighted: `mock_led`)
-      - [ ] Line 15: WEAK WARNING - Parameter 'mock_core' value is not used (Highlighted: `mock_core`)
-      - [ ] Line 40: WEAK WARNING - Parameter 'mock_logging' value is not used (Highlighted: `mock_logging`)
-      - [ ] Line 40: WEAK WARNING - Parameter 'mock_led' value is not used (Highlighted: `mock_led`)
-      - [ ] Line 40: WEAK WARNING - Parameter 'mock_core' value is not used (Highlighted: `mock_core`)
-    - [ ] `tests/test_balance_core_params.py`
-      - [ ] Line 51: WEAK WARNING - Local variable 'telemetry' value is not used (Highlighted: `telemetry`)
-    - [ ] `tests/test_balance_finder.py`
-      - [ ] Line 85: WEAK WARNING - Local variable 'adj' value is not used (Highlighted: `adj`)
-    - [ ] `tests/test_battery.py`
-      - [ ] Line 11: WEAK WARNING - Local variable 'factor' value is not used (Highlighted: `factor`)
-      - [ ] Line 24: WEAK WARNING - Local variable 'factor' value is not used (Highlighted: `factor`)
-      - [ ] Line 61: WEAK WARNING - Local variable 'factor' value is not used (Highlighted: `factor`)
-    - [ ] `tests/test_jules_client.py`
-      - [ ] Line 71: WEAK WARNING - Parameter 'mock_urlopen' value is not used (Highlighted: `mock_urlopen`)
-    - [ ] `tests/test_pipeline_config_matching.py`
-      - [ ] Line 182: WEAK WARNING - Parameter 'monkeypatch' value is not used (Highlighted: `monkeypatch`)
-  - [ ] Vulnerable declared dependency
-    - [ ] `pyproject.toml`
-      - [ ] Line 28: WARNING - Dependency pypi:pytest:9.0.1 is vulnerable <ul><li><a href="https://www.mend.io/vulnerability-database/CVE-2025-71176?utm_source=Jetbrains">CVE-2025-71176</a> 6.8 Insufficient Information </li></ul> Results powered by <a href="https://www.mend.io/jetbrains-lp/?utm_source=JetBrains">Mend.io</a> (Highlighted: `"pytest>=9.0.0,!=9.0.2"`)
+  - [x] Unused local symbols
+    - [x] `src/balance_bot/hardware/sim_hardware.py`
+      - [x] Line 132: WEAK WARNING - Parameter 'trim_override' value is not used (Highlighted: `trim_override: float | None = None`)
+      - [x] Line 156: WEAK WARNING - Parameter 'threshold' value is not used (Highlighted: `threshold: float = 2.0`)
+      - [x] Line 164: WEAK WARNING - Parameter 'duration' value is not used (Highlighted: `duration: float = 1.0`)
+      - [x] Line 169: WEAK WARNING - Parameter 'sample_interval' value is not used (Highlighted: `sample_interval: float = 0.01`)
+    - [x] `tests/benchmarks/benchmark_motion_request.py`
+      - [x] Line 34: WEAK WARNING - Local variable 'm' value is not used (Highlighted: `m`)
+    - [x] `tests/benchmarks/benchmark_tuning_params.py`
+      - [x] Line 34: WEAK WARNING - Local variable 't' value is not used (Highlighted: `t`)
+    - [x] `tests/test_agent_config_save.py`
+      - [x] Line 15: WEAK WARNING - Parameter 'mock_logging' value is not used (Highlighted: `mock_logging`)
+      - [x] Line 15: WEAK WARNING - Parameter 'mock_led' value is not used (Highlighted: `mock_led`)
+      - [x] Line 15: WEAK WARNING - Parameter 'mock_core' value is not used (Highlighted: `mock_core`)
+      - [x] Line 40: WEAK WARNING - Parameter 'mock_logging' value is not used (Highlighted: `mock_logging`)
+      - [x] Line 40: WEAK WARNING - Parameter 'mock_led' value is not used (Highlighted: `mock_led`)
+      - [x] Line 40: WEAK WARNING - Parameter 'mock_core' value is not used (Highlighted: `mock_core`)
+    - [x] `tests/test_balance_core_params.py`
+      - [x] Line 51: WEAK WARNING - Local variable 'telemetry' value is not used (Highlighted: `telemetry`)
+    - [x] `tests/test_balance_finder.py`
+      - [x] Line 85: WEAK WARNING - Local variable 'adj' value is not used (Highlighted: `adj`)
+    - [x] `tests/test_battery.py`
+      - [x] Line 11: WEAK WARNING - Local variable 'factor' value is not used (Highlighted: `factor`)
+      - [x] Line 24: WEAK WARNING - Local variable 'factor' value is not used (Highlighted: `factor`)
+      - [x] Line 61: WEAK WARNING - Local variable 'factor' value is not used (Highlighted: `factor`)
+    - [x] `tests/test_jules_client.py`
+      - [x] Line 71: WEAK WARNING - Parameter 'mock_urlopen' value is not used (Highlighted: `mock_urlopen`)
+    - [x] `tests/test_pipeline_config_matching.py`
+      - [x] Line 182: WEAK WARNING - Parameter 'monkeypatch' value is not used (Highlighted: `monkeypatch`)
+  - [x] Vulnerable declared dependency
+    - [x] `pyproject.toml`
+      - [x] Line 28: WARNING - Dependency pypi:pytest:9.0.1 is vulnerable <ul><li><a href="https://www.mend.io/vulnerability-database/CVE-2025-71176?utm_source=Jetbrains">CVE-2025-71176</a> 6.8 Insufficient Information </li></ul> Results powered by <a href="https://www.mend.io/jetbrains-lp/?utm_source=JetBrains">Mend.io</a> (Highlighted: `"pytest>=9.0.0,!=9.0.2"`)
