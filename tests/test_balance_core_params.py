@@ -48,7 +48,7 @@ def test_balance_core_update_with_mutable_tuning_params():
         tuning.ki = 0.2
         tuning.target_angle_offset = 2.0
 
-        telemetry = core.update(motion, tuning, loop_delta_time=0.01)
+        _telemetry = core.update(motion, tuning, loop_delta_time=0.01)
 
         assert core.pid.params.kp == 3.0
         assert core.pid.params.ki == 0.2

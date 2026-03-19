@@ -82,5 +82,5 @@ def test_balance_finder_unstable_ignored():
     assert len(finder.motor_history) == 0
 
     # Stable input
-    adj = finder.update(motor_output=10.0, pitch_rate=0.5)
+    _adj = finder.update(motor_output=10.0, pitch_rate=0.5)
     assert len(finder.motor_history) == 1
