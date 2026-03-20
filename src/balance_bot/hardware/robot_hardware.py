@@ -463,6 +463,10 @@ class RobotHardware:
             avg_y = sum(ys) / len(ys)
             avg_z = sum(zs) / len(zs)
 
+            if max(abs(avg_x), abs(avg_y), abs(avg_z)) > 50.0:
+                logger.error(f"  [FATAL] Excessive gyro drift detected: ({avg_x:.2f}, {avg_y:.2f}, {avg_z:.2f})")
+                raise RuntimeError("Excessive gyro drift")
+
             self.learning_state.gyro_bias_x += avg_x
             self.learning_state.gyro_bias_y += avg_y
             self.learning_state.gyro_bias_z += avg_z
