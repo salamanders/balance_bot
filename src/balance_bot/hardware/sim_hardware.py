@@ -129,7 +129,7 @@ class SimHardware:
     def set_motor_retries(self, retries: int) -> None:
         pass
 
-    def set_motors(self, left: float, right: float, _trim_override: float | None = None) -> None:
+    def set_motors(self, left: float, right: float, trim_override: float | None = None) -> None:
         # Simulate occasional I2C write failures to motors (10% chance)
         if random.random() < 0.10:
             logger.debug("Simulated motor write failure - ignoring command")
@@ -166,12 +166,12 @@ class SimHardware:
         return glm.vec3(0, 0, 9.81)
 
     # Some basic maneuver methods
-    def execute_maneuver(self, steps: list[tuple[float, float, float]], _sample_interval: float = 0.01, _trim_override: float | None = None) -> MeasureResult:
+    def execute_maneuver(self, steps: list[tuple[float, float, float]], sample_interval: float = 0.01, trim_override: float | None = None) -> MeasureResult:
         logger.info("Executing maneuver in simulation")
         # Step through the commands and record
         samples = []
         for pwr_l, pwr_r, duration in steps:
-            self.set_motors(pwr_l, pwr_r, _trim_override)
+            self.set_motors(pwr_l, pwr_r, trim_override=trim_override)
             steps_needed = int(duration / self.control_dt)
             for _ in range(steps_needed):
                 imu = self.read_imu_converted()
