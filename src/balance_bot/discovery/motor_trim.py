@@ -75,6 +75,7 @@ class MotorTrimStep(CalibrationStep):
         hw.wait_for_stability()
 
         best_trim = state.motor_trim
+        avg_yaw = 0.0
 
         for i in range(15):
             p = state.min_power_visible + 15
@@ -103,6 +104,10 @@ class MotorTrimStep(CalibrationStep):
             gain = 0.015 if abs(avg_yaw) > 10.0 else 0.005
             correction = avg_yaw * gain
             best_trim = max(-0.4, min(0.4, best_trim + correction))
+
+        if abs(avg_yaw) > 20.0:
+            logger.error(f"  [FATAL] I didn't expect the drift to be that big ({avg_yaw:.2f} d/s)! Mechanics might be severely unbalanced.")
+            return StepStatus.FATAL, {}, {}
 
         logger.warning("  [WARNING] Could not perfectly trim. Saving best effort.")
         self._run_square_validation(hw, best_trim)
