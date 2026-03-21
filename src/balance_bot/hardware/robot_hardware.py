@@ -264,7 +264,8 @@ class RobotHardware:
 
     def init(self) -> None:
         """Initialize the underlying motor driver."""
-        self.pz.init()
+        if self.pz is not None:
+            self.pz.init()
 
     def read_imu_raw(self) -> tuple[glm.vec3, glm.vec3]:
         """
@@ -367,7 +368,8 @@ class RobotHardware:
 
     def set_motor_retries(self, retries: int) -> None:
         """Set the I2C retry count for the motor driver."""
-        self.pz.set_retries(retries)
+        if self.pz is not None:
+            self.pz.set_retries(retries)
 
     def set_motors(self, left: float, right: float, trim_override: float | None = None) -> None:
         """
@@ -403,11 +405,13 @@ class RobotHardware:
 
     def stop(self) -> None:
         """Stop all motors."""
-        self.pz.stop()
+        if self.pz is not None:
+            self.pz.stop()
 
     def cleanup(self) -> None:
         """Cleanup hardware resources."""
-        self.pz.cleanup()
+        if self.pz is not None:
+            self.pz.cleanup()
 
     def get_posture_state(self) -> str:
         """

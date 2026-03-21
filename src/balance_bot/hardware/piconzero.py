@@ -15,7 +15,7 @@ class PiconZero:
         self.bus_number = bus_number
         self.retries = 10
         self.debug = False
-        self.bus = None
+        self.bus: Any = None
         self._open_bus()
 
     def _open_bus(self):

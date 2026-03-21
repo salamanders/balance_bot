@@ -18,7 +18,7 @@ except ImportError:
     _HAS_SIM = False
     _BaseEnv = object
 
-class BalanceBotEnv(_BaseEnv):
+class BalanceBotEnv(_BaseEnv): # type: ignore[misc,valid-type]
     metadata = {"render_modes": ["human", "rgb_array"], "render_fps": 100}
 
     def __init__(self, render_mode=None):

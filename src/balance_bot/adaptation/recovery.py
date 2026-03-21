@@ -9,7 +9,7 @@ class RecoveryManager:
     Implements a 'Soft Start' ramp to prevent violent jerks when picking up the robot.
     """
 
-    def __init__(self, config: ControlConfig = None):
+    def __init__(self, config: ControlConfig | None = None):
         self.recovering = False
         self.ramp_setpoint = 0.0
         self.config = config if config else ControlConfig()
