@@ -26,20 +26,43 @@ class MotionRequest:
         return f"MotionRequest(velocity={self.velocity}, turn_rate={self.turn_rate}, enable_control={self.enable_control})"
 
 
-@dataclass(frozen=True)
 class BalanceTelemetry:
     """
     Tier 1 -> Tier 2/3 Data Interface.
+
+    NOTE: This is intentionally implemented as a standard class with __slots__
+    rather than a @dataclass(frozen=True) to avoid significant instantiation
+    overhead inside the high-frequency 100Hz reflex loop.
     """
-    pitch_angle: float
-    pitch_rate: float
-    yaw_rate: float
-    error_count: int
-    motor_output: float
-    crashed: bool
-    left_pwm: float
-    right_pwm: float
-    target_angle: float
+    __slots__ = ['pitch_angle', 'pitch_rate', 'yaw_rate', 'error_count', 'motor_output', 'crashed', 'left_pwm', 'right_pwm', 'target_angle']
+
+    def __init__(self, pitch_angle: float, pitch_rate: float, yaw_rate: float, error_count: int, motor_output: float, crashed: bool, left_pwm: float, right_pwm: float, target_angle: float):
+        self.pitch_angle = pitch_angle
+        self.pitch_rate = pitch_rate
+        self.yaw_rate = yaw_rate
+        self.error_count = error_count
+        self.motor_output = motor_output
+        self.crashed = crashed
+        self.left_pwm = left_pwm
+        self.right_pwm = right_pwm
+        self.target_angle = target_angle
+
+    def __repr__(self):
+        return f"BalanceTelemetry(pitch_angle={self.pitch_angle}, pitch_rate={self.pitch_rate}, yaw_rate={self.yaw_rate}, error_count={self.error_count}, motor_output={self.motor_output}, crashed={self.crashed}, left_pwm={self.left_pwm}, right_pwm={self.right_pwm}, target_angle={self.target_angle})"
+
+    def __eq__(self, other):
+        if not isinstance(other, BalanceTelemetry):
+            return NotImplemented
+        return (self.pitch_angle == other.pitch_angle and
+                self.pitch_rate == other.pitch_rate and
+                self.yaw_rate == other.yaw_rate and
+                self.error_count == other.error_count and
+                self.motor_output == other.motor_output and
+                self.crashed == other.crashed and
+                self.left_pwm == other.left_pwm and
+                self.right_pwm == other.right_pwm and
+                self.target_angle == other.target_angle)
+
 
 
 class TuningParams:
