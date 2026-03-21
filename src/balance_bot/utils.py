@@ -253,7 +253,7 @@ def check_force_calibration_flag() -> bool:
 def analyze_dominance(
     data: Union[dict[str, float], glm.vec3],
     label: str,
-    expected_axis: str = None,
+    expected_axis: Optional[str] = None,
     threshold: float = 1.5,
 ) -> tuple[str, float, bool]:
     """
@@ -338,7 +338,7 @@ def get_i2c_failure_report(bus_id: int, address: int, device_name: str) -> str:
 
 # --- Generic Helper Functions (Extracted from legacy WiringCheck) ---
 
-def make_i2c_check_fn(address: int, register: int = 0, expected_value: int = None) -> Callable[[Any], bool]:
+def make_i2c_check_fn(address: int, register: int = 0, expected_value: Optional[int] = None) -> Callable[[Any], bool]:
     """
     Creates a check function for scan_i2c.
     :param address: I2C Device Address (7-bit).
@@ -440,8 +440,8 @@ def verify_with_retries(name: str, test_fn: Callable[[int], Any],
 def find_threshold(name: str, start: float, step: float, limit: float,
                     action_fn: Callable[[float], Any],
                     check_fn: Callable[[Any], bool],
-                    fail_action: Callable[[Any], bool] = None,
-                    heartbeat_fn: Callable[[], None] = None) -> Optional[float]:
+                    fail_action: Optional[Callable[[Any], bool]] = None,
+                    heartbeat_fn: Optional[Callable[[], None]] = None) -> Optional[float]:
     """
     Find a threshold value by incrementing.
     fail_action: Optional callback on failure. Return True to retry SAME level.
