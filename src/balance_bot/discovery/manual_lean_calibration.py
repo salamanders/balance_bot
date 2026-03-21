@@ -28,7 +28,7 @@ class ManualLeanCalibrationStep(CalibrationStep):
         logger.info("   Waiting for stable backward resting position...")
 
         def get_stable_readings(num_samples: int = 10, delay: float = 0.1) -> Dict[Axis, float]:
-            samples = {Axis.X: [], Axis.Y: [], Axis.Z: []}
+            samples: Dict[Axis, list[float]] = {Axis.X: [], Axis.Y: [], Axis.Z: []}
             for _ in range(num_samples):
                 if hw.watchdog:
                     hw.watchdog.heartbeat()

@@ -3,6 +3,7 @@ import argparse
 import traceback
 import importlib.metadata
 import datetime
+from typing import Any
 from .behavior.agent import Agent
 from .utils import setup_logging, get_captured_logs
 from .jules_client import JulesClient, CrashReport
@@ -54,7 +55,7 @@ def _handle_crash_reporting(e: Exception, bot_instance: Agent | None = None) -> 
     logs = get_captured_logs()
 
     # 3. Capture State
-    state_info = {"status": "Crashed before Agent init or in Utility"}
+    state_info: dict[str, Any] = {"status": "Crashed before Agent init or in Utility"}
     if bot_instance:
         try:
             state_info = {
