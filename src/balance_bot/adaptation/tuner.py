@@ -189,12 +189,4 @@ class BalancePointFinder:
         elif avg_output < -self.config.balance_motor_threshold:
             adjustment = rate
 
-        # If we made an adjustment, set cooldown (optional, but good practice)
-        # Note: clearing the buffer already creates a delay equal to balance_check_interval samples.
-        # But we might want an extra pause?
-        # The logic below relies on the buffer filling up again, so no explicit cooldown needed unless we want longer.
-        # But let's verify if `balance_check_interval` is enough. 5 seconds is a long time.
-        # midpoint.md says "Updates should happen perhaps once every 5-10 seconds".
-        # So relying on buffer refill is consistent with that.
-
         return adjustment
