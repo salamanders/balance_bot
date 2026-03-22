@@ -409,34 +409,6 @@ def scan_i2c(name: str, check_fn: Callable[[Any], bool]) -> Optional[int]:
         return None
     return bus
 
-def verify_with_retries(name: str, test_fn: Callable[[int], Any],
-                         check_fn: Callable[[Any], bool | str],
-                         max_attempts: int = 3) -> bool:
-    """
-    Generic verification loop with retries.
-    check_fn should return True (Pass), False (Fail/Retry),
-    or a string "FAIL_FATAL" / "FAIL_RETRY".
-    Returns True if verified, False if failed.
-    """
-    logger.info(f">>> Verifying {name} <<<")
-    for i in range(max_attempts):
-        logger.info(f"  [Attempt {i+1}] Checking {name}...")
-        result = test_fn(i)
-
-        outcome = check_fn(result)
-        if outcome is True or outcome == "PASS":
-            logger.info(f"  [SUCCESS] {name} Verified.")
-            return True
-
-        if outcome == "FAIL_FATAL":
-            break
-
-        # If outcome is False or "FAIL_RETRY", loop continues
-        logger.info(f"  [RETRY] {name} check failed/ambiguous.")
-
-    logger.error(f"  [FAILURE] Could not verify {name} after {max_attempts} attempts.")
-    return False
-
 def find_threshold(name: str, start: float, step: float, limit: float,
                     action_fn: Callable[[float], Any],
                     check_fn: Callable[[Any], bool],
