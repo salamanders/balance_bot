@@ -13,7 +13,6 @@ class LedController:
 
     Modes:
      - SETUP: Fast blink (Waiting for sensors).
-     - TUNING: Slow blink (Auto-tuning in progress).
      - ON: Solid On (Active Balancing).
      - OFF: LED Off.
     """
@@ -67,12 +66,6 @@ class LedController:
             self.mode = "SETUP"
             self.blink_interval = self.config.setup_blink_interval
 
-    def signal_tuning(self) -> None:
-        """Set mode to TUNING (Slow Blink)."""
-        if self.mode != "TUNING":
-            self.mode = "TUNING"
-            self.blink_interval = self.config.tuning_blink_interval
-
     def signal_ready(self) -> None:
         """Set mode to ON (Solid)."""
         self.mode = "ON"
@@ -88,7 +81,7 @@ class LedController:
         Periodic update function to handle blinking.
         Should be called inside the main loop.
         """
-        if self.mode in ["SETUP", "TUNING"]:
+        if self.mode == "SETUP":
             now = time.monotonic()
             if now - self.last_toggle > self.blink_interval:
                 self.set_led(not self.is_on)
