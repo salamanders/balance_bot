@@ -7,8 +7,6 @@ from .enums import Axis
 
 logger = logging.getLogger(__name__)
 
-HARDWARE_CONFIG_FILE = Path("hardware_config.json")
-LEARNING_STATE_FILE = Path("learning_state.json")
 
 # Angle Thresholds (Degrees)
 BALANCING_THRESHOLD = 15.0      # Normal operating range (+/-)
@@ -147,25 +145,19 @@ class HardwareConfig(BaseModel):
     imu_max_retries: int = 5
 
     @classmethod
-    def load(cls) -> "HardwareConfig":
+    def load(cls, file_path: Path = Path("hardware_config.json")) -> "HardwareConfig":
         """Load hardware config from disk."""
-        if HARDWARE_CONFIG_FILE.exists():
-            try:
-                content = HARDWARE_CONFIG_FILE.read_text()
-                if not content.strip():
-                    return cls()
-                return cls.model_validate_json(content)
-            except Exception as e:
-                logger.error(f"Error loading hardware config: {e}. Using defaults.")
+        if file_path.exists():
+            content = file_path.read_text()
+            if not content.strip():
+                return cls()
+            return cls.model_validate_json(content)
         return cls()
 
-    def save(self) -> None:
+    def save(self, file_path: Path = Path("hardware_config.json")) -> None:
         """Serialize and save to disk."""
-        try:
-            HARDWARE_CONFIG_FILE.write_text(self.model_dump_json(indent=4))
-            logger.info("Hardware config saved.")
-        except OSError as e:
-            logger.error(f"Error saving hardware config: {e}")
+        file_path.write_text(self.model_dump_json(indent=4))
+        logger.info("Hardware config saved.")
 
 
 class LearningState(BaseModel):
@@ -212,25 +204,19 @@ class LearningState(BaseModel):
     balance_verified: bool = False
 
     @classmethod
-    def load(cls) -> "LearningState":
+    def load(cls, file_path: Path = Path("learning_state.json")) -> "LearningState":
         """Load learning state from disk."""
-        if LEARNING_STATE_FILE.exists():
-            try:
-                content = LEARNING_STATE_FILE.read_text()
-                if not content.strip():
-                    return cls()
-                return cls.model_validate_json(content)
-            except Exception as e:
-                logger.error(f"Error loading learning state: {e}. Using defaults.")
+        if file_path.exists():
+            content = file_path.read_text()
+            if not content.strip():
+                return cls()
+            return cls.model_validate_json(content)
         return cls()
 
-    def save(self) -> None:
+    def save(self, file_path: Path = Path("learning_state.json")) -> None:
         """Serialize and save to disk."""
-        try:
-            LEARNING_STATE_FILE.write_text(self.model_dump_json(indent=4))
-            # logger.info("Learning state saved.") # Reduce log spam on frequent saves
-        except OSError as e:
-            logger.error(f"Error saving learning state: {e}")
+        file_path.write_text(self.model_dump_json(indent=4))
+        # logger.info("Learning state saved.") # Reduce log spam on frequent saves
 
     def reset(self) -> None:
         """Reset learned state to defaults."""

@@ -11,7 +11,7 @@ class TestAgentStartup(unittest.TestCase):
 
     def setUp(self):
         # Patch LEARNING_STATE_FILE
-        self.config_patcher = patch("balance_bot.behavior.agent.LEARNING_STATE_FILE")
+        self.config_patcher = patch("pathlib.Path")
         self.mock_config_file = self.config_patcher.start()
 
         # Patch BalanceCore

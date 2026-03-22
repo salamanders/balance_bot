@@ -6,8 +6,9 @@ import concurrent.futures
 from typing import Any
 
 from ..watchdog import SurvivalWatchdog
+from pathlib import Path
 from ..configuration import (
-    LEARNING_STATE_FILE,
+
     HardwareConfig,
     LearningState,
     PIDParams,
@@ -41,7 +42,7 @@ class Agent:
 
         # 1. Configuration
         self.force_tune = "--tune" in sys.argv
-        self.has_saved_config = LEARNING_STATE_FILE.exists()
+        self.has_saved_config = Path("learning_state.json").exists()
         force_calib = check_force_calibration_flag()
 
         if force_calib:
@@ -375,7 +376,7 @@ class Agent:
         try:
             # Serialize in background thread
             json_content = json.dumps(config_data, indent=4)
-            LEARNING_STATE_FILE.write_text(json_content)
+            Path("learning_state.json").write_text(json_content)
             logger.info("Config saved (Async).")
         except Exception as e:
             logger.error(f"Error saving config asynchronously: {e}")

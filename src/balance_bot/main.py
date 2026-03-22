@@ -77,12 +77,10 @@ def _handle_crash_reporting(e: Exception, bot_instance: Agent | None = None) -> 
     try:
         if os.path.exists("flight_data.csv"):
             with open("flight_data.csv", "r") as f:
-                # Grab the header and the last 100 lines
-                lines = f.readlines()
-                if len(lines) > 100:
-                    telemetry_data = "".join([lines[0]] + lines[-100:])
-                else:
-                    telemetry_data = "".join(lines)
+                import collections
+                header = f.readline()
+                tail_lines = collections.deque(f, maxlen=100)
+                telemetry_data = header + "".join(tail_lines)
     except Exception as read_err:
         telemetry_data = f"Failed to read telemetry: {read_err}"
 
@@ -137,7 +135,7 @@ def main() -> None:
 
         # If the final discovery step hasn't been verified, it's a baby.
         # We also check if kickup power is 0.0, because SelfDiscoveryPipeline includes KickUp after Backlash.
-        needs_discovery = (not state.backlash_verified) or (state.control.kickup_power_forward == 0.0)
+        needs_discovery = not state.kickup_dynamics_verified
 
         # 3. Learn (Toddler Phase)
         if needs_discovery:
