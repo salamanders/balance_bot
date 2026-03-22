@@ -140,3 +140,61 @@ class TestJulesClient(unittest.TestCase):
 
         self.assertFalse(success)
         self.assertIn("err", prompt)
+
+    def test_crash_report_string_representation(self):
+        report = CrashReport(
+            error_msg="TestError",
+            stack_trace="trace",
+            logs="logs",
+            state={"a": 1},
+            libs={"lib": "1.0"},
+            telemetry="telemetry"
+        )
+        rep_str = str(report)
+        self.assertIn("TestError", rep_str)
+        self.assertIn("trace", rep_str)
+
+    @patch("urllib.request.urlopen")
+    def test_report_crash_http_error(self, mock_urlopen):
+        client = JulesClient(api_key="test_key")
+
+        from urllib.error import HTTPError
+        import io
+
+        fp = io.BytesIO(b'{"error": "Bad Request"}')
+        mock_err = HTTPError(url="http://test", code=400, msg="Bad Request", hdrs={}, fp=fp)
+        mock_urlopen.side_effect = mock_err
+
+        report = CrashReport("err", "trace", "logs", {}, {})
+        result = client.report_crash(report)
+
+        success = result[0] if isinstance(result, tuple) else result
+        self.assertFalse(success)
+
+    @patch("urllib.request.urlopen")
+    def test_report_crash_generic_exception(self, mock_urlopen):
+        client = JulesClient(api_key="test_key")
+
+        mock_urlopen.side_effect = Exception("Network down")
+
+        report = CrashReport("err", "trace", "logs", {}, {})
+        result = client.report_crash(report)
+
+        success = result[0] if isinstance(result, tuple) else result
+        self.assertFalse(success)
+
+    @patch("urllib.request.urlopen")
+    def test_report_crash_status_above_300(self, mock_urlopen):
+        client = JulesClient(api_key="test_key")
+
+        # Mock response with status >= 300
+        mock_response = MagicMock()
+        mock_response.status = 500
+        mock_response.reason = "Internal Server Error"
+        mock_urlopen.return_value.__enter__.return_value = mock_response
+
+        report = CrashReport("err", "trace", "logs", {}, {})
+        result = client.report_crash(report)
+
+        success = result[0] if isinstance(result, tuple) else result
+        self.assertFalse(success)
