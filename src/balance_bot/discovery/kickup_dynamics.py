@@ -1,6 +1,6 @@
 import time
 import logging
-from typing import Tuple, Dict, Any, Optional
+from typing import Any
 
 from .step import CalibrationStep, StepStatus
 from ..configuration import HardwareConfig, LearningState
@@ -151,7 +151,7 @@ class KickupDynamicsStep(CalibrationStep):
             return "SUCCESS"
         return "FAIL"
 
-    def _run_kickup_test(self, hw: RobotHardware, state: LearningState, direction_sign: float) -> Optional[float]:
+    def _run_kickup_test(self, hw: RobotHardware, state: LearningState, direction_sign: float) -> float | None:
         """Runs the threshold search for a specific kick-up direction. direction_sign: +1 for BACK, -1 for FRONT."""
         dir_name = "BACK" if direction_sign > 0 else "FRONT"
 
@@ -169,7 +169,7 @@ class KickupDynamicsStep(CalibrationStep):
                                lambda r: r == "SUCCESS",
                                heartbeat_fn=hw.watchdog.heartbeat if hw.watchdog else None)
 
-    def run(self, hw: RobotHardware, config: HardwareConfig, state: LearningState) -> Tuple[StepStatus, Dict[str, Any], Dict[str, Any]]:
+    def run(self, hw: RobotHardware, config: HardwareConfig, state: LearningState) -> tuple[StepStatus, dict[str, Any], dict[str, Any]]:
         logger.info(">>> Dynamic Kick-Up Calibration <<<")
 
         fwd = self._run_kickup_test(hw, state, 1.0) # Kickup Forward (from Back, +1)

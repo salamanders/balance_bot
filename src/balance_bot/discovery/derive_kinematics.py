@@ -1,5 +1,5 @@
 import logging
-from typing import Tuple, Dict, Any
+from typing import Any
 import glm
 
 from .step import CalibrationStep, StepStatus
@@ -23,7 +23,7 @@ class DeriveKinematicsStep(CalibrationStep):
                 state.motor_phasing_verified and
                 state.motor_channels_verified)
 
-    def _pulse_and_measure(self, hw: RobotHardware, l_p: float, r_p: float, name: str) -> Tuple[glm.vec3, glm.vec3]:
+    def _pulse_and_measure(self, hw: RobotHardware, l_p: float, r_p: float, name: str) -> tuple[glm.vec3, glm.vec3]:
         """Pulse motors and return average gyro and accel vectors."""
         logger.info(f"  Pulsing {name}...")
 
@@ -65,7 +65,7 @@ class DeriveKinematicsStep(CalibrationStep):
 
         return gyro, accel
 
-    def run(self, hw: RobotHardware, config: HardwareConfig, state: LearningState) -> Tuple[StepStatus, Dict[str, Any], Dict[str, Any]]:
+    def run(self, hw: RobotHardware, config: HardwareConfig, state: LearningState) -> tuple[StepStatus, dict[str, Any], dict[str, Any]]:
         logger.info("\n>>> Deriving Kinematics (Single Wiggle) <<<")
         hw.wait_for_stability()
 

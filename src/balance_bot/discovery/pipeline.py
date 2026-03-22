@@ -1,6 +1,5 @@
 import logging
 import time
-from typing import List
 
 from .step import CalibrationStep, StepStatus
 from ..configuration import HardwareConfig, LearningState
@@ -10,7 +9,7 @@ from ..watchdog import SurvivalWatchdog
 logger = logging.getLogger(__name__)
 
 class SelfDiscoveryPipeline:
-    def __init__(self, steps: List[CalibrationStep], watchdog: SurvivalWatchdog):
+    def __init__(self, steps: list[CalibrationStep], watchdog: SurvivalWatchdog) -> None:
         self.steps = steps
         self.watchdog = watchdog
         self.config = HardwareConfig.load()
@@ -19,7 +18,7 @@ class SelfDiscoveryPipeline:
         # Instantiate HAL once.
         self.hw = RobotHardware(self.config, self.state, watchdog=self.watchdog)
 
-    def run(self):
+    def run(self) -> None:
         logger.info("Starting Linear Self-Discovery Pipeline...")
         logger.info(f"Initial HardwareConfig: {self.config.model_dump()}")
         logger.info(f"Initial LearningState: {self.state.model_dump()}")
@@ -30,7 +29,7 @@ class SelfDiscoveryPipeline:
         logger.info("Self-Discovery Pipeline Complete!")
         self.hw.stop()
 
-    def _run_step_with_retries(self, step: CalibrationStep):
+    def _run_step_with_retries(self, step: CalibrationStep) -> None:
         max_retries = 3
         attempts = 0
         while attempts < max_retries: # Retry Loop

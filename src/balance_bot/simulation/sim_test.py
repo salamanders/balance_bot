@@ -7,7 +7,7 @@ sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), "../.
 
 from balance_bot.simulation.sim_env import BalanceBotEnv
 
-def main():
+def main() -> None:
     print("Starting PyBullet Visualization...")
     # Instantiate environment with human rendering
     env = BalanceBotEnv(render_mode="human")

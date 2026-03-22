@@ -1,5 +1,5 @@
 import logging
-from typing import Tuple, Dict, Any
+from typing import Any
 import glm
 
 from .step import CalibrationStep, StepStatus
@@ -16,7 +16,7 @@ class BrokenWireCheckStep(CalibrationStep):
     def is_verified(self, state: LearningState) -> bool:
         return state.broken_wire_verified
 
-    def run(self, hw: RobotHardware, config: HardwareConfig, state: LearningState) -> Tuple[StepStatus, Dict[str, Any], Dict[str, Any]]:
+    def run(self, hw: RobotHardware, config: HardwareConfig, state: LearningState) -> tuple[StepStatus, dict[str, Any], dict[str, Any]]:
         logger.info("\n>>> Checking for Broken Wires <<<")
         logger.info("Ensuring independent movement of left and right motors...")
         hw.wait_for_stability()

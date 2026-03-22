@@ -3,7 +3,7 @@ import json
 import logging
 import urllib.request
 import urllib.error
-from typing import Any, Dict, Optional
+from typing import Any
 from dataclasses import dataclass
 
 logger = logging.getLogger(__name__)
@@ -14,8 +14,8 @@ class CrashReport:
     error_msg: str
     stack_trace: str
     logs: str
-    state: Dict[str, Any]
-    libs: Dict[str, str]
+    state: dict[str, Any]
+    libs: dict[str, str]
     telemetry: str = "No telemetry data found."
 
 JULES_API_BASE = "https://jules.googleapis.com/v1alpha"
@@ -28,7 +28,7 @@ class JulesClient:
     Used to auto-report crashes and request fixes.
     """
 
-    def __init__(self, api_key: Optional[str] = None):
+    def __init__(self, api_key: str | None = None) -> None:
         self._api_key = api_key or os.environ.get("JULES_API_KEY")
         if not self._api_key:
             logger.warning("JulesClient initialized without API Key. Auto-fix will fail.")
@@ -37,7 +37,7 @@ class JulesClient:
         key_status = "***" if self._api_key else "None"
         return f"<{self.__class__.__name__} api_key={key_status}>"
 
-    def _make_request(self, method: str, endpoint: str, data: Optional[Dict] = None) -> Dict:
+    def _make_request(self, method: str, endpoint: str, data: dict[str, Any] | None = None) -> dict[str, Any]:
         if not self._api_key:
             raise ValueError("JULES_API_KEY not set.")
 
@@ -64,12 +64,12 @@ class JulesClient:
             logger.error(f"Jules API Request Failed: {e}")
             raise
 
-    def get_sources(self) -> list:
+    def get_sources(self) -> list[dict[str, Any]]:
         """List available sources (verification step)."""
         resp = self._make_request("GET", "sources")
         return resp.get("sources", [])
 
-    def create_session(self, prompt: str) -> Dict:
+    def create_session(self, prompt: str) -> dict[str, Any]:
         """Create a new Jules session for the hardcoded source."""
         payload = {
             "prompt": prompt,

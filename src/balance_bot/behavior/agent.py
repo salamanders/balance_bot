@@ -3,7 +3,7 @@ import time
 import logging
 import json
 import concurrent.futures
-from typing import Optional
+from typing import Any
 
 from ..watchdog import SurvivalWatchdog
 from ..configuration import (
@@ -35,7 +35,7 @@ class Agent:
     Orchestrates the robot's behavior, manages state, and schedules sub-systems.
     """
 
-    def __init__(self, watchdog: Optional[SurvivalWatchdog] = None):
+    def __init__(self, watchdog: SurvivalWatchdog | None = None):
         setup_logging()
         self.watchdog = watchdog
 
@@ -370,7 +370,7 @@ class Agent:
             self.io_executor.shutdown(wait=True)
 
     @staticmethod
-    def _save_config_worker(config_data: dict) -> None:
+    def _save_config_worker(config_data: dict[str, Any]) -> None:
         """Background worker to write config to disk."""
         try:
             # Serialize in background thread

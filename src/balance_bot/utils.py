@@ -6,7 +6,7 @@ import subprocess
 import os
 from pathlib import Path
 from collections import deque
-from typing import Union, Callable, Any, Optional, Sequence
+from typing import Union, Callable, Any, Sequence
 
 import glm
 
@@ -24,7 +24,7 @@ _CAPTURE_HANDLER = None
 class LogCaptureHandler(logging.Handler):
     """Handler that stores the last N log records in memory."""
 
-    def __init__(self, capacity: int = 50):
+    def __init__(self, capacity: int = 50) -> None:
         super().__init__()
         self.buffer: deque[str] = deque(maxlen=capacity)
         self.setFormatter(
@@ -33,7 +33,7 @@ class LogCaptureHandler(logging.Handler):
             )
         )
 
-    def emit(self, record):
+    def emit(self, record: logging.LogRecord) -> None:
         try:
             msg = self.format(record)
             self.buffer.append(msg)
@@ -50,7 +50,7 @@ class ComplementaryFilter:
         Angle = alpha * (Angle + GyroRate * dt) + (1 - alpha) * AccelAngle
     """
 
-    def __init__(self, alpha: float):
+    def __init__(self, alpha: float) -> None:
         """
         Initialize the filter.
         :param alpha: Trust factor for Gyro (0.0 to 1.0).
@@ -83,7 +83,7 @@ class RateLimiter:
     # Threshold for switching from time.sleep to busy-wait (seconds)
     BUSY_WAIT_THRESHOLD = 0.0015  # 1.5ms
 
-    def __init__(self, frequency: float):
+    def __init__(self, frequency: float) -> None:
         """
         Initialize the rate limiter.
         :param frequency: Target frequency in Hz.
@@ -131,7 +131,7 @@ class LogThrottler:
     Prevents log flooding by enforcing a minimum interval between logs.
     """
 
-    def __init__(self, interval_sec: float):
+    def __init__(self, interval_sec: float) -> None:
         """
         :param interval_sec: Minimum seconds between logs.
         """
@@ -174,16 +174,16 @@ def calculate_pitch(accel_y: float, accel_z: float) -> float:
 
 class StdOutToLog(object):
     """File-like object that redirects writes to a logger."""
-    def __init__(self, target_logger, level):
+    def __init__(self, target_logger: logging.Logger, level: int) -> None:
         self._logger = target_logger
         self.level = level
         self.buffer = ""
 
-    def write(self, message):
+    def write(self, message: str) -> None:
         if message != '\n':
             self._logger.log(self.level, message.rstrip())
 
-    def flush(self):
+    def flush(self) -> None:
         pass
 
 
@@ -239,7 +239,7 @@ def check_force_calibration_flag() -> bool:
 def analyze_dominance(
     data: Union[dict[str, float], glm.vec3],
     label: str,
-    expected_axis: Optional[str] = None,
+    expected_axis: str | None = None,
     threshold: float = 1.5,
 ) -> tuple[str, float, bool]:
     """
@@ -324,7 +324,7 @@ def get_i2c_failure_report(bus_id: int, address: int, device_name: str) -> str:
 
 # --- Generic Helper Functions (Extracted from legacy WiringCheck) ---
 
-def make_i2c_check_fn(address: int, register: int = 0, expected_value: Optional[int] = None) -> Callable[[Any], bool]:
+def make_i2c_check_fn(address: int, register: int = 0, expected_value: int | None = None) -> Callable[[Any], bool]:
     """
     Creates a check function for scan_i2c.
     :param address: I2C Device Address (7-bit).
@@ -332,7 +332,7 @@ def make_i2c_check_fn(address: int, register: int = 0, expected_value: Optional[
     :param expected_value: Value to expect. If None, any successful read is True.
     :return: Callable that returns True if device is found.
     """
-    def check(bus):
+    def check(bus: Any) -> bool:
         try:
             val = bus.read_byte_data(address, register)
             if expected_value is not None:
@@ -362,7 +362,7 @@ def scan_i2c_candidates(name: str, check_fn: Callable[[Any], bool]) -> int | Non
             pass
     return None
 
-def scan_i2c(name: str, check_fn: Callable[[Any], bool]) -> Optional[int]:
+def scan_i2c(name: str, check_fn: Callable[[Any], bool]) -> int | None:
     """
     Scans and returns bus ID if found.
     If not found, prints diagnostics and returns None.
@@ -389,8 +389,8 @@ def scan_i2c(name: str, check_fn: Callable[[Any], bool]) -> Optional[int]:
 def find_threshold(name: str, start: float, step: float, limit: float,
                     action_fn: Callable[[float], Any],
                     check_fn: Callable[[Any], bool],
-                    fail_action: Optional[Callable[[Any], bool]] = None,
-                    heartbeat_fn: Optional[Callable[[], None]] = None) -> Optional[float]:
+                    fail_action: Callable[[Any], bool] | None = None,
+                    heartbeat_fn: Callable[[], None] | None = None) -> float | None:
     """
     Find a threshold value by incrementing.
     fail_action: Optional callback on failure. Return True to retry SAME level.
