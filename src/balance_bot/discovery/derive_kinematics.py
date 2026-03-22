@@ -192,37 +192,6 @@ class DeriveKinematicsStep(CalibrationStep):
         }
 
         if swap_motors:
-            # Swap channels
-            # Also swap Inverts?
-            # If we swap channels, the physical wiring is swapped.
-            # If L was + and R was - (inverted), and we swap cables,
-            # Now "Logical L" goes to "Physical R". "Logical R" goes to "Physical L".
-            # We need to check if the *polarity* follows the motor or the port.
-            # Usually polarity is a property of the Motor+Wire+Gearbox.
-            # So if we swap ports, the polarity *of the motor* stays with the motor.
-            # So we should swap the invert flags too.
-            config_updates['motor_l'] = config.motor_r
-            config_updates['motor_r'] = config.motor_l
-            config_updates['motor_l_invert'] = config.motor_r_invert
-            config_updates['motor_r_invert'] = config.motor_l_invert
-
-            # But wait! We just calculated `motor_r_invert` (local var) based on the *current* configuration (before swap).
-            # The `motor_r_invert` we found applies to the motor connected to the *current* Right Channel.
-            # If we swap channels, that motor becomes the Left Motor.
-            # So `config.motor_l_invert` (new) should become `motor_r_invert` (calculated)?
-            # And `config.motor_r_invert` (new) should become `config.motor_l_invert` (old)?
-            # Let's trace carefully.
-            # Current Config: L=0, R=1.
-            # We detected R (Channel 1) needs Invert. `motor_r_invert = True`.
-            # We detected Swap Needed. (Channel 0 is actually Right, Channel 1 is actually Left).
-            # So we want Logical Left -> Channel 1. Logical Right -> Channel 0.
-            # Channel 1 (now Left) needed Invert. So `motor_l_invert` = True.
-            # Channel 0 (now Right) uses whatever L used? (We assumed L was correct phase because we didn't check L phase, we aligned R to L).
-            # This implies `motor_l_invert` (original) was correct for Channel 0.
-            # So:
-            # New L Channel = Old R Channel. New L Invert = Old R Invert (Calculated).
-            # New R Channel = Old L Channel. New R Invert = Old L Invert (Original).
-
             config_updates['motor_l'] = config.motor_r
             config_updates['motor_r'] = config.motor_l
             config_updates['motor_l_invert'] = motor_r_invert # The one we just calculated for the old R channel
