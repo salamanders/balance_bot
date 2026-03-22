@@ -42,7 +42,12 @@ class SelfDiscoveryPipeline:
             logger.info(f"Running [{step.name}]...")
 
             # Run Step
-            status, config_updates, state_updates = step.run(self.hw, self.config, self.state)
+            try:
+                status, config_updates, state_updates = step.run(self.hw, self.config, self.state)
+            except Exception as e:
+                logger.exception(f"Unexpected error during {step.name}")
+                self.hw.stop()
+                raise RuntimeError(f"Pipeline failed at {step.name}: {e}")
 
             if status == StepStatus.SUCCESS:
                 logger.info(f"[{step.name}] Succeeded.")
