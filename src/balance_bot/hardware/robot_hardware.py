@@ -189,15 +189,8 @@ class RobotHardware:
         """
         Initialize hardware components.
         """
-        # Inject Defaults if missing (Safe Baseline)
-        # Note: hw_config is frozen, so we use local variables or assume it's set.
-        # However, Agent/SelfDiscoveryPipeline should have ensured valid config or safe defaults are passed.
-        # But here we might check for None to avoid crash, though we can't modify self.hw_config.
-
         if self.pz is not None and self.sensor is not None:
              return
-
-        # Note: We rely on caller to set defaults for Axes if None.
 
         # If running in explicit mock mode via env var, do that first.
         if os.environ.get("ALLOW_MOCK_FALLBACK"):
