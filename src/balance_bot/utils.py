@@ -472,16 +472,6 @@ def find_threshold(name: str, start: float, step: float, limit: float,
     return None
 
 
-def vector_angle(v1: glm.vec3, v2: glm.vec3) -> float:
-    """Calculate the angle in degrees between two vectors."""
-    dot = glm.dot(v1, v2)
-    mag = glm.length(v1) * glm.length(v2)
-    if mag == 0:
-        return 0.0
-    val = max(-1.0, min(1.0, dot / mag))
-    return math.degrees(math.acos(val))
-
-
 def average_vector(vectors: Sequence[glm.vec3]) -> glm.vec3:
     """
     Calculate the average vector from a sequence of vectors.
@@ -497,35 +487,6 @@ def average_vector(vectors: Sequence[glm.vec3]) -> glm.vec3:
 
     count = len(vectors)
     return glm.vec3(sum_x / count, sum_y / count, sum_z / count)
-
-
-def sort_resting_vectors(vectors: list[glm.vec3]) -> tuple[glm.vec3, glm.vec3]:
-    """
-    Sort resting vectors into two distinct groups based on angle separation.
-    Returns the average vector for each group.
-    """
-    if not vectors:
-        raise ValueError("No vectors collected.")
-
-    pivot = vectors[0]
-    bucket_a = []
-    bucket_b = []
-
-    for vec in vectors:
-        angle = vector_angle(pivot, vec)
-        if angle < 20.0:
-            bucket_a.append(vec)
-        else:
-            bucket_b.append(vec)
-
-    if not bucket_b:
-        raise ValueError("Failed to find two distinct resting positions (all vectors clustered near pivot).")
-
-    # Average buckets
-    avg_a = average_vector(bucket_a)
-    avg_b = average_vector(bucket_b)
-
-    return avg_a, avg_b
 
 def circular_difference(target: float, current: float) -> float:
     """
