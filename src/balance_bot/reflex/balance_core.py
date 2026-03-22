@@ -6,24 +6,19 @@ from ..watchdog import SurvivalWatchdog
 from .pid import PIDController
 
 
+from dataclasses import dataclass
+
+@dataclass(slots=True)
 class MotionRequest:
     """
     Tier 3 -> Tier 1 Command Interface.
     """
-    __slots__ = ['velocity', 'turn_rate', 'enable_control']
-    velocity: float
-    turn_rate: float
-    enable_control: bool
-
-    def __init__(self, velocity: float = 0.0, turn_rate: float = 0.0, enable_control: bool = True):
-        self.velocity = velocity
-        self.turn_rate = turn_rate
-        self.enable_control = enable_control
-
-    def __repr__(self):
-        return f"MotionRequest(velocity={self.velocity}, turn_rate={self.turn_rate}, enable_control={self.enable_control})"
+    velocity: float = 0.0
+    turn_rate: float = 0.0
+    enable_control: bool = True
 
 
+@dataclass(slots=True)
 class BalanceTelemetry:
     """
     Tier 1 -> Tier 2/3 Data Interface.
@@ -32,52 +27,27 @@ class BalanceTelemetry:
     rather than a @dataclass(frozen=True) to avoid significant instantiation
     overhead inside the high-frequency 100Hz reflex loop.
     """
-    __slots__ = ['pitch_angle', 'pitch_rate', 'yaw_rate', 'error_count', 'motor_output', 'crashed', 'left_pwm', 'right_pwm', 'target_angle']
-
-    def __init__(self, pitch_angle: float, pitch_rate: float, yaw_rate: float, error_count: int, motor_output: float, crashed: bool, left_pwm: float, right_pwm: float, target_angle: float):
-        self.pitch_angle = pitch_angle
-        self.pitch_rate = pitch_rate
-        self.yaw_rate = yaw_rate
-        self.error_count = error_count
-        self.motor_output = motor_output
-        self.crashed = crashed
-        self.left_pwm = left_pwm
-        self.right_pwm = right_pwm
-        self.target_angle = target_angle
-
-    def __repr__(self):
-        return f"BalanceTelemetry(pitch_angle={self.pitch_angle}, pitch_rate={self.pitch_rate}, yaw_rate={self.yaw_rate}, error_count={self.error_count}, motor_output={self.motor_output}, crashed={self.crashed}, left_pwm={self.left_pwm}, right_pwm={self.right_pwm}, target_angle={self.target_angle})"
-
-    def __eq__(self, other):
-        if not isinstance(other, BalanceTelemetry):
-            return NotImplemented
-        return (self.pitch_angle == other.pitch_angle and
-                self.pitch_rate == other.pitch_rate and
-                self.yaw_rate == other.yaw_rate and
-                self.error_count == other.error_count and
-                self.motor_output == other.motor_output and
-                self.crashed == other.crashed and
-                self.left_pwm == other.left_pwm and
-                self.right_pwm == other.right_pwm and
-                self.target_angle == other.target_angle)
+    pitch_angle: float
+    pitch_rate: float
+    yaw_rate: float
+    error_count: int
+    motor_output: float
+    crashed: bool
+    left_pwm: float
+    right_pwm: float
+    target_angle: float
 
 
-
+@dataclass(slots=True)
 class TuningParams:
     """
     Tier 2 -> Tier 1 Adaptation Interface.
     Allows dynamic adjustment of PID and Balance Point.
     """
-    __slots__ = ['kp', 'ki', 'kd', 'target_angle_offset']
-
-    def __init__(self, kp: float, ki: float, kd: float, target_angle_offset: float):
-        self.kp = kp
-        self.ki = ki
-        self.kd = kd
-        self.target_angle_offset = target_angle_offset
-
-    def __repr__(self):
-        return f"TuningParams(kp={self.kp}, ki={self.ki}, kd={self.kd}, target_angle_offset={self.target_angle_offset})"
+    kp: float
+    ki: float
+    kd: float
+    target_angle_offset: float
 
 
 class BalanceCore:

@@ -18,8 +18,7 @@ def test_main_toddler_phase(mock_pipeline, _mock_hw, mock_state, mock_agent, _mo
 
     # Mock State
     mock_state_inst = MagicMock()
-    mock_state_inst.backlash_verified = False
-    mock_state_inst.control.kickup_power_forward = 0.0
+    mock_state_inst.kickup_dynamics_verified = False
     mock_state.load.return_value = mock_state_inst
 
     # Run
@@ -43,8 +42,7 @@ def test_main_adult_phase(mock_pipeline, _mock_hw, mock_state, mock_agent, _mock
 
     # Mock State
     mock_state_inst = MagicMock()
-    mock_state_inst.backlash_verified = True
-    mock_state_inst.control.kickup_power_forward = 50.0
+    mock_state_inst.kickup_dynamics_verified = True
     mock_state.load.return_value = mock_state_inst
 
     # Run
@@ -74,8 +72,7 @@ def test_main_crash_reporting_local_write_failure(
 
     # Mock State (needs discovery so we don't skip to adult phase, though it crashes anyway)
     mock_state_inst = MagicMock()
-    mock_state_inst.backlash_verified = True
-    mock_state_inst.control.kickup_power_forward = 50.0
+    mock_state_inst.kickup_dynamics_verified = True
     mock_state.load.return_value = mock_state_inst
 
     # Mock JulesClient to fail upload
