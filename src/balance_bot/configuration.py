@@ -78,7 +78,6 @@ class LedConfig(BaseModel):
     Configuration for LED timings and patterns.
     """
     setup_blink_interval: float = 0.05
-    tuning_blink_interval: float = 0.25
     countdown_blink_count_3: int = 3
     countdown_blink_count_2: int = 2
     countdown_blink_count_1: int = 1

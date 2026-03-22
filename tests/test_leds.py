@@ -68,20 +68,6 @@ def test_signal_setup():
         controller.signal_setup()
         assert controller.blink_interval == 0.5
 
-def test_signal_tuning():
-    with patch.object(Path, "exists", return_value=False):
-        config = LedConfig(tuning_blink_interval=0.3)
-        controller = LedController(config)
-
-        controller.signal_tuning()
-        assert controller.mode == "TUNING"
-        assert controller.blink_interval == 0.3
-
-        # Second call should not do anything
-        controller.blink_interval = 0.6
-        controller.signal_tuning()
-        assert controller.blink_interval == 0.6
-
 def test_signal_ready():
     with patch.object(Path, "exists", return_value=False):
         controller = LedController()
