@@ -171,5 +171,33 @@ class TestAgentStateMachine(unittest.TestCase):
 
         self.assertEqual(self.agent.state, BotState.IDLE)
 
+    def test_keyboard_interrupt_graceful_shutdown(self):
+        """Test that KeyboardInterrupt during main loop is handled gracefully."""
+        self.agent.running = True
+        self.agent.config_dirty = True
+
+        # Mock the components that are cleaned up in finally block
+        with patch.object(self.agent.blackbox, 'stop') as mock_blackbox_stop, \
+             patch.object(self.agent.core, 'cleanup') as mock_core_cleanup, \
+             patch.object(self.agent.led, 'signal_off') as mock_led_off, \
+             patch.object(self.agent.io_executor, 'shutdown') as mock_io_shutdown, \
+             patch.object(self.agent.learning_state, 'save') as mock_state_save:
+
+            # Make the main loop raise KeyboardInterrupt
+            self.agent.core.update.side_effect = KeyboardInterrupt()  # type: ignore[attr-defined]
+
+            # Also mock the core.pitch property so it doesn't fail the `abs(pitch)` check in IDLE
+            self.agent.core.pitch = 0.0
+
+            # The agent should handle this and exit gracefully without raising
+            self.agent.run()
+
+            # Verify all cleanup methods in finally block were called
+            mock_blackbox_stop.assert_called_once()
+            mock_core_cleanup.assert_called_once()
+            mock_led_off.assert_called_once()
+            mock_state_save.assert_called_once()
+            mock_io_shutdown.assert_called_once_with(wait=True)
+
 if __name__ == '__main__':
     unittest.main()
