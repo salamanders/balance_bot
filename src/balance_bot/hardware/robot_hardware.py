@@ -450,12 +450,6 @@ class RobotHardware:
             logger.warning(f"  [DRIFT] Rate {rate:.1f} > {threshold} but Variance is low. Auto-Calibrating...")
 
             # Calculate observed bias (Average of current readings)
-            # Since read_imu_raw returns (Raw - OldBias),
-            # Observed = (Raw - OldBias)
-            # We want NewBias such that (Raw - NewBias) = 0
-            # So NewBias = Raw
-            # NewBias = Observed + OldBias
-
             avg_x = sum(xs) / len(xs)
             avg_y = sum(ys) / len(ys)
             avg_z = sum(zs) / len(zs)
