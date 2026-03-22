@@ -1,4 +1,4 @@
-from unittest.mock import MagicMock, patch, call
+from unittest.mock import patch, call
 from pathlib import Path
 
 from balance_bot.behavior.leds import LedController
