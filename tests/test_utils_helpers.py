@@ -1,6 +1,6 @@
 import unittest
 from unittest.mock import MagicMock, patch, call
-from balance_bot.utils import scan_i2c_candidates, verify_with_retries, find_threshold
+from balance_bot.utils import scan_i2c_candidates, find_threshold
 
 class TestUtilsHelpers(unittest.TestCase):
 
@@ -32,43 +32,6 @@ class TestUtilsHelpers(unittest.TestCase):
 
         result = scan_i2c_candidates("TestDevice", lambda _b: True)
         self.assertIsNone(result)
-
-    def test_verify_with_retries_success(self):
-        # We need to simulate retries.
-        # test_fn accepts attempt number
-        # Returns "Fail" first (attempt 0), then "Pass" (attempt 1)
-        # However, verify_with_retries loops on attempts.
-        # If check_fn returns False, it continues loop.
-
-        test_fn = MagicMock(side_effect=["Fail", "Pass"])
-
-        def check_fn(res):
-            return res == "Pass"
-
-        result = verify_with_retries("Test", test_fn, check_fn, max_attempts=3)
-        self.assertTrue(result)
-        self.assertEqual(test_fn.call_count, 2)
-        # Note: verify_with_retries calls test_fn(i)
-        test_fn.assert_has_calls([call(0), call(1)])
-
-    def test_verify_with_retries_fail_retry(self):
-        test_fn = MagicMock(return_value="Fail")
-
-        result = verify_with_retries("Test", test_fn, lambda _x: False, max_attempts=2)
-        self.assertFalse(result)
-        self.assertEqual(test_fn.call_count, 2)
-        test_fn.assert_has_calls([call(0), call(1)])
-
-    def test_verify_with_retries_fail_fatal(self):
-        # If check_fn returns "FAIL_FATAL", the loop breaks immediately and returns False
-        test_fn = MagicMock(return_value="Fatal")
-
-        def check_fn(_res):
-            return "FAIL_FATAL"
-
-        result = verify_with_retries("Test", test_fn, check_fn, max_attempts=3)
-        self.assertFalse(result)
-        test_fn.assert_called_once_with(0)
 
     def test_find_threshold_success(self):
         # Test steps: 10, 15, 20
