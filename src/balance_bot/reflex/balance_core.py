@@ -75,6 +75,19 @@ class BalanceCore:
         # State
         self.pitch = 0.0
 
+        # Pre-allocate telemetry object
+        self.current_telemetry = BalanceTelemetry(
+            pitch_angle=0.0,
+            pitch_rate=0.0,
+            yaw_rate=0.0,
+            error_count=0,
+            motor_output=0.0,
+            crashed=False,
+            left_pwm=0.0,
+            right_pwm=0.0,
+            target_angle=0.0
+        )
+
     def set_i2c_retries(self, retries: int) -> None:
         """Set the I2C retry count for the motor driver."""
         self.hw.set_motor_retries(retries)
@@ -108,17 +121,16 @@ class BalanceCore:
             # Explicitly Idle: Reset PID integrators and Stop Motors.
             self.pid.reset()
             self.hw.stop()
-            return BalanceTelemetry(
-                pitch_angle=self.pitch,
-                pitch_rate=reading.pitch_rate,
-                yaw_rate=reading.yaw_rate,
-                error_count=reading.error_count,
-                motor_output=0.0,
-                crashed=False,
-                left_pwm=0.0,
-                right_pwm=0.0,
-                target_angle=self.learning_state.pid.target_angle
-            )
+            self.current_telemetry.pitch_angle = self.pitch
+            self.current_telemetry.pitch_rate = reading.pitch_rate
+            self.current_telemetry.yaw_rate = reading.yaw_rate
+            self.current_telemetry.error_count = reading.error_count
+            self.current_telemetry.motor_output = 0.0
+            self.current_telemetry.crashed = False
+            self.current_telemetry.left_pwm = 0.0
+            self.current_telemetry.right_pwm = 0.0
+            self.current_telemetry.target_angle = self.learning_state.pid.target_angle
+            return self.current_telemetry
 
         # 4. Apply Tuning (Tier 2 Adaptation)
         # We update the PID controller's params dynamically
@@ -144,17 +156,16 @@ class BalanceCore:
         if abs(self.pitch) > self.learning_state.crash_angle:
             self.hw.stop()
             self.pid.reset()  # Reset integral windup on crash
-            return BalanceTelemetry(
-                pitch_angle=self.pitch,
-                pitch_rate=reading.pitch_rate,
-                yaw_rate=reading.yaw_rate,
-                error_count=reading.error_count,
-                motor_output=0.0,
-                crashed=True,
-                left_pwm=0.0,
-                right_pwm=0.0,
-                target_angle=target_angle
-            )
+            self.current_telemetry.pitch_angle = self.pitch
+            self.current_telemetry.pitch_rate = reading.pitch_rate
+            self.current_telemetry.yaw_rate = reading.yaw_rate
+            self.current_telemetry.error_count = reading.error_count
+            self.current_telemetry.motor_output = 0.0
+            self.current_telemetry.crashed = True
+            self.current_telemetry.left_pwm = 0.0
+            self.current_telemetry.right_pwm = 0.0
+            self.current_telemetry.target_angle = target_angle
+            return self.current_telemetry
 
         # 7. Calculate Control Output
         error = -circular_difference(target_angle, self.pitch)
@@ -195,17 +206,16 @@ class BalanceCore:
 
         self.hw.set_motors(left_motor, right_motor)
 
-        return BalanceTelemetry(
-            pitch_angle=self.pitch,
-            pitch_rate=reading.pitch_rate,
-            yaw_rate=reading.yaw_rate,
-            error_count=reading.error_count,
-            motor_output=pid_output, # Raw PID output (useful for battery estimation)
-            crashed=False,
-            left_pwm=left_motor,
-            right_pwm=right_motor,
-            target_angle=target_angle
-        )
+        self.current_telemetry.pitch_angle = self.pitch
+        self.current_telemetry.pitch_rate = reading.pitch_rate
+        self.current_telemetry.yaw_rate = reading.yaw_rate
+        self.current_telemetry.error_count = reading.error_count
+        self.current_telemetry.motor_output = pid_output
+        self.current_telemetry.crashed = False
+        self.current_telemetry.left_pwm = left_motor
+        self.current_telemetry.right_pwm = right_motor
+        self.current_telemetry.target_angle = target_angle
+        return self.current_telemetry
 
     def cleanup(self):
         self.hw.stop()

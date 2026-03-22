@@ -1,4 +1,4 @@
-from enum import Enum, IntEnum, auto
+from enum import Enum, IntEnum
 
 class Orientation(str, Enum):
     FRONT = "front"
@@ -13,9 +13,3 @@ class Direction(IntEnum):
     FORWARD = 1
     BACKWARD = -1
 
-class BotState(Enum):
-    IDLE = auto()
-    KICKUP = auto()
-    BALANCING = auto()
-    CRASHED = auto()
-    FATAL_ERROR = auto()

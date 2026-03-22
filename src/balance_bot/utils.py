@@ -81,7 +81,7 @@ class RateLimiter:
     """
 
     # Threshold for switching from time.sleep to busy-wait (seconds)
-    BUSY_WAIT_THRESHOLD = 0.0015  # 1.5ms
+    BUSY_WAIT_THRESHOLD = 0.002  # 2.0ms
 
     def __init__(self, frequency: float) -> None:
         """

@@ -1,3 +1,4 @@
+import mmap
 import os
 import argparse
 import traceback
@@ -16,6 +17,42 @@ def parse_args() -> argparse.Namespace:
     parser.add_argument("--allow-mocks", action="store_true", help="Allow fallback to mock hardware")
     parser.add_argument("--auto-fix", action="store_true", help="Report crashes to Jules")
     return parser.parse_args()
+
+
+def get_tail_telemetry(filepath: str, lines: int = 100) -> str:
+    try:
+        with open(filepath, "r+b") as f:
+            if os.fstat(f.fileno()).st_size == 0:
+                return "Telemetry file empty."
+            mm = mmap.mmap(f.fileno(), 0, access=mmap.ACCESS_READ)
+
+            # Read header
+            header_end = mm.find(b"\n")
+            if header_end == -1:
+                return "Telemetry format invalid (no newline)."
+            header = mm[:header_end + 1].decode("utf-8")
+
+            # Find the last N lines efficiently without loading the whole file
+            # Go to end
+            pos = mm.size() - 1
+            newline_count = 0
+
+            while pos > header_end and newline_count <= lines:
+                if mm[pos] == 10:  # b"\n"
+                    newline_count += 1
+                pos -= 1
+
+            if pos <= header_end:
+                pos = header_end
+            else:
+                pos += 2 # Move past the newline
+
+            tail_lines = mm[pos:].decode("utf-8")
+            mm.close()
+            return header + tail_lines
+    except Exception as e:
+        return f"Telemetry irrecoverable: {e}"
+
 
 def _reset_robot_memory() -> None:
     """Wipe all learned configuration."""
@@ -74,15 +111,8 @@ def _handle_crash_reporting(e: Exception, bot_instance: Agent | None = None) -> 
 
     # 5. Capture Telemetry
     telemetry_data = "No telemetry data found."
-    try:
-        if os.path.exists("flight_data.csv"):
-            with open("flight_data.csv", "r") as f:
-                import collections
-                header = f.readline()
-                tail_lines = collections.deque(f, maxlen=100)
-                telemetry_data = header + "".join(tail_lines)
-    except Exception as read_err:
-        telemetry_data = f"Failed to read telemetry: {read_err}"
+    if os.path.exists("flight_data.csv"):
+        telemetry_data = get_tail_telemetry("flight_data.csv", 100)
 
     # 6. Report
     client = JulesClient()
