@@ -1,4 +1,3 @@
-import time
 import subprocess
 from balance_bot.utils import get_i2c_failure_report
 import math
@@ -16,24 +15,54 @@ def test_clamp():
 
 def test_rate_limiter():
     freq = 50
-    limiter = RateLimiter(freq)
+    # Period = 0.02
 
-    start = time.monotonic()
-    # Burn first cycle reset
-    limiter.reset()
+    with patch("time.perf_counter") as mock_perf, patch("time.sleep") as mock_sleep:
+        # Initial time
+        mock_perf.return_value = 100.0
 
-    # Simulate a fast loop
-    for _ in range(5):
-        time.sleep(0.001) # Work takes 1ms
-        limiter.sleep()   # Should sleep rest of 20ms
+        limiter = RateLimiter(freq) # calls perf_counter
 
-    end = time.monotonic()
-    elapsed = end - start
+        # Burn first cycle reset
+        mock_perf.return_value = 100.0
+        limiter.reset() # calls perf_counter
 
-    # 5 periods of 20ms = 0.1s
-    assert elapsed >= 0.1
-    # Should not be too slow either (allow 20% overhead)
-    assert elapsed < 0.12
+        # Now simulate cycle 1
+        # Work took 0.001s
+        mock_perf.side_effect = [
+            100.001, # first call inside sleep() `now = time.perf_counter()`
+            100.001, # `sleep_time = self.next_time - time.perf_counter() ...`
+            100.020, # `while time.perf_counter() < self.next_time` loop exits
+            100.020, # `final_now = time.perf_counter()`
+        ]
+
+        dt = limiter.sleep()
+
+        assert abs(dt - 0.020) < 1e-6
+        mock_sleep.assert_called_once()
+        # Sleep should be called with 0.02 - 0.001 - BUSY_WAIT(0.002) = 0.017
+        assert abs(mock_sleep.call_args[0][0] - 0.017) < 1e-6
+
+def test_rate_limiter_lagging():
+    freq = 50
+    with patch("time.perf_counter") as mock_perf, patch("time.sleep") as mock_sleep:
+        limiter = RateLimiter(freq)
+
+        mock_perf.return_value = 100.0
+        limiter.reset()
+
+        # Simulate work taking longer than period (e.g. 0.030s)
+        # expected self.next_time was 100.020, but now is 100.030
+        mock_perf.side_effect = [
+            100.030, # inside sleep() `now = time.perf_counter()`
+            100.030, # `sleep_time = self.next_time - time.perf_counter() ...`
+            100.030, # `while time.perf_counter() < self.next_time` loop exits
+            100.030, # `final_now = time.perf_counter()`
+        ]
+
+        dt = limiter.sleep()
+        assert abs(dt - 0.030) < 1e-6
+        mock_sleep.assert_not_called()
 
 def test_complementary_filter():
     alpha = 0.98
