@@ -23,7 +23,6 @@ class PIDController:
         Initialize the PID Controller.
         :param params: Reference to the shared PIDParams object.
         """
-        # We initialize with dummy values, updated in update()
         # differential_on_measurement=True means D term is based on d(Input)/dt, not d(Error)/dt.
         # This avoids derivative kick on setpoint changes.
         self.pid = PID(
