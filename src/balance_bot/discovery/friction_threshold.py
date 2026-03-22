@@ -1,5 +1,5 @@
 import logging
-from typing import Tuple, Dict, Any
+from typing import Any
 import glm
 
 from .step import CalibrationStep, StepStatus
@@ -11,7 +11,7 @@ logger = logging.getLogger(__name__)
 
 # --- Step 4: Friction Threshold ---
 class FrictionThresholdStep(CalibrationStep):
-    def __init__(self):
+    def __init__(self) -> None:
         self.gyro_glitches = 0
         self.ignored_commands = 0
 
@@ -22,7 +22,7 @@ class FrictionThresholdStep(CalibrationStep):
     def is_verified(self, state: LearningState) -> bool:
         return state.friction_threshold_verified
 
-    def run(self, hw: RobotHardware, config: HardwareConfig, state: LearningState) -> Tuple[StepStatus, Dict[str, Any], Dict[str, Any]]:
+    def run(self, hw: RobotHardware, config: HardwareConfig, state: LearningState) -> tuple[StepStatus, dict[str, Any], dict[str, Any]]:
         logger.info("\n>>> Finding Minimum Power (Raw) <<<")
         logger.info("Ensuring robot is on the floor...")
 

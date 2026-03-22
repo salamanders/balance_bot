@@ -1,5 +1,5 @@
 from enum import Enum, auto
-from typing import Protocol, Tuple, Dict, Any
+from typing import Protocol, Any
 from ..configuration import HardwareConfig, LearningState
 from ..hardware.robot_hardware import RobotHardware
 
@@ -24,7 +24,7 @@ class CalibrationStep(Protocol):
         """
         ...
 
-    def run(self, hw: RobotHardware, config: HardwareConfig, state: LearningState) -> Tuple[StepStatus, Dict[str, Any], Dict[str, Any]]:
+    def run(self, hw: RobotHardware, config: HardwareConfig, state: LearningState) -> tuple[StepStatus, dict[str, Any], dict[str, Any]]:
         """
         Execute the routine.
         Returns:

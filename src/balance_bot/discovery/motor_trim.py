@@ -1,6 +1,6 @@
 import logging
 import time
-from typing import Tuple, Dict, Any
+from typing import Any
 
 from .step import CalibrationStep, StepStatus
 from ..configuration import HardwareConfig, LearningState
@@ -70,7 +70,7 @@ class MotorTrimStep(CalibrationStep):
 
         logger.info(f"  [VALIDATION] Average Wobble (Straight Line Drift): {(total_wobble / 4):.2f} d/s")
 
-    def run(self, hw: RobotHardware, config: HardwareConfig, state: LearningState) -> Tuple[StepStatus, Dict[str, Any], Dict[str, Any]]:
+    def run(self, hw: RobotHardware, config: HardwareConfig, state: LearningState) -> tuple[StepStatus, dict[str, Any], dict[str, Any]]:
         logger.info(">>> Motor Trim Calibration <<<")
         hw.wait_for_stability()
 

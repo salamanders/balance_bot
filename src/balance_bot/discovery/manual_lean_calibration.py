@@ -1,6 +1,6 @@
 import time
 import logging
-from typing import Tuple, Dict, Any
+from typing import Any
 
 from .step import CalibrationStep, StepStatus
 from ..configuration import HardwareConfig, LearningState
@@ -17,7 +17,7 @@ class ManualLeanCalibrationStep(CalibrationStep):
     def is_verified(self, state: LearningState) -> bool:
         return state.manual_lean_verified
 
-    def run(self, hw: RobotHardware, config: HardwareConfig, state: LearningState) -> Tuple[StepStatus, Dict[str, Any], Dict[str, Any]]:
+    def run(self, hw: RobotHardware, config: HardwareConfig, state: LearningState) -> tuple[StepStatus, dict[str, Any], dict[str, Any]]:
         logger.info("========================================")
         logger.info(">>> MANUAL LEAN CALIBRATION REQUIRED <<<")
         logger.info("Please follow the physical instructions.")
@@ -27,8 +27,8 @@ class ManualLeanCalibrationStep(CalibrationStep):
         logger.info("1. Gently lean the robot BACKWARDS until it rests on its bumpers.")
         logger.info("   Waiting for stable backward resting position...")
 
-        def get_stable_readings(num_samples: int = 10, delay: float = 0.1) -> Dict[Axis, float]:
-            samples: Dict[Axis, list[float]] = {Axis.X: [], Axis.Y: [], Axis.Z: []}
+        def get_stable_readings(num_samples: int = 10, delay: float = 0.1) -> dict[Axis, float]:
+            samples: dict[Axis, list[float]] = {Axis.X: [], Axis.Y: [], Axis.Z: []}
             for _ in range(num_samples):
                 if hw.watchdog:
                     hw.watchdog.heartbeat()
@@ -43,7 +43,7 @@ class ManualLeanCalibrationStep(CalibrationStep):
                 Axis.Z: sum(samples[Axis.Z]) / num_samples
             }
 
-        def wait_for_flop(initial_readings: Dict[Axis, float], threshold: float = 0.5) -> Dict[Axis, float]:
+        def wait_for_flop(initial_readings: dict[Axis, float], threshold: float = 0.5) -> dict[Axis, float]:
             while True:
                 if hw.watchdog:
                     hw.watchdog.heartbeat()

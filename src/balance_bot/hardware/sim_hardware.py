@@ -4,7 +4,6 @@ import random
 import logging
 import numpy as np
 import glm
-from typing import Optional
 
 from .types import IMUReading, MeasureResult, DriveCommand
 from ..configuration import HardwareConfig, LearningState
@@ -22,7 +21,7 @@ class SimHardware:
     while providing the exact same interface as RobotHardware.
     """
 
-    def __init__(self, hw_config: HardwareConfig, learning_state: LearningState, watchdog: Optional[SurvivalWatchdog] = None, render_mode: Optional[str] = None):
+    def __init__(self, hw_config: HardwareConfig, learning_state: LearningState, watchdog: SurvivalWatchdog | None = None, render_mode: str | None = None):
         self.config = hw_config
         self.state = learning_state
         self.watchdog = watchdog
@@ -40,7 +39,7 @@ class SimHardware:
 
         # Simulate I2C glitches
         self.error_count = 0
-        self.last_valid_imu: Optional[IMUReading] = None
+        self.last_valid_imu: IMUReading | None = None
 
     def apply_config(self, new_config: HardwareConfig) -> None:
         self.config = new_config

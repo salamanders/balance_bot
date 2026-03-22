@@ -1,4 +1,3 @@
-from typing import Optional
 
 from ..configuration import HardwareConfig, LearningState
 from ..hardware.robot_hardware import RobotHardware
@@ -92,7 +91,7 @@ class BalanceCore:
      - Safety (Hard-coded limits).
     """
 
-    def __init__(self, hw_config: HardwareConfig, learning_state: LearningState, watchdog: Optional[SurvivalWatchdog] = None):
+    def __init__(self, hw_config: HardwareConfig, learning_state: LearningState, watchdog: SurvivalWatchdog | None = None):
         self.hw_config = hw_config
         self.learning_state = learning_state
 

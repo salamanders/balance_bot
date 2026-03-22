@@ -1,6 +1,5 @@
 from dataclasses import dataclass
 from functools import cached_property
-from typing import Optional
 
 import glm
 
@@ -23,7 +22,7 @@ class IMUReading:
     """
     __slots__ = ['pitch_angle', 'pitch_rate', 'yaw_rate', 'roll_angle', 'roll_rate', 'error_count', 'accel_raw', 'gyro_raw']
 
-    def __init__(self, pitch_angle: float, pitch_rate: float, yaw_rate: float, roll_angle: float, roll_rate: float, error_count: int = 0, accel_raw: Optional[glm.vec3] = None, gyro_raw: Optional[glm.vec3] = None):
+    def __init__(self, pitch_angle: float, pitch_rate: float, yaw_rate: float, roll_angle: float, roll_rate: float, error_count: int = 0, accel_raw: glm.vec3 | None = None, gyro_raw: glm.vec3 | None = None):
         self.pitch_angle = pitch_angle
         self.pitch_rate = pitch_rate
         self.yaw_rate = yaw_rate

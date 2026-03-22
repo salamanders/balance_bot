@@ -22,12 +22,12 @@ class TelemetryBlackbox:
                 "yaw_rate", "left_pwm", "right_pwm", "pid_target"
             ])
 
-    def start(self):
+    def start(self) -> None:
         self.running = True
         self.worker.start()
         logger.info(f"Telemetry Blackbox recording to {self.filename}")
 
-    def log_tick(self, state_name, pitch, pitch_rate, yaw_rate, left_pwm, right_pwm, pid_target):
+    def log_tick(self, state_name: str, pitch: float, pitch_rate: float, yaw_rate: float, left_pwm: float, right_pwm: float, pid_target: float) -> None:
         if not self.running:
             return
 
@@ -51,7 +51,7 @@ class TelemetryBlackbox:
             else:
                 time.sleep(0.1)
 
-    def stop(self):
+    def stop(self) -> None:
         self.running = False
         if self.worker.is_alive():
             self.worker.join(timeout=1.0)

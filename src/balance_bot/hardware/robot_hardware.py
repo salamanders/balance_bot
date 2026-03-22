@@ -2,7 +2,7 @@ import os
 import time
 import logging
 import contextlib
-from typing import Protocol, runtime_checkable, Any, Optional
+from typing import Protocol, runtime_checkable, Any
 from collections import deque
 
 import glm
@@ -130,7 +130,7 @@ class RobotHardware:
      - Convert raw sensor data into useful engineering units (Degrees, Deg/s).
     """
 
-    def __init__(self, hw_config: HardwareConfig, learning_state: LearningState, watchdog: Optional[SurvivalWatchdog] = None):
+    def __init__(self, hw_config: HardwareConfig, learning_state: LearningState, watchdog: SurvivalWatchdog | None = None):
         """
         Initialize the robot hardware abstraction.
         :param hw_config: The immutable HardwareConfig object.
@@ -531,7 +531,7 @@ class RobotHardware:
         """
         Execute a sequence of motor commands and collect IMU readings throughout.
 
-        :param steps: List of (left_power, right_power, duration) tuples.
+        :param steps: list of (left_power, right_power, duration) tuples.
         :param sample_interval: Time between IMU samples.
         :param trim_override: Optional override for motor trim (e.g. for calibration).
         :return: MeasureResult containing total duration and all samples.

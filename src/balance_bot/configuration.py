@@ -1,6 +1,5 @@
 import logging
 from pathlib import Path
-from typing import Optional
 
 from pydantic import BaseModel, Field, ConfigDict
 
@@ -121,25 +120,25 @@ class HardwareConfig(BaseModel):
     model_config = ConfigDict(frozen=True)
 
     # I2C Bus Assignments
-    motor_i2c_bus: Optional[int] = None
-    imu_i2c_bus: Optional[int] = None
+    motor_i2c_bus: int | None = None
+    imu_i2c_bus: int | None = None
 
     # Motor Mapping
-    motor_l: Optional[int] = None
-    motor_r: Optional[int] = None
+    motor_l: int | None = None
+    motor_r: int | None = None
     motor_l_invert: bool = False
     motor_r_invert: bool = False
 
     # IMU Axis Mapping
-    gyro_pitch_axis: Optional[Axis] = None
+    gyro_pitch_axis: Axis | None = None
     gyro_pitch_invert: bool = False
-    gyro_yaw_axis: Optional[Axis] = None
+    gyro_yaw_axis: Axis | None = None
     gyro_yaw_invert: bool = False
-    gyro_roll_axis: Optional[Axis] = None
+    gyro_roll_axis: Axis | None = None
     gyro_roll_invert: bool = False
-    accel_vertical_axis: Optional[Axis] = None
+    accel_vertical_axis: Axis | None = None
     accel_vertical_invert: bool = False
-    accel_forward_axis: Optional[Axis] = None
+    accel_forward_axis: Axis | None = None
     accel_forward_invert: bool = False
 
     # Loop Parameters (Fixed by Hardware Capability)
@@ -189,8 +188,8 @@ class LearningState(BaseModel):
     motor_trim: float = 0.0
 
     # Calibrated Rest Angles
-    rest_angle_forward: Optional[float] = None
-    rest_angle_backward: Optional[float] = None
+    rest_angle_forward: float | None = None
+    rest_angle_backward: float | None = None
 
     # Gyro Bias Calibration
     gyro_bias_x: float = 0.0

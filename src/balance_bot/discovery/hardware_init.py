@@ -1,5 +1,5 @@
 import logging
-from typing import Tuple, Dict, Any
+from typing import Any
 
 from .step import CalibrationStep, StepStatus
 from ..configuration import HardwareConfig, LearningState
@@ -15,7 +15,7 @@ class HardwareInitStep(CalibrationStep):
     def is_verified(self, state: LearningState) -> bool:
         return state.hardware_init_verified
 
-    def run(self, hw: RobotHardware, config: HardwareConfig, state: LearningState) -> Tuple[StepStatus, Dict[str, Any], Dict[str, Any]]:
+    def run(self, hw: RobotHardware, config: HardwareConfig, state: LearningState) -> tuple[StepStatus, dict[str, Any], dict[str, Any]]:
         logger.info("Initializing Hardware Drivers...")
         # Force driver initialization now that buses are known
         try:
