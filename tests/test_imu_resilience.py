@@ -13,6 +13,7 @@ def test_imu_resilience_fail_fast(monkeypatch):
     learning_state = LearningState(pid=PIDParams())
 
     hw = RobotHardware(hw_config, learning_state)
+    hw.stop_sensor_thread()
     hw.sensor = MagicMock()
 
     hw.sensor.get_accel_data.side_effect = OSError("Input/output error")

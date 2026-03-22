@@ -1,6 +1,7 @@
 import os
 import time
 import logging
+import threading
 import contextlib
 from typing import Protocol, runtime_checkable, Any
 from collections import deque
@@ -146,10 +147,56 @@ class RobotHardware:
         self._last_accel = glm.vec3(0.0)
         self._last_gyro = glm.vec3(0.0)
 
+        # Threading for IMU Sensor
+        self._sensor_thread = None
+        self._sensor_running = False
+        self._sensor_lock = threading.Lock()
+
         self.pz: MotorDriver | None = None
         self.sensor: IMUDriver | None = None
 
         self.initialize_drivers()
+        self.start_sensor_thread()
+
+    def start_sensor_thread(self) -> None:
+        if self.sensor is None:
+            return
+
+        self._sensor_running = True
+        self._sensor_thread = threading.Thread(target=self._sensor_worker, daemon=True)
+        self._sensor_thread.start()
+        logger.info("IMU SensorThread started.")
+
+    def _sensor_worker(self) -> None:
+        while self._sensor_running:
+            try:
+                accel = self.sensor.get_accel_data()
+                gyro = self.sensor.get_gyro_data()
+
+                # Apply Bias Calibration
+                bias_vec = glm.vec3(
+                    self.learning_state.gyro_bias_x,
+                    self.learning_state.gyro_bias_y,
+                    self.learning_state.gyro_bias_z
+                )
+                gyro = gyro - bias_vec
+
+                with self._sensor_lock:
+                    self._last_accel = accel
+                    self._last_gyro = gyro
+                    self._imu_consecutive_errors = 0
+
+            except OSError:
+                with self._sensor_lock:
+                    self._imu_consecutive_errors += 1
+
+            # Give a very tiny sleep to avoid absolute 100% core starvation
+            time.sleep(0.005)
+
+    def stop_sensor_thread(self) -> None:
+        self._sensor_running = False
+        if self._sensor_thread and self._sensor_thread.is_alive():
+            self._sensor_thread.join(timeout=1.0)
 
     def apply_config(self, new_config: HardwareConfig) -> None:
         """Safely apply a new config without tearing down the object or I2C buses."""
@@ -262,43 +309,42 @@ class RobotHardware:
 
     def read_imu_raw(self) -> tuple[glm.vec3, glm.vec3]:
         """
-        Returns raw accelerometer and gyro data.
-        Includes error handling for I2C noise.
+        Returns raw accelerometer and gyro data instantly from the background thread buffer.
         :return: Tuple of (accel_dict, gyro_dict).
         """
         if self.sensor is None:
             raise RuntimeError("IMU Sensor not initialized (Bus Unknown?)")
 
-        try:
-            # Try to read fresh data
-            accel = self.sensor.get_accel_data()
-            gyro = self.sensor.get_gyro_data()
+        # Synchronous fallback for tests when sensor is mocked or thread isn't running
+        if not self._sensor_running:
+            try:
+                accel = self.sensor.get_accel_data()
+                gyro = self.sensor.get_gyro_data()
 
-            # Apply Bias Calibration
-            bias_vec = glm.vec3(
-                self.learning_state.gyro_bias_x,
-                self.learning_state.gyro_bias_y,
-                self.learning_state.gyro_bias_z
-            )
-            gyro = gyro - bias_vec
+                bias_vec = glm.vec3(
+                    self.learning_state.gyro_bias_x,
+                    self.learning_state.gyro_bias_y,
+                    self.learning_state.gyro_bias_z
+                )
+                gyro = gyro - bias_vec
 
-            # Update cache
-            self._last_accel = accel
-            self._last_gyro = gyro
+                self._last_accel = accel
+                self._last_gyro = gyro
+                self._imu_consecutive_errors = 0
+            except OSError:
+                self._imu_consecutive_errors += 1
 
-            # Reset error counter on success
-            self._imu_consecutive_errors = 0
+        with self._sensor_lock:
+            accel = self._last_accel
+            gyro = self._last_gyro
+            errors = self._imu_consecutive_errors
 
-            return accel, gyro
+        if errors > self.hw_config.imu_max_retries:
+            logger.error(f"IMU Failed {errors} times in a row. Returning cached data indefinitely to avoid fatal crash.")
+        elif errors > 0:
+            logger.debug(f"IMU Glitch ({errors}/{self.hw_config.imu_max_retries}). Using cached data.")
 
-        except OSError:
-            self._imu_consecutive_errors += 1
-            if self._imu_consecutive_errors > self.hw_config.imu_max_retries:
-                logger.error(f"IMU Failed {self._imu_consecutive_errors} times in a row. Returning cached data indefinitely to avoid fatal crash.")
-            else:
-                logger.debug(f"IMU Glitch ({self._imu_consecutive_errors}/{self.hw_config.imu_max_retries}). Using cached data.")
-            # Return the last known good values to survive the tick
-            return self._last_accel, self._last_gyro
+        return accel, gyro
 
     def read_imu_converted(self) -> IMUReading:
         """

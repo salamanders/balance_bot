@@ -4,48 +4,20 @@ from functools import cached_property
 import glm
 
 
+@dataclass(slots=True)
 class IMUReading:
     """
-    Immutable data structure for converted IMU readings.
-
-    NOTE: This is intentionally implemented as a standard class with __slots__
-    rather than a @dataclass(frozen=True). In high-frequency loops (e.g. 100Hz),
-    instantiating frozen dataclasses introduces significant overhead due to
-    attribute assignment restrictions. This slotted class provides immutability
-    (by convention and lack of __dict__) with much better instantiation performance.
-
-    :param pitch_angle: Calculated pitch angle in degrees (Zero = Upright).
-    :param pitch_rate: Angular velocity around pitch axis in deg/s.
-    :param yaw_rate: Angular velocity around yaw (vertical) axis in deg/s.
-    :param roll_angle: Calculated roll angle in degrees.
-    :param roll_rate: Angular velocity around roll axis in deg/s.
+    Data structure for converted IMU readings.
     """
-    __slots__ = ['pitch_angle', 'pitch_rate', 'yaw_rate', 'roll_angle', 'roll_rate', 'error_count', 'accel_raw', 'gyro_raw']
+    pitch_angle: float
+    pitch_rate: float
+    yaw_rate: float
+    roll_angle: float
+    roll_rate: float
+    error_count: int = 0
+    accel_raw: glm.vec3 | None = None
+    gyro_raw: glm.vec3 | None = None
 
-    def __init__(self, pitch_angle: float, pitch_rate: float, yaw_rate: float, roll_angle: float, roll_rate: float, error_count: int = 0, accel_raw: glm.vec3 | None = None, gyro_raw: glm.vec3 | None = None):
-        self.pitch_angle = pitch_angle
-        self.pitch_rate = pitch_rate
-        self.yaw_rate = yaw_rate
-        self.roll_angle = roll_angle
-        self.roll_rate = roll_rate
-        self.error_count = error_count
-        self.accel_raw = accel_raw
-        self.gyro_raw = gyro_raw
-
-    def __repr__(self):
-        return f"IMUReading(pitch_angle={self.pitch_angle}, pitch_rate={self.pitch_rate}, yaw_rate={self.yaw_rate}, roll_angle={self.roll_angle}, roll_rate={self.roll_rate}, error_count={self.error_count}, accel_raw={self.accel_raw}, gyro_raw={self.gyro_raw})"
-
-    def __eq__(self, other):
-        if not isinstance(other, IMUReading):
-            return NotImplemented
-        return (self.pitch_angle == other.pitch_angle and
-                self.pitch_rate == other.pitch_rate and
-                self.yaw_rate == other.yaw_rate and
-                self.roll_angle == other.roll_angle and
-                self.roll_rate == other.roll_rate and
-                self.error_count == other.error_count and
-                self.accel_raw == other.accel_raw and
-                self.gyro_raw == other.gyro_raw)
 
 
 

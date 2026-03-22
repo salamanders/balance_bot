@@ -23,6 +23,7 @@ def test_imu_processing_default(monkeypatch):
     hw = RobotHardware(hw_config, learning_state)
 
     # Mock the sensor
+    hw.stop_sensor_thread()
     hw.sensor = MagicMock()
     # Accel Z = 1G (vertical), others 0
     hw.sensor.get_accel_data.return_value = glm.vec3(0.0, 0.0, 9.8)
@@ -50,6 +51,7 @@ def test_imu_processing_tilted(monkeypatch):
     learning_state = LearningState()
 
     hw = RobotHardware(hw_config, learning_state)
+    hw.stop_sensor_thread()
     hw.sensor = MagicMock()
 
     # Simulate tilt 45 deg forward
@@ -78,6 +80,7 @@ def test_imu_processing_axis_y(monkeypatch):
     learning_state = LearningState()
 
     hw = RobotHardware(hw_config, learning_state)
+    hw.stop_sensor_thread()
     hw.sensor = MagicMock()
 
     # Simulate tilt on X axis (which is now pitch)
@@ -107,6 +110,7 @@ def test_imu_processing_invert(monkeypatch):
     learning_state = LearningState()
 
     hw = RobotHardware(hw_config, learning_state)
+    hw.stop_sensor_thread()
     hw.sensor = MagicMock()
 
     val = 9.8 * 0.707
@@ -135,6 +139,7 @@ def test_imu_processing_sideways(monkeypatch):
     learning_state = LearningState()
 
     hw = RobotHardware(hw_config, learning_state)
+    hw.stop_sensor_thread()
     hw.sensor = MagicMock()
 
     # Simulate 45 deg tilt.

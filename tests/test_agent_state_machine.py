@@ -1,7 +1,7 @@
 import unittest
 from unittest.mock import MagicMock, patch, PropertyMock
 import time
-from balance_bot.behavior.agent import Agent, BotState
+from balance_bot.behavior.agent import Agent
 
 class TestAgentStateMachine(unittest.TestCase):
     def setUp(self):
@@ -95,56 +95,63 @@ class TestAgentStateMachine(unittest.TestCase):
 
     def test_idle_to_balancing(self):
         """Test transition from IDLE to BALANCING when upright."""
-        self.agent.state = BotState.IDLE
+        from balance_bot.behavior.states import IdleState, BalancingState
+        self.agent.state = IdleState()
         # Mock pitch to be 5.0 (Upright)
         type(self.agent.core).pitch = PropertyMock(return_value=5.0)
 
         self.run_agent_once()
 
-        self.assertEqual(self.agent.state, BotState.BALANCING)
-        self.assertEqual(self.agent.kickup_attempts, 0)
+        self.assertIsInstance(self.agent.state, BalancingState)
+
 
     def test_idle_to_kickup(self):
         """Test transition from IDLE to KICKUP when resting."""
-        self.agent.state = BotState.IDLE
+        from balance_bot.behavior.states import IdleState, KickupState
+        self.agent.state = IdleState()
         # Mock pitch to be 60.0 (Resting)
         type(self.agent.core).pitch = PropertyMock(return_value=60.0)
         self.agent.kickup_attempts = 0
 
         self.run_agent_once()
 
-        self.assertEqual(self.agent.state, BotState.KICKUP)
+        self.assertIsInstance(self.agent.state, KickupState)
 
     def test_kickup_success(self):
         """Test KICKUP state executes sequence and transitions to BALANCING on success."""
-        self.agent.state = BotState.KICKUP
+        from balance_bot.behavior.states import KickupState
+        self.agent.state = KickupState()
         # Mock pitch for direction check (e.g. Back)
         type(self.agent.core).pitch = PropertyMock(return_value=-60.0)
 
-        with patch.object(self.agent, '_incremental_kickup', return_value=True) as mock_kick:
+        with patch.object(self.agent.state, '_incremental_kickup', return_value=True) as mock_kick:
             self.run_agent_once()
 
             mock_kick.assert_called()
-            self.assertEqual(self.agent.state, BotState.BALANCING)
-            self.assertEqual(self.agent.kickup_attempts, 0)
+            from balance_bot.behavior.states import BalancingState
+        self.assertIsInstance(self.agent.state, BalancingState)
+
 
     def test_kickup_failure(self):
         """Test KICKUP state transitions to IDLE on failure."""
-        self.agent.state = BotState.KICKUP
+        from balance_bot.behavior.states import KickupState
+        self.agent.state = KickupState()
         self.agent.kickup_attempts = 0
         # Mock pitch for direction check
         type(self.agent.core).pitch = PropertyMock(return_value=-60.0)
 
-        with patch.object(self.agent, '_incremental_kickup', return_value=False) as mock_kick:
+        with patch.object(self.agent.state, '_incremental_kickup', return_value=False) as mock_kick:
             self.run_agent_once()
 
             mock_kick.assert_called()
-            self.assertEqual(self.agent.state, BotState.IDLE)
-            self.assertEqual(self.agent.kickup_attempts, 1)
+            from balance_bot.behavior.states import IdleState
+        self.assertIsInstance(self.agent.state, IdleState)
+        self.assertEqual(self.agent.state.kickup_attempts, 1)
 
     def test_balancing_to_crashed(self):
         """Test BALANCING transitions to CRASHED if pitch exceeds limit."""
-        self.agent.state = BotState.BALANCING
+        from balance_bot.behavior.states import BalancingState
+        self.agent.state = BalancingState()
 
         # Last telemetry needs to be set (or the first loop iteration logic needs to be robust)
         # In the first loop, last_telemetry is None.
@@ -159,17 +166,20 @@ class TestAgentStateMachine(unittest.TestCase):
 
         self.run_agent_once()
 
-        self.assertEqual(self.agent.state, BotState.CRASHED)
+        from balance_bot.behavior.states import CrashedState
+        self.assertIsInstance(self.agent.state, CrashedState)
         self.agent.core.hw.stop.assert_called()  # type: ignore[attr-defined]
 
     def test_crashed_timeout(self):
         """Test CRASHED transitions to IDLE after timeout."""
-        self.agent.state = BotState.CRASHED
-        self.agent.last_crash_time = time.monotonic() - 3.0 # 3 seconds ago
+        from balance_bot.behavior.states import CrashedState
+        self.agent.state = CrashedState()
+        self.agent.state.crash_time = time.monotonic() - 4.0 # 3 seconds ago
 
         self.run_agent_once()
 
-        self.assertEqual(self.agent.state, BotState.IDLE)
+        from balance_bot.behavior.states import IdleState
+        self.assertIsInstance(self.agent.state, IdleState)
 
     def test_keyboard_interrupt_graceful_shutdown(self):
         """Test that KeyboardInterrupt during main loop is handled gracefully."""

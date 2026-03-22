@@ -21,6 +21,7 @@ def test_imu_yaw_roll_defaults(monkeypatch):
     learning_state = LearningState(pid=PIDParams())
 
     hw = RobotHardware(hw_config, learning_state)
+    hw.stop_sensor_thread()
     hw.sensor = MagicMock()
 
     # Simulate:
@@ -60,6 +61,7 @@ def test_imu_yaw_roll_custom_axis_invert(monkeypatch):
     # Accel Roll Axis will be deduced as X.
 
     hw = RobotHardware(hw_config, learning_state)
+    hw.stop_sensor_thread()
     hw.sensor = MagicMock()
 
     hw.sensor.get_gyro_data.return_value = glm.vec3(10.0, 0.0, 20.0)
