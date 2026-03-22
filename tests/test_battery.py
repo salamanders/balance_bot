@@ -72,3 +72,37 @@ def test_battery_estimator_smoothing():
     # 0.01 * 0.5 + 0.99 * 1.0 = 0.005 + 0.99 = 0.995
     assert factor < 1.0
     assert factor > 0.9 # Shouldn't jump to 0.5
+
+def test_battery_estimator_zero_baseline():
+    """Test that a baseline near zero avoids division by zero and ratio defaults to 1.0."""
+    config = BatteryConfig(baseline_samples=1, min_pwm=10.0)
+    estimator = BatteryEstimator(config=config)
+
+    # Establish baseline near zero
+    estimator.update(100.0, 0.0)
+
+    # Next update should process running estimation
+    # It should use the else branch because baseline_responsiveness is 0.0
+    factor = estimator.update(100.0, 0.0)
+
+    # The ratio defaults to 1.0, so the target is clamped to 1.0
+    # factor = 0.01 * 1.0 + 0.99 * 1.0 = 1.0
+    assert factor == 1.0
+
+def test_battery_estimator_max_compensation():
+    """Test that ratio is clamped to max_compensation when responsiveness is high."""
+    config = BatteryConfig(baseline_samples=1, min_pwm=10.0, max_compensation=1.2)
+    estimator = BatteryEstimator(config=config)
+
+    # Establish low baseline
+    estimator.update(100.0, 10.0) # Baseline responsiveness = 0.1
+
+    # Update with high responsiveness
+    factor = 1.0
+    for _ in range(500):
+        factor = estimator.update(100.0, 1000.0) # Raw responsiveness = 10.0
+
+    # Current responsiveness goes towards 10.0, ratio goes towards 100
+    # But the target is clamped to 1.2
+    assert factor > 1.15
+    assert factor <= 1.2
