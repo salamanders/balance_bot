@@ -47,12 +47,14 @@ def test_set_led_handles_exceptions():
 
         # Test PermissionError
         controller.set_led(True)  # Should not raise exception
+        assert controller.is_on is True
 
     with patch.object(Path, "exists", return_value=True), patch.object(Path, "write_text", side_effect=OSError):
         controller = LedController()
 
         # Test OSError
         controller.set_led(True)  # Should not raise exception
+        assert controller.is_on is True
 
 def test_signal_setup():
     with patch.object(Path, "exists", return_value=False):

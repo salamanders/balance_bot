@@ -19,3 +19,4 @@ def test_learning_state_load_empty():
     with patch.object(Path, 'exists', return_value=True), \
          patch.object(Path, 'read_text', return_value="   "):
         _state = LearningState.load()
+        assert _state == LearningState()
