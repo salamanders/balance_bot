@@ -53,7 +53,7 @@ class TestAgentStateMachine(unittest.TestCase):
         self.agent = Agent()
 
         # Configure Tuner Mock return value
-        self.agent.tuner.get_current_scale.return_value = 1.0
+        self.agent.tuner.get_current_scale.return_value = 1.0  # type: ignore[attr-defined]
 
         # Stop the infinite loop by default
         self.agent.running = False
@@ -88,7 +88,7 @@ class TestAgentStateMachine(unittest.TestCase):
             mock_telemetry.pitch_rate = 0.0
             mock_telemetry.motor_output = 0.0
             mock_telemetry.crashed = False
-            self.agent.core.update.return_value = mock_telemetry
+            self.agent.core.update.return_value = mock_telemetry  # type: ignore[attr-defined]
 
             self.agent.run()
             return mock_telemetry
@@ -160,7 +160,7 @@ class TestAgentStateMachine(unittest.TestCase):
         self.run_agent_once()
 
         self.assertEqual(self.agent.state, BotState.CRASHED)
-        self.agent.core.hw.stop.assert_called()
+        self.agent.core.hw.stop.assert_called()  # type: ignore[attr-defined]
 
     def test_crashed_timeout(self):
         """Test CRASHED transitions to IDLE after timeout."""

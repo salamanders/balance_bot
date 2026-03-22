@@ -8,8 +8,8 @@ def test_oscillation_detection():
 
     # Fill with oscillating data: 5, -5, 5, -5...
     # We need enough samples to fill buffer and trigger logic
-    kp = 0
-    kd = 0
+    kp = 0.0
+    kd = 0.0
     for i in range(15):
         val = 10.0 if i % 2 == 0 else -10.0
         kp, ki, kd = tuner.update(val)
@@ -23,7 +23,7 @@ def test_oscillation_detection():
 def test_stability_detection():
     tuner = ContinuousTuner(config=TunerConfig(analysis_interval=1), buffer_size=10)
 
-    kp = 0
+    kp = 0.0
     # Fill with stable small data
     for _ in range(15):
         kp, ki, kd = tuner.update(0.1)
@@ -36,7 +36,7 @@ def test_stability_detection():
 def test_steady_error_detection():
     tuner = ContinuousTuner(config=TunerConfig(analysis_interval=1), buffer_size=10)
 
-    ki = 0
+    ki = 0.0
     # Fill with large steady error
     for _ in range(15):
         kp, ki, kd = tuner.update(5.0)
@@ -50,11 +50,11 @@ def test_cooldown():
     tuner = ContinuousTuner(config=TunerConfig(analysis_interval=1), buffer_size=10)
 
     # Trigger tune
-    last_kp = 0
+    last_kp = 0.0
     for i in range(15):
         val = 10.0 if i % 2 == 0 else -10.0
         kp, ki, kd = tuner.update(val)
-        if kp != 0:
+        if kp != 0.0:
             last_kp = kp
             break
 

@@ -8,9 +8,9 @@ import logging
 logger = logging.getLogger(__name__)
 
 class TelemetryBlackbox:
-    def __init__(self, filename="flight_data.csv"):
+    def __init__(self, filename: str = "flight_data.csv") -> None:
         self.filename = Path(filename)
-        self.queue = Queue(maxsize=2000) # Buffer to prevent I/O blocking
+        self.queue: Queue[tuple[float, str, float, float, float, float, float, float]] = Queue(maxsize=2000) # Buffer to prevent I/O blocking
         self.running = False
         self.worker = Thread(target=self._writer_thread, daemon=True)
 
@@ -39,9 +39,9 @@ class TelemetryBlackbox:
         except Exception:
             pass # Drop frame rather than block the 100Hz control loop
 
-    def _writer_thread(self):
+    def _writer_thread(self) -> None:
         while self.running or not self.queue.empty():
-            batch = []
+            batch: list[tuple[float, str, float, float, float, float, float, float]] = []
             while not self.queue.empty() and len(batch) < 50:
                 batch.append(self.queue.get())
 
