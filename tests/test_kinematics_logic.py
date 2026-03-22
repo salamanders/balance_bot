@@ -23,7 +23,7 @@ class TestDeriveKinematics(unittest.TestCase):
         # Config & State
         config = HardwareConfig()
         state = LearningState()
-        state.min_power_visible = 50.0 # Just a value
+        state.min_power_visible = 50 # Just a value
         state.control = ControlConfig()
         state.spatial_orientation_verified = False # Force run
         state.motor_direction_verified = False

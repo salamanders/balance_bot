@@ -26,7 +26,6 @@ class BalanceBotEnv(_BaseEnv): # type: ignore[misc,valid-type]
         self.left_joint = 1
         if not _HAS_SIM:
             raise ImportError("pybullet and gymnasium are required to run the simulation environment. Install them with `uv sync --extra sim`.")
-        self.plane_id = pb.loadURDF("plane.urdf", physicsClientId=self.client_id)
 
         self.render_mode = render_mode
 
@@ -44,6 +43,7 @@ class BalanceBotEnv(_BaseEnv): # type: ignore[misc,valid-type]
             self.client_id = pb.connect(pb.DIRECT)
 
         pb.setAdditionalSearchPath(pybullet_data.getDataPath())
+        self.plane_id = pb.loadURDF("plane.urdf", physicsClientId=self.client_id)
 
         # Simulation parameters
         self.physics_dt = 1.0 / 200.0  # 200 Hz internal physics
@@ -176,7 +176,7 @@ class BalanceBotEnv(_BaseEnv): # type: ignore[misc,valid-type]
             self.imu_rotation_matrix[2] *= -1
 
         obs = self._get_obs()
-        info = {}
+        info: dict[str, float] = {}
         return obs, info
 
     def step(self, action):
@@ -226,7 +226,7 @@ class BalanceBotEnv(_BaseEnv): # type: ignore[misc,valid-type]
         # Terminate if pitch exceeds +/- 45 deg
         terminated = bool(abs(pitch) > self.pitch_terminate_limit)
         truncated = False
-        info = {}
+        info: dict[str, float] = {}
 
         return obs, reward, terminated, truncated, info
 
