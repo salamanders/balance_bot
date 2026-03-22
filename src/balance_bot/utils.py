@@ -489,10 +489,6 @@ def average_vector(vectors: Sequence[glm.vec3]) -> glm.vec3:
     if not vectors:
         return glm.vec3(0.0)
 
-    # We use a loop rather than `sum(vectors, start=glm.vec3(0.0))`
-    # to maintain high-frequency performance and avoid creating
-    # unnecessary temporary intermediate objects, which is
-    # crucial for tight loops per memory constraints.
     sum_x = sum_y = sum_z = 0.0
     for v in vectors:
         sum_x += v.x
