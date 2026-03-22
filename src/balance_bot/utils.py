@@ -368,19 +368,10 @@ def scan_i2c_candidates(name: str, check_fn: Callable[[Any], bool]) -> int | Non
     candidates = [1, 3, 0, 2]
     for bus_id in candidates:
         try:
-            # smbus2 handles bus opening gracefully
-            bus = smbus.SMBus(bus_id)
-            try:
+            with smbus.SMBus(bus_id) as bus:
                 if check_fn(bus):
                     logger.info(f"  [FOUND] {name} on Bus {bus_id}")
                     return bus_id
-            except OSError:
-                pass
-            finally:
-                try:
-                    bus.close()
-                except (OSError, IOError, Exception):
-                    pass
         except (OSError, IOError, Exception):
             pass
     return None
