@@ -4,7 +4,6 @@ from balance_bot.configuration import HardwareConfig, LearningState
 from balance_bot.discovery.step import StepStatus
 
 from balance_bot.discovery.discover_buses import DiscoverBusesStep
-from balance_bot.discovery.hardware_init import HardwareInitStep
 from balance_bot.discovery.manual_lean_calibration import ManualLeanCalibrationStep
 from balance_bot.discovery.broken_wire_check import BrokenWireCheckStep
 from balance_bot.discovery.friction_threshold import FrictionThresholdStep
@@ -39,16 +38,6 @@ def test_discover_buses_step(monkeypatch):
 
     step = DiscoverBusesStep()
     status, config_updates, state_updates = step.run(MagicMock(), HardwareConfig(), LearningState())
-    assert status == StepStatus.SUCCESS
-    assert_updates_valid(config_updates, state_updates)
-
-def test_hardware_init_step():
-    hw_mock = MagicMock()
-    hw_mock.pz = MagicMock()
-    hw_mock.sensor = MagicMock()
-
-    step = HardwareInitStep()
-    status, config_updates, state_updates = step.run(hw_mock, HardwareConfig(), LearningState())
     assert status == StepStatus.SUCCESS
     assert_updates_valid(config_updates, state_updates)
 
