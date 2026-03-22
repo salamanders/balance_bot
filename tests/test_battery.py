@@ -72,3 +72,17 @@ def test_battery_estimator_smoothing():
     # 0.01 * 0.5 + 0.99 * 1.0 = 0.005 + 0.99 = 0.995
     assert factor < 1.0
     assert factor > 0.9 # Shouldn't jump to 0.5
+
+def test_battery_estimator_compensation_factor():
+    """Test update_estimate and get_compensation_factor with synthetic values."""
+    config = BatteryConfig(baseline_samples=10, min_pwm=10.0)
+    estimator = BatteryEstimator(config=config)
+
+    # Call update_estimate with a synthetic value
+    estimator.update_estimate(2.0)
+
+    # Assert the expected result from the stub
+    assert estimator.samples_collected == 1
+
+    # Assert get_compensation_factor returns the default value
+    assert estimator.get_compensation_factor() == 1.0
