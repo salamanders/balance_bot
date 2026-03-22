@@ -8,7 +8,9 @@ class TestUtilsHelpers(unittest.TestCase):
     def test_scan_i2c_candidates_found(self, mock_smbus):
         # Bus 1 has device
         mock_bus1 = MagicMock()
+        mock_bus1.__enter__.return_value = mock_bus1
         mock_bus3 = MagicMock()
+        mock_bus3.__enter__.return_value = mock_bus3
 
         def smbus_side_effect(bus_id):
             if bus_id == 1:
