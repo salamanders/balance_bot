@@ -126,3 +126,32 @@ def test_pipeline_needs_retry():
 
          # Verify HW stopped between retries, and again at the end of pipeline
          assert mock_hw.stop.call_count == 2
+
+def test_pipeline_unexpected_error():
+    """Verify that an unexpected exception during step.run raises a RuntimeError and stops HW."""
+    mock_hw_cls = MagicMock()
+    mock_config_cls = MagicMock()
+    mock_state_cls = MagicMock()
+    mock_watchdog = MagicMock()
+
+    with patch("balance_bot.discovery.pipeline.RobotHardware", mock_hw_cls), \
+         patch("balance_bot.discovery.pipeline.HardwareConfig", mock_config_cls), \
+         patch("balance_bot.discovery.pipeline.LearningState", mock_state_cls):
+
+         mock_hw = mock_hw_cls.return_value
+
+         step = MagicMock(spec=CalibrationStep)
+         step.name = "ErrorStep"
+         step.is_verified.return_value = False
+
+         # Force an exception
+         step.run.side_effect = ValueError("Some unexpected error")
+
+         pipeline = SelfDiscoveryPipeline([step], mock_watchdog)
+
+         # Catch the specific RuntimeError that pipeline.py wraps it in
+         with pytest.raises(RuntimeError, match="Pipeline failed at ErrorStep: Some unexpected error"):
+             pipeline.run()
+
+         # Verify HW stopped before the exception was fully raised
+         mock_hw.stop.assert_called_once()
