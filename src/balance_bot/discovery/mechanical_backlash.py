@@ -87,13 +87,5 @@ class MechanicalBacklashStep(CalibrationStep):
 
         return StepStatus.SUCCESS, {}, {
             'control': state.control.model_copy(update={'backlash_pulse_time': compensated}),
-            # Note: updating nested pydantic model requires full replacement or smart merge.
-            # LearningState.control is ControlConfig.
-            # We should provide the updated ControlConfig object.
-            # But `state.control` is mutable? No, ControlConfig is a Pydantic model.
-            # If `LearningState` defines `control: ControlConfig`, we need to update the field.
-            # The dictionary approach requires the pipeline to handle nested updates?
-            # Usually `model_copy(update=dict)` is shallow.
-            # So I should pass `control` key with the NEW ControlConfig object.
             'backlash_verified': True
         }
