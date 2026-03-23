@@ -36,7 +36,7 @@ class BotState:
         pass
 
 class IdleState(BotState):
-    def __init__(self, kickup_attempts: int = 0):
+    def __init__(self, kickup_attempts: int = 0) -> None:
         self.kickup_attempts = kickup_attempts
 
     def update(self, context: AgentContext, dt: float, motion_req: MotionRequest, tuning_params: TuningParams, last_telemetry: BalanceTelemetry | None, ticks: int) -> BotState:
@@ -55,7 +55,7 @@ class IdleState(BotState):
         return self
 
 class KickupState(BotState):
-    def __init__(self, attempts: int = 0):
+    def __init__(self, attempts: int = 0) -> None:
         self.attempts = attempts
         self._zero_motion_enabled = MotionRequest(velocity=0.0, turn_rate=0.0, enable_control=False)
         self._zero_tuning = TuningParams(kp=0.0, ki=0.0, kd=0.0, target_angle_offset=0.0)
@@ -251,7 +251,7 @@ class BalancingState(BotState):
         return self
 
 class CrashedState(BotState):
-    def __init__(self):
+    def __init__(self) -> None:
         self.crash_time = time.monotonic()
 
     def update(self, context: AgentContext, dt: float, motion_req: MotionRequest, tuning_params: TuningParams, last_telemetry: BalanceTelemetry | None, ticks: int) -> BotState:

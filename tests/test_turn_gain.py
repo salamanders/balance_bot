@@ -3,7 +3,7 @@ from unittest.mock import MagicMock
 from balance_bot.reflex.balance_core import BalanceCore, MotionRequest, TuningParams
 from balance_bot.configuration import HardwareConfig, LearningState, PIDParams, ControlConfig
 
-def test_turn_gain_impact():
+def test_turn_gain_impact() -> None:
     """Verify that changing turn_gain affects motor output."""
 
     # 1. Setup Config with default turn_gain

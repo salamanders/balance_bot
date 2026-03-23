@@ -1,7 +1,8 @@
+from typing import Any
 from unittest.mock import patch
 from balance_bot.telemetry import TelemetryBlackbox
 
-def test_log_tick_happy_path(tmp_path):
+def test_log_tick_happy_path(tmp_path: Any) -> None:
     """Test log_tick successfully enqueues a correctly formatted tuple."""
     # Use a temporary file to avoid cluttering the filesystem during test
     csv_file = tmp_path / "test_telemetry.csv"
@@ -19,7 +20,7 @@ def test_log_tick_happy_path(tmp_path):
     expected = (12345.678, "DRIVING", 1.23, 5.68, 9.01, 0.5, -0.5, 0.0)
     assert item == expected
 
-def test_log_tick_not_running(tmp_path):
+def test_log_tick_not_running(tmp_path: Any) -> None:
     """Test log_tick does nothing if running is False."""
     csv_file = tmp_path / "test_telemetry.csv"
     blackbox = TelemetryBlackbox(filename=str(csv_file))
@@ -29,7 +30,7 @@ def test_log_tick_not_running(tmp_path):
 
     assert blackbox.queue.empty()
 
-def test_log_tick_exception_handling(tmp_path):
+def test_log_tick_exception_handling(tmp_path: Any) -> None:
     """Test log_tick catches and ignores exceptions during enqueueing (e.g., Queue Full)."""
     csv_file = tmp_path / "test_telemetry.csv"
     blackbox = TelemetryBlackbox(filename=str(csv_file))

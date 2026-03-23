@@ -1,3 +1,4 @@
+from typing import Any
 import sys
 import unittest
 from unittest.mock import MagicMock, patch
@@ -23,7 +24,7 @@ class TestPiconZeroInternals(unittest.TestCase):
 
     @patch('balance_bot.hardware.piconzero.smbus.SMBus')
     @patch('balance_bot.hardware.piconzero.time.sleep')
-    def test_init_sets_debug_instance(self, mock_sleep, _mock_smbus):
+    def test_init_sets_debug_instance(self: Any, mock_sleep: Any, _mock_smbus: Any) -> None:
         pz = PiconZero(bus_number=1)
 
         pz.init(debug=True)
@@ -32,7 +33,7 @@ class TestPiconZeroInternals(unittest.TestCase):
         mock_sleep.assert_any_call(0.1)
 
     @patch('balance_bot.hardware.piconzero.smbus.SMBus')
-    def test_set_motor_success(self, mock_smbus_cls):
+    def test_set_motor_success(self: Any, mock_smbus_cls: Any) -> None:
         mock_bus = mock_smbus_cls.return_value
         pz = PiconZero()
 
@@ -41,7 +42,7 @@ class TestPiconZeroInternals(unittest.TestCase):
 
     @patch('balance_bot.hardware.piconzero.smbus.SMBus')
     @patch('balance_bot.hardware.piconzero.time.sleep')
-    def test_set_motor_retry_success(self, mock_sleep, mock_smbus_cls):
+    def test_set_motor_retry_success(self: Any, mock_sleep: Any, mock_smbus_cls: Any) -> None:
         mock_bus = mock_smbus_cls.return_value
         # Fail 2 times then succeed
         mock_bus.write_byte_data.side_effect = [OSError("Fail1"), OSError("Fail2"), None]
@@ -56,7 +57,7 @@ class TestPiconZeroInternals(unittest.TestCase):
 
     @patch('balance_bot.hardware.piconzero.smbus.SMBus')
     @patch('balance_bot.hardware.piconzero.time.sleep')
-    def test_set_motor_failure(self, mock_sleep, mock_smbus_cls):
+    def test_set_motor_failure(self: Any, mock_sleep: Any, mock_smbus_cls: Any) -> None:
         mock_bus = mock_smbus_cls.return_value
         # Fail all times
         mock_bus.write_byte_data.side_effect = OSError("Fail")
@@ -72,7 +73,7 @@ class TestPiconZeroInternals(unittest.TestCase):
 
     @patch('balance_bot.hardware.piconzero.smbus.SMBus')
     @patch('balance_bot.hardware.piconzero.time.sleep')
-    def test_cleanup(self, _mock_sleep, mock_smbus_cls):
+    def test_cleanup(self: Any, _mock_sleep: Any, mock_smbus_cls: Any) -> None:
         mock_bus = mock_smbus_cls.return_value
         pz = PiconZero()
 

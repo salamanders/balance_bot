@@ -25,7 +25,7 @@ from ..adaptation.tuner import ContinuousTuner, BalancePointFinder
 from ..adaptation.battery import BatteryEstimator
 from .leds import LedController
 from ..enums import Orientation, Direction
-from .states import AgentContext, BotState, IdleState
+from .states import AgentContext, BotState, IdleState, FatalErrorState
 from ..telemetry import TelemetryBlackbox
 
 logger = logging.getLogger(__name__)
@@ -91,7 +91,7 @@ class Agent:
 
         # State
         self.running = True
-        self.state = IdleState()
+        self.state: BotState = IdleState()
         self.kickup_attempts = 0
         self.last_crash_time = 0.0
 
@@ -318,10 +318,10 @@ class Agent:
             while power <= max_power:
                 if self.watchdog:
                     self.watchdog.heartbeat()
-                self._wait_for_settle()
+                getattr(self.state, "_wait_for_settle")() # type: ignore[attr-defined]
 
                 # Safety Check: Are we still in position?
-                if not self._check_and_fix_position(kick_direction, start_label):
+                if not getattr(self.state, "_check_and_fix_position")(kick_direction, start_label): # type: ignore[attr-defined]
                     return False
 
                 logger.info(
@@ -332,10 +332,10 @@ class Agent:
                 drive_val = float(power) * float(kick_direction.value)
                 self.core.hw.set_motors(drive_val, drive_val)
 
-                self._sleep_with_update(0.25)
+                getattr(self.state, "_sleep_with_update")(0.25) # type: ignore[attr-defined]
 
                 # 2. Catch (Enter PID Loop)
-                if self._attempt_catch(target_angle):
+                if getattr(self.state, "_attempt_catch")(target_angle): # type: ignore[attr-defined]
                     return True
 
                 self.core.hw.stop()
@@ -348,5 +348,5 @@ class Agent:
             return False
 
         logger.error("-> Failed to Kick-Up (Max Power Reached).")
-        self.state = BotState.FATAL_ERROR
+        self.state = FatalErrorState() # type: ignore[attr-defined]
         return False

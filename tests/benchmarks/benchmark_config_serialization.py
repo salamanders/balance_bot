@@ -1,3 +1,4 @@
+from typing import Any
 import time
 import sys
 import json
@@ -8,7 +9,7 @@ sys.path.insert(0, str(Path(__file__).parent.parent.parent / "src"))
 
 from balance_bot.configuration import LearningState, PIDParams, TunerConfig
 
-def benchmark_config_serialization():
+def benchmark_config_serialization() -> Any:
     config = LearningState(
         pid=PIDParams(kp=10.0, ki=0.5, kd=0.1),
         tuner=TunerConfig()

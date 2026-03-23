@@ -1,4 +1,5 @@
 import time
+from typing import Any
 import sys
 import math
 import smbus2
@@ -15,11 +16,11 @@ PICONZERO_ADDR = 0x22
 MPU6050_ADDR = 0x68
 CMD_RESET = 20
 
-def get_ms():
+def get_ms() -> float:
     """Returns milliseconds since the application started."""
     return int((time.time() - APP_START_TIME) * 1000)
 
-def scan_for_devices():
+def scan_for_devices() -> tuple[int | None, int | None]:
     """Step 1: Figure out the bus channels for motors and gyro."""
     print(f"[{get_ms():05d} ms] --- Step 1: Scanning for I2C Devices ---")
     buses_to_check = [3, 2, 1, 0]
@@ -48,7 +49,7 @@ def scan_for_devices():
     print(f"[{get_ms():05d} ms] Results: Motor Bus = {motor_bus}, Gyro Bus = {gyro_bus}")
     return motor_bus, gyro_bus
 
-def monitor_imu(sensor, duration=1.0):
+def monitor_imu(sensor: Any, duration: float=1.0) -> tuple[dict[str, float], dict[str, float]]:
     """Helper to monitor IMU for a given duration, print readings, and return averages."""
     start_time = time.time()
     gyro_readings = []
@@ -88,7 +89,7 @@ def monitor_imu(sensor, duration=1.0):
 
     return {"x": avg_gx, "y": avg_gy, "z": avg_gz}, {"x": avg_ax, "y": avg_ay, "z": avg_az}
 
-def main():
+def main() -> None:
     motor_bus_num, gyro_bus_num = scan_for_devices()
 
     if motor_bus_num is None or gyro_bus_num is None:
@@ -105,7 +106,7 @@ def main():
         print(f"[{get_ms():05d} ms] CRITICAL: Failed to initialize hardware: {err}")
         return
 
-    def set_motors(val_0, val_1):
+    def set_motors(val_0: int, val_1: int) -> None:
         try:
             motor_bus.write_byte_data(PICONZERO_ADDR, 0, val_0 & 0xFF)
             motor_bus.write_byte_data(PICONZERO_ADDR, 1, val_1 & 0xFF)

@@ -1,3 +1,4 @@
+from typing import Any
 import sys
 import os
 import unittest
@@ -14,7 +15,7 @@ from balance_bot.hardware.robot_hardware import RobotHardware, IMUReading
 
 class TestDeriveKinematics(unittest.TestCase):
 
-    def test_kinematics_happy_path(self):
+    def test_kinematics_happy_path(self: Any) -> None:
         """Test the DeriveKinematicsStep with a standard correct setup."""
 
         # --- Setup ---
@@ -60,7 +61,7 @@ class TestDeriveKinematics(unittest.TestCase):
         r_gyro = glm.vec3(20, 0, 50) # Pitch Back (+X), Left Turn (+Z)
         r_accel_delta = glm.vec3(0, -0.5, 0) # Backward Lag (-Y)
 
-        def make_result(gyro, accel_delta):
+        def make_result(gyro: Any, accel_delta: Any) -> Any:
             res = MagicMock()
             s = MagicMock(spec=IMUReading)
             s.gyro_raw = gyro

@@ -101,9 +101,9 @@ class SimHardware:
 
         # PyBullet obs is in radians: [pitch, pitch_rate, yaw, yaw_rate]
         # IMUReading expects degrees
-        pitch_rad = self.obs[0]
-        pitch_rate_rad = self.obs[1]
-        yaw_rate_rad = self.obs[3]
+        pitch_rad = self.obs['pitch_angle']
+        pitch_rate_rad = self.obs['pitch_rate']
+        yaw_rate_rad = self.obs['yaw_rate']
 
         pitch_deg = math.degrees(pitch_rad)
         pitch_rate_deg = math.degrees(pitch_rate_rad)
@@ -141,7 +141,7 @@ class SimHardware:
     def get_posture_state(self) -> str:
         # Basic proxy for physical posture state based on current pitch
         # (Resting, Balancing, Crashed, etc.)
-        pitch_rad = self.obs[0]
+        pitch_rad = self.obs['pitch_angle']
         pitch_deg = abs(math.degrees(pitch_rad))
 
         # Use simple thresholds for simulation posture

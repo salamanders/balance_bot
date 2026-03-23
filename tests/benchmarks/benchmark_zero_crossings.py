@@ -1,3 +1,4 @@
+from typing import Any
 import sys
 import os
 import time
@@ -8,7 +9,7 @@ sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), '../.
 from balance_bot.adaptation.tuner import ContinuousTuner
 from balance_bot.configuration import TunerConfig
 
-def benchmark_zero_crossings():
+def benchmark_zero_crossings() -> Any:
     # Configure Tuner
     config = TunerConfig(analysis_interval=1)
     # Using larger buffer size to exaggerate the pairwise O(N) cost

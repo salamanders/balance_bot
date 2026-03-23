@@ -1,7 +1,7 @@
 from balance_bot.adaptation.battery import BatteryEstimator
 from balance_bot.configuration import BatteryConfig
 
-def test_battery_estimator_baseline():
+def test_battery_estimator_baseline() -> None:
     """Test that the estimator establishes a baseline correctly."""
     config = BatteryConfig(baseline_samples=10, min_pwm=10.0)
     estimator = BatteryEstimator(config=config)
@@ -15,7 +15,7 @@ def test_battery_estimator_baseline():
 
     assert estimator.baseline_responsiveness == 2.0
 
-def test_battery_estimator_compensation():
+def test_battery_estimator_compensation() -> None:
     """Test that the estimator reduces factor when responsiveness drops."""
     config = BatteryConfig(baseline_samples=10, min_pwm=10.0)
     estimator = BatteryEstimator(config=config)
@@ -40,7 +40,7 @@ def test_battery_estimator_compensation():
     assert factor < 0.9
     assert factor >= 0.5 # clamped
 
-def test_battery_estimator_deadzone():
+def test_battery_estimator_deadzone() -> None:
     """Test that small PWMs are ignored."""
     config = BatteryConfig(baseline_samples=10, min_pwm=20.0)
     estimator = BatteryEstimator(config=config)
@@ -52,7 +52,7 @@ def test_battery_estimator_deadzone():
     assert estimator.samples_collected == 0
     assert factor == 1.0
 
-def test_battery_estimator_smoothing():
+def test_battery_estimator_smoothing() -> None:
     """Test that the factor changes smoothly, not instantly."""
     config = BatteryConfig(baseline_samples=10, min_pwm=10.0)
     estimator = BatteryEstimator(config=config)
@@ -73,7 +73,7 @@ def test_battery_estimator_smoothing():
     assert factor < 1.0
     assert factor > 0.9 # Shouldn't jump to 0.5
 
-def test_battery_estimator_zero_baseline():
+def test_battery_estimator_zero_baseline() -> None:
     """Test that a baseline near zero avoids division by zero and ratio defaults to 1.0."""
     config = BatteryConfig(baseline_samples=1, min_pwm=10.0)
     estimator = BatteryEstimator(config=config)
@@ -89,7 +89,7 @@ def test_battery_estimator_zero_baseline():
     # factor = 0.01 * 1.0 + 0.99 * 1.0 = 1.0
     assert factor == 1.0
 
-def test_battery_estimator_max_compensation():
+def test_battery_estimator_max_compensation() -> None:
     """Test that ratio is clamped to max_compensation when responsiveness is high."""
     config = BatteryConfig(baseline_samples=1, min_pwm=10.0, max_compensation=1.2)
     estimator = BatteryEstimator(config=config)

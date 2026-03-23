@@ -5,18 +5,18 @@ from balance_bot.behavior.leds import LedController
 from balance_bot.configuration import LedConfig
 
 
-def test_init_finds_path():
+def test_init_finds_path() -> None:
     with patch.object(Path, "exists", side_effect=lambda: True):
         controller = LedController()
         assert controller.led_path is not None
         assert controller.led_path.name == "brightness"
 
-def test_init_finds_no_path():
+def test_init_finds_no_path() -> None:
     with patch.object(Path, "exists", return_value=False):
         controller = LedController()
         assert controller.led_path is None
 
-def test_set_led_with_path():
+def test_set_led_with_path() -> None:
     with patch.object(Path, "exists", return_value=True), patch.object(Path, "write_text") as mock_write_text:
         controller = LedController()
 
@@ -28,7 +28,7 @@ def test_set_led_with_path():
         assert controller.is_on is False
         mock_write_text.assert_called_with("0")
 
-def test_set_led_without_path():
+def test_set_led_without_path() -> None:
     with patch.object(Path, "exists", return_value=False), patch.object(Path, "write_text") as mock_write_text:
         controller = LedController()
 
@@ -41,7 +41,7 @@ def test_set_led_without_path():
         assert controller.is_on is False
         mock_write_text.assert_not_called()
 
-def test_set_led_handles_exceptions():
+def test_set_led_handles_exceptions() -> None:
     with patch.object(Path, "exists", return_value=True), patch.object(Path, "write_text", side_effect=PermissionError):
         controller = LedController()
 
@@ -54,7 +54,7 @@ def test_set_led_handles_exceptions():
         # Test OSError
         controller.set_led(True)  # Should not raise exception
 
-def test_signal_setup():
+def test_signal_setup() -> None:
     with patch.object(Path, "exists", return_value=False):
         config = LedConfig(setup_blink_interval=0.1)
         controller = LedController(config)
@@ -68,7 +68,7 @@ def test_signal_setup():
         controller.signal_setup()
         assert controller.blink_interval == 0.5
 
-def test_signal_ready():
+def test_signal_ready() -> None:
     with patch.object(Path, "exists", return_value=False):
         controller = LedController()
         with patch.object(controller, "set_led") as mock_set_led:
@@ -76,7 +76,7 @@ def test_signal_ready():
             assert controller.mode == "ON"
             mock_set_led.assert_called_once_with(True)
 
-def test_signal_off():
+def test_signal_off() -> None:
     with patch.object(Path, "exists", return_value=False):
         controller = LedController()
         controller.mode = "ON"
@@ -85,7 +85,7 @@ def test_signal_off():
             assert controller.mode == "OFF"
             mock_set_led.assert_called_once_with(False)
 
-def test_update_blinking():
+def test_update_blinking() -> None:
     with patch.object(Path, "exists", return_value=False):
         controller = LedController()
         with patch.object(controller, "set_led") as mock_set_led:
@@ -105,7 +105,7 @@ def test_update_blinking():
                 mock_set_led.assert_called_once_with(True)
                 assert controller.last_toggle == 100.15
 
-def test_update_solid_on():
+def test_update_solid_on() -> None:
     with patch.object(Path, "exists", return_value=False):
         controller = LedController()
         with patch.object(controller, "set_led") as mock_set_led:
@@ -120,7 +120,7 @@ def test_update_solid_on():
             controller.update()
             mock_set_led.assert_not_called()
 
-def test_update_solid_off():
+def test_update_solid_off() -> None:
     with patch.object(Path, "exists", return_value=False):
         controller = LedController()
         with patch.object(controller, "set_led") as mock_set_led:
@@ -135,7 +135,7 @@ def test_update_solid_off():
             controller.update()
             mock_set_led.assert_not_called()
 
-def test_blink():
+def test_blink() -> None:
     with patch.object(Path, "exists", return_value=False):
         controller = LedController()
         with patch.object(controller, "set_led") as mock_set_led:
@@ -156,7 +156,7 @@ def test_blink():
                     call(0.2),
                 ]
 
-def test_countdown():
+def test_countdown() -> None:
     with patch.object(Path, "exists", return_value=False):
         config = LedConfig(
             countdown_blink_count_3=3,

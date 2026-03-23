@@ -1,3 +1,4 @@
+from typing import Any
 import time
 from dataclasses import dataclass
 
@@ -22,12 +23,12 @@ class MotionRequestSlots:
     turn_rate: float
     enable_control: bool
 
-    def __init__(self, velocity: float = 0.0, turn_rate: float = 0.0, enable_control: bool = True):
+    def __init__(self, velocity: float, turn_rate: float, enable_control: bool) -> None:
         self.velocity = velocity
         self.turn_rate = turn_rate
         self.enable_control = enable_control
 
-def benchmark():
+def benchmark() -> Any:
     iterations = 1_000_000
 
     print(f"Benchmarking {iterations} iterations...")
@@ -53,7 +54,7 @@ def benchmark():
     print(f"Improvement: {baseline_time / mutable_time:.2f}x faster")
 
     # Optimization 2: Reuse Mutable Dataclass with slots
-    _m2 = MotionRequestSlots()
+    _m2 = MotionRequestSlots(0.0, 0.0, False)
     start = time.perf_counter()
     for _ in range(iterations):
         _m2.velocity = 0.0

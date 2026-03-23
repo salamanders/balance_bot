@@ -1,3 +1,4 @@
+from typing import Any
 import subprocess
 from balance_bot.utils import get_i2c_failure_report
 import math
@@ -6,14 +7,14 @@ from unittest.mock import patch
 import glm
 from balance_bot.utils import clamp, RateLimiter, ComplementaryFilter, calculate_pitch, LogThrottler, LogCaptureHandler, check_force_calibration_flag
 
-def test_clamp():
+def test_clamp() -> None:
     assert clamp(10, 0, 5) == 5.0
     assert clamp(-10, 0, 5) == 0.0
     assert clamp(3, 0, 5) == 3.0
     assert clamp(0, 0, 5) == 0.0
     assert clamp(5, 0, 5) == 5.0
 
-def test_rate_limiter():
+def test_rate_limiter() -> None:
     freq = 50
     # Period = 0.02
 
@@ -43,7 +44,7 @@ def test_rate_limiter():
         # Sleep should be called with 0.02 - 0.001 - BUSY_WAIT(0.002) = 0.017
         assert abs(mock_sleep.call_args[0][0] - 0.017) < 1e-6
 
-def test_rate_limiter_lagging():
+def test_rate_limiter_lagging() -> None:
     freq = 50
     with patch("time.perf_counter") as mock_perf, patch("time.sleep") as mock_sleep:
         limiter = RateLimiter(freq)
@@ -64,7 +65,7 @@ def test_rate_limiter_lagging():
         assert abs(dt - 0.030) < 1e-6
         mock_sleep.assert_not_called()
 
-def test_complementary_filter():
+def test_complementary_filter() -> None:
     alpha = 0.98
     cf = ComplementaryFilter(alpha)
 
@@ -85,7 +86,7 @@ def test_complementary_filter():
     # Internal state should update
     assert cf.angle == res
 
-def test_calculate_pitch():
+def test_calculate_pitch() -> None:
     # Vertical (Z=1, Y=0)
     assert math.isclose(calculate_pitch(0.0, 1.0), 0.0)
 
@@ -100,7 +101,7 @@ def test_calculate_pitch():
 
 from balance_bot.utils import analyze_dominance  # noqa: E402
 
-def test_analyze_dominance():
+def test_analyze_dominance() -> None:
     # Clear winner
     data = {'x': 100.0, 'y': 10.0, 'z': 5.0}
     winner, ratio, success = analyze_dominance(data, "Test1")
@@ -125,7 +126,7 @@ def test_analyze_dominance():
     assert winner == 'y'
     assert success is False
 
-def test_analyze_dominance_with_glm():
+def test_analyze_dominance_with_glm() -> None:
     # Clear winner
     data = glm.vec3(100.0, 10.0, 5.0)
     winner, ratio, success = analyze_dominance(data, "TestGLM")
@@ -133,7 +134,7 @@ def test_analyze_dominance_with_glm():
     assert abs(ratio - 10.0) < 1e-5
     assert success is True
 
-def test_log_throttler():
+def test_log_throttler() -> None:
     with patch("time.monotonic") as mock_time:
         # Start at time 100.0
         mock_time.return_value = 100.0
@@ -158,7 +159,7 @@ def test_log_throttler():
         # Immediate subsequent call should fail again
         assert throttler.should_log() is False
 
-def test_log_capture_handler_emit():
+def test_log_capture_handler_emit() -> None:
     """Test that the handler correctly formats and stores log records."""
     handler = LogCaptureHandler(capacity=10)
     record = logging.makeLogRecord({"msg": "Test message"})
@@ -170,7 +171,7 @@ def test_log_capture_handler_emit():
     assert len(handler.buffer) == 1
     assert handler.buffer[0] == "FORMATTED MSG"
 
-def test_log_capture_handler_error():
+def test_log_capture_handler_error() -> None:
     """Test that handleError is called when format raises an exception."""
     handler = LogCaptureHandler()
     record = logging.makeLogRecord({"msg": "Test message"})
@@ -188,35 +189,35 @@ def test_log_capture_handler_error():
 
 @patch("balance_bot.utils.Path.exists")
 @patch("sys.argv", ["script_name.py"])
-def test_check_force_calibration_flag_neither(mock_exists):
+def test_check_force_calibration_flag_neither(mock_exists: Any) -> None:
     """Test when neither the file nor the flag are present."""
     mock_exists.return_value = False
     assert check_force_calibration_flag() is False
 
 @patch("balance_bot.utils.Path.exists")
 @patch("sys.argv", ["script_name.py"])
-def test_check_force_calibration_flag_file_only(mock_exists):
+def test_check_force_calibration_flag_file_only(mock_exists: Any) -> None:
     """Test when only the force calibration file is present."""
     mock_exists.return_value = True
     assert check_force_calibration_flag() is True
 
 @patch("balance_bot.utils.Path.exists")
 @patch("sys.argv", ["script_name.py", "--force-calibration"])
-def test_check_force_calibration_flag_flag_only(mock_exists):
+def test_check_force_calibration_flag_flag_only(mock_exists: Any) -> None:
     """Test when only the force calibration flag is present."""
     mock_exists.return_value = False
     assert check_force_calibration_flag() is True
 
 @patch("balance_bot.utils.Path.exists")
 @patch("sys.argv", ["script_name.py", "--force-calibration"])
-def test_check_force_calibration_flag_both(mock_exists):
+def test_check_force_calibration_flag_both(mock_exists: Any) -> None:
     """Test when both the file and the flag are present."""
     mock_exists.return_value = True
     assert check_force_calibration_flag() is True
 
 
 @patch("balance_bot.utils.Path.exists")
-def test_get_i2c_failure_report_no_bus(mock_exists):
+def test_get_i2c_failure_report_no_bus(mock_exists: Any) -> None:
     mock_exists.return_value = False
     result = get_i2c_failure_report(1, 0x68, "MPU6050")
     assert result == "CRITICAL FAILURE: I2C Bus 1 (/dev/i2c-1) does not exist. The kernel driver is not loaded. Enable I2C in raspi-config or /boot/config.txt."
@@ -224,7 +225,7 @@ def test_get_i2c_failure_report_no_bus(mock_exists):
 @patch("balance_bot.utils.Path.exists")
 @patch("os.access")
 @patch("os.environ.get")
-def test_get_i2c_failure_report_no_permission(mock_env_get, mock_access, mock_exists):
+def test_get_i2c_failure_report_no_permission(mock_env_get: Any, mock_access: Any, mock_exists: Any) -> None:
     mock_exists.return_value = True
     mock_access.return_value = False
     mock_env_get.return_value = "testuser"
@@ -234,7 +235,7 @@ def test_get_i2c_failure_report_no_permission(mock_env_get, mock_access, mock_ex
 @patch("balance_bot.utils.Path.exists")
 @patch("os.access")
 @patch("subprocess.run")
-def test_get_i2c_failure_report_confusion(mock_run, mock_access, mock_exists):
+def test_get_i2c_failure_report_confusion(mock_run: Any, mock_access: Any, mock_exists: Any) -> None:
     mock_exists.return_value = True
     mock_access.return_value = True
     mock_process = subprocess.CompletedProcess(args=[], returncode=0, stdout=" 68 ")
@@ -245,7 +246,7 @@ def test_get_i2c_failure_report_confusion(mock_run, mock_access, mock_exists):
 @patch("balance_bot.utils.Path.exists")
 @patch("os.access")
 @patch("subprocess.run")
-def test_get_i2c_failure_report_not_found(mock_run, mock_access, mock_exists):
+def test_get_i2c_failure_report_not_found(mock_run: Any, mock_access: Any, mock_exists: Any) -> None:
     mock_exists.return_value = True
     mock_access.return_value = True
     mock_process = subprocess.CompletedProcess(args=[], returncode=0, stdout=" -- ")
@@ -256,7 +257,7 @@ def test_get_i2c_failure_report_not_found(mock_run, mock_access, mock_exists):
 @patch("balance_bot.utils.Path.exists")
 @patch("os.access")
 @patch("subprocess.run")
-def test_get_i2c_failure_report_missing_i2cdetect(mock_run, mock_access, mock_exists):
+def test_get_i2c_failure_report_missing_i2cdetect(mock_run: Any, mock_access: Any, mock_exists: Any) -> None:
     mock_exists.return_value = True
     mock_access.return_value = True
     mock_run.side_effect = FileNotFoundError()
@@ -266,7 +267,7 @@ def test_get_i2c_failure_report_missing_i2cdetect(mock_run, mock_access, mock_ex
 @patch("balance_bot.utils.Path.exists")
 @patch("os.access")
 @patch("subprocess.run")
-def test_get_i2c_failure_report_unknown_error(mock_run, mock_access, mock_exists):
+def test_get_i2c_failure_report_unknown_error(mock_run: Any, mock_access: Any, mock_exists: Any) -> None:
     mock_exists.return_value = True
     mock_access.return_value = True
     mock_run.side_effect = Exception("Mocked Error")

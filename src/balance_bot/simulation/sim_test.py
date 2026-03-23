@@ -19,13 +19,13 @@ def main() -> None:
     try:
         while True:
             # Send 0.0 to both motors
-            action = [0.0, 0.0]
+            action = (0.0, 0.0)
 
             # Step the environment
             obs, _, terminated, truncated, _ = env.step(action)
 
             # Pitch is the first observation
-            pitch = obs[0]
+            pitch = obs['pitch_angle']
 
             # Reset if robot crashes/terminates
             if terminated:

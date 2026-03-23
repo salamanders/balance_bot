@@ -1,13 +1,14 @@
+from typing import Any
 import unittest
 from balance_bot.adaptation.recovery import RecoveryManager
 from balance_bot.configuration import ControlConfig, STARTUP_RAMP_SPEED
 
 class TestRecoveryManager(unittest.TestCase):
-    def setUp(self):
+    def setUp(self: Any) -> Any:
         # Default configuration
         self.recovery = RecoveryManager()
 
-    def test_startup_normal_kp_high_lean(self):
+    def test_startup_normal_kp_high_lean(self: Any) -> None:
         """Test that high Kp (>1.0) and high lean (>5.0) triggers recovery."""
         # Initial state: Not recovering
         self.assertFalse(self.recovery.recovering)
@@ -26,7 +27,7 @@ class TestRecoveryManager(unittest.TestCase):
         self.assertIsNotNone(result)
         self.assertAlmostEqual(result, expected)  # type: ignore[arg-type]
 
-    def test_startup_low_kp_ignored(self):
+    def test_startup_low_kp_ignored(self: Any) -> None:
         """Test that low Kp (<1.0) prevents recovery (learning mode)."""
         current_pitch = 10.0
         current_kp = 0.5 # < 1.0
@@ -37,7 +38,7 @@ class TestRecoveryManager(unittest.TestCase):
         self.assertFalse(self.recovery.recovering)
         self.assertIsNone(result)
 
-    def test_startup_low_lean_ignored(self):
+    def test_startup_low_lean_ignored(self: Any) -> None:
         """Test that low lean (<=5.0) prevents recovery (already upright)."""
         current_pitch = 4.0 # <= 5.0
         current_kp = 25.0
@@ -48,7 +49,7 @@ class TestRecoveryManager(unittest.TestCase):
         self.assertFalse(self.recovery.recovering)
         self.assertIsNone(result)
 
-    def test_crash_resets_recovery(self):
+    def test_crash_resets_recovery(self: Any) -> None:
         """Test that a crash signal resets recovery state."""
         # Force recovery state
         self.recovery.recovering = True
@@ -58,7 +59,7 @@ class TestRecoveryManager(unittest.TestCase):
         self.assertFalse(self.recovery.recovering)
         self.assertIsNone(result)
 
-    def test_custom_config_thresholds(self):
+    def test_custom_config_thresholds(self: Any) -> None:
         """Test that custom configuration changes the thresholds."""
         # Custom config: stricter Kp, looser lean
         custom_config = ControlConfig(
