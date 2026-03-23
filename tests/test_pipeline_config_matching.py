@@ -98,8 +98,8 @@ def test_manual_lean_calibration_step(monkeypatch):
     status, config_updates, state_updates = step.run(hw_mock, HardwareConfig(), LearningState())
 
     # If the mock logic works, we check updates
-    if status == StepStatus.SUCCESS:
-        assert_updates_valid(config_updates, state_updates)
+    assert status == StepStatus.SUCCESS
+    assert_updates_valid(config_updates, state_updates)
 
 def test_broken_wire_check_step(monkeypatch):
     import glm
