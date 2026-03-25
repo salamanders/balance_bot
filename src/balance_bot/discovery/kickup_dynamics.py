@@ -1,5 +1,5 @@
-import time
 import logging
+import time
 from typing import Any
 
 from .step import CalibrationStep, StepStatus
@@ -8,6 +8,7 @@ from ..hardware.robot_hardware import RobotHardware
 from ..utils import find_threshold
 
 logger = logging.getLogger(__name__)
+
 
 # --- Step 7: Kickup Dynamics ---
 class KickupDynamicsStep(CalibrationStep):
@@ -41,14 +42,19 @@ class KickupDynamicsStep(CalibrationStep):
         margin = 15.0
 
         # Check if we are already securely flopped in the correct direction
-        if target_sign > 0 and state.rest_angle_backward is not None and abs(avg_pitch - state.rest_angle_backward) < margin and pitch_variance < 5.0:
-            logger.info(f"  [Posture Check] I am REALLY sure I'm on my BACK. I know this because stable pitch is {avg_pitch:.1f}° (Close to calibrated back rest {state.rest_angle_backward:.1f}°). No flop needed.")
+        if target_sign > 0 and state.rest_angle_backward is not None and abs(
+                avg_pitch - state.rest_angle_backward) < margin and pitch_variance < 5.0:
+            logger.info(
+                f"  [Posture Check] I am REALLY sure I'm on my BACK. I know this because stable pitch is {avg_pitch:.1f}° (Close to calibrated back rest {state.rest_angle_backward:.1f}°). No flop needed.")
             return
-        elif target_sign < 0 and state.rest_angle_forward is not None and abs(avg_pitch - state.rest_angle_forward) < margin and pitch_variance < 5.0:
-            logger.info(f"  [Posture Check] I am REALLY sure I'm on my FRONT. I know this because stable pitch is {avg_pitch:.1f}° (Close to calibrated front rest {state.rest_angle_forward:.1f}°). No flop needed.")
+        elif target_sign < 0 and state.rest_angle_forward is not None and abs(
+                avg_pitch - state.rest_angle_forward) < margin and pitch_variance < 5.0:
+            logger.info(
+                f"  [Posture Check] I am REALLY sure I'm on my FRONT. I know this because stable pitch is {avg_pitch:.1f}° (Close to calibrated front rest {state.rest_angle_forward:.1f}°). No flop needed.")
             return
 
-        logger.info(f"  [Posture Check] Current pitch is {avg_pitch:.1f}°. Need to actively flop to {target_name}. Initiating maneuver...")
+        logger.info(
+            f"  [Posture Check] Current pitch is {avg_pitch:.1f}°. Need to actively flop to {target_name}. Initiating maneuver...")
 
         # Increment power until we reach max_power
         p = base_power
@@ -88,10 +94,12 @@ class KickupDynamicsStep(CalibrationStep):
             avg_pitch_post = sum(samples_post) / len(samples_post)
 
             # Verify success using the absolute margin against calibrated rest angles
-            if target_sign > 0 and state.rest_angle_backward is not None and abs(avg_pitch_post - state.rest_angle_backward) < margin:
+            if target_sign > 0 and state.rest_angle_backward is not None and abs(
+                    avg_pitch_post - state.rest_angle_backward) < margin:
                 logger.info(f"  [Posture Check] Flop successful. Settled at {avg_pitch_post:.1f}°")
                 return
-            if target_sign < 0 and state.rest_angle_forward is not None and abs(avg_pitch_post - state.rest_angle_forward) < margin:
+            if target_sign < 0 and state.rest_angle_forward is not None and abs(
+                    avg_pitch_post - state.rest_angle_forward) < margin:
                 logger.info(f"  [Posture Check] Flop successful. Settled at {avg_pitch_post:.1f}°")
                 return
 
@@ -163,20 +171,21 @@ class KickupDynamicsStep(CalibrationStep):
             return self._attempt_kick(hw, direction_sign, p)
 
         return find_threshold(f"KickUp {dir_name}",
-                               0,
-                               5, 100,
-                               action,
-                               lambda r: r == "SUCCESS",
-                               heartbeat_fn=hw.watchdog.heartbeat if hw.watchdog else None)
+                              0,
+                              5, 100,
+                              action,
+                              lambda r: r == "SUCCESS",
+                              heartbeat_fn=hw.watchdog.heartbeat if hw.watchdog else None)
 
-    def run(self, hw: RobotHardware, config: HardwareConfig, state: LearningState) -> tuple[StepStatus, dict[str, Any], dict[str, Any]]:
+    def run(self, hw: RobotHardware, config: HardwareConfig, state: LearningState) -> tuple[
+        StepStatus, dict[str, Any], dict[str, Any]]:
         logger.info(">>> Dynamic Kick-Up Calibration <<<")
 
-        fwd = self._run_kickup_test(hw, state, 1.0) # Kickup Forward (from Back, +1)
+        fwd = self._run_kickup_test(hw, state, 1.0)  # Kickup Forward (from Back, +1)
         if fwd is None:
             return StepStatus.NEEDS_RETRY, {}, {}
 
-        bwd = self._run_kickup_test(hw, state, -1.0) # Kickup Backward (from Front, -1)
+        bwd = self._run_kickup_test(hw, state, -1.0)  # Kickup Backward (from Front, -1)
         if bwd is None:
             return StepStatus.NEEDS_RETRY, {}, {}
 

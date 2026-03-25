@@ -1,5 +1,6 @@
 import logging
 from typing import Any
+
 import glm
 
 from .step import CalibrationStep, StepStatus
@@ -7,6 +8,7 @@ from ..configuration import HardwareConfig, LearningState
 from ..hardware.robot_hardware import RobotHardware
 
 logger = logging.getLogger(__name__)
+
 
 class BrokenWireCheckStep(CalibrationStep):
     @property
@@ -16,7 +18,8 @@ class BrokenWireCheckStep(CalibrationStep):
     def is_verified(self, state: LearningState) -> bool:
         return state.broken_wire_verified
 
-    def run(self, hw: RobotHardware, config: HardwareConfig, state: LearningState) -> tuple[StepStatus, dict[str, Any], dict[str, Any]]:
+    def run(self, hw: RobotHardware, config: HardwareConfig, state: LearningState) -> tuple[
+        StepStatus, dict[str, Any], dict[str, Any]]:
         logger.info("\n>>> Checking for Broken Wires <<<")
         logger.info("Ensuring independent movement of left and right motors...")
         hw.wait_for_stability()
@@ -26,8 +29,8 @@ class BrokenWireCheckStep(CalibrationStep):
 
             # Pulse the motor with a short burst of high power, then coast and record
             steps = [
-                (power_l, power_r, 0.2), # Power pulse
-                (0.0, 0.0, 0.5),         # Settle and record
+                (power_l, power_r, 0.2),  # Power pulse
+                (0.0, 0.0, 0.5),  # Settle and record
             ]
             res = hw.execute_maneuver(steps)
 

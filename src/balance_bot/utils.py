@@ -1,19 +1,19 @@
+import logging
+import math
+import os
+import subprocess
 import sys
 import time
-import math
-import logging
-import subprocess
-import os
-from pathlib import Path
 from collections import deque
+from pathlib import Path
 from typing import Union, Callable, Any, Sequence
 
 import glm
 
 try:
-    import smbus2 as smbus # type: ignore
+    import smbus2 as smbus  # type: ignore
 except ImportError:
-    smbus = None # type: ignore
+    smbus = None  # type: ignore
 
 logger = logging.getLogger(__name__)
 
@@ -68,7 +68,7 @@ class ComplementaryFilter:
         :return: The filtered angle.
         """
         self.angle = (self.alpha * (self.angle + rate * loop_delta_time)) + (
-            (1.0 - self.alpha) * new_angle
+                (1.0 - self.alpha) * new_angle
         )
         return self.angle
 
@@ -174,6 +174,7 @@ def calculate_pitch(accel_y: float, accel_z: float) -> float:
 
 class StdOutToLog(object):
     """File-like object that redirects writes to a logger."""
+
     def __init__(self, target_logger: logging.Logger, level: int) -> None:
         self._logger = target_logger
         self.level = level
@@ -237,10 +238,10 @@ def check_force_calibration_flag() -> bool:
 
 
 def analyze_dominance(
-    data: Union[dict[str, float], glm.vec3],
-    label: str,
-    expected_axis: str | None = None,
-    threshold: float = 1.5,
+        data: Union[dict[str, float], glm.vec3],
+        label: str,
+        expected_axis: str | None = None,
+        threshold: float = 1.5,
 ) -> tuple[str, float, bool]:
     """
     Analyzes a dictionary of axis values to find the dominant signal.
@@ -315,7 +316,7 @@ def get_i2c_failure_report(bus_id: int, address: int, device_name: str) -> str:
         if hex_addr in result.stdout:
             return f"CONFUSION: Device {device_name} (0x{hex_addr}) IS detected on Bus {bus_id} by i2cdetect, but Python driver failed. Check for library version mismatch or intermittent wiring connection."
         else:
-             return "Hardware not found or failed.  You may be using a different bus, try 'Check I2C Bus'.  Also check wire connections."
+            return "Hardware not found or failed.  You may be using a different bus, try 'Check I2C Bus'.  Also check wire connections."
     except FileNotFoundError:
         return "DEPENDENCY FAILURE: 'i2cdetect' is missing. Install i2c-tools."
     except Exception as e:
@@ -332,6 +333,7 @@ def make_i2c_check_fn(address: int, register: int = 0, expected_value: int | Non
     :param expected_value: Value to expect. If None, any successful read is True.
     :return: Callable that returns True if device is found.
     """
+
     def check(bus: Any) -> bool:
         try:
             val = bus.read_byte_data(address, register)
@@ -340,6 +342,7 @@ def make_i2c_check_fn(address: int, register: int = 0, expected_value: int | Non
             return True
         except (OSError, IOError, Exception):
             return False
+
     return check
 
 
@@ -361,6 +364,7 @@ def scan_i2c_candidates(name: str, check_fn: Callable[[Any], bool]) -> int | Non
         except (OSError, IOError, Exception):
             pass
     return None
+
 
 def scan_i2c(name: str, check_fn: Callable[[Any], bool]) -> int | None:
     """
@@ -386,11 +390,12 @@ def scan_i2c(name: str, check_fn: Callable[[Any], bool]) -> int | None:
         return None
     return bus
 
+
 def find_threshold(name: str, start: float, step: float, limit: float,
-                    action_fn: Callable[[float], Any],
-                    check_fn: Callable[[Any], bool],
-                    fail_action: Callable[[Any], bool] | None = None,
-                    heartbeat_fn: Callable[[], None] | None = None) -> float | None:
+                   action_fn: Callable[[float], Any],
+                   check_fn: Callable[[Any], bool],
+                   fail_action: Callable[[Any], bool] | None = None,
+                   heartbeat_fn: Callable[[], None] | None = None) -> float | None:
     """
     Find a threshold value by incrementing.
     fail_action: Optional callback on failure. Return True to retry SAME level.
@@ -436,6 +441,7 @@ def average_vector(vectors: Sequence[glm.vec3]) -> glm.vec3:
 
     count = len(vectors)
     return glm.vec3(sum_x / count, sum_y / count, sum_z / count)
+
 
 def circular_difference(target: float, current: float) -> float:
     """

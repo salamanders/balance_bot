@@ -1,12 +1,13 @@
-import time
-import sys
 import math
+import sys
+import time
+
 import smbus2
 
 # SHIM: Trick the mpu6050 library into using smbus2 instead of the missing smbus
 sys.modules['smbus'] = smbus2
 
-from mpu6050 import mpu6050 # noqa: E402
+from mpu6050 import mpu6050  # noqa: E402
 
 APP_START_TIME = time.time()
 
@@ -15,9 +16,11 @@ PICONZERO_ADDR = 0x22
 MPU6050_ADDR = 0x68
 CMD_RESET = 20
 
+
 def get_ms():
     """Returns milliseconds since the application started."""
     return int((time.time() - APP_START_TIME) * 1000)
+
 
 def scan_for_devices():
     """Step 1: Figure out the bus channels for motors and gyro."""
@@ -48,6 +51,7 @@ def scan_for_devices():
     print(f"[{get_ms():05d} ms] Results: Motor Bus = {motor_bus}, Gyro Bus = {gyro_bus}")
     return motor_bus, gyro_bus
 
+
 def monitor_imu(sensor, duration=1.0):
     """Helper to monitor IMU for a given duration, print readings, and return averages."""
     start_time = time.time()
@@ -63,15 +67,16 @@ def monitor_imu(sensor, duration=1.0):
             gyro_readings.append(gyro_data)
             accel_readings.append(accel_data)
 
-            magnitude = (accel_data['x']**2 + accel_data['y']**2 + accel_data['z']**2) ** 0.5
+            magnitude = (accel_data['x'] ** 2 + accel_data['y'] ** 2 + accel_data['z'] ** 2) ** 0.5
 
-            print(f"[{ts_ms:05d} ms] Gyro: X={gyro_data['x']:>6.2f}, Y={gyro_data['y']:>6.2f}, Z={gyro_data['z']:>6.2f} "
-                  f"| Accel: X={accel_data['x']:>6.2f}, Y={accel_data['y']:>6.2f}, Z={accel_data['z']:>6.2f} | Tot G: {magnitude:.2f}")
+            print(
+                f"[{ts_ms:05d} ms] Gyro: X={gyro_data['x']:>6.2f}, Y={gyro_data['y']:>6.2f}, Z={gyro_data['z']:>6.2f} "
+                f"| Accel: X={accel_data['x']:>6.2f}, Y={accel_data['y']:>6.2f}, Z={accel_data['z']:>6.2f} | Tot G: {magnitude:.2f}")
 
         except Exception as err:
             print(f"[{ts_ms:05d} ms] ERROR reading IMU: {type(err).__name__} - {err}")
 
-        time.sleep(0.05) # Sample at ~20Hz
+        time.sleep(0.05)  # Sample at ~20Hz
 
     if not gyro_readings:
         print(f"[{get_ms():05d} ms] WARNING: No valid readings captured during this period.")
@@ -87,6 +92,7 @@ def monitor_imu(sensor, duration=1.0):
     avg_az = sum(r['z'] for r in accel_readings) / len(accel_readings)
 
     return {"x": avg_gx, "y": avg_gy, "z": avg_gz}, {"x": avg_ax, "y": avg_ay, "z": avg_az}
+
 
 def main():
     motor_bus_num, gyro_bus_num = scan_for_devices()
@@ -116,7 +122,8 @@ def main():
         print(f"\n[{get_ms():05d} ms] --- Step 2: Sitting Still (Monitoring Static Gravity) ---")
         set_motors(0, 0)
         drift_gyro, static_accel = monitor_imu(gyro_sensor, duration=1.0)
-        print(f"[{get_ms():05d} ms] ---> Accel Averages: X={static_accel['x']:.2f}, Y={static_accel['y']:.2f}, Z={static_accel['z']:.2f}")
+        print(
+            f"[{get_ms():05d} ms] ---> Accel Averages: X={static_accel['x']:.2f}, Y={static_accel['y']:.2f}, Z={static_accel['z']:.2f}")
 
         print(f"\n[{get_ms():05d} ms] --- Step 3: Motors at +30 for 1 second ---")
         set_motors(30, 30)
@@ -188,6 +195,7 @@ def main():
     print(")\n")
     print(f"Calculated Rest Angle: {rest_angle_deg:.2f} degrees")
     print("==================================================")
+
 
 if __name__ == "__main__":
     main()

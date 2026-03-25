@@ -1,14 +1,16 @@
 import logging
 from typing import Any
+
 import glm
 
 from .step import CalibrationStep, StepStatus
 from ..configuration import HardwareConfig, LearningState
-from ..hardware.robot_hardware import RobotHardware
 from ..enums import Axis
+from ..hardware.robot_hardware import RobotHardware
 from ..utils import analyze_dominance, average_vector
 
 logger = logging.getLogger(__name__)
+
 
 # --- Step 4: Derive Kinematics (The Single Wiggle) ---
 class DeriveKinematicsStep(CalibrationStep):
@@ -23,7 +25,8 @@ class DeriveKinematicsStep(CalibrationStep):
                 state.motor_phasing_verified and
                 state.motor_channels_verified)
 
-    def _pulse_and_measure(self, hw: RobotHardware, l_p: float, r_p: float, name: str) -> tuple[glm.vec3, glm.vec3]:
+    @staticmethod
+    def _pulse_and_measure(hw: RobotHardware, l_p: float, r_p: float, name: str) -> tuple[glm.vec3, glm.vec3]:
         """Pulse motors and return average gyro and accel vectors."""
         logger.info(f"  Pulsing {name}...")
 
@@ -49,8 +52,8 @@ class DeriveKinematicsStep(CalibrationStep):
         res = hw.execute_maneuver(steps)
 
         if not res.samples:
-             logger.error(f"  [FAILURE] No samples collected for {name} Pulse. Ignored command / System Glitch.")
-             return None, None
+            logger.error(f"  [FAILURE] No samples collected for {name} Pulse. Ignored command / System Glitch.")
+            return None, None
 
         error_count = sum(s.error_count > 0 for s in res.samples)
         if error_count > 0:
@@ -61,11 +64,13 @@ class DeriveKinematicsStep(CalibrationStep):
 
         # Verify if the motor actually moved the robot
         if glm.length(gyro) < 5.0:
-            logger.warning(f"  [IGNORED] Command to {name} resulted in <5.0 deg/s rotation. Not enough power or glitch.")
+            logger.warning(
+                f"  [IGNORED] Command to {name} resulted in <5.0 deg/s rotation. Not enough power or glitch.")
 
         return gyro, accel
 
-    def run(self, hw: RobotHardware, config: HardwareConfig, state: LearningState) -> tuple[StepStatus, dict[str, Any], dict[str, Any]]:
+    def run(self, hw: RobotHardware, config: HardwareConfig, state: LearningState) -> tuple[
+        StepStatus, dict[str, Any], dict[str, Any]]:
         logger.info("\n>>> Deriving Kinematics (Single Wiggle) <<<")
         hw.wait_for_stability()
 

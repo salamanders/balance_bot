@@ -1,12 +1,11 @@
+from dataclasses import dataclass
 
+from .pid import PIDController
 from ..configuration import HardwareConfig, LearningState
 from ..hardware.robot_hardware import RobotHardware
 from ..utils import ComplementaryFilter, circular_difference
 from ..watchdog import SurvivalWatchdog
-from .pid import PIDController
 
-
-from dataclasses import dataclass
 
 @dataclass(slots=True)
 class MotionRequest:
@@ -61,7 +60,8 @@ class BalanceCore:
      - Safety (Hard-coded limits).
     """
 
-    def __init__(self, hw_config: HardwareConfig, learning_state: LearningState, watchdog: SurvivalWatchdog | None = None):
+    def __init__(self, hw_config: HardwareConfig, learning_state: LearningState,
+                 watchdog: SurvivalWatchdog | None = None):
         self.hw_config = hw_config
         self.learning_state = learning_state
 
@@ -93,11 +93,11 @@ class BalanceCore:
         self.hw.set_motor_retries(retries)
 
     def update(
-        self,
-        motion: MotionRequest,
-        tuning: TuningParams,
-        loop_delta_time: float,
-        battery_compensation: float = 1.0,
+            self,
+            motion: MotionRequest,
+            tuning: TuningParams,
+            loop_delta_time: float,
+            battery_compensation: float = 1.0,
     ) -> BalanceTelemetry:
         """
         Execute one reflex step.
@@ -147,9 +147,9 @@ class BalanceCore:
         velocity_tilt = motion.velocity * self.learning_state.control.max_tilt_angle
 
         target_angle = (
-            self.learning_state.pid.target_angle  # Base mechanical setpoint
-            + tuning.target_angle_offset  # Adaptation offset
-            + velocity_tilt               # Intentional tilt
+                self.learning_state.pid.target_angle  # Base mechanical setpoint
+                + tuning.target_angle_offset  # Adaptation offset
+                + velocity_tilt  # Intentional tilt
         )
 
         # 6. Safety Cutoff

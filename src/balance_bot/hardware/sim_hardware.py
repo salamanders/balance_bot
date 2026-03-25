@@ -1,19 +1,21 @@
-import math
-import time
-import random
 import logging
-import numpy as np
+import math
+import random
+import time
+
 import glm
+import numpy as np
 
 from .types import IMUReading, MeasureResult, DriveCommand
 from ..configuration import HardwareConfig, LearningState
-from ..watchdog import SurvivalWatchdog
 from ..simulation.sim_env import BalanceBotEnv
+from ..watchdog import SurvivalWatchdog
 
 logger = logging.getLogger(__name__)
 
 MOTOR_MIN_OUTPUT = -100
 MOTOR_MAX_OUTPUT = 100
+
 
 class SimHardware:
     """
@@ -21,7 +23,8 @@ class SimHardware:
     while providing the exact same interface as RobotHardware.
     """
 
-    def __init__(self, hw_config: HardwareConfig, learning_state: LearningState, watchdog: SurvivalWatchdog | None = None, render_mode: str | None = None):
+    def __init__(self, hw_config: HardwareConfig, learning_state: LearningState,
+                 watchdog: SurvivalWatchdog | None = None, render_mode: str | None = None):
         self.config = hw_config
         self.state = learning_state
         self.watchdog = watchdog
@@ -58,7 +61,7 @@ class SimHardware:
     @staticmethod
     def read_imu_raw() -> tuple[glm.vec3, glm.vec3]:
         # Not strictly needed since we use read_imu_converted usually
-        return glm.vec3(0,0,0), glm.vec3(0,0,0)
+        return glm.vec3(0, 0, 0), glm.vec3(0, 0, 0)
 
     def read_imu_converted(self) -> IMUReading:
         # Simulate occasional I2C read failures (10% chance)
@@ -128,7 +131,7 @@ class SimHardware:
     def set_motor_retries(self, retries: int) -> None:
         pass
 
-    def set_motors(self, left: float, right: float, trim_override: float | None = None) -> None:
+    def set_motors(self, left: float, right: float) -> None:
         # Simulate occasional I2C write failures to motors (10% chance)
         if random.random() < 0.10:
             logger.debug("Simulated motor write failure - ignoring command")
@@ -165,12 +168,12 @@ class SimHardware:
         return glm.vec3(0, 0, 9.81)
 
     # Some basic maneuver methods
-    def execute_maneuver(self, steps: list[tuple[float, float, float]], sample_interval: float = 0.01, trim_override: float | None = None) -> MeasureResult:
+    def execute_maneuver(self, steps: list[tuple[float, float, float]]) -> MeasureResult:
         logger.info("Executing maneuver in simulation")
         # Step through the commands and record
         samples = []
         for pwr_l, pwr_r, duration in steps:
-            self.set_motors(pwr_l, pwr_r, trim_override=trim_override)
+            self.set_motors(pwr_l, pwr_r)
             steps_needed = int(duration / self.control_dt)
             for _ in range(steps_needed):
                 imu = self.read_imu_converted()
@@ -188,7 +191,5 @@ class SimHardware:
         if command.wait_for_stability:
             self.wait_for_stability()
         return self.execute_maneuver(
-            [(command.left_power, command.right_power, command.duration)],
-            sample_interval=command.sample_interval,
-            trim_override=command.trim_override
+            [(command.left_power, command.right_power, command.duration)]
         )

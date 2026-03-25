@@ -1,5 +1,5 @@
-import time
 import logging
+import time
 from pathlib import Path
 
 from ..configuration import LedConfig

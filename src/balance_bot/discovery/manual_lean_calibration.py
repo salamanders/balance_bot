@@ -1,13 +1,14 @@
-import time
 import logging
+import time
 from typing import Any
 
 from .step import CalibrationStep, StepStatus
 from ..configuration import HardwareConfig, LearningState
-from ..hardware.robot_hardware import RobotHardware
 from ..enums import Axis
+from ..hardware.robot_hardware import RobotHardware
 
 logger = logging.getLogger(__name__)
+
 
 class ManualLeanCalibrationStep(CalibrationStep):
     @property
@@ -17,7 +18,8 @@ class ManualLeanCalibrationStep(CalibrationStep):
     def is_verified(self, state: LearningState) -> bool:
         return state.manual_lean_verified
 
-    def run(self, hw: RobotHardware, config: HardwareConfig, state: LearningState) -> tuple[StepStatus, dict[str, Any], dict[str, Any]]:
+    def run(self, hw: RobotHardware, config: HardwareConfig, state: LearningState) -> tuple[
+        StepStatus, dict[str, Any], dict[str, Any]]:
         logger.info("========================================")
         logger.info(">>> MANUAL LEAN CALIBRATION REQUIRED <<<")
         logger.info("Please follow the physical instructions.")
@@ -97,7 +99,8 @@ class ManualLeanCalibrationStep(CalibrationStep):
         front_accel = forward_readings[fwd_axis] * fwd_dir
 
         if back_accel > front_accel:
-            logger.error("  [FAILURE] Kinematic sanity check failed. The forward leaning acceleration should be greater than the backward leaning acceleration along the forward axis.")
+            logger.error(
+                "  [FAILURE] Kinematic sanity check failed. The forward leaning acceleration should be greater than the backward leaning acceleration along the forward axis.")
             return StepStatus.NEEDS_RETRY, {}, {}
 
         # Rough conversion to degrees (assuming 1g = 9.81m/s^2, sin(theta) ~ accel/9.81)
@@ -108,7 +111,7 @@ class ManualLeanCalibrationStep(CalibrationStep):
             max_tilt_back = math.degrees(math.asin(max(-1.0, min(1.0, back_accel / 9.81))))
             max_tilt_front = math.degrees(math.asin(max(-1.0, min(1.0, front_accel / 9.81))))
         except ValueError:
-             return StepStatus.NEEDS_RETRY, {}, {}
+            return StepStatus.NEEDS_RETRY, {}, {}
 
         logger.info(f"  Identified Vertical Axis: {vert_axis.name} (Dir: {vert_dir})")
         logger.info(f"  Identified Forward Axis:  {fwd_axis.name} (Dir: {fwd_dir})")

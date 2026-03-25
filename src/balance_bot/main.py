@@ -1,14 +1,16 @@
+import argparse
+import datetime
+import importlib.metadata
 import mmap
 import os
-import argparse
 import traceback
-import importlib.metadata
-import datetime
 from typing import Any
+
 from .behavior.agent import Agent
-from .utils import setup_logging, get_captured_logs
 from .jules_client import JulesClient, CrashReport
+from .utils import setup_logging, get_captured_logs
 from .watchdog import SurvivalWatchdog
+
 
 def parse_args() -> argparse.Namespace:
     """Parse command line arguments."""
@@ -45,7 +47,7 @@ def get_tail_telemetry(filepath: str, lines: int = 100) -> str:
             if pos <= header_end:
                 pos = header_end
             else:
-                pos += 2 # Move past the newline
+                pos += 2  # Move past the newline
 
             tail_lines = mm[pos:].decode("utf-8")
             mm.close()
@@ -62,6 +64,7 @@ def _reset_robot_memory() -> None:
     LearningState().save()
     print("Brain reset complete. Entering Toddler Phase.")
 
+
 def _run_discovery(watchdog: SurvivalWatchdog) -> None:
     """Run the self-discovery pipeline (Toddler Phase)."""
     print("Incomplete knowledge detected. Initiating Discovery...")
@@ -72,13 +75,15 @@ def _run_discovery(watchdog: SurvivalWatchdog) -> None:
     )
 
     steps = [
-        DiscoverBusesStep(), HardwareInitStep(), ManualLeanCalibrationStep(), BrokenWireCheckStep(), FrictionThresholdStep(),
+        DiscoverBusesStep(), HardwareInitStep(), ManualLeanCalibrationStep(), BrokenWireCheckStep(),
+        FrictionThresholdStep(),
         DeriveKinematicsStep(), MotorTrimStep(), MechanicalBacklashStep(), KickupDynamicsStep()
     ]
     pipeline = SelfDiscoveryPipeline(steps, watchdog)
     pipeline.run()
     # SelfDiscoveryPipeline finishes and cleans up the hardware locks safely.
     print("Discovery complete. Waking up Main Agent...")
+
 
 def _handle_crash_reporting(e: Exception, bot_instance: Agent | None = None) -> None:
     """Gather state and report the crash to Jules."""
@@ -138,6 +143,7 @@ def _handle_crash_reporting(e: Exception, bot_instance: Agent | None = None) -> 
         except Exception as write_err:
             print(f"Failed to write local crash report: {write_err}")
 
+
 def main() -> None:
     """Entry point for the robot control application."""
     args = parse_args()
@@ -184,6 +190,7 @@ def main() -> None:
         raise
     finally:
         watchdog.stop()
+
 
 if __name__ == "__main__":
     main()

@@ -1,5 +1,5 @@
-import time
 import logging
+import time
 from typing import Any
 
 from .step import CalibrationStep, StepStatus
@@ -7,6 +7,7 @@ from ..configuration import HardwareConfig, LearningState
 from ..hardware.robot_hardware import RobotHardware
 
 logger = logging.getLogger(__name__)
+
 
 # --- Step 6: Mechanical Backlash ---
 class MechanicalBacklashStep(CalibrationStep):
@@ -17,7 +18,8 @@ class MechanicalBacklashStep(CalibrationStep):
     def is_verified(self, state: LearningState) -> bool:
         return state.backlash_verified
 
-    def run(self, hw: RobotHardware, config: HardwareConfig, state: LearningState) -> tuple[StepStatus, dict[str, Any], dict[str, Any]]:
+    def run(self, hw: RobotHardware, config: HardwareConfig, state: LearningState) -> tuple[
+        StepStatus, dict[str, Any], dict[str, Any]]:
         logger.info(">>> Measuring Mechanical Backlash <<<")
         hw.wait_for_stability(duration=1.0)
 

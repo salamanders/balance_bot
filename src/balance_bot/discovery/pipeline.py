@@ -8,6 +8,7 @@ from ..watchdog import SurvivalWatchdog
 
 logger = logging.getLogger(__name__)
 
+
 class SelfDiscoveryPipeline:
     def __init__(self, steps: list[CalibrationStep], watchdog: SurvivalWatchdog) -> None:
         self.steps = steps
@@ -32,7 +33,7 @@ class SelfDiscoveryPipeline:
     def _run_step_with_retries(self, step: CalibrationStep) -> None:
         max_retries = 3
         attempts = 0
-        while attempts < max_retries: # Retry Loop
+        while attempts < max_retries:  # Retry Loop
             attempts += 1
             if step.is_verified(self.state):
                 logger.info(f"Skipping [{step.name}] - Already verified.")
@@ -67,7 +68,7 @@ class SelfDiscoveryPipeline:
                         self.config = new_config
                         self.hw.apply_config(self.config)
 
-                break # Move to next step
+                break  # Move to next step
 
             elif status == StepStatus.NEEDS_RETRY:
                 logger.warning(f"[{step.name}] Requested Retry. Stabilizing...")
@@ -77,7 +78,7 @@ class SelfDiscoveryPipeline:
                     logger.error(f"[{step.name}] FATAL ERROR: Max retries ({max_retries}) reached. Halting pipeline.")
                     self.hw.stop()
                     raise RuntimeError(f"Pipeline halted at {step.name} after {max_retries} failed attempts")
-                continue # Retry same step
+                continue  # Retry same step
 
             elif status == StepStatus.FATAL:
                 logger.error(f"[{step.name}] FATAL ERROR. Halting pipeline.")

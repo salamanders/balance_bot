@@ -1,32 +1,32 @@
+import concurrent.futures
+import json
+import logging
 import sys
 import time
-import logging
-import json
-import concurrent.futures
+from pathlib import Path
 from typing import Any
 
-from ..watchdog import SurvivalWatchdog
-from pathlib import Path
+from .leds import LedController
+from .states import AgentContext, BotState, IdleState
+from ..adaptation.battery import BatteryEstimator
+from ..adaptation.recovery import RecoveryManager
+from ..adaptation.tuner import ContinuousTuner, BalancePointFinder
 from ..configuration import (
 
     HardwareConfig,
     LearningState,
     PIDParams,
 )
+from ..enums import Orientation, Direction
+from ..reflex.balance_core import BalanceCore, MotionRequest, TuningParams
+from ..telemetry import TelemetryBlackbox
 from ..utils import (
     RateLimiter,
     LogThrottler,
     setup_logging,
     check_force_calibration_flag,
 )
-from ..reflex.balance_core import BalanceCore, MotionRequest, TuningParams
-from ..adaptation.recovery import RecoveryManager
-from ..adaptation.tuner import ContinuousTuner, BalancePointFinder
-from ..adaptation.battery import BatteryEstimator
-from .leds import LedController
-from ..enums import Orientation, Direction
-from .states import AgentContext, BotState, IdleState
-from ..telemetry import TelemetryBlackbox
+from ..watchdog import SurvivalWatchdog
 
 logger = logging.getLogger(__name__)
 
@@ -179,7 +179,8 @@ class Agent:
                 # Check background tasks (Saving)
                 if self.ticks % 10 == 0:
                     self.led.update()
-                    if self.config_dirty and (time.monotonic() - self.last_save_time > self.learning_state.timing.save_interval):
+                    if self.config_dirty and (
+                            time.monotonic() - self.last_save_time > self.learning_state.timing.save_interval):
                         try:
                             config_snapshot = self.learning_state.model_dump()
                             self.io_executor.submit(self._save_config_worker, config_snapshot)
@@ -193,7 +194,8 @@ class Agent:
                     ang_accel = (last_telemetry.pitch_rate - last_pitch_rate) / dt
                     last_pitch_rate = last_telemetry.pitch_rate
                     _comp_factor = self.battery.update(last_telemetry.motor_output, ang_accel)
-                    if float(_comp_factor) < float(self.learning_state.control.low_battery_log_threshold) and self.battery_logger.should_log():
+                    if float(_comp_factor) < float(
+                            self.learning_state.control.low_battery_log_threshold) and self.battery_logger.should_log():
                         logger.warning(f"-> Low Battery? Compensating: {int(_comp_factor * 100)}%")
                 else:
                     # Fallback if no telemetry (e.g. after Kickup)
@@ -217,11 +219,11 @@ class Agent:
                     self.state = next_state
                     self.state.enter(context)
 
-
                 # Check background tasks (Saving)
                 if self.ticks % 10 == 0:
                     self.led.update()
-                    if self.config_dirty and (time.monotonic() - self.last_save_time > self.learning_state.timing.save_interval):
+                    if self.config_dirty and (
+                            time.monotonic() - self.last_save_time > self.learning_state.timing.save_interval):
                         try:
                             config_snapshot = self.learning_state.model_dump()
                             self.io_executor.submit(self._save_config_worker, config_snapshot)
@@ -235,7 +237,8 @@ class Agent:
                     ang_accel = (last_telemetry.pitch_rate - last_pitch_rate) / dt
                     last_pitch_rate = last_telemetry.pitch_rate
                     _comp_factor = self.battery.update(last_telemetry.motor_output, ang_accel)
-                    if float(_comp_factor) < float(self.learning_state.control.low_battery_log_threshold) and self.battery_logger.should_log():
+                    if float(_comp_factor) < float(
+                            self.learning_state.control.low_battery_log_threshold) and self.battery_logger.should_log():
                         logger.warning(f"-> Low Battery? Compensating: {int(_comp_factor * 100)}%")
                 else:
                     # Fallback if no telemetry (e.g. after Kickup)
@@ -290,7 +293,6 @@ class Agent:
             logger.info("Config saved (Async).")
         except Exception as e:
             logger.error(f"Error saving config asynchronously: {e}")
-
 
     def _incremental_kickup(self, target_angle: float, start_power: float) -> bool:
         """

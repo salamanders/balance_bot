@@ -1,18 +1,19 @@
-from dataclasses import dataclass
-import time
 import logging
+import time
+from dataclasses import dataclass
 
-from ..configuration import HardwareConfig, LearningState
-from ..reflex.balance_core import BalanceCore, MotionRequest, TuningParams, BalanceTelemetry
 from ..adaptation.battery import BatteryEstimator
-from ..behavior.leds import LedController
 from ..adaptation.recovery import RecoveryManager
 from ..adaptation.tuner import ContinuousTuner
+from ..behavior.leds import LedController
+from ..configuration import HardwareConfig, LearningState
 from ..enums import Direction, Orientation
+from ..reflex.balance_core import BalanceCore, MotionRequest, TuningParams, BalanceTelemetry
 from ..utils import RateLimiter
 from ..watchdog import SurvivalWatchdog
 
 logger = logging.getLogger(__name__)
+
 
 @dataclass
 class AgentContext:
@@ -25,21 +26,25 @@ class AgentContext:
     tuner: ContinuousTuner
     watchdog: SurvivalWatchdog | None
 
+
 class BotState:
     def enter(self, context: AgentContext) -> None:
         pass
 
-    def update(self, context: AgentContext, dt: float, motion_req: MotionRequest, tuning_params: TuningParams, last_telemetry: BalanceTelemetry | None, ticks: int) -> 'BotState':
+    def update(self, context: AgentContext, dt: float, motion_req: MotionRequest, tuning_params: TuningParams,
+               last_telemetry: BalanceTelemetry | None, ticks: int) -> 'BotState':
         return self
 
     def exit(self, context: AgentContext) -> None:
         pass
 
+
 class IdleState(BotState):
     def __init__(self, kickup_attempts: int = 0):
         self.kickup_attempts = kickup_attempts
 
-    def update(self, context: AgentContext, dt: float, motion_req: MotionRequest, tuning_params: TuningParams, last_telemetry: BalanceTelemetry | None, ticks: int) -> BotState:
+    def update(self, context: AgentContext, dt: float, motion_req: MotionRequest, tuning_params: TuningParams,
+               last_telemetry: BalanceTelemetry | None, ticks: int) -> BotState:
         pitch = context.core.pitch
 
         if abs(pitch) < 10.0:
@@ -53,6 +58,7 @@ class IdleState(BotState):
                 if ticks % 500 == 0:
                     logger.warning("-> Max Kick-Up attempts reached. Waiting for manual reset.")
         return self
+
 
 class KickupState(BotState):
     def __init__(self, attempts: int = 0):
@@ -108,7 +114,7 @@ class KickupState(BotState):
             self._wait_for_settle(context)
 
             if (kick_direction == Direction.BACKWARD and context.core.pitch < -10) or (
-                kick_direction == Direction.FORWARD and context.core.pitch > 10
+                    kick_direction == Direction.FORWARD and context.core.pitch > 10
             ):
                 fix_success = True
                 break
@@ -195,7 +201,8 @@ class KickupState(BotState):
         logger.error("-> Failed to Kick-Up (Max Power Reached).")
         return False
 
-    def update(self, context: AgentContext, dt: float, motion_req: MotionRequest, tuning_params: TuningParams, last_telemetry: BalanceTelemetry | None, ticks: int) -> BotState:
+    def update(self, context: AgentContext, dt: float, motion_req: MotionRequest, tuning_params: TuningParams,
+               last_telemetry: BalanceTelemetry | None, ticks: int) -> BotState:
         pwr = (
             context.learning_state.control.kickup_power_forward
             if context.core.pitch < 0
@@ -207,18 +214,21 @@ class KickupState(BotState):
             logger.info("-> Kick-Up Successful! Transition to BALANCING.")
             return BalancingState()
         else:
-            if context.core.pitch > 80.0: # Fallback FATAL check for completely unrecoverable orientation
-                pass # FATAL checks handled in next state or here
+            if context.core.pitch > 80.0:  # Fallback FATAL check for completely unrecoverable orientation
+                pass  # FATAL checks handled in next state or here
             logger.warning("-> Kick-Up Failed. Transition to IDLE.")
             return IdleState(kickup_attempts=self.attempts + 1)
 
+
 class BalancingState(BotState):
-    def update(self, context: AgentContext, dt: float, motion_req: MotionRequest, tuning_params: TuningParams, last_telemetry: BalanceTelemetry | None, ticks: int) -> BotState:
+    def update(self, context: AgentContext, dt: float, motion_req: MotionRequest, tuning_params: TuningParams,
+               last_telemetry: BalanceTelemetry | None, ticks: int) -> BotState:
         motion_req.enable_control = True
         current_pitch = last_telemetry.pitch_angle if last_telemetry else context.core.pitch
 
         if abs(current_pitch) > context.learning_state.crash_angle:
-            logger.warning(f"-> Crash Detected ({current_pitch:.1f} > {context.learning_state.crash_angle}). Transition to CRASHED.")
+            logger.warning(
+                f"-> Crash Detected ({current_pitch:.1f} > {context.learning_state.crash_angle}). Transition to CRASHED.")
             context.core.hw.stop()
             motion_req.enable_control = False
             return CrashedState()
@@ -241,20 +251,22 @@ class BalancingState(BotState):
                     # We can't set config_dirty directly without agent, but config will be saved on interval
                     tuning_params.kp, tuning_params.ki, tuning_params.kd = context.learning_state.pid.kp, context.learning_state.pid.ki, context.learning_state.pid.kd
 
-            if (rec_target is None and motion_req.velocity == 0.0 and motion_req.turn_rate == 0.0):
+            if rec_target is None and motion_req.velocity == 0.0 and motion_req.turn_rate == 0.0:
                 aggression = 10.0 if not context.learning_state.balance_verified else 1.0
                 effort = last_telemetry.motor_output / context.battery.compensation_factor
-                if abs(curr_error) < 5.0 and abs(effort) > 5.0 and abs(last_telemetry.pitch_rate) < 20.0:
+                if abs(curr_error) < 5.0 < abs(effort) and abs(last_telemetry.pitch_rate) < 20.0:
                     sign = 1 if effort > 0 else -1
                     context.learning_state.pid.target_angle += sign * (context.config.loop_time * aggression)
 
         return self
 
+
 class CrashedState(BotState):
     def __init__(self):
         self.crash_time = time.monotonic()
 
-    def update(self, context: AgentContext, dt: float, motion_req: MotionRequest, tuning_params: TuningParams, last_telemetry: BalanceTelemetry | None, ticks: int) -> BotState:
+    def update(self, context: AgentContext, dt: float, motion_req: MotionRequest, tuning_params: TuningParams,
+               last_telemetry: BalanceTelemetry | None, ticks: int) -> BotState:
         motion_req.enable_control = False
         context.recovery.update(True, context.core.pitch, context.learning_state.pid.kp)
 
@@ -263,8 +275,10 @@ class CrashedState(BotState):
             return IdleState()
         return self
 
+
 class FatalErrorState(BotState):
-    def update(self, context: AgentContext, dt: float, motion_req: MotionRequest, tuning_params: TuningParams, last_telemetry: BalanceTelemetry | None, ticks: int) -> BotState:
+    def update(self, context: AgentContext, dt: float, motion_req: MotionRequest, tuning_params: TuningParams,
+               last_telemetry: BalanceTelemetry | None, ticks: int) -> BotState:
         motion_req.enable_control = False
         if ticks % 200 == 0:
             logger.critical("-> FATAL ERROR STATE. PLEASE MANUALLY RESET ROBOT.")

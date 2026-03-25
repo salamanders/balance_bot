@@ -8,6 +8,7 @@ from ..hardware.robot_hardware import RobotHardware
 
 logger = logging.getLogger(__name__)
 
+
 class MotorTrimStep(CalibrationStep):
     @property
     def name(self) -> str:
@@ -49,7 +50,7 @@ class MotorTrimStep(CalibrationStep):
             res = hw.execute_maneuver([(20.0, 20.0, 3.0)], trim_override=best_trim)
             wobble = res.abs_avg_yaw_rate
             total_wobble += wobble
-            logger.info(f"    Side {i+1} Wobble: {wobble:.2f} d/s")
+            logger.info(f"    Side {i + 1} Wobble: {wobble:.2f} d/s")
 
             # Turn ~90 degrees
             hw.set_motors(20.0, -20.0, trim_override=best_trim)
@@ -70,7 +71,8 @@ class MotorTrimStep(CalibrationStep):
 
         logger.info(f"  [VALIDATION] Average Wobble (Straight Line Drift): {(total_wobble / 4):.2f} d/s")
 
-    def run(self, hw: RobotHardware, config: HardwareConfig, state: LearningState) -> tuple[StepStatus, dict[str, Any], dict[str, Any]]:
+    def run(self, hw: RobotHardware, config: HardwareConfig, state: LearningState) -> tuple[
+        StepStatus, dict[str, Any], dict[str, Any]]:
         logger.info(">>> Motor Trim Calibration <<<")
         hw.wait_for_stability()
 
@@ -106,7 +108,8 @@ class MotorTrimStep(CalibrationStep):
             best_trim = max(-0.4, min(0.4, best_trim + correction))
 
         if abs(avg_yaw) > 20.0:
-            logger.error(f"  [FATAL] I didn't expect the drift to be that big ({avg_yaw:.2f} d/s)! Mechanics might be severely unbalanced.")
+            logger.error(
+                f"  [FATAL] I didn't expect the drift to be that big ({avg_yaw:.2f} d/s)! Mechanics might be severely unbalanced.")
             return StepStatus.FATAL, {}, {}
 
         logger.warning("  [WARNING] Could not perfectly trim. Saving best effort.")

@@ -1,11 +1,12 @@
-import time
 import os
 import sys
+import time
 
 # Ensure src is in the python path
 sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), "../../../src")))
 
 from balance_bot.simulation.sim_env import BalanceBotEnv
+
 
 def main() -> None:
     print("Starting PyBullet Visualization...")
@@ -40,6 +41,7 @@ def main() -> None:
     finally:
         env.close()
         print("Environment closed.")
+
 
 if __name__ == "__main__":
     main()

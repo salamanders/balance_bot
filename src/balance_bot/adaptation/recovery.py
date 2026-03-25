@@ -1,7 +1,9 @@
 import logging
+
 from ..configuration import STARTUP_RAMP_SPEED, ControlConfig
 
 logger = logging.getLogger(__name__)
+
 
 class RecoveryManager:
     """
@@ -35,7 +37,8 @@ class RecoveryManager:
             # We just woke up.
             # Logic from old main.py:
             # If Kp is high (normal operation) and we are leaning significantly, assume we were just picked up.
-            if current_kp >= self.config.soft_recovery_kp_threshold and abs(current_pitch) > self.config.upright_threshold:
+            if current_kp >= self.config.soft_recovery_kp_threshold and abs(
+                    current_pitch) > self.config.upright_threshold:
                 logger.info(f"-> Starting Soft Recovery from {current_pitch:.1f} deg")
                 self.recovering = True
                 self.ramp_setpoint = current_pitch

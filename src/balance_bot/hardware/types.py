@@ -19,8 +19,6 @@ class IMUReading:
     gyro_raw: glm.vec3 | None = None
 
 
-
-
 @dataclass(frozen=True)
 class DriveCommand:
     """

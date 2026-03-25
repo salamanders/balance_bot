@@ -1,4 +1,5 @@
 from simple_pid import PID
+
 from ..configuration import PIDParams
 from ..utils import clamp
 
@@ -36,10 +37,10 @@ class PIDController:
         self.params = params
 
     def update(
-        self,
-        error: float,
-        dt: float,
-        measurement_rate: float | None = None,
+            self,
+            error: float,
+            dt: float,
+            measurement_rate: float | None = None,
     ) -> float:
         """
         Calculate the next control output.

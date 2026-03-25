@@ -1,13 +1,14 @@
-import os
-import time
-import logging
-import threading
 import contextlib
-from typing import Protocol, runtime_checkable, Any
+import logging
+import os
+import threading
+import time
 from collections import deque
+from typing import Protocol, runtime_checkable, Any
 
 import glm
-from ..utils import clamp, calculate_pitch, get_i2c_failure_report, average_vector
+
+from .types import IMUReading, DriveCommand, MeasureResult
 from ..configuration import (
     BALANCING_THRESHOLD,
     REST_ANGLE_MIN,
@@ -16,8 +17,8 @@ from ..configuration import (
     LearningState
 )
 from ..enums import Axis
+from ..utils import clamp, calculate_pitch, get_i2c_failure_report, average_vector
 from ..watchdog import SurvivalWatchdog
-from .types import IMUReading, DriveCommand, MeasureResult
 
 logger = logging.getLogger(__name__)
 
@@ -131,7 +132,8 @@ class RobotHardware:
      - Convert raw sensor data into useful engineering units (Degrees, Deg/s).
     """
 
-    def __init__(self, hw_config: HardwareConfig, learning_state: LearningState, watchdog: SurvivalWatchdog | None = None):
+    def __init__(self, hw_config: HardwareConfig, learning_state: LearningState,
+                 watchdog: SurvivalWatchdog | None = None):
         """
         Initialize the robot hardware abstraction.
         :param hw_config: The immutable HardwareConfig object.
@@ -237,7 +239,7 @@ class RobotHardware:
         Initialize hardware components.
         """
         if self.pz is not None and self.sensor is not None:
-             return
+            return
 
         # If running in explicit mock mode via env var, do that first.
         if os.environ.get("ALLOW_MOCK_FALLBACK"):
@@ -283,10 +285,11 @@ class RobotHardware:
             else:
                 logger.info("Skipping MPU6050 init (Bus Unknown)")
 
-            logger.info(f"Hardware initialized (Partial). PiconZero={self.hw_config.motor_i2c_bus}, MPU6050={self.hw_config.imu_i2c_bus}.")
+            logger.info(
+                f"Hardware initialized (Partial). PiconZero={self.hw_config.motor_i2c_bus}, MPU6050={self.hw_config.imu_i2c_bus}.")
 
         except (ImportError, OSError, PermissionError, FileNotFoundError) as e:
-             # Check for Fallback (if initialization failed)
+            # Check for Fallback (if initialization failed)
             if os.environ.get("ALLOW_MOCK_FALLBACK"):
                 logger.warning("Hardware Init Failed. Falling back to MOCKS as requested.")
                 self._init_mock_hardware()
@@ -340,7 +343,8 @@ class RobotHardware:
             errors = self._imu_consecutive_errors
 
         if errors > self.hw_config.imu_max_retries:
-            logger.error(f"IMU Failed {errors} times in a row. Returning cached data indefinitely to avoid fatal crash.")
+            logger.error(
+                f"IMU Failed {errors} times in a row. Returning cached data indefinitely to avoid fatal crash.")
         elif errors > 0:
             logger.debug(f"IMU Glitch ({errors}/{self.hw_config.imu_max_retries}). Using cached data.")
 
@@ -354,9 +358,9 @@ class RobotHardware:
         accel, gyro = self.read_imu_raw()
 
         if (
-            self.hw_config.accel_forward_axis is None
-            or self.hw_config.accel_vertical_axis is None
-            or self.hw_config.gyro_pitch_axis is None
+                self.hw_config.accel_forward_axis is None
+                or self.hw_config.accel_vertical_axis is None
+                or self.hw_config.gyro_pitch_axis is None
         ):
             # Return raw data only (Toddler Mode)
             return IMUReading(
@@ -419,7 +423,8 @@ class RobotHardware:
 
         # FAIL LOUD: Do not silently ignore unmapped motors
         if self.hw_config.motor_l is None or self.hw_config.motor_r is None:
-            raise RuntimeError(f"CRITICAL: Attempted to actuate motors, but channels are unmapped. L:{self.hw_config.motor_l} R:{self.hw_config.motor_r}")
+            raise RuntimeError(
+                f"CRITICAL: Attempted to actuate motors, but channels are unmapped. L:{self.hw_config.motor_l} R:{self.hw_config.motor_r}")
 
         trim = trim_override if trim_override is not None else self.learning_state.motor_trim
 
@@ -509,7 +514,8 @@ class RobotHardware:
             self.learning_state.gyro_bias_z += avg_z
 
             self.learning_state.save()
-            logger.info(f"  [CALIBRATED] Bias Updated. New Offsets: ({self.learning_state.gyro_bias_x:.2f}, {self.learning_state.gyro_bias_y:.2f}, {self.learning_state.gyro_bias_z:.2f})")
+            logger.info(
+                f"  [CALIBRATED] Bias Updated. New Offsets: ({self.learning_state.gyro_bias_x:.2f}, {self.learning_state.gyro_bias_y:.2f}, {self.learning_state.gyro_bias_z:.2f})")
             return True
 
         return False
@@ -573,7 +579,8 @@ class RobotHardware:
 
             time.sleep(0.05)
 
-    def execute_maneuver(self, steps: list[tuple[float, float, float]], sample_interval: float = 0.01, trim_override: float | None = None) -> MeasureResult:
+    def execute_maneuver(self, steps: list[tuple[float, float, float]], sample_interval: float = 0.01,
+                         trim_override: float | None = None) -> MeasureResult:
         """
         Execute a sequence of motor commands and collect IMU readings throughout.
 

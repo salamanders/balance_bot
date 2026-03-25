@@ -1,15 +1,17 @@
 import math
 import os
 import random
+
 import numpy as np
 
 try:
-    import pybullet as pb # type: ignore
-    import pybullet_data # type: ignore
-    import gymnasium as gym # type: ignore
-    from gymnasium import spaces # type: ignore
+    import pybullet as pb  # type: ignore
+    import pybullet_data  # type: ignore
+    import gymnasium as gym  # type: ignore
+    from gymnasium import spaces  # type: ignore
+
     _HAS_SIM = True
-    _BaseEnv = gym.Env # type: ignore
+    _BaseEnv = gym.Env  # type: ignore
 except ImportError:
     pb = None  # type: ignore
     pybullet_data = None  # type: ignore
@@ -18,14 +20,16 @@ except ImportError:
     _HAS_SIM = False
     _BaseEnv = object
 
-class BalanceBotEnv(_BaseEnv): # type: ignore[misc,valid-type]
+
+class BalanceBotEnv(_BaseEnv):  # type: ignore[misc,valid-type]
     metadata = {"render_modes": ["human", "rgb_array"], "render_fps": 100}
 
     def __init__(self, render_mode=None):
         self.right_joint = 2
         self.left_joint = 1
         if not _HAS_SIM:
-            raise ImportError("pybullet and gymnasium are required to run the simulation environment. Install them with `uv sync --extra sim`.")
+            raise ImportError(
+                "pybullet and gymnasium are required to run the simulation environment. Install them with `uv sync --extra sim`.")
 
         self.render_mode = render_mode
 
@@ -53,7 +57,7 @@ class BalanceBotEnv(_BaseEnv): # type: ignore[misc,valid-type]
 
         # Robot parameters
         self.wheel_radius = 0.03  # 30mm
-        self.max_torque = 1.0     # Maximum theoretical torque (to be scaled)
+        self.max_torque = 1.0  # Maximum theoretical torque (to be scaled)
 
         # Reward/Termination constants (in radians)
         self.pitch_reward_limit = math.radians(15.0)
@@ -103,7 +107,7 @@ class BalanceBotEnv(_BaseEnv): # type: ignore[misc,valid-type]
 
         # Calculate pitch and roll from gravity vector
         # (Standard IMU equations: pitch = atan2(-gx, sqrt(gy^2 + gz^2)), roll = atan2(gy, gz))
-        obs_pitch = math.atan2(gravity_imu[0], math.sqrt(gravity_imu[1]**2 + gravity_imu[2]**2))
+        obs_pitch = math.atan2(gravity_imu[0], math.sqrt(gravity_imu[1] ** 2 + gravity_imu[2] ** 2))
 
         # The robot uses gyro Z for yaw, so we use the transformed Z angular velocity
         obs_yaw_rate = ang_vel_imu[2]
@@ -153,8 +157,10 @@ class BalanceBotEnv(_BaseEnv): # type: ignore[misc,valid-type]
         # 2: right_wheel_joint (continuous)
 
         # Disable default velocity control for wheels so we can use torque control
-        pb.setJointMotorControl2(self.robot_id, self.left_joint, pb.VELOCITY_CONTROL, force=0, physicsClientId=self.client_id)
-        pb.setJointMotorControl2(self.robot_id, self.right_joint, pb.VELOCITY_CONTROL, force=0, physicsClientId=self.client_id)
+        pb.setJointMotorControl2(self.robot_id, self.left_joint, pb.VELOCITY_CONTROL, force=0,
+                                 physicsClientId=self.client_id)
+        pb.setJointMotorControl2(self.robot_id, self.right_joint, pb.VELOCITY_CONTROL, force=0,
+                                 physicsClientId=self.client_id)
 
         # === Domain Randomization ===
         self.left_torque_mod = random.uniform(0.85, 1.15)

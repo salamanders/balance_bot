@@ -1,12 +1,13 @@
-import os
 import json
 import logging
-import urllib.request
+import os
 import urllib.error
-from typing import Any
+import urllib.request
 from dataclasses import dataclass
+from typing import Any
 
 logger = logging.getLogger(__name__)
+
 
 @dataclass
 class CrashReport:
@@ -18,9 +19,11 @@ class CrashReport:
     libs: dict[str, str]
     telemetry: str = "No telemetry data found."
 
+
 JULES_API_BASE = "https://jules.googleapis.com/v1alpha"
 SOURCE_NAME = "sources/github/salamanders/balance_bot"
 DEFAULT_TIMEOUT = 30.0
+
 
 class JulesClient:
     """
@@ -79,14 +82,14 @@ class JulesClient:
                     "startingBranch": "main"  # Assumption: fix on main or let Jules decide
                 }
             },
-            "automationMode": "AUTO_CREATE_PR", # As per desire to "start working on a fix PR"
+            "automationMode": "AUTO_CREATE_PR",  # As per desire to "start working on a fix PR"
             "title": "Crash Auto-Fix"
         }
         return self._make_request("POST", "sessions", payload)
 
     def report_crash(
-        self,
-        report: CrashReport
+            self,
+            report: CrashReport
     ) -> tuple[bool, str]:
         """
         Constructs the prompt and initiates the fix session.

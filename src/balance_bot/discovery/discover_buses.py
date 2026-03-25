@@ -8,6 +8,7 @@ from ..utils import scan_i2c, make_i2c_check_fn
 
 logger = logging.getLogger(__name__)
 
+
 class DiscoverBusesStep(CalibrationStep):
     @property
     def name(self) -> str:
@@ -16,7 +17,8 @@ class DiscoverBusesStep(CalibrationStep):
     def is_verified(self, state: LearningState) -> bool:
         return state.i2c_buses_verified
 
-    def run(self, hw: RobotHardware, config: HardwareConfig, state: LearningState) -> tuple[StepStatus, dict[str, Any], dict[str, Any]]:
+    def run(self, hw: RobotHardware, config: HardwareConfig, state: LearningState) -> tuple[
+        StepStatus, dict[str, Any], dict[str, Any]]:
         logger.info("Scanning I2C Buses...")
 
         # 1. Find Motors (0x22)
@@ -35,5 +37,5 @@ class DiscoverBusesStep(CalibrationStep):
             'motor_i2c_bus': found_motor_bus,
             'imu_i2c_bus': found_imu_bus,
             'motor_l': 0,  # Bootstrap guess
-            'motor_r': 1   # Bootstrap guess
+            'motor_r': 1  # Bootstrap guess
         }, {'i2c_buses_verified': True}

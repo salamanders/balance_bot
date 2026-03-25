@@ -7,6 +7,7 @@ from ..hardware.robot_hardware import RobotHardware
 
 logger = logging.getLogger(__name__)
 
+
 class HardwareInitStep(CalibrationStep):
     @property
     def name(self) -> str:
@@ -15,7 +16,8 @@ class HardwareInitStep(CalibrationStep):
     def is_verified(self, state: LearningState) -> bool:
         return state.hardware_init_verified
 
-    def run(self, hw: RobotHardware, config: HardwareConfig, state: LearningState) -> tuple[StepStatus, dict[str, Any], dict[str, Any]]:
+    def run(self, hw: RobotHardware, config: HardwareConfig, state: LearningState) -> tuple[
+        StepStatus, dict[str, Any], dict[str, Any]]:
         logger.info("Initializing Hardware Drivers...")
         # Force driver initialization now that buses are known
         try:
@@ -30,7 +32,7 @@ class HardwareInitStep(CalibrationStep):
             return StepStatus.FATAL, {}, {}
 
         try:
-            hw.init() # Init the motor driver specifically
+            hw.init()  # Init the motor driver specifically
         except Exception as e:
             logger.error(f"  [FAILURE] Motor driver init failed: {e}")
             return StepStatus.FATAL, {}, {}

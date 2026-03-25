@@ -1,12 +1,15 @@
 from enum import Enum, auto
 from typing import Protocol, Any
+
 from ..configuration import HardwareConfig, LearningState
 from ..hardware.robot_hardware import RobotHardware
+
 
 class StepStatus(Enum):
     SUCCESS = auto()
     NEEDS_RETRY = auto()
     FATAL = auto()
+
 
 class CalibrationStep(Protocol):
     """
@@ -24,7 +27,8 @@ class CalibrationStep(Protocol):
         """
         ...
 
-    def run(self, hw: RobotHardware, config: HardwareConfig, state: LearningState) -> tuple[StepStatus, dict[str, Any], dict[str, Any]]:
+    def run(self, hw: RobotHardware, config: HardwareConfig, state: LearningState) -> tuple[
+        StepStatus, dict[str, Any], dict[str, Any]]:
         """
         Execute the routine.
         Returns:

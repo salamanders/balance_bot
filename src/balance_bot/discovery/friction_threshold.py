@@ -1,5 +1,6 @@
 import logging
 from typing import Any
+
 import glm
 
 from .step import CalibrationStep, StepStatus
@@ -8,6 +9,7 @@ from ..hardware.robot_hardware import RobotHardware
 from ..utils import find_threshold
 
 logger = logging.getLogger(__name__)
+
 
 # --- Step 4: Friction Threshold ---
 class FrictionThresholdStep(CalibrationStep):
@@ -22,7 +24,8 @@ class FrictionThresholdStep(CalibrationStep):
     def is_verified(self, state: LearningState) -> bool:
         return state.friction_threshold_verified
 
-    def run(self, hw: RobotHardware, config: HardwareConfig, state: LearningState) -> tuple[StepStatus, dict[str, Any], dict[str, Any]]:
+    def run(self, hw: RobotHardware, config: HardwareConfig, state: LearningState) -> tuple[
+        StepStatus, dict[str, Any], dict[str, Any]]:
         logger.info("\n>>> Finding Minimum Power (Raw) <<<")
         logger.info("Ensuring robot is on the floor...")
 
@@ -48,7 +51,8 @@ class FrictionThresholdStep(CalibrationStep):
 
             if error_count > 0:
                 self.gyro_glitches += error_count
-                logger.warning(f"    [GLITCH] Gyro read failed {error_count} times during pulse. Total: {self.gyro_glitches}")
+                logger.warning(
+                    f"    [GLITCH] Gyro read failed {error_count} times during pulse. Total: {self.gyro_glitches}")
 
             logger.info(f"    Max Raw Gyro Magnitude: {max_mag:.1f} deg/s")
 
@@ -56,7 +60,8 @@ class FrictionThresholdStep(CalibrationStep):
                 return True
             else:
                 self.ignored_commands += 1
-                logger.warning(f"    [IGNORED] Not enough power to move. Ignored Command count: {self.ignored_commands}")
+                logger.warning(
+                    f"    [IGNORED] Not enough power to move. Ignored Command count: {self.ignored_commands}")
                 return False
 
         heartbeat_fn = hw.watchdog.heartbeat if hw.watchdog else None
