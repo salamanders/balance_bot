@@ -1,5 +1,5 @@
 import time
-from typing import NamedTuple
+from typing import Any, NamedTuple
 from dataclasses import dataclass
 
 class TuningParamsNT(NamedTuple):
@@ -17,13 +17,13 @@ class TuningParamsDC:
 
 class TuningParamsSlots:
     __slots__ = ['kp', 'ki', 'kd', 'target_angle_offset']
-    def __init__(self, kp, ki, kd, target_angle_offset):
+    def __init__(self, kp: Any, ki: Any, kd: Any, target_angle_offset: Any) -> None:
         self.kp = kp
         self.ki = ki
         self.kd = kd
         self.target_angle_offset = target_angle_offset
 
-def benchmark():
+def benchmark() -> None:
     iterations = 1_000_000
 
     print(f"Benchmarking {iterations} iterations...")

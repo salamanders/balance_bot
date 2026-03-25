@@ -8,7 +8,7 @@ sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), '../.
 from balance_bot.adaptation.tuner import ContinuousTuner
 from balance_bot.configuration import TunerConfig
 
-def benchmark_tuner_update():
+def benchmark_tuner_update() -> float:
     buffer_size = 50000
     iterations = 5000
 
@@ -32,7 +32,7 @@ def benchmark_tuner_update():
 
     print(f"Running {iterations} iterations of update()...")
 
-    def run_update():
+    def run_update() -> None:
         for _ in range(iterations):
             tuner.update(1.0)
 

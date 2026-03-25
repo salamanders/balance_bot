@@ -1,3 +1,4 @@
+from typing import Any
 import unittest
 import sys
 from unittest.mock import patch, MagicMock
@@ -22,7 +23,7 @@ from balance_bot.hardware.piconzero import PiconZero
 class TestPiconZeroDriver(unittest.TestCase):
 
     @patch('balance_bot.hardware.piconzero.smbus.SMBus')
-    def test_set_motors_calls_individual_writes(self, mock_smbus_cls):
+    def test_set_motors_calls_individual_writes(self, mock_smbus_cls: Any) -> None:
         """
         Test that set_motors calls set_motor for each motor individually.
         """
@@ -49,7 +50,7 @@ class TestPiconZeroDriver(unittest.TestCase):
         self.assertTrue(found_motor1, "Did not find write for Motor 1 with -50")
 
     @patch('balance_bot.hardware.piconzero.smbus.SMBus')
-    def test_bus_switching(self, mock_smbus_cls):
+    def test_bus_switching(self, mock_smbus_cls: Any) -> None:
         """Test that initializing with a different bus works."""
         PiconZero(bus_number=0)
 
@@ -57,7 +58,7 @@ class TestPiconZeroDriver(unittest.TestCase):
         mock_smbus_cls.assert_called_with(0)
 
     @patch('balance_bot.hardware.piconzero.smbus.SMBus')
-    def test_set_retries(self, _mock_smbus_cls):
+    def test_set_retries(self, _mock_smbus_cls: Any) -> None:
         """Test that set_retries updates the instance retry count."""
         pz = PiconZero()
         pz.set_retries(5)

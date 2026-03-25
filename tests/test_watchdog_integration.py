@@ -1,3 +1,4 @@
+from typing import Any
 import pytest
 from unittest.mock import MagicMock
 from balance_bot.behavior.agent import Agent
@@ -6,7 +7,7 @@ from balance_bot.watchdog import SurvivalWatchdog
 from unittest.mock import patch
 
 @patch('balance_bot.behavior.agent.BalanceCore')
-def test_agent_watchdog_panic(_mock_balance_core):
+def test_agent_watchdog_panic(_mock_balance_core: Any) -> None:
     watchdog = MagicMock(spec=SurvivalWatchdog)
     # Simulate that the watchdog triggered the interrupt
     watchdog.triggered = True
@@ -27,7 +28,7 @@ def test_agent_watchdog_panic(_mock_balance_core):
         agent.run()
 
 @patch('balance_bot.behavior.agent.BalanceCore')
-def test_agent_keyboard_interrupt_clean_exit(_mock_balance_core):
+def test_agent_keyboard_interrupt_clean_exit(_mock_balance_core: Any) -> None:
     watchdog = MagicMock(spec=SurvivalWatchdog)
     # Watchdog did NOT trigger it (User pressed Ctrl+C)
     watchdog.triggered = False
