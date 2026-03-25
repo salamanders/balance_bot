@@ -25,8 +25,8 @@ class PiconZero:
         if self.bus:
             try:
                 self.bus.close()
-            except (OSError, IOError):
-                pass
+            except (OSError, IOError) as e:
+                print(f"PiconZero warning: {e}")
         self.bus = smbus.SMBus(self.bus_number)
 
     def _retry(self, func: Callable[[], Any], name: str) -> Any:
@@ -34,21 +34,21 @@ class PiconZero:
         for _ in range(self.retries):
             try:
                 return func()
-            except (OSError, IOError):
+            except (OSError, IOError) as e:
                 if self.debug:
-                    print(f"Error in {name}(), retrying")
+                    print(f"Error in {name}(): {e}, retrying")
                 time.sleep(0.005)
 
         # Explicitly try to disarm actuators on failure before raising
         if self.bus:
             try:
                 self.bus.write_byte_data(self.I2C_ADDRESS, 0, 0)
-            except (OSError, IOError):
-                pass
+            except (OSError, IOError) as e:
+                print(f"PiconZero warning: {e}")
             try:
                 self.bus.write_byte_data(self.I2C_ADDRESS, 1, 0)
-            except (OSError, IOError):
-                pass
+            except (OSError, IOError) as e:
+                print(f"PiconZero warning: {e}")
         raise OSError(f"PiconZero {name}() failed after {self.retries} retries")
 
     def init(self, debug: bool = False) -> None:
@@ -68,20 +68,20 @@ class PiconZero:
             # We must attempt to explicitly write 0 to PWMs before passing
             try:
                 self.bus.write_byte_data(self.I2C_ADDRESS, 0, 0)
-            except (OSError, IOError):
-                pass
+            except (OSError, IOError) as e:
+                print(f"PiconZero warning: {e}")
             try:
                 self.bus.write_byte_data(self.I2C_ADDRESS, 1, 0)
-            except (OSError, IOError):
-                pass
+            except (OSError, IOError) as e:
+                print(f"PiconZero warning: {e}")
             print("OSError during PiconZero cleanup. Halting.")
             raise
         time.sleep(0.001)
         if self.bus:
             try:
                 self.bus.close()
-            except (OSError, IOError):
-                pass
+            except (OSError, IOError) as e:
+                print(f"PiconZero warning: {e}")
 
     def stop(self) -> None:
         """Stop all motors immediately."""

@@ -47,8 +47,8 @@ class MockMPU6050:
                     content = f.read().strip()
                     if content:
                         pitch = float(content)
-            except (ValueError, OSError):
-                pass
+            except (ValueError, OSError) as e:
+                print(f"Warning: could not read mock_pitch.txt: {e}")
 
         # Convert pitch (degrees) to accel vector (assuming Y is forward)
         # pitch = atan2(y, z)
