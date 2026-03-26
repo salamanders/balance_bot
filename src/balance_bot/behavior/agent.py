@@ -98,6 +98,7 @@ class Agent:
         self.config_dirty = False
         self.last_save_time = time.monotonic()
         self.ticks = 0
+        self._last_pitch_rate = 0.0
         self.io_executor = concurrent.futures.ThreadPoolExecutor(max_workers=1)
 
         # Pre-allocated zero tuning params for waiting/measuring loops
@@ -145,10 +146,6 @@ class Agent:
             rate = RateLimiter(1.0 / self.hw_config.loop_time)
             dt = self.hw_config.loop_time
 
-            # Internal State tracking for Adaptation
-            last_pitch_rate = 0.0
-            last_telemetry = None
-
             # Reusable objects
             tuning_params = TuningParams(0.0, 0.0, 0.0, 0.0)
             motion_req = MotionRequest(
@@ -190,15 +187,15 @@ class Agent:
                             logger.error(f"Failed to initiate async config save: {e}")
 
                 # Update Battery Logic (Always run to keep voltage filter updated)
-                if last_telemetry:
-                    ang_accel = (last_telemetry.pitch_rate - last_pitch_rate) / dt
-                    last_pitch_rate = last_telemetry.pitch_rate
-                    _comp_factor = self.battery.update(last_telemetry.motor_output, ang_accel)
+                if self.ticks > 1:
+                    ang_accel = (self.core.current_telemetry.pitch_rate - self._last_pitch_rate) / dt
+                    self._last_pitch_rate = self.core.current_telemetry.pitch_rate
+                    _comp_factor = self.battery.update(self.core.current_telemetry.motor_output, ang_accel)
                     if float(_comp_factor) < float(
                             self.learning_state.control.low_battery_log_threshold) and self.battery_logger.should_log():
                         logger.warning(f"-> Low Battery? Compensating: {int(_comp_factor * 100)}%")
                 else:
-                    # Fallback if no telemetry (e.g. after Kickup)
+                    # Fallback on first tick (no previous telemetry)
                     pass
 
                 # STATE PATTERN UPDATE
@@ -213,7 +210,7 @@ class Agent:
                     watchdog=self.watchdog
                 )
 
-                next_state = self.state.update(context, dt, motion_req, tuning_params, last_telemetry, self.ticks)
+                next_state = self.state.update(context, dt, motion_req, tuning_params, self.core.current_telemetry, self.ticks)
                 if type(next_state) is not type(self.state):
                     self.state.exit(context)
                     self.state = next_state
@@ -226,7 +223,7 @@ class Agent:
                 tuning_params.target_angle_offset = target_offset
 
                 # Core Update
-                last_telemetry = self.core.update(
+                self.core.update(
                     motion_req,
                     tuning_params,
                     dt,
@@ -235,12 +232,12 @@ class Agent:
 
                 self.blackbox.log_tick(
                     type(self.state).__name__,
-                    last_telemetry.pitch_angle,
-                    last_telemetry.pitch_rate,
-                    last_telemetry.yaw_rate,
-                    last_telemetry.left_pwm,
-                    last_telemetry.right_pwm,
-                    last_telemetry.target_angle
+                    self.core.current_telemetry.pitch_angle,
+                    self.core.current_telemetry.pitch_rate,
+                    self.core.current_telemetry.yaw_rate,
+                    self.core.current_telemetry.left_pwm,
+                    self.core.current_telemetry.right_pwm,
+                    self.core.current_telemetry.target_angle
                 )
 
                 dt = rate.sleep()
