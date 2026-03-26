@@ -361,8 +361,8 @@ def scan_i2c_candidates(name: str, check_fn: Callable[[Any], bool]) -> int | Non
                 if check_fn(bus):
                     logger.info(f"  [FOUND] {name} on Bus {bus_id}")
                     return bus_id
-        except (OSError, IOError, Exception):
-            pass
+        except (OSError, IOError, Exception) as e:
+            logger.debug(f"I2C scan failed on bus {bus_id} for {name}: {e}")
     return None
 
 

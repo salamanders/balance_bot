@@ -188,9 +188,14 @@ class RobotHardware:
                     self._last_gyro = gyro
                     self._imu_consecutive_errors = 0
 
-            except OSError:
+            except OSError as e:
+                if self._imu_consecutive_errors <= self.hw_config.imu_max_retries:
+                    logger.warning(f"IMU read failed: {e}")
                 with self._sensor_lock:
                     self._imu_consecutive_errors += 1
+                if self._imu_consecutive_errors > self.hw_config.imu_max_retries * 10:
+                    logger.error("IMU completely dead. Stopping sensor thread.")
+                    break
 
             # Give a very tiny sleep to avoid absolute 100% core starvation
             time.sleep(0.005)
@@ -334,7 +339,9 @@ class RobotHardware:
                 self._last_accel = accel
                 self._last_gyro = gyro
                 self._imu_consecutive_errors = 0
-            except OSError:
+            except OSError as e:
+                if self._imu_consecutive_errors <= self.hw_config.imu_max_retries:
+                    logger.warning(f"IMU read failed: {e}")
                 self._imu_consecutive_errors += 1
 
         with self._sensor_lock:
