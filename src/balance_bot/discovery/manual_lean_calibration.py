@@ -30,19 +30,19 @@ class ManualLeanCalibrationStep(CalibrationStep):
         logger.info("   Waiting for stable backward resting position...")
 
         def get_stable_readings(num_samples: int = 10, delay: float = 0.1) -> dict[Axis, float]:
-            samples: dict[Axis, list[float]] = {Axis.X: [], Axis.Y: [], Axis.Z: []}
+            sum_x = sum_y = sum_z = 0.0
             for _ in range(num_samples):
                 if hw.watchdog:
                     hw.watchdog.heartbeat()
                 accel, gyro = hw.read_imu_raw()
-                samples[Axis.X].append(accel.x)
-                samples[Axis.Y].append(accel.y)
-                samples[Axis.Z].append(accel.z)
+                sum_x += accel.x
+                sum_y += accel.y
+                sum_z += accel.z
                 time.sleep(delay)
             return {
-                Axis.X: sum(samples[Axis.X]) / num_samples,
-                Axis.Y: sum(samples[Axis.Y]) / num_samples,
-                Axis.Z: sum(samples[Axis.Z]) / num_samples
+                Axis.X: sum_x / num_samples,
+                Axis.Y: sum_y / num_samples,
+                Axis.Z: sum_z / num_samples
             }
 
         def wait_for_flop(initial_readings: dict[Axis, float], threshold: float = 0.5) -> dict[Axis, float]:
