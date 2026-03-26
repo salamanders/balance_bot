@@ -60,10 +60,17 @@ class KickupDynamicsStep(CalibrationStep):
         p = base_power
         while p <= 100:
             logger.info(f"  Flop to {target_name} (Power {p:.0f}%)...")
-            # 1. Drive opposite to current lean to build momentum
-            initial_p = p * -target_sign
 
-            # 2. Sudden reversal to throw the CG
+            # The robot rests steeply on its bumpers.
+            # To flop over the pivot point (the wheels), we must push AGAINST the current bumper
+            # (which lifts the CG) and then suddenly reverse to throw the mass over the axle.
+            #
+            # Example: Resting on BACK (-1 target to flop to FRONT).
+            # - We are tilted BACKWARDS. To push against the rear bumper, we drive FORWARD (+P).
+            # - Since target_sign = -1, initial_p = -p * (-1) = p (Forward). This is correct.
+            # - Then reversal_p = p * (-1) = -p (Backward). This is correct.
+
+            initial_p = p * -target_sign
             reversal_p = p * target_sign
 
             steps = []
