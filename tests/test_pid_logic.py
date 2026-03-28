@@ -3,7 +3,7 @@ from balance_bot.reflex.pid import PIDController
 from balance_bot.configuration import PIDParams
 
 class TestPIDLogic(unittest.TestCase):
-    def test_proportional(self):
+    def test_proportional(self) -> None:
         params = PIDParams(kp=10.0, ki=0.0, kd=0.0, target_angle=0.0)
         pid = PIDController(params)
 
@@ -11,7 +11,7 @@ class TestPIDLogic(unittest.TestCase):
         output = pid.update(error=5.0, dt=0.1)
         self.assertAlmostEqual(output, 50.0)
 
-    def test_integral_clamping(self):
+    def test_integral_clamping(self) -> None:
         # Ki=10.0, limit=20.0
         params = PIDParams(kp=0.0, ki=10.0, kd=0.0, integral_limit=20.0)
         pid = PIDController(params)
@@ -43,7 +43,7 @@ class TestPIDLogic(unittest.TestCase):
         output_clamped = pid.update(error=0.0, dt=1.0)
         self.assertAlmostEqual(output_clamped, 20.0)
 
-    def test_derivative_on_measurement_gyro(self):
+    def test_derivative_on_measurement_gyro(self) -> None:
         # Kd=1.0
         params = PIDParams(kp=0.0, ki=0.0, kd=1.0, target_angle=0.0)
         pid = PIDController(params)
@@ -63,7 +63,7 @@ class TestPIDLogic(unittest.TestCase):
         output = pid.update(error=5.0, dt=0.1, measurement_rate=0.0)
         self.assertAlmostEqual(output, 0.0) # P=0, I=0, D=-1*0=0.
 
-    def test_derivative_on_error_fallback(self):
+    def test_derivative_on_error_fallback(self) -> None:
         # Kd=1.0
         params = PIDParams(kp=0.0, ki=0.0, kd=1.0, target_angle=0.0)
         pid = PIDController(params)

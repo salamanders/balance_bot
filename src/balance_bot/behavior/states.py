@@ -262,7 +262,7 @@ class BalancingState(BotState):
 
 
 class CrashedState(BotState):
-    def __init__(self):
+    def __init__(self) -> None:
         self.crash_time = time.monotonic()
 
     def update(self, context: AgentContext, dt: float, motion_req: MotionRequest, tuning_params: TuningParams,

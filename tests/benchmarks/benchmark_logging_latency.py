@@ -20,10 +20,10 @@ logging.basicConfig(
 logger = logging.getLogger(__name__)
 
 class MockConfig:
-    def __init__(self):
+    def __init__(self) -> None:
         self.pid = type('PIDParams', (), {'kp': 25.0, 'ki': 0.0, 'kd': 0.5})()
 
-def run_benchmark():
+def run_benchmark() -> None:
     config = MockConfig()
     iterations = 1000
 

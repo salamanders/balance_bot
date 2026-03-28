@@ -120,7 +120,7 @@ class MPU6050Adapter:
         # This avoids opening/closing files 200 times a second in the 100Hz control loop
         self._devnull = open(os.devnull, 'w')
 
-    def __del__(self):
+    def __del__(self) -> None:
         """Cleanup the file handle when the adapter is destroyed."""
         if hasattr(self, '_devnull') and not self._devnull.closed:
             self._devnull.close()
@@ -167,7 +167,7 @@ class RobotHardware:
         self._last_gyro = glm.vec3(0.0)
 
         # Threading for IMU Sensor
-        self._sensor_thread = None
+        self._sensor_thread: threading.Thread | None = None
         self._sensor_running = False
         self._sensor_lock = threading.Lock()
 
@@ -188,6 +188,8 @@ class RobotHardware:
 
     def _sensor_worker(self) -> None:
         while self._sensor_running:
+            if self.sensor is None:
+                break
             try:
                 accel = self.sensor.get_accel_data()
                 gyro = self.sensor.get_gyro_data()

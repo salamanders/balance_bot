@@ -13,7 +13,6 @@ homebrew robot. It relies on a deterministic, high-frequency control loop and pe
 - Interfaces with Tier 1 (`BalanceCore`), Tier 3 (`Agent`), and physical hardware abstraction (`RobotHardware`).
 """
 
-import icontract
 
 import concurrent.futures
 import json
@@ -34,7 +33,6 @@ from ..configuration import (
     LearningState,
     PIDParams,
 )
-from ..enums import Orientation, Direction
 from ..reflex.balance_core import BalanceCore, MotionRequest, TuningParams
 from ..telemetry import TelemetryBlackbox
 from ..utils import (
@@ -108,7 +106,7 @@ class Agent:
 
         # State
         self.running = True
-        self.state = IdleState()
+        self.state: BotState = IdleState()
         self.kickup_attempts = 0
         self.last_crash_time = 0.0
 
@@ -283,62 +281,3 @@ class Agent:
         except Exception as e:
             logger.error(f"Error saving config asynchronously: {e}")
 
-    @icontract.require(lambda start_power: 0 <= start_power <= 100, "Start power must be between 0 and 100")
-    def _incremental_kickup(self, target_angle: float, start_power: float) -> bool:
-        """
-        Incrementally attempt to kick up to balance.
-        Returns True if successful, False if failed.
-        """
-        power = start_power
-        step = 5.0
-        max_power = 100.0
-
-        start_pitch = self.core.pitch
-        kick_direction = Direction.BACKWARD if start_pitch < 0 else Direction.FORWARD
-
-        start_label = (
-            Orientation.BACK.upper()
-            if kick_direction == Direction.BACKWARD
-            else Orientation.FRONT.upper()
-        )
-
-        logger.info(
-            f"-> Starting Incremental Kick-Up from {start_label}. Target: {target_angle:.2f}"
-        )
-
-        try:
-            while power <= max_power:
-                if self.watchdog:
-                    self.watchdog.heartbeat()
-                self._wait_for_settle()
-
-                # Safety Check: Are we still in position?
-                if not self._check_and_fix_position(kick_direction, start_label):
-                    return False
-
-                logger.info(
-                    f"-> Kick-Up Attempt: Power {power:.1f} Direction {kick_direction}"
-                )
-
-                # 1. Lift
-                drive_val = float(power) * float(kick_direction.value)
-                self.core.hw.set_motors(drive_val, drive_val)
-
-                self._sleep_with_update(0.25)
-
-                # 2. Catch (Enter PID Loop)
-                if self._attempt_catch(target_angle):
-                    return True
-
-                self.core.hw.stop()
-                logger.info("-> Catch Failed. Retrying...")
-                power += step
-
-        except Exception as e:
-            logger.error(f"Kick-Up Exception: {e}")
-            self.core.hw.stop()
-            return False
-
-        logger.error("-> Failed to Kick-Up (Max Power Reached).")
-        self.state = BotState.FATAL_ERROR
-        return False

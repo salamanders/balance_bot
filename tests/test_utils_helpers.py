@@ -1,3 +1,4 @@
+from typing import Any
 import unittest
 from unittest.mock import MagicMock, patch, call
 from balance_bot.utils import scan_i2c_candidates, find_threshold
@@ -5,14 +6,14 @@ from balance_bot.utils import scan_i2c_candidates, find_threshold
 class TestUtilsHelpers(unittest.TestCase):
 
     @patch("balance_bot.utils.smbus")
-    def test_scan_i2c_candidates_found(self, mock_smbus):
+    def test_scan_i2c_candidates_found(self, mock_smbus: Any) -> Any:
         # Bus 1 has device
         mock_bus1 = MagicMock()
         mock_bus1.__enter__.return_value = mock_bus1
         mock_bus3 = MagicMock()
         mock_bus3.__enter__.return_value = mock_bus3
 
-        def smbus_side_effect(bus_id):
+        def smbus_side_effect(bus_id: Any) -> Any:
             if bus_id == 1:
                 return mock_bus1
             if bus_id == 3:
@@ -21,7 +22,7 @@ class TestUtilsHelpers(unittest.TestCase):
 
         mock_smbus.SMBus.side_effect = smbus_side_effect
 
-        def check_fn(bus):
+        def check_fn(bus: Any) -> Any:
             # Check function returns True only for bus1
             return bus == mock_bus1
 
@@ -29,13 +30,13 @@ class TestUtilsHelpers(unittest.TestCase):
         self.assertEqual(result, 1)
 
     @patch("balance_bot.utils.smbus")
-    def test_scan_i2c_candidates_not_found(self, mock_smbus):
+    def test_scan_i2c_candidates_not_found(self, mock_smbus: Any) -> Any:
         mock_smbus.SMBus.side_effect = OSError("Bus Error")
 
         result = scan_i2c_candidates("TestDevice", lambda _b: True)
         self.assertIsNone(result)
 
-    def test_find_threshold_success(self):
+    def test_find_threshold_success(self) -> Any:
         # Test steps: 10, 15, 20
         # Fail at 10, Success at 15
 
@@ -45,16 +46,16 @@ class TestUtilsHelpers(unittest.TestCase):
         # First call val=10 -> check_fn(False) -> fail
         # Second call val=15 -> check_fn(True) -> found
 
-        def action_fn(val):
+        def action_fn(val: Any) -> Any:
             return val == 15
 
-        def check_fn(res):
+        def check_fn(res: Any) -> Any:
             return res
 
         result = find_threshold("Test", 10, 5, 20, action_fn, check_fn)
         self.assertEqual(result, 15)
 
-    def test_find_threshold_fail_action_retry(self):
+    def test_find_threshold_fail_action_retry(self) -> Any:
         # Fail at 10, Retry at 10, Success at 10
         # This simulates "retry_same" logic
 
@@ -66,7 +67,7 @@ class TestUtilsHelpers(unittest.TestCase):
         # fail_action returns True to retry same level
         fail_action = MagicMock(side_effect=[True])
 
-        def check_fn(res):
+        def check_fn(res: Any) -> Any:
             return res == "Success"
 
         result = find_threshold("Test", 10, 5, 20, action_fn, check_fn, fail_action=fail_action)
@@ -74,7 +75,7 @@ class TestUtilsHelpers(unittest.TestCase):
         self.assertEqual(action_fn.call_count, 2)
         action_fn.assert_has_calls([call(10), call(10)])
 
-    def test_find_threshold_limit_exceeded(self):
+    def test_find_threshold_limit_exceeded(self) -> Any:
         # Always fail
         action_fn = MagicMock(return_value=False)
 

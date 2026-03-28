@@ -1,7 +1,7 @@
 from balance_bot.adaptation.tuner import BalancePointFinder
 from balance_bot.configuration import TunerConfig
 
-def test_balance_finder_no_adjustment():
+def test_balance_finder_no_adjustment() -> None:
     config = TunerConfig(
         balance_check_interval=5,
         balance_motor_threshold=5.0,
@@ -14,7 +14,7 @@ def test_balance_finder_no_adjustment():
         adj = finder.update(motor_output=10.0, pitch_rate=0.0)
         assert adj == 0.0
 
-def test_balance_finder_positive_drift():
+def test_balance_finder_positive_drift() -> None:
     # Robot is leaning forward, motor output is positive
     config = TunerConfig(
         balance_check_interval=5,
@@ -33,7 +33,7 @@ def test_balance_finder_positive_drift():
     # Average is 10.0 > 5.0 -> Decrease target angle (lean back)
     assert adj == -0.1
 
-def test_balance_finder_negative_drift():
+def test_balance_finder_negative_drift() -> None:
     # Robot is leaning backward, motor output is negative
     config = TunerConfig(
         balance_check_interval=5,
@@ -49,7 +49,7 @@ def test_balance_finder_negative_drift():
     # Average is -10.0 < -5.0 -> Increase target angle (lean forward)
     assert adj == 0.1
 
-def test_balance_finder_reset_after_check():
+def test_balance_finder_reset_after_check() -> None:
     config = TunerConfig(
         balance_check_interval=5,
         balance_motor_threshold=5.0,
@@ -65,7 +65,7 @@ def test_balance_finder_reset_after_check():
     adj = finder.update(motor_output=10.0, pitch_rate=0.0)
     assert adj == 0.0
 
-def test_balance_finder_unstable_ignored():
+def test_balance_finder_unstable_ignored() -> None:
     config = TunerConfig(
         balance_check_interval=5,
         balance_motor_threshold=5.0,

@@ -185,7 +185,7 @@ class KickupDynamicsStep(CalibrationStep):
         """Runs the threshold search for a specific kick-up direction. direction_sign: +1 for BACK, -1 for FRONT."""
         dir_name = "BACK" if direction_sign > 0 else "FRONT"
 
-        def action(p):
+        def action(p: float) -> str:
             try:
                 self._force_posture(hw, direction_sign, state.min_power_visible + 10, state)
             except RuntimeError:

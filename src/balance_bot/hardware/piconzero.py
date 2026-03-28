@@ -35,7 +35,7 @@ class PiconZero:
         self.bus: Any = None
         self._open_bus()
 
-    def _open_bus(self):
+    def _open_bus(self) -> None:
         """Open or re-open the I2C bus."""
         if self.bus:
             try:
