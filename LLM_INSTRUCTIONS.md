@@ -1,4 +1,4 @@
-# LLM-Optimized Code Instructions (`llm_code.md`)
+# LLM-Optimized Code Instructions
 
 This repository is built and maintained by autonomous AI agents. To ensure deterministic execution, minimize token
 costs, and prevent logic hallucinations, all Python code must be written and structured for machine consumption and
