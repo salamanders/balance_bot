@@ -92,25 +92,27 @@ class ManualLeanCalibrationStep(CalibrationStep):
             return StepStatus.NEEDS_RETRY, {}, {}
 
         fwd_axis = Axis(fwd_axis_str)
-        fwd_dir = 1.0 if forward_readings[fwd_axis] > backward_readings[fwd_axis] else -1.0
+        fwd_dir = 1.0 if backward_readings[fwd_axis] > forward_readings[fwd_axis] else -1.0
 
-        # The dominant vertical axis determines the range
-        back_accel = backward_readings[fwd_axis] * fwd_dir
-        front_accel = forward_readings[fwd_axis] * fwd_dir
+        # We calculate the true physical pitch angle based on the two dominant axes.
+        # This inherently supports any 90-degree rotated IMU mounting,
+        # and guarantees the sign matches the runtime pitch calculations in RobotHardware.
+        from ..utils import calculate_pitch
 
-        if back_accel > front_accel:
+        # Apply the identified axis directions (inversions) to get standard Y(forward)/Z(vertical) values
+        back_fwd_val = backward_readings[fwd_axis] * fwd_dir
+        back_vert_val = backward_readings[vert_axis] * vert_dir
+
+        front_fwd_val = forward_readings[fwd_axis] * fwd_dir
+        front_vert_val = forward_readings[vert_axis] * vert_dir
+
+        max_tilt_back = calculate_pitch(back_fwd_val, back_vert_val)
+        max_tilt_front = calculate_pitch(front_fwd_val, front_vert_val)
+
+        if max_tilt_front > max_tilt_back:
             logger.error(
-                "  [FAILURE] Kinematic sanity check failed. The forward leaning acceleration should be greater than the backward leaning acceleration along the forward axis.")
-            return StepStatus.NEEDS_RETRY, {}, {}
-
-        # Rough conversion to degrees (assuming 1g = 9.81m/s^2, sin(theta) ~ accel/9.81)
-        # We don't need exact degrees here, just a logical physical range.
-        import math
-        try:
-            # Clip to [-1, 1] to avoid math domain errors
-            max_tilt_back = math.degrees(math.asin(max(-1.0, min(1.0, back_accel / 9.81))))
-            max_tilt_front = math.degrees(math.asin(max(-1.0, min(1.0, front_accel / 9.81))))
-        except ValueError:
+                f"  [FAILURE] Kinematic sanity check failed. The forward resting pitch ({max_tilt_front:.1f}°) should be less than the backward resting pitch ({max_tilt_back:.1f}°)."
+            )
             return StepStatus.NEEDS_RETRY, {}, {}
 
         logger.info(f"  Identified Vertical Axis: {vert_axis.name} (Dir: {vert_dir})")

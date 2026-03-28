@@ -54,31 +54,24 @@ def test_hardware_init_step():
 
 def test_manual_lean_calibration_step(monkeypatch):
     def mock_analyze_dominance(_readings, label):
-        # analyze_dominance returns (str, float, bool)
         if "Vertical" in label:
-            return "y", 9.8, True
+            return "z", 8.5, True
         else:
-            return "z", 0.5, True
+            return "y", 4.9, True
 
     monkeypatch.setattr("balance_bot.utils.analyze_dominance", mock_analyze_dominance)
-
-    # We must patch the nested functions since they are defined inside run
-    # For simplicity, we can just mock hw.sensor.read_imu() and time.sleep()
-    # It might be easier to just mock the analysis of dominance and wait routines if they were not nested
-    # Since they are nested and use sleep, let's mock the hw.sensor.read_imu to return stable values instantly
 
     hw_mock = MagicMock()
     hw_mock.watchdog = MagicMock()
 
-    # We'll mock the whole time.sleep to avoid hanging
     monkeypatch.setattr("time.sleep", lambda _x: None)
 
     import glm
 
-    accel_back = glm.vec3(0.0, 9.8, 0.5)
+    accel_back = glm.vec3(0.0, 4.9, 8.5)
     gyro_back = glm.vec3(0.0, 0.0, 0.0)
 
-    accel_flop = glm.vec3(0.0, -9.8, -0.5)
+    accel_flop = glm.vec3(0.0, -4.9, 8.5)
     gyro_flop = glm.vec3(0.0, 0.0, 0.0)
 
     reading_index = [0]
@@ -86,9 +79,6 @@ def test_manual_lean_calibration_step(monkeypatch):
         reading_index[0] += 1
         if reading_index[0] <= 10:
             return accel_back, gyro_back
-        elif reading_index[0] <= 11:
-            # First flop reading that triggers the wait
-            return accel_flop, gyro_flop
         else:
             return accel_flop, gyro_flop
 
@@ -97,8 +87,9 @@ def test_manual_lean_calibration_step(monkeypatch):
     step = ManualLeanCalibrationStep()
     status, config_updates, state_updates = step.run(hw_mock, HardwareConfig(), LearningState())
 
-    # If the mock logic works, we check updates
     assert status == StepStatus.SUCCESS
+    assert 'accel_vertical_axis' in config_updates
+    assert state_updates['manual_lean_verified'] is True
     assert_updates_valid(config_updates, state_updates)
 
 def test_broken_wire_check_step(monkeypatch):
