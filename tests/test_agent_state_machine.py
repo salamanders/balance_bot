@@ -163,8 +163,10 @@ class TestAgentStateMachine(unittest.TestCase):
         # The code uses: current_pitch = last_telemetry.pitch_angle if last_telemetry else self.core.pitch
 
         type(self.agent.core).pitch = PropertyMock(return_value=60.0) # > 50.0 crash angle
+        self.agent.core.current_telemetry = MagicMock()
+        self.agent.core.current_telemetry.pitch_angle = 60.0
 
-        self.run_agent_once()
+        mock_telemetry = self.run_agent_once()
 
         from balance_bot.behavior.states import CrashedState
         self.assertIsInstance(self.agent.state, CrashedState)
