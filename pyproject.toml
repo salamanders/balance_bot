@@ -22,6 +22,7 @@ sim = [
 
 [project.scripts]
 balance-bot = "balance_bot.main:main"
+balance-bot-repl = "balance_bot.repl:main"
 
 [dependency-groups]
 dev = [
