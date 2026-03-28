@@ -1,3 +1,20 @@
+"""
+# System Context
+This module is part of the `balance_bot` application, designed to control a self-balancing
+homebrew robot. It relies on a deterministic, high-frequency control loop and pessimistic hardware interactions.
+
+# Business Rules
+- Fail-fast initialization: The system must crash loudly if physical hardware is missing or unresponsive during boot.
+- Fault-tolerant control loop: Once Tier 1 is running (e.g., `BalanceCore`), transient I/O errors must not collapse the system; use continuous data quality metrics instead of fatal exceptions.
+- Physical pessimism: Never hardcode physical constants; rely on zero-knowledge self-discovery to deduce configuration.
+
+# Dependency Maps
+- Relies on internal configuration (`HardwareConfig`, `LearningState`).
+- Interfaces with Tier 1 (`BalanceCore`), Tier 3 (`Agent`), and physical hardware abstraction (`RobotHardware`).
+"""
+
+import icontract
+
 import contextlib
 import logging
 import os
@@ -421,6 +438,8 @@ class RobotHardware:
         if self.pz is not None:
             self.pz.set_retries(retries)
 
+    @icontract.require(lambda left: -100 <= left <= 100, "Left motor speed must be between -100 and 100")
+    @icontract.require(lambda right: -100 <= right <= 100, "Right motor speed must be between -100 and 100")
     def set_motors(self, left: float, right: float, trim_override: float | None = None) -> None:
         """
         Set motor speeds.
@@ -617,6 +636,8 @@ class RobotHardware:
 
         return MeasureResult(duration=total_duration, samples=samples)
 
+    @icontract.require(lambda command: command.duration > 0, "Duration must be positive")
+    @icontract.ensure(lambda result: result.status != 'unknown', "Measure result status must be known")
     def drive_and_measure(self, command: DriveCommand) -> MeasureResult:
         """
         Drive motors for a duration and collect IMU readings based on a DriveCommand.
