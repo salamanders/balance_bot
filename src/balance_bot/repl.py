@@ -35,7 +35,7 @@ class Repl:
         self.hw = RobotHardware(self.config, self.state)
         self.speed = 50.0
 
-    def print_help(self):
+    def print_help(self) -> None:
         print("\n--- Balance Bot Manual REPL ---")
         print("switch      : Switch left and right motor channels")
         print("flip_l      : Toggle left motor polarity")
@@ -51,7 +51,7 @@ class Repl:
         print("quit/exit   : Exit REPL")
         print("-------------------------------")
 
-    def run(self):
+    def run(self) -> None:
         self.print_help()
         try:
             while True:
@@ -92,7 +92,7 @@ class Repl:
         finally:
             self.hw.stop()
 
-    def _cmd_switch(self):
+    def _cmd_switch(self) -> None:
         left_ch, right_ch = self.config.motor_l, self.config.motor_r
         # Keep invert flags with the wheel's physical location, not the channel ID?
         # Typically we just swap channels.
@@ -101,19 +101,19 @@ class Repl:
         self.hw.apply_config(self.config)
         print(f"Swapped! Left is now Channel {right_ch}, Right is Channel {left_ch}")
 
-    def _cmd_flip_l(self):
+    def _cmd_flip_l(self) -> None:
         new_val = not self.config.motor_l_invert
         self.config = self.config.model_copy(update={"motor_l_invert": new_val})
         self.hw.apply_config(self.config)
         print(f"Left polarity is now {'INVERTED' if new_val else 'NORMAL'}")
 
-    def _cmd_flip_r(self):
+    def _cmd_flip_r(self) -> None:
         new_val = not self.config.motor_r_invert
         self.config = self.config.model_copy(update={"motor_r_invert": new_val})
         self.hw.apply_config(self.config)
         print(f"Right polarity is now {'INVERTED' if new_val else 'NORMAL'}")
 
-    def _cmd_speed(self, parts):
+    def _cmd_speed(self, parts: list[str]) -> None:
         if len(parts) < 2:
             print(f"Current speed: {self.speed}")
             return
@@ -123,25 +123,25 @@ class Repl:
         except ValueError:
             print("Invalid speed value.")
 
-    def _cmd_fwd(self):
+    def _cmd_fwd(self) -> None:
         print(f"Driving FORWARD at {self.speed} for 1s...")
         self.hw.execute_maneuver([(self.speed, self.speed, 1.0)])
 
-    def _cmd_back(self):
+    def _cmd_back(self) -> None:
         print(f"Driving BACKWARD at {self.speed} for 1s...")
         self.hw.execute_maneuver([(-self.speed, -self.speed, 1.0)])
 
-    def _cmd_turn_l(self):
+    def _cmd_turn_l(self) -> None:
         # Drives right wheel forward (turn left)
         print(f"Turning LEFT at {self.speed} for 0.5s...")
         self.hw.execute_maneuver([(0.0, self.speed, 0.5)])
 
-    def _cmd_turn_r(self):
+    def _cmd_turn_r(self) -> None:
         # Drives left wheel forward (turn right)
         print(f"Turning RIGHT at {self.speed} for 0.5s...")
         self.hw.execute_maneuver([(self.speed, 0.0, 0.5)])
 
-    def _cmd_test_gyro(self):
+    def _cmd_test_gyro(self) -> None:
         from balance_bot.enums import Axis
 
         print("\nTesting Gyro Orientation...")
@@ -192,7 +192,7 @@ class Repl:
         self.hw.apply_config(self.config)
         print("Gyro orientation updated in memory.")
 
-    def _cmd_flop(self):
+    def _cmd_flop(self) -> None:
         print("\n--- Manual Flop Calibration ---")
         print("Hold the robot UPRIGHT. Press Enter to start reading angles...")
         input()
@@ -234,12 +234,12 @@ class Repl:
         print("=================================\n")
         print("Configuration saved to disk.")
 
-    def _cmd_status(self):
+    def _cmd_status(self) -> None:
         print(f"Channels : L={self.config.motor_l}, R={self.config.motor_r}")
         print(f"Polarity : L_invert={self.config.motor_l_invert}, R_invert={self.config.motor_r_invert}")
         print(f"Speed    : {self.speed}")
 
-def main():
+def main() -> None:
     parser = argparse.ArgumentParser()
     parser.add_argument("--allow-mocks", action="store_true", help="Allow fallback to mock hardware")
     args = parser.parse_args()

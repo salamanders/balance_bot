@@ -1,3 +1,5 @@
+from email.message import Message
+from typing import Any
 import os
 import json
 import unittest
@@ -5,33 +7,33 @@ from unittest.mock import patch, MagicMock
 from balance_bot.jules_client import JulesClient, CrashReport
 
 class TestJulesClient(unittest.TestCase):
-    def setUp(self):
+    def setUp(self) -> None:
         # Prevent environment variable from interfering
         self.env_patcher = patch.dict(os.environ, {"JULES_API_KEY": "test_key_env"}, clear=True)
         self.env_patcher.start()
 
-    def tearDown(self):
+    def tearDown(self) -> None:
         self.env_patcher.stop()
 
-    def test_init_with_argument(self):
+    def test_init_with_argument(self) -> None:
         client = JulesClient(api_key="argument_key")
         # Check that the public attribute is gone (or renamed)
         self.assertFalse(hasattr(client, "api_key"), "Public 'api_key' attribute should not exist")
         # Check private attribute
         self.assertEqual(client._api_key, "argument_key")
 
-    def test_init_with_env_var(self):
+    def test_init_with_env_var(self) -> None:
         client = JulesClient()
         self.assertEqual(client._api_key, "test_key_env")
 
-    def test_repr_masking(self):
+    def test_repr_masking(self) -> None:
         client = JulesClient(api_key="secret_key_123")
         repr_str = repr(client)
         self.assertNotIn("secret_key_123", repr_str)
         self.assertIn("***", repr_str)
 
     @patch("urllib.request.urlopen")
-    def test_make_request_success(self, mock_urlopen):
+    def test_make_request_success(self, mock_urlopen: Any) -> None:
         client = JulesClient(api_key="test_key")
 
         # Mock response
@@ -51,7 +53,7 @@ class TestJulesClient(unittest.TestCase):
         self.assertEqual(req.headers["X-goog-api-key"], "test_key")
 
     @patch("urllib.request.urlopen")
-    def test_make_request_timeout(self, mock_urlopen):
+    def test_make_request_timeout(self, mock_urlopen: Any) -> None:
         client = JulesClient(api_key="test_key")
 
         # Mock response
@@ -68,7 +70,7 @@ class TestJulesClient(unittest.TestCase):
         self.assertEqual(kwargs["timeout"], DEFAULT_TIMEOUT)
 
     @patch("urllib.request.urlopen")
-    def test_make_request_missing_key(self, _mock_urlopen):
+    def test_make_request_missing_key(self, _mock_urlopen: Any) -> None:
         # Init without key
         with patch.dict(os.environ, {}, clear=True):
             client = JulesClient()
@@ -76,7 +78,7 @@ class TestJulesClient(unittest.TestCase):
                 client._make_request("GET", "test")
 
     @patch.object(JulesClient, "_make_request")
-    def test_get_sources(self, mock_make_request):
+    def test_get_sources(self, mock_make_request: Any) -> None:
         client = JulesClient(api_key="test_key")
         mock_make_request.return_value = {"sources": ["source1", "source2"]}
 
@@ -86,7 +88,7 @@ class TestJulesClient(unittest.TestCase):
         mock_make_request.assert_called_once_with("GET", "sources")
 
     @patch.object(JulesClient, "_make_request")
-    def test_create_session(self, mock_make_request):
+    def test_create_session(self, mock_make_request: Any) -> None:
         client = JulesClient(api_key="test_key")
         mock_make_request.return_value = {"name": "sessions/123"}
 
@@ -101,7 +103,7 @@ class TestJulesClient(unittest.TestCase):
         self.assertEqual(payload["automationMode"], "AUTO_CREATE_PR")
 
     @patch.object(JulesClient, "create_session")
-    def test_report_crash_success(self, mock_create_session):
+    def test_report_crash_success(self, mock_create_session: Any) -> None:
         client = JulesClient(api_key="test_key")
         mock_create_session.return_value = {"name": "sessions/456"}
 
@@ -121,7 +123,7 @@ class TestJulesClient(unittest.TestCase):
         self.assertIn("telemetry...", prompt)
         mock_create_session.assert_called_once_with(prompt)
 
-    def test_report_crash_no_api_key(self):
+    def test_report_crash_no_api_key(self) -> None:
         # Ensure no API key in environment or argument
         with patch.dict(os.environ, {}, clear=True):
             client = JulesClient(api_key=None)
@@ -131,7 +133,7 @@ class TestJulesClient(unittest.TestCase):
             self.assertIn("err", prompt)
 
     @patch.object(JulesClient, "create_session")
-    def test_report_crash_api_error(self, mock_create_session):
+    def test_report_crash_api_error(self, mock_create_session: Any) -> None:
         client = JulesClient(api_key="test_key")
         mock_create_session.side_effect = Exception("API Down")
 
@@ -141,7 +143,7 @@ class TestJulesClient(unittest.TestCase):
         self.assertFalse(success)
         self.assertIn("err", prompt)
 
-    def test_crash_report_string_representation(self):
+    def test_crash_report_string_representation(self) -> None:
         report = CrashReport(
             error_msg="TestError",
             stack_trace="trace",
@@ -155,14 +157,14 @@ class TestJulesClient(unittest.TestCase):
         self.assertIn("trace", rep_str)
 
     @patch("urllib.request.urlopen")
-    def test_report_crash_http_error(self, mock_urlopen):
+    def test_report_crash_http_error(self, mock_urlopen: Any) -> None:
         client = JulesClient(api_key="test_key")
 
         from urllib.error import HTTPError
         import io
 
         fp = io.BytesIO(b'{"error": "Bad Request"}')
-        mock_err = HTTPError(url="http://test", code=400, msg="Bad Request", hdrs={}, fp=fp)
+        mock_err = HTTPError(url="http://test", code=400, msg="Bad Request", hdrs=Message(), fp=fp)
         mock_urlopen.side_effect = mock_err
 
         report = CrashReport("err", "trace", "logs", {}, {})
@@ -172,7 +174,7 @@ class TestJulesClient(unittest.TestCase):
         self.assertFalse(success)
 
     @patch("urllib.request.urlopen")
-    def test_report_crash_generic_exception(self, mock_urlopen):
+    def test_report_crash_generic_exception(self, mock_urlopen: Any) -> None:
         client = JulesClient(api_key="test_key")
 
         mock_urlopen.side_effect = Exception("Network down")
@@ -184,7 +186,7 @@ class TestJulesClient(unittest.TestCase):
         self.assertFalse(success)
 
     @patch("urllib.request.urlopen")
-    def test_report_crash_status_above_300(self, mock_urlopen):
+    def test_report_crash_status_above_300(self, mock_urlopen: Any) -> None:
         client = JulesClient(api_key="test_key")
 
         # Mock response with status >= 300

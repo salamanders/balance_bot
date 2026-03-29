@@ -39,7 +39,7 @@ except ImportError:
 class BalanceBotEnv(_BaseEnv):  # type: ignore[misc,valid-type]
     metadata = {"render_modes": ["human", "rgb_array"], "render_fps": 100}
 
-    def __init__(self, render_mode=None):
+    def __init__(self, render_mode: str | None = None) -> None:
         self.right_joint = 2
         self.left_joint = 1
         if not _HAS_SIM:
@@ -86,7 +86,7 @@ class BalanceBotEnv(_BaseEnv):  # type: ignore[misc,valid-type]
         self.imu_pitch_offset = 0.0
         self.imu_rotation_matrix = np.eye(3)
 
-    def _get_obs(self):
+    def _get_obs(self) -> dict:
         # In URDF, position and orientation
         pos, orn = pb.getBasePositionAndOrientation(self.robot_id, physicsClientId=self.client_id)
 
@@ -146,7 +146,7 @@ class BalanceBotEnv(_BaseEnv):  # type: ignore[misc,valid-type]
 
         return np.array([obs_pitch, obs_pitch_rate, obs_yaw, obs_yaw_rate], dtype=np.float32)
 
-    def reset(self, seed=None, options=None):
+    def reset(self, seed: int | None = None, options: dict | None = None) -> tuple[dict, dict]:
         _ = options
         super().reset(seed=seed)
 
@@ -200,7 +200,7 @@ class BalanceBotEnv(_BaseEnv):  # type: ignore[misc,valid-type]
         info: dict[str, float] = {}
         return obs, info
 
-    def step(self, action):
+    def step(self, action: list[float]) -> tuple[dict, float, bool, bool, dict]:
         left_pwm, right_pwm = action
 
         # Apply domain randomized torque modifiers
@@ -251,7 +251,7 @@ class BalanceBotEnv(_BaseEnv):  # type: ignore[misc,valid-type]
 
         return obs, reward, terminated, truncated, info
 
-    def close(self):
+    def close(self) -> None:
         if self.client_id >= 0:
             pb.disconnect(self.client_id)
             self.client_id = -1

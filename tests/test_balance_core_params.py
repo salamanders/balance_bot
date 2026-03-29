@@ -3,7 +3,7 @@ from unittest.mock import MagicMock
 from balance_bot.reflex.balance_core import BalanceCore, MotionRequest, TuningParams, BalanceTelemetry
 from balance_bot.configuration import HardwareConfig, LearningState, PIDParams
 
-def test_balance_core_update_with_mutable_tuning_params():
+def test_balance_core_update_with_mutable_tuning_params() -> None:
     # Setup
     hw_config = HardwareConfig()
     learning_state = LearningState(pid=PIDParams(kp=1.0, ki=0.0, kd=0.0))

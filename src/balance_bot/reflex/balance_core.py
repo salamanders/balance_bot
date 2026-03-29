@@ -236,6 +236,6 @@ class BalanceCore:
         self.current_telemetry.target_angle = target_angle
         return self.current_telemetry
 
-    def cleanup(self):
+    def cleanup(self) -> None:
         self.hw.stop()
         self.hw.cleanup()

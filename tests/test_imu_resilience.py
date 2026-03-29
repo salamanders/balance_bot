@@ -1,8 +1,9 @@
+from typing import Any
 from unittest.mock import MagicMock
 from balance_bot.hardware.robot_hardware import RobotHardware
 from balance_bot.configuration import HardwareConfig, LearningState, PIDParams
 
-def test_imu_resilience_fail_fast(monkeypatch):
+def test_imu_resilience_fail_fast(monkeypatch: Any) -> None:
     """
     Test that read_imu_raw implements a resilience strategy for transient I2C errors
     up to a threshold, returning cached data, and then fails fast when exceeded.

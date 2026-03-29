@@ -44,7 +44,7 @@ class FrictionThresholdStep(CalibrationStep):
         logger.info("\n>>> Finding Minimum Power (Raw) <<<")
         logger.info("Ensuring robot is on the floor...")
 
-        def action(p):
+        def action(p: float) -> Any:
             steps = [
                 (p, p, 0.3),
                 (0.0, 0.0, 0.5)
@@ -52,7 +52,7 @@ class FrictionThresholdStep(CalibrationStep):
             res = hw.execute_maneuver(steps)
             return res
 
-        def check(res):
+        def check(res: Any) -> bool:
             # Calculate Max Raw Gyro Magnitude
             max_mag = 0.0
             error_count = 0
