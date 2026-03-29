@@ -3,7 +3,7 @@ import pytest
 from balance_bot.discovery.pipeline import SelfDiscoveryPipeline
 from balance_bot.discovery.step import CalibrationStep, StepStatus
 
-def test_pipeline_flow():
+def test_pipeline_flow() -> None:
     """Verify that pipeline runs steps sequentially and saves state."""
 
     # Mock dependencies
@@ -65,7 +65,7 @@ def test_pipeline_flow():
          # Verify HAL stop
          mock_hw.stop.assert_called_once()
 
-def test_pipeline_fatal_error():
+def test_pipeline_fatal_error() -> None:
     """Verify that a FATAL step halts the pipeline and raises RuntimeError."""
     mock_hw_cls = MagicMock()
     mock_config_cls = MagicMock()
@@ -91,7 +91,7 @@ def test_pipeline_fatal_error():
          # Verify HW stopped before raising exception
          mock_hw.stop.assert_called_once()
 
-def test_pipeline_needs_retry():
+def test_pipeline_needs_retry() -> None:
     """Verify that NEEDS_RETRY stops HW, sleeps, and retries the step."""
     mock_hw_cls = MagicMock()
     mock_config_cls = MagicMock()
@@ -127,7 +127,7 @@ def test_pipeline_needs_retry():
          # Verify HW stopped between retries, and again at the end of pipeline
          assert mock_hw.stop.call_count == 2
 
-def test_pipeline_unexpected_error():
+def test_pipeline_unexpected_error() -> None:
     """Verify that an unexpected exception during step.run raises a RuntimeError and stops HW."""
     mock_hw_cls = MagicMock()
     mock_config_cls = MagicMock()

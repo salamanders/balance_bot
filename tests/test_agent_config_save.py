@@ -1,3 +1,4 @@
+from typing import Any
 import sys
 from unittest.mock import MagicMock, patch
 
@@ -13,7 +14,7 @@ from pathlib import Path # noqa: E402
 @patch("balance_bot.behavior.agent.BalanceCore")
 @patch("balance_bot.behavior.agent.LedController")
 @patch("balance_bot.behavior.agent.setup_logging")
-def test_save_config_worker_writes_file(_mock_logging, _mock_led, _mock_core):
+def test_save_config_worker_writes_file(_mock_logging: Any, _mock_led: Any, _mock_core: Any) -> None:
     """Verify that _save_config_worker correctly serializes and writes the config."""
     # Setup
     with patch.object(Path, "write_text") as mock_write:
@@ -38,7 +39,7 @@ def test_save_config_worker_writes_file(_mock_logging, _mock_led, _mock_core):
 @patch("balance_bot.behavior.agent.BalanceCore")
 @patch("balance_bot.behavior.agent.LedController")
 @patch("balance_bot.behavior.agent.setup_logging")
-def test_save_config_worker_handles_exception(_mock_logging, _mock_led, _mock_core):
+def test_save_config_worker_handles_exception(_mock_logging: Any, _mock_led: Any, _mock_core: Any) -> None:
     """Verify that exceptions during save are logged and don't crash."""
     with patch.object(Path, "write_text", side_effect=OSError("Disk full")), \
          patch("balance_bot.behavior.agent.logger") as mock_logger:
