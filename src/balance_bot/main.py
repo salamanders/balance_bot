@@ -15,7 +15,6 @@ homebrew robot. It relies on a deterministic, high-frequency control loop and pe
 
 import argparse
 import datetime
-import importlib.metadata
 import mmap
 import os
 import traceback
@@ -124,6 +123,7 @@ def _handle_crash_reporting(e: Exception, bot_instance: Agent | None = None) -> 
             state_info["serialization_error"] = "Could not serialize bot config"
 
     # 4. Capture Libs
+    import importlib.metadata
     libs = {
         dist.metadata["Name"]: dist.version
         for dist in importlib.metadata.distributions()

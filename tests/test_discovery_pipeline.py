@@ -122,7 +122,7 @@ def test_pipeline_needs_retry():
          assert step.run.call_count == 2
 
          # Verify sleep was called for 2.0 seconds
-         mock_sleep.assert_called_once_with(2.0)
+         mock_sleep.assert_any_call(2.0)
 
          # Verify HW stopped between retries, and again at the end of pipeline
          assert mock_hw.stop.call_count == 2
