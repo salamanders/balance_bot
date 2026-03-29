@@ -1,5 +1,9 @@
 import argparse
 import logging
+import sys
+import termios
+import tty
+
 import glm
 
 from balance_bot.configuration import HardwareConfig, LearningState
@@ -9,6 +13,16 @@ from balance_bot.utils import average_vector, analyze_dominance
 # Basic logging setup
 logging.basicConfig(level=logging.INFO, format="%(message)s")
 logger = logging.getLogger(__name__)
+
+def getch() -> str:
+    fd = sys.stdin.fileno()
+    old_settings = termios.tcgetattr(fd)
+    try:
+        tty.setcbreak(sys.stdin.fileno())
+        ch = sys.stdin.read(1)
+    finally:
+        termios.tcsetattr(fd, termios.TCSADRAIN, old_settings)
+    return ch
 
 class Repl:
     def __init__(self, allow_mocks: bool = False) -> None:
@@ -37,58 +51,60 @@ class Repl:
 
     def print_help(self) -> None:
         print("\n--- Balance Bot Manual REPL ---")
-        print("switch      : Switch left and right motor channels")
-        print("flip_l      : Toggle left motor polarity")
-        print("flip_r      : Toggle right motor polarity")
-        print("speed <val> : Set motor speed (default 50.0)")
-        print("fwd         : Drive forward for 1 second")
-        print("back        : Drive backward for 1 second")
-        print("turn_l      : Turn left 45 degrees (drives right wheel forward)")
-        print("turn_r      : Turn right 45 degrees (drives left wheel forward)")
-        print("test_gyro   : Test gyro orientation using gravity and spin")
-        print("flop        : Manually flop the robot to measure limits & print FULL REPORT")
-        print("status      : Show current polarity, channels, and speed")
-        print("quit/exit   : Exit REPL")
+        print("x : Switch left and right motor channels")
+        print("l : Toggle left motor polarity")
+        print("r : Toggle right motor polarity")
+        print("+ : Increase speed by 10")
+        print("- : Decrease speed by 10")
+        print("w : Drive forward for 1 second")
+        print("s : Drive backward for 1 second")
+        print("a : Turn left 45 degrees (drives right wheel forward)")
+        print("d : Turn right 45 degrees (drives left wheel forward)")
+        print("g : Test gyro orientation using gravity and spin")
+        print("f : Manually flop the robot to measure limits & print FULL REPORT")
+        print("c : Show current polarity, channels, and speed")
+        print("q : Exit REPL")
+        print("? / h : Help")
         print("-------------------------------")
 
     def run(self) -> None:
         self.print_help()
         try:
             while True:
-                cmd_line = input("\n> ").strip().lower()
-                if not cmd_line:
-                    continue
-                parts = cmd_line.split()
-                cmd = parts[0]
+                print("\n> ", end="", flush=True)
+                cmd = getch().lower()
+                print(cmd) # Echo the command
 
-                if cmd in ["quit", "exit"]:
+                if cmd in ["q", "\x03"]: # q or Ctrl+C
                     break
-                elif cmd == "switch":
+                elif cmd == "x":
                     self._cmd_switch()
-                elif cmd == "flip_l":
+                elif cmd == "l":
                     self._cmd_flip_l()
-                elif cmd == "flip_r":
+                elif cmd == "r":
                     self._cmd_flip_r()
-                elif cmd == "speed":
-                    self._cmd_speed(parts)
-                elif cmd == "fwd":
+                elif cmd == "+":
+                    self._cmd_speed_up()
+                elif cmd == "-":
+                    self._cmd_speed_down()
+                elif cmd == "w":
                     self._cmd_fwd()
-                elif cmd == "back":
+                elif cmd == "s":
                     self._cmd_back()
-                elif cmd == "turn_l":
+                elif cmd == "a":
                     self._cmd_turn_l()
-                elif cmd == "turn_r":
+                elif cmd == "d":
                     self._cmd_turn_r()
-                elif cmd == "test_gyro":
+                elif cmd == "g":
                     self._cmd_test_gyro()
-                elif cmd == "flop":
+                elif cmd == "f":
                     self._cmd_flop()
-                elif cmd == "status":
+                elif cmd == "c":
                     self._cmd_status()
-                elif cmd == "help":
+                elif cmd in ["?", "h"]:
                     self.print_help()
                 else:
-                    print("Unknown command. Type 'help'.")
+                    print("Unknown command. Type '?' for help.")
         finally:
             self.hw.stop()
 
@@ -113,15 +129,13 @@ class Repl:
         self.hw.apply_config(self.config)
         print(f"Right polarity is now {'INVERTED' if new_val else 'NORMAL'}")
 
-    def _cmd_speed(self, parts: list[str]) -> None:
-        if len(parts) < 2:
-            print(f"Current speed: {self.speed}")
-            return
-        try:
-            self.speed = float(parts[1])
-            print(f"Speed set to {self.speed}")
-        except ValueError:
-            print("Invalid speed value.")
+    def _cmd_speed_up(self) -> None:
+        self.speed += 10.0
+        print(f"Speed increased to {self.speed}")
+
+    def _cmd_speed_down(self) -> None:
+        self.speed = max(0.0, self.speed - 10.0)
+        print(f"Speed decreased to {self.speed}")
 
     def _cmd_fwd(self) -> None:
         print(f"Driving FORWARD at {self.speed} for 1s...")
