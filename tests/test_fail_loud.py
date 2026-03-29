@@ -1,3 +1,4 @@
+from typing import Any
 import pytest
 from unittest.mock import MagicMock, patch
 import glm
@@ -9,14 +10,14 @@ from balance_bot.discovery import DiscoverBusesStep, StepStatus
 class TestFailLoud:
 
     @pytest.fixture
-    def mock_hardware_deps(self):
+    def mock_hardware_deps(self) -> Any:
         # We only patch MPU6050Adapter because it is defined at module level.
         # PiconZero is imported locally so we don't patch it here,
         # we rely on mocking initialize_drivers and injecting hw.pz directly.
         with patch('balance_bot.hardware.robot_hardware.MPU6050Adapter') as mock_imu:
             yield mock_imu
 
-    def test_set_motors_raises_if_unmapped(self, mock_hardware_deps):
+    def test_set_motors_raises_if_unmapped(self, mock_hardware_deps: Any) -> None:
         """Test that set_motors raises RuntimeError if motor channels are None."""
         # Config with unmapped motors
         hw_config = HardwareConfig(motor_l=None, motor_r=None)
@@ -31,7 +32,7 @@ class TestFailLoud:
             with pytest.raises(RuntimeError, match="CRITICAL: Attempted to actuate motors, but channels are unmapped. L:None R:None"):
                 hw.set_motors(50, 50)
 
-    def test_set_motors_raises_if_one_unmapped(self, mock_hardware_deps):
+    def test_set_motors_raises_if_one_unmapped(self, mock_hardware_deps: Any) -> None:
         """Test that set_motors raises RuntimeError if even one motor is None."""
         hw_config = HardwareConfig(motor_l=0, motor_r=None)
         state = LearningState()
@@ -43,7 +44,7 @@ class TestFailLoud:
             with pytest.raises(RuntimeError, match="CRITICAL: Attempted to actuate motors"):
                 hw.set_motors(50, 50)
 
-    def test_set_motors_succeeds_if_mapped(self, mock_hardware_deps):
+    def test_set_motors_succeeds_if_mapped(self, mock_hardware_deps: Any) -> None:
         """Test that set_motors works if mapped."""
         hw_config = HardwareConfig(motor_l=0, motor_r=1)
         state = LearningState()
@@ -56,7 +57,7 @@ class TestFailLoud:
             hw.set_motors(50, 50)
             hw.pz.set_motors.assert_called()
 
-    def test_read_imu_converted_handles_missing_yaw_in_adult_mode(self, mock_hardware_deps):
+    def test_read_imu_converted_handles_missing_yaw_in_adult_mode(self, mock_hardware_deps: Any) -> None:
         """
         Test that read_imu_converted handles missing Yaw/Roll in Adult Mode gracefully (returns 0.0)
         instead of crashing.
@@ -80,7 +81,7 @@ class TestFailLoud:
             assert reading.yaw_rate == 0.0
             assert reading.pitch_angle == 0.0
 
-    def test_read_imu_converted_toddler_mode_safe(self, mock_hardware_deps):
+    def test_read_imu_converted_toddler_mode_safe(self, mock_hardware_deps: Any) -> None:
         """
         Test that read_imu_converted returns safe defaults in Toddler Mode
         (Critical axes missing).
@@ -101,7 +102,7 @@ class TestFailLoud:
             assert reading.pitch_angle == 0.0
             assert reading.yaw_rate == 0.0
 
-    def test_discovery_step_bootstrap(self):
+    def test_discovery_step_bootstrap(self) -> None:
         """Test that DiscoverBusesStep injects bootstrap configuration."""
         step = DiscoverBusesStep()
         hw = MagicMock()

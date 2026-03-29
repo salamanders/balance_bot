@@ -1,8 +1,9 @@
+from typing import Any
 from unittest.mock import MagicMock
 from balance_bot.reflex.balance_core import BalanceCore, MotionRequest, TuningParams
 from balance_bot.configuration import HardwareConfig, LearningState, PIDParams, ControlConfig
 
-def create_mocked_core(monkeypatch, max_tilt_angle=None):
+def create_mocked_core(monkeypatch: Any, max_tilt_angle: Any = None) -> Any:
     # Setup Config
     control_config = ControlConfig()
     if max_tilt_angle is not None:
@@ -40,7 +41,7 @@ def create_mocked_core(monkeypatch, max_tilt_angle=None):
 
     return core
 
-def test_max_tilt_angle_default(monkeypatch):
+def test_max_tilt_angle_default(monkeypatch: Any) -> Any:
     """Verify that the default max tilt angle is used if not specified."""
     custom_angle = 25.0
     core = create_mocked_core(monkeypatch, max_tilt_angle=custom_angle)
@@ -59,7 +60,7 @@ def test_max_tilt_angle_default(monkeypatch):
     # Actual error = 0 - 10.0 = -10.0
     assert error == -custom_angle
 
-def test_max_tilt_angle_negative_velocity(monkeypatch):
+def test_max_tilt_angle_negative_velocity(monkeypatch: Any) -> Any:
     """Verify that negative velocity tilts backwards."""
     custom_angle = 20.0
     core = create_mocked_core(monkeypatch, max_tilt_angle=custom_angle)

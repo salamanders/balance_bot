@@ -1,3 +1,4 @@
+from typing import Any
 import pytest
 from unittest.mock import MagicMock, patch
 import sys
@@ -12,7 +13,7 @@ from balance_bot.configuration import HardwareConfig, LearningState, PIDParams
 import glm
 
 @pytest.fixture
-def hw_fixture():
+def hw_fixture() -> Any:
     os.environ["ALLOW_MOCK_FALLBACK"] = "1"
     hw_config = HardwareConfig(motor_i2c_bus=1, imu_i2c_bus=1)
     learning_state = LearningState(pid=PIDParams())
@@ -20,7 +21,7 @@ def hw_fixture():
     hw.sensor = MagicMock()
     return hw
 
-def test_wait_for_stability_excessive_bias(hw_fixture):
+def test_wait_for_stability_excessive_bias(hw_fixture: Any) -> None:
     """
     Verifies that wait_for_stability raises an error when bias is excessively large.
     """

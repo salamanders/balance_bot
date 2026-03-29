@@ -22,12 +22,12 @@ class MotionRequestSlots:
     turn_rate: float
     enable_control: bool
 
-    def __init__(self, velocity: float = 0.0, turn_rate: float = 0.0, enable_control: bool = True):
+    def __init__(self, velocity: float = 0.0, turn_rate: float = 0.0, enable_control: bool = True) -> None:
         self.velocity = velocity
         self.turn_rate = turn_rate
         self.enable_control = enable_control
 
-def benchmark():
+def benchmark() -> None:
     iterations = 1_000_000
 
     print(f"Benchmarking {iterations} iterations...")

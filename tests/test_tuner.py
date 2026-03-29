@@ -1,7 +1,7 @@
 from balance_bot.adaptation.tuner import ContinuousTuner
 from balance_bot.configuration import TunerConfig
 
-def test_oscillation_detection():
+def test_oscillation_detection() -> None:
     # buffer_size=10 for faster testing
     # Use analysis_interval=1 to check every tick as in legacy tests
     tuner = ContinuousTuner(config=TunerConfig(analysis_interval=1), buffer_size=10)
@@ -20,7 +20,7 @@ def test_oscillation_detection():
     assert kp < 0, "Should reduce Kp on oscillation"
     assert kd > 0, "Should increase Kd on oscillation"
 
-def test_stability_detection():
+def test_stability_detection() -> None:
     tuner = ContinuousTuner(config=TunerConfig(analysis_interval=1), buffer_size=10)
 
     kp = 0.0
@@ -33,7 +33,7 @@ def test_stability_detection():
     # Expect Kp increase
     assert kp > 0, "Should increase Kp when stable"
 
-def test_steady_error_detection():
+def test_steady_error_detection() -> None:
     tuner = ContinuousTuner(config=TunerConfig(analysis_interval=1), buffer_size=10)
 
     ki = 0.0
@@ -46,7 +46,7 @@ def test_steady_error_detection():
     # Expect Ki increase
     assert ki > 0, "Should increase Ki on steady error"
 
-def test_cooldown():
+def test_cooldown() -> None:
     tuner = ContinuousTuner(config=TunerConfig(analysis_interval=1), buffer_size=10)
 
     # Trigger tune
@@ -66,7 +66,7 @@ def test_cooldown():
     assert ki == 0
     assert kd == 0
 
-def test_statistics_error_handling():
+def test_statistics_error_handling() -> None:
     """
     Test that the tuner handles StatisticsError gracefully (e.g. when buffer size is 1).
     Statistics.stdev requires at least 2 data points.

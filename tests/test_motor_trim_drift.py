@@ -4,7 +4,7 @@ from balance_bot.discovery.step import StepStatus
 from balance_bot.configuration import HardwareConfig, LearningState
 from balance_bot.hardware.robot_hardware import RobotHardware
 
-def test_motor_trim_excessive_drift():
+def test_motor_trim_excessive_drift() -> None:
     hw = MagicMock(spec=RobotHardware)
 
     # In motor_trim.py, `avg_yaw = res.avg_yaw_rate`

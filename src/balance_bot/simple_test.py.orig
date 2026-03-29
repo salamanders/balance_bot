@@ -16,7 +16,6 @@ homebrew robot. It relies on a deterministic, high-frequency control loop and pe
 import math
 import sys
 import time
-from typing import Any
 
 import smbus2
 

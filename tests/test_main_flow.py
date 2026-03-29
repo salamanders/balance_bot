@@ -1,3 +1,4 @@
+from typing import Any
 import sys
 from unittest.mock import MagicMock, patch
 
@@ -13,7 +14,7 @@ from balance_bot.main import main
 @patch("balance_bot.configuration.LearningState")
 @patch("balance_bot.configuration.HardwareConfig")
 @patch("balance_bot.discovery.pipeline.SelfDiscoveryPipeline")
-def test_main_toddler_phase(mock_pipeline, _mock_hw, mock_state, mock_agent, _mock_jules, _mock_watchdog, _mock_log):
+def test_main_toddler_phase(mock_pipeline: Any, _mock_hw: Any, mock_state: Any, mock_agent: Any, _mock_jules: Any, _mock_watchdog: Any, _mock_log: Any) -> None:
     """Test that the main loop runs Pipeline if needs_discovery is True."""
 
     # Mock State
@@ -37,7 +38,7 @@ def test_main_toddler_phase(mock_pipeline, _mock_hw, mock_state, mock_agent, _mo
 @patch("balance_bot.configuration.LearningState")
 @patch("balance_bot.configuration.HardwareConfig")
 @patch("balance_bot.discovery.pipeline.SelfDiscoveryPipeline")
-def test_main_adult_phase(mock_pipeline, _mock_hw, mock_state, mock_agent, _mock_jules, _mock_watchdog, _mock_log):
+def test_main_adult_phase(mock_pipeline: Any, _mock_hw: Any, mock_state: Any, mock_agent: Any, _mock_jules: Any, _mock_watchdog: Any, _mock_log: Any) -> None:
     """Test that main skips Pipeline if verified."""
 
     # Mock State
@@ -63,8 +64,8 @@ def test_main_adult_phase(mock_pipeline, _mock_hw, mock_state, mock_agent, _mock
 @patch("builtins.open", side_effect=Exception("Disk full"))
 @patch("builtins.print")
 def test_main_crash_reporting_local_write_failure(
-    mock_print, _mock_open, _mock_pipeline, _mock_hw, mock_state, mock_agent, mock_jules, _mock_watchdog, _mock_log
-):
+    mock_print: Any, _mock_open: Any, _mock_pipeline: Any, _mock_hw: Any, mock_state: Any, mock_agent: Any, mock_jules: Any, _mock_watchdog: Any, _mock_log: Any
+) -> Any:
     """Test that main reports local fallback write failure when Jules upload fails."""
 
     # Trigger a crash during init
