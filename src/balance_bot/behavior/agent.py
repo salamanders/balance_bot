@@ -14,7 +14,7 @@ homebrew robot. It relies on a deterministic, high-frequency control loop and pe
 """
 
 
-import concurrent.futures
+from concurrent.futures import ThreadPoolExecutor
 import json
 import logging
 import sys
@@ -114,7 +114,7 @@ class Agent:
         self.last_save_time = time.monotonic()
         self.ticks = 0
         self._last_pitch_rate = 0.0
-        self.io_executor = concurrent.futures.ThreadPoolExecutor(max_workers=1)
+        self.io_executor = ThreadPoolExecutor(max_workers=1)
 
         # Pre-allocated zero tuning params for waiting/measuring loops
         self._zero_tuning = TuningParams(0.0, 0.0, 0.0, 0.0)
