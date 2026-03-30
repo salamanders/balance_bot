@@ -23,7 +23,7 @@ def test_motor_trim_excessive_drift() -> None:
     state.min_power_visible = 10
 
     step = MotorTrimStep()
-    step._run_square_validation = MagicMock()  # type: ignore[method-assign]
+    step._run_square_validation = MagicMock()
     hw.wait_for_stability = MagicMock()
 
     status, _, _ = step.run(hw, config, state)

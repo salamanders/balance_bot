@@ -1,3 +1,4 @@
+from typing import Generator
 from typing import Any
 import pytest
 from unittest.mock import MagicMock, patch
@@ -9,8 +10,8 @@ from balance_bot.discovery import DiscoverBusesStep, StepStatus
 
 class TestFailLoud:
 
-    @pytest.fixture
-    def mock_hardware_deps(self) -> Any:
+    @pytest.fixture()  # type: ignore[untyped-decorator]
+    def mock_hardware_deps(self) -> Generator[Any, None, None]:
         # We only patch MPU6050Adapter because it is defined at module level.
         # PiconZero is imported locally so we don't patch it here,
         # we rely on mocking initialize_drivers and injecting hw.pz directly.

@@ -24,7 +24,7 @@ class TestRecoveryManager(unittest.TestCase):
         # Should return the current pitch *processed by ramp*
         expected = current_pitch - STARTUP_RAMP_SPEED
         self.assertIsNotNone(result)
-        self.assertAlmostEqual(result, expected)  # type: ignore[arg-type]
+        self.assertAlmostEqual(result, expected)
 
     def test_startup_low_kp_ignored(self) -> None:
         """Test that low Kp (<1.0) prevents recovery (learning mode)."""
@@ -84,7 +84,7 @@ class TestRecoveryManager(unittest.TestCase):
         self.assertTrue(recovery.recovering)
         expected = 20.0 - STARTUP_RAMP_SPEED
         self.assertIsNotNone(result)
-        self.assertAlmostEqual(result, expected)  # type: ignore[arg-type]
+        self.assertAlmostEqual(result, expected)
 
 if __name__ == '__main__':
     unittest.main()

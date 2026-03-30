@@ -41,7 +41,7 @@ def create_mocked_core(monkeypatch: Any, max_tilt_angle: Any = None) -> Any:
 
     return core
 
-def test_max_tilt_angle_default(monkeypatch: Any) -> Any:
+def test_max_tilt_angle_default(monkeypatch: Any) -> None:
     """Verify that the default max tilt angle is used if not specified."""
     custom_angle = 25.0
     core = create_mocked_core(monkeypatch, max_tilt_angle=custom_angle)
@@ -60,7 +60,7 @@ def test_max_tilt_angle_default(monkeypatch: Any) -> Any:
     # Actual error = 0 - 10.0 = -10.0
     assert error == -custom_angle
 
-def test_max_tilt_angle_negative_velocity(monkeypatch: Any) -> Any:
+def test_max_tilt_angle_negative_velocity(monkeypatch: Any) -> None:
     """Verify that negative velocity tilts backwards."""
     custom_angle = 20.0
     core = create_mocked_core(monkeypatch, max_tilt_angle=custom_angle)

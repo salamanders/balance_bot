@@ -1,3 +1,4 @@
+from typing import Generator
 from typing import Any
 import pytest
 from unittest.mock import MagicMock, patch
@@ -12,14 +13,14 @@ from balance_bot.hardware.robot_hardware import RobotHardware
 from balance_bot.configuration import HardwareConfig, LearningState, PIDParams
 import glm
 
-@pytest.fixture
-def hw_fixture() -> Any:
+@pytest.fixture()  # type: ignore[untyped-decorator]
+def hw_fixture() -> Generator[Any, None, None]:
     os.environ["ALLOW_MOCK_FALLBACK"] = "1"
     hw_config = HardwareConfig(motor_i2c_bus=1, imu_i2c_bus=1)
     learning_state = LearningState(pid=PIDParams())
     hw = RobotHardware(hw_config, learning_state)
     hw.sensor = MagicMock()
-    return hw
+    yield hw
 
 def test_wait_for_stability_excessive_bias(hw_fixture: Any) -> None:
     """

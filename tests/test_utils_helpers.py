@@ -6,7 +6,7 @@ from balance_bot.utils import scan_i2c_candidates, find_threshold
 class TestUtilsHelpers(unittest.TestCase):
 
     @patch("balance_bot.utils.smbus")
-    def test_scan_i2c_candidates_found(self, mock_smbus: Any) -> Any:
+    def test_scan_i2c_candidates_found(self, mock_smbus: Any) -> None:
         # Bus 1 has device
         mock_bus1 = MagicMock()
         mock_bus1.__enter__.return_value = mock_bus1
@@ -30,13 +30,13 @@ class TestUtilsHelpers(unittest.TestCase):
         self.assertEqual(result, 1)
 
     @patch("balance_bot.utils.smbus")
-    def test_scan_i2c_candidates_not_found(self, mock_smbus: Any) -> Any:
+    def test_scan_i2c_candidates_not_found(self, mock_smbus: Any) -> None:
         mock_smbus.SMBus.side_effect = OSError("Bus Error")
 
         result = scan_i2c_candidates("TestDevice", lambda _b: True)
         self.assertIsNone(result)
 
-    def test_find_threshold_success(self) -> Any:
+    def test_find_threshold_success(self) -> None:
         # Test steps: 10, 15, 20
         # Fail at 10, Success at 15
 
@@ -55,7 +55,7 @@ class TestUtilsHelpers(unittest.TestCase):
         result = find_threshold("Test", 10, 5, 20, action_fn, check_fn)
         self.assertEqual(result, 15)
 
-    def test_find_threshold_fail_action_retry(self) -> Any:
+    def test_find_threshold_fail_action_retry(self) -> None:
         # Fail at 10, Retry at 10, Success at 10
         # This simulates "retry_same" logic
 
@@ -75,7 +75,7 @@ class TestUtilsHelpers(unittest.TestCase):
         self.assertEqual(action_fn.call_count, 2)
         action_fn.assert_has_calls([call(10), call(10)])
 
-    def test_find_threshold_limit_exceeded(self) -> Any:
+    def test_find_threshold_limit_exceeded(self) -> None:
         # Always fail
         action_fn = MagicMock(return_value=False)
 
