@@ -7,12 +7,12 @@ from balance_bot.hardware.robot_hardware import RobotHardware
 from balance_bot.configuration import HardwareConfig, LearningState
 
 
-@pytest.fixture
+@pytest.fixture()  # type: ignore[untyped-decorator]
 def step() -> HardwareInitStep:
     return HardwareInitStep()
 
 
-@pytest.fixture
+@pytest.fixture()  # type: ignore[untyped-decorator]
 def mock_hw() -> MagicMock:
     hw = MagicMock(spec=RobotHardware)
     # By default, pretend hardware initialized successfully
@@ -21,12 +21,12 @@ def mock_hw() -> MagicMock:
     return hw
 
 
-@pytest.fixture
+@pytest.fixture()  # type: ignore[untyped-decorator]
 def config() -> HardwareConfig:
     return HardwareConfig()
 
 
-@pytest.fixture
+@pytest.fixture()  # type: ignore[untyped-decorator]
 def state() -> LearningState:
     return LearningState()
 

@@ -10,7 +10,7 @@ from balance_bot.behavior.agent import Agent
 
 class TestAgentStartup(unittest.TestCase):
 
-    def setUp(self) -> Any:
+    def setUp(self) -> None:
         # Patch LEARNING_STATE_FILE
         self.config_patcher = patch("pathlib.Path")
         self.mock_config_file = self.config_patcher.start()
@@ -64,10 +64,10 @@ class TestAgentStartup(unittest.TestCase):
         self.mock_hw_config_cls.load.return_value = self.mock_hw_config_instance
         self.mock_learning_state_cls.load.return_value = self.mock_learning_state_instance
 
-    def tearDown(self) -> Any:
+    def tearDown(self) -> None:
         patch.stopall()
 
-    def test_recovery_manager_initialized_with_config(self) -> Any:
+    def test_recovery_manager_initialized_with_config(self) -> None:
         """Test that RecoveryManager is initialized with control config."""
         # Act
         Agent()
@@ -75,7 +75,7 @@ class TestAgentStartup(unittest.TestCase):
         # Assert
         self.mock_recovery_cls.assert_called_once_with(self.mock_learning_state_instance.control)
 
-    def test_normal_run_on_back_triggers_kickup(self) -> Any:
+    def test_normal_run_on_back_triggers_kickup(self) -> None:
         # Arrange
         self.mock_learning_state_instance.timing.setup_wait = 0.0 # Skip warmup loop
         self.mock_config_file.exists.return_value = True # Saved config
@@ -86,7 +86,7 @@ class TestAgentStartup(unittest.TestCase):
         # Mock pitch to be "On Back" (-40.0)
         self.mock_core_instance.pitch = -40.0
 
-        pass  # type: ignore[method-assign]
+        pass
         agent.running = True
 
         # We need the loop to run at least twice:
@@ -112,7 +112,7 @@ class TestAgentStartup(unittest.TestCase):
         # Assert
         pass
 
-    def test_normal_run_upright_skips_kickup(self) -> Any:
+    def test_normal_run_upright_skips_kickup(self) -> None:
         # Arrange
         self.mock_learning_state_instance.timing.setup_wait = 0.0 # Skip warmup
         self.mock_config_file.exists.return_value = True
@@ -123,7 +123,7 @@ class TestAgentStartup(unittest.TestCase):
         # Mock pitch to be "Upright" (0.0)
         self.mock_core_instance.pitch = 0.0
 
-        pass  # type: ignore[method-assign]
+        pass
         agent.running = True
 
         # Run loop once: IDLE -> BALANCING (if upright)

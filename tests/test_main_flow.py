@@ -65,7 +65,7 @@ def test_main_adult_phase(mock_pipeline: Any, _mock_hw: Any, mock_state: Any, mo
 @patch("builtins.print")
 def test_main_crash_reporting_local_write_failure(
     mock_print: Any, _mock_open: Any, _mock_pipeline: Any, _mock_hw: Any, mock_state: Any, mock_agent: Any, mock_jules: Any, _mock_watchdog: Any, _mock_log: Any
-) -> Any:
+) -> None:
     """Test that main reports local fallback write failure when Jules upload fails."""
 
     # Trigger a crash during init

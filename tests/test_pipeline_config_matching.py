@@ -16,7 +16,7 @@ from balance_bot.discovery.kickup_dynamics import KickupDynamicsStep
 
 # Mocks and helper structures to simulate the steps
 
-def assert_updates_valid(config_updates: dict, state_updates: dict) -> Any:
+def assert_updates_valid(config_updates: dict[str, Any], state_updates: dict[str, Any]) -> None:
     # Ensure keys match model schema
     hw_fields = set(HardwareConfig.model_fields.keys())
     ls_fields = set(LearningState.model_fields.keys())
@@ -35,7 +35,7 @@ def assert_updates_valid(config_updates: dict, state_updates: dict) -> Any:
         setattr(dummy_state, k, v)
 
 
-def test_discover_buses_step(monkeypatch: Any) -> Any:
+def test_discover_buses_step(monkeypatch: Any) -> None:
     monkeypatch.setattr("balance_bot.discovery.discover_buses.scan_i2c", lambda _name, _check: 1)
 
     step = DiscoverBusesStep()
@@ -43,7 +43,7 @@ def test_discover_buses_step(monkeypatch: Any) -> Any:
     assert status == StepStatus.SUCCESS
     assert_updates_valid(config_updates, state_updates)
 
-def test_hardware_init_step() -> Any:
+def test_hardware_init_step() -> None:
     hw_mock = MagicMock()
     hw_mock.pz = MagicMock()
     hw_mock.sensor = MagicMock()
@@ -53,7 +53,7 @@ def test_hardware_init_step() -> Any:
     assert status == StepStatus.SUCCESS
     assert_updates_valid(config_updates, state_updates)
 
-def test_manual_lean_calibration_step(monkeypatch: Any) -> Any:
+def test_manual_lean_calibration_step(monkeypatch: Any) -> None:
     def mock_analyze_dominance(_readings: Any, label: Any) -> Any:
         if "Vertical" in label:
             return "z", 8.5, True
@@ -93,7 +93,7 @@ def test_manual_lean_calibration_step(monkeypatch: Any) -> Any:
     assert state_updates['manual_lean_verified'] is True
     assert_updates_valid(config_updates, state_updates)
 
-def test_broken_wire_check_step(monkeypatch: Any) -> Any:
+def test_broken_wire_check_step(monkeypatch: Any) -> None:
     import glm
 
     # Mock execute_maneuver to return samples that have max_mag > 10.0
@@ -116,7 +116,7 @@ def test_broken_wire_check_step(monkeypatch: Any) -> Any:
     assert status == StepStatus.SUCCESS
     assert_updates_valid(config_updates, state_updates)
 
-def test_friction_threshold_step(monkeypatch: Any) -> Any:
+def test_friction_threshold_step(monkeypatch: Any) -> None:
     monkeypatch.setattr("balance_bot.discovery.friction_threshold.find_threshold", lambda *_args, **_kwargs: 25)
 
     step = FrictionThresholdStep()
@@ -124,7 +124,7 @@ def test_friction_threshold_step(monkeypatch: Any) -> Any:
     assert status == StepStatus.SUCCESS
     assert_updates_valid(config_updates, state_updates)
 
-def test_derive_kinematics_step(monkeypatch: Any) -> Any:
+def test_derive_kinematics_step(monkeypatch: Any) -> None:
     # Mocking DeriveKinematics requires overriding _pulse_and_measure and baseline
     import glm
 
@@ -146,7 +146,7 @@ def test_derive_kinematics_step(monkeypatch: Any) -> Any:
     assert status == StepStatus.SUCCESS
     assert_updates_valid(config_updates, state_updates)
 
-def test_mechanical_backlash_step(monkeypatch: Any) -> Any:
+def test_mechanical_backlash_step(monkeypatch: Any) -> None:
     # Mock sleep to run fast
     monkeypatch.setattr("time.sleep", lambda _x: None)
 
@@ -171,7 +171,7 @@ def test_mechanical_backlash_step(monkeypatch: Any) -> Any:
     assert status == StepStatus.SUCCESS
     assert_updates_valid(config_updates, state_updates)
 
-def test_motor_trim_step() -> Any:
+def test_motor_trim_step() -> None:
     hw_mock = MagicMock()
     mock_res = MagicMock()
     mock_res.samples = [MagicMock()]
@@ -190,7 +190,7 @@ def test_motor_trim_step() -> Any:
     assert status == StepStatus.SUCCESS
     assert_updates_valid(config_updates, state_updates)
 
-def test_kickup_dynamics_step(monkeypatch: Any) -> Any:
+def test_kickup_dynamics_step(monkeypatch: Any) -> None:
     # Return 50 for fwd and 60 for bwd
     monkeypatch.setattr("balance_bot.discovery.kickup_dynamics.KickupDynamicsStep._run_kickup_test", lambda self, hw, state, sign: 50.0 if sign > 0 else 60.0)
 

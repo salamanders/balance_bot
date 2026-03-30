@@ -15,7 +15,7 @@ from balance_bot.hardware.robot_hardware import RobotHardware, IMUReading
 
 class TestDeriveKinematics(unittest.TestCase):
 
-    def test_kinematics_happy_path(self) -> Any:
+    def test_kinematics_happy_path(self) -> None:
         """Test the DeriveKinematicsStep with a standard correct setup."""
 
         # --- Setup ---

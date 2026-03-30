@@ -2,7 +2,7 @@ from typing import Any
 from unittest.mock import patch
 from balance_bot.watchdog import SurvivalWatchdog
 
-def test_watchdog_triggers_on_timeout() -> Any:
+def test_watchdog_triggers_on_timeout() -> None:
     """Test that the watchdog triggers when time exceeds timeout."""
     # monotonic calls:
     # 1. __init__ sets last_heartbeat
@@ -23,7 +23,7 @@ def test_watchdog_triggers_on_timeout() -> Any:
         assert watchdog.triggered is True
         mock_interrupt.assert_called_once()
 
-def test_watchdog_does_not_trigger_when_heartbeat_called() -> Any:
+def test_watchdog_does_not_trigger_when_heartbeat_called() -> None:
     """Test that heartbeat resets the timer and prevents trigger."""
     # monotonic calls:
     # 1. __init__ sets last_heartbeat = 0.0
@@ -56,7 +56,7 @@ def test_watchdog_does_not_trigger_when_heartbeat_called() -> Any:
         assert watchdog.triggered is False
         mock_interrupt.assert_not_called()
 
-def test_watchdog_stop() -> Any:
+def test_watchdog_stop() -> None:
     """Test that stop() exits the thread gracefully."""
     with patch('balance_bot.watchdog.time.monotonic', return_value=0.0), \
          patch('balance_bot.watchdog.time.sleep') as mock_sleep, \
