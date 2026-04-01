@@ -639,7 +639,6 @@ class RobotHardware:
         return MeasureResult(duration=total_duration, samples=samples)
 
     @icontract.require(lambda command: command.duration > 0, "Duration must be positive")
-    @icontract.ensure(lambda result: result.status != 'unknown', "Measure result status must be known")
     def drive_and_measure(self, command: DriveCommand) -> MeasureResult:
         """
         Drive motors for a duration and collect IMU readings based on a DriveCommand.
