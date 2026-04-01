@@ -1,4 +1,4 @@
-from unittest.mock import MagicMock
+from unittest.mock import MagicMock, patch
 from balance_bot.discovery.motor_trim import MotorTrimStep
 from balance_bot.discovery.step import StepStatus
 from balance_bot.configuration import HardwareConfig, LearningState
@@ -23,8 +23,8 @@ def test_motor_trim_excessive_drift() -> None:
     state.min_power_visible = 10
 
     step = MotorTrimStep()
-    step._run_square_validation = MagicMock()
     hw.wait_for_stability = MagicMock()
 
-    status, _, _ = step.run(hw, config, state)
-    assert status == StepStatus.FATAL
+    with patch.object(step, '_run_square_validation'):
+        status, _, _ = step.run(hw, config, state)
+        assert status == StepStatus.FATAL

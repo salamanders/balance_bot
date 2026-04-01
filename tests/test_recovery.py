@@ -24,6 +24,7 @@ class TestRecoveryManager(unittest.TestCase):
         # Should return the current pitch *processed by ramp*
         expected = current_pitch - STARTUP_RAMP_SPEED
         self.assertIsNotNone(result)
+        assert result is not None
         self.assertAlmostEqual(result, expected)
 
     def test_startup_low_kp_ignored(self) -> None:
@@ -84,6 +85,7 @@ class TestRecoveryManager(unittest.TestCase):
         self.assertTrue(recovery.recovering)
         expected = 20.0 - STARTUP_RAMP_SPEED
         self.assertIsNotNone(result)
+        assert result is not None
         self.assertAlmostEqual(result, expected)
 
 if __name__ == '__main__':

@@ -54,7 +54,7 @@ class TestAgentStateMachine(unittest.TestCase):
         self.agent = Agent()
 
         # Configure Tuner Mock return value
-        self.agent.tuner.get_current_scale.return_value = 1.0
+        self.agent.tuner.get_current_scale.return_value = 1.0  # type: ignore[attr-defined]
 
         # Stop the infinite loop by default
         self.agent.running = False
@@ -170,7 +170,7 @@ class TestAgentStateMachine(unittest.TestCase):
 
         from balance_bot.behavior.states import CrashedState
         self.assertIsInstance(self.agent.state, CrashedState)
-        self.agent.core.hw.stop.assert_called()
+        self.agent.core.hw.stop.assert_called()  # type: ignore[attr-defined]
 
     def test_crashed_timeout(self) -> None:
         """Test CRASHED transitions to IDLE after timeout."""
