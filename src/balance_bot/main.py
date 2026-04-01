@@ -32,6 +32,7 @@ def parse_args() -> argparse.Namespace:
     parser.add_argument("--reset-brain", action="store_true", help="Wipe all learned configuration")
     parser.add_argument("--allow-mocks", action="store_true", help="Allow fallback to mock hardware")
     parser.add_argument("--auto-fix", action="store_true", help="Report crashes to Jules")
+    parser.add_argument("--repl", action="store_true", help="Start the interactive manual REPL")
     return parser.parse_args()
 
 
@@ -170,6 +171,12 @@ def main() -> None:
     # Handle Mock Fallback Flag
     if args.allow_mocks:
         os.environ["ALLOW_MOCK_FALLBACK"] = "1"
+
+    if args.repl:
+        from .repl import Repl
+        repl = Repl(allow_mocks=args.allow_mocks)
+        repl.run()
+        return
 
     # Spawn the survival instinct with a 20-second frustration limit
     watchdog = SurvivalWatchdog(timeout=20.0)

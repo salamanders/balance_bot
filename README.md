@@ -191,6 +191,9 @@ Once the discovery process completes successfully, the main agent will wake up a
   Forces the use of Mock Hardware. This allows you to run the control loop and logic on a laptop or device without
   physical sensors/motors. Useful for development and testing.
 
+* **`--repl`**
+  Start the interactive manual REPL (Read-Eval-Print Loop) to manually control the motors, view sensors, and trigger calibrations.
+
 ---
 
 ## Bootup Process
