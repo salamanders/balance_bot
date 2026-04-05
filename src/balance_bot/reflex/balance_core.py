@@ -13,9 +13,9 @@ homebrew robot. It relies on a deterministic, high-frequency control loop and pe
 - Interfaces with Tier 1 (`BalanceCore`), Tier 3 (`Agent`), and physical hardware abstraction (`RobotHardware`).
 """
 
-import icontract
-
 from dataclasses import dataclass
+
+from pydantic import validate_call
 
 from .pid import PIDController
 from ..configuration import HardwareConfig, LearningState
@@ -109,8 +109,7 @@ class BalanceCore:
         """Set the I2C retry count for the motor driver."""
         self.hw.set_motor_retries(retries)
 
-    @icontract.require(lambda loop_delta_time: loop_delta_time > 0, "Loop delta time must be positive")
-    @icontract.require(lambda battery_compensation: battery_compensation > 0, "Battery compensation must be positive")
+    @validate_call
     def update(
             self,
             motion: MotionRequest,
@@ -118,6 +117,8 @@ class BalanceCore:
             loop_delta_time: float,
             battery_compensation: float = 1.0,
     ) -> BalanceTelemetry:
+        assert loop_delta_time > 0, "Loop delta time must be positive"
+        assert battery_compensation > 0, "Battery compensation must be positive"
         """
         Execute one reflex step.
 

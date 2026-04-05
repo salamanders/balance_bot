@@ -13,8 +13,6 @@ homebrew robot. It relies on a deterministic, high-frequency control loop and pe
 - Interfaces with Tier 1 (`BalanceCore`), Tier 3 (`Agent`), and physical hardware abstraction (`RobotHardware`).
 """
 
-import icontract
-
 import logging
 import math
 import random
@@ -22,6 +20,8 @@ import time
 
 import glm
 import numpy as np
+
+from pydantic import validate_call
 
 from .types import IMUReading, MeasureResult, DriveCommand
 from ..configuration import HardwareConfig, LearningState
@@ -148,9 +148,10 @@ class SimHardware:
     def set_motor_retries(self, retries: int) -> None:
         pass
 
-    @icontract.require(lambda left: -100 <= left <= 100, "Left motor speed must be between -100 and 100")
-    @icontract.require(lambda right: -100 <= right <= 100, "Right motor speed must be between -100 and 100")
+    @validate_call
     def set_motors(self, left: float, right: float) -> None:
+        assert -100 <= left <= 100, "Left motor speed must be between -100 and 100"
+        assert -100 <= right <= 100, "Right motor speed must be between -100 and 100"
         # Simulate occasional I2C write failures to motors (10% chance)
         if random.random() < 0.10:
             logger.debug("Simulated motor write failure - ignoring command")
@@ -206,11 +207,13 @@ class SimHardware:
             samples
         )
 
-    @icontract.require(lambda command: command.duration > 0, "Duration must be positive")
-    @icontract.ensure(lambda result: result.status != 'unknown', "Measure result status must be known")
+    @validate_call
     def drive_and_measure(self, command: DriveCommand) -> MeasureResult:
+        assert command.duration > 0, "Duration must be positive"
         if command.wait_for_stability:
             self.wait_for_stability()
-        return self.execute_maneuver(
+        result = self.execute_maneuver(
             [(command.left_power, command.right_power, command.duration)]
         )
+        assert result.status != 'unknown', "Measure result status must be known"
+        return result
