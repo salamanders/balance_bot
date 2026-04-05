@@ -13,8 +13,6 @@ homebrew robot. It relies on a deterministic, high-frequency control loop and pe
 - Interfaces with Tier 1 (`BalanceCore`), Tier 3 (`Agent`), and physical hardware abstraction (`RobotHardware`).
 """
 
-import icontract
-
 import contextlib
 import logging
 import os
@@ -24,6 +22,8 @@ from collections import deque
 from typing import Protocol, runtime_checkable, Any
 
 import glm
+
+from pydantic import validate_call
 
 from .types import IMUReading, DriveCommand, MeasureResult
 from ..configuration import (
@@ -241,23 +241,6 @@ class RobotHardware:
                 return Axis.X  # Fallback
         return None
 
-    @staticmethod
-    def get_axis_value(vector: glm.vec3, axis: Axis | None, invert: bool) -> float:
-        """Helper to extract and optionally invert a vector component."""
-        if axis is None:
-            raise RuntimeError("CRITICAL: HAL attempted to read an unmapped sensor axis.")
-        val = getattr(vector, axis.value)
-        return -val if invert else val
-
-    def get_mapped_value(self, vector: glm.vec3, config_name: str) -> float:
-        """
-        Helper to extract a value based on a config prefix.
-        e.g. config_name="accel_forward" -> uses self.hw_config.accel_forward_axis
-        """
-        axis = getattr(self.hw_config, f"{config_name}_axis")
-        invert = getattr(self.hw_config, f"{config_name}_invert")
-        return RobotHardware.get_axis_value(vector, axis, bool(invert))
-
     def initialize_drivers(self) -> None:
         """
         Initialize hardware components.
@@ -400,20 +383,32 @@ class RobotHardware:
                 gyro_raw=gyro
             )
 
+        # Inlined helper logic for extracting and inverting vector components
+        def _get_axis_value(vector: glm.vec3, axis: Axis | None, invert: bool) -> float:
+            if axis is None:
+                raise RuntimeError("CRITICAL: HAL attempted to read an unmapped sensor axis.")
+            val = getattr(vector, axis.value)
+            return -val if invert else val
+
+        def _get_mapped_value(vector: glm.vec3, config_name: str) -> float:
+            axis: Axis | None = getattr(self.hw_config, f"{config_name}_axis")
+            invert: bool = getattr(self.hw_config, f"{config_name}_invert")
+            return _get_axis_value(vector, axis, bool(invert))
+
         # Get raw values based on config
-        accel_forward = self.get_mapped_value(accel, "accel_forward")
-        accel_vertical = self.get_mapped_value(accel, "accel_vertical")
+        accel_forward = _get_mapped_value(accel, "accel_forward")
+        accel_vertical = _get_mapped_value(accel, "accel_vertical")
 
         # Calculate Accelerometer Angle
         # calculate_pitch(y, z) assumes y is forward, z is vertical.
         acc_angle = calculate_pitch(accel_forward, accel_vertical)
 
         # Gyro Rates
-        gyro_rate = self.get_mapped_value(gyro, "gyro_pitch")
+        gyro_rate = _get_mapped_value(gyro, "gyro_pitch")
 
         # Explicitly handle optional axes instead of relying on silent failures
-        yaw_rate = self.get_mapped_value(gyro, "gyro_yaw") if self.hw_config.gyro_yaw_axis else 0.0
-        roll_rate = self.get_mapped_value(gyro, "gyro_roll") if self.hw_config.gyro_roll_axis else 0.0
+        yaw_rate = _get_mapped_value(gyro, "gyro_yaw") if self.hw_config.gyro_yaw_axis else 0.0
+        roll_rate = _get_mapped_value(gyro, "gyro_roll") if self.hw_config.gyro_roll_axis else 0.0
 
         # Roll Angle (Approximate from Accel)
         roll_axis = self.accel_roll_axis
@@ -440,12 +435,13 @@ class RobotHardware:
         if self.pz is not None:
             self.pz.set_retries(retries)
 
-    @icontract.require(lambda left: -100 <= left <= 100, "Left motor speed must be between -100 and 100")
-    @icontract.require(lambda right: -100 <= right <= 100, "Right motor speed must be between -100 and 100")
+    @validate_call
     def set_motors(self, left: float, right: float, trim_override: float | None = None) -> None:
         """
         Set motor speeds.
         """
+        assert -100 <= left <= 100, "Left motor speed must be between -100 and 100"
+        assert -100 <= right <= 100, "Right motor speed must be between -100 and 100"
         if self.pz is None:
             raise RuntimeError("CRITICAL: Motor Driver not initialized (Bus Unknown?)")
 
@@ -638,12 +634,13 @@ class RobotHardware:
 
         return MeasureResult(duration=total_duration, samples=samples)
 
-    @icontract.require(lambda command: command.duration > 0, "Duration must be positive")
+    @validate_call
     def drive_and_measure(self, command: DriveCommand) -> MeasureResult:
         """
         Drive motors for a duration and collect IMU readings based on a DriveCommand.
         Returns a MeasureResult object containing samples and stats.
         """
+        assert command.duration > 0, "Duration must be positive"
         if command.wait_for_stability:
             self.wait_for_stability()
         return self.execute_maneuver(
