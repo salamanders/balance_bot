@@ -104,3 +104,22 @@ dependent on calibration maneuvers, or utilizes non-standard bus communication, 
 is the only thing keeping the robot physically upright. Likewise, you are **coding blind**: you write a bootstrap
 sequence, but you can't run it directly in the hardware to see if it works in real-world situations, so **assume the
 world is going to be difficult in unknown ways, and always code defensively to deal with it**.
+
+## Condensed LLM-Optimized Comments
+Condensed language for Large Language Model (LLM) code comments focuses on maximizing information density while minimizing token consumption. This approach ensures that the model has sufficient context to understand developer intent without overshooting context windows or inflating costs.
+
+### Core Strategies for Condensed Commenting 
+
+• Acknowledge Intent, Not Logic: Focus on why a block exists or its future goals rather than what the code does, which the LLM can already parse from the syntax. 
+• Symbolic Notation: Replace verbose natural language with shorthand or symbols where possible. For example, using  for "results in" or  for "applies to". 
+• Keyword-Heavy Phrases: Use "essential context" rather than complete sentences. Instead of "This function calculates the average of the list," use "Average of list". 
+• DocString Compression: Tools like ShortenDoc can reduce docstrings by 25–40% by stripping redundant requirements while preserving the quality of generated code. 
+• Natural Language Outlines: Use concise, partitioning prose that summarizes main ideas in a literate programming style, allowing a bidirectional sync between code and text.
+
+Practical Implementation 
+
+| Traditional Comment | Condensed LLM Comment  |
+| --- | --- |
+| `// Check if the user is already logged in` | `// auth: check-session`  |
+| `Loop through the data to find the max value` | `// find-max: data`  |
+| `// Return null if no matches are foun` | `// fallback: null`  |
