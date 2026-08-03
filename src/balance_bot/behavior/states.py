@@ -64,6 +64,7 @@ class KickupState(BotState):
     def __init__(self, attempts: int = 0):
         self.attempts = attempts
         self._zero_motion_enabled = MotionRequest(velocity=0.0, turn_rate=0.0, enable_control=False)
+        self._catch_motion_enabled = MotionRequest(velocity=0.0, turn_rate=0.0, enable_control=True)
         self._zero_tuning = TuningParams(kp=0.0, ki=0.0, kd=0.0, target_angle_offset=0.0)
 
     def _wait_for_settle(self, context: AgentContext, duration: float = 1.0, rate_threshold: float = 10.0) -> None:
@@ -93,35 +94,7 @@ class KickupState(BotState):
             dt = rate.sleep()
 
     def _check_and_fix_position(self, context: AgentContext, kick_direction: Direction, start_label: str) -> bool:
-        wrong_position = False
-        if kick_direction == Direction.BACKWARD and context.core.pitch > -10:
-            wrong_position = True
-        elif kick_direction == Direction.FORWARD and context.core.pitch < 10:
-            wrong_position = True
-
-        if not wrong_position:
-            return True
-
-        logger.warning(f"-> Not at {start_label} Limit? Repositioning...")
-        fix_success = False
-        base_fix_power = context.learning_state.min_power_visible + 15
-
-        for p_try in range(int(base_fix_power), 101, 10):
-            fix_power = float(p_try) * float(-kick_direction.value)
-            context.core.hw.set_motors(fix_power, fix_power)
-            self._sleep_with_update(context, 0.5)
-            context.core.hw.stop()
-            self._wait_for_settle(context)
-
-            if (kick_direction == Direction.BACKWARD and context.core.pitch < -10) or (
-                    kick_direction == Direction.FORWARD and context.core.pitch > 10
-            ):
-                fix_success = True
-                break
-
-        if not fix_success:
-            logger.warning("-> Reposition failed or confused. Aborting kickup.")
-            return False
+        # No hardcoded repositioning loop. The robot attempts kick-up directly from its resting posture.
         return True
 
     def _attempt_catch(self, context: AgentContext, target_angle: float) -> bool:
@@ -140,7 +113,7 @@ class KickupState(BotState):
         while time.perf_counter() - catch_start < 2.5:
             if context.watchdog:
                 context.watchdog.heartbeat()
-            telem = context.core.update(self._zero_motion_enabled, catch_params, dt)
+            telem = context.core.update(self._catch_motion_enabled, catch_params, dt)
 
             error = abs(telem.pitch_angle - target_angle)
             if error < 5.0 and abs(telem.pitch_rate) < 30.0:
@@ -157,7 +130,7 @@ class KickupState(BotState):
 
     def _incremental_kickup(self, context: AgentContext, target_angle: float, start_power: float) -> bool:
         power = start_power
-        step = 5.0
+        step = 2.0
         max_power = 100.0
 
         start_pitch = context.core.pitch
@@ -221,8 +194,18 @@ class KickupState(BotState):
 
 
 class BalancingState(BotState):
+    def __init__(self) -> None:
+        super().__init__()
+        self.start_time = time.monotonic()
+
     def update(self, context: AgentContext, dt: float, motion_req: MotionRequest, tuning_params: TuningParams,
                last_telemetry: BalanceTelemetry | None, ticks: int) -> BotState:
+        if time.monotonic() - self.start_time > 4.0:
+            logger.info("-> 4-Second Experiment Limit Reached. Halting safely.")
+            context.core.hw.stop()
+            motion_req.enable_control = False
+            return FatalErrorState()
+
         motion_req.enable_control = True
         current_pitch = last_telemetry.pitch_angle if last_telemetry else context.core.pitch
 
@@ -235,23 +218,15 @@ class BalancingState(BotState):
 
         elif last_telemetry:
             # Reusing existing tuning_params instead of local agent logic to pass back modifications
-            tune_kp = context.learning_state.pid.kp
-
-            rec_target = context.recovery.update(False, last_telemetry.pitch_angle, tune_kp)
-            if rec_target is not None:
-                tuning_params.target_angle_offset = rec_target - context.learning_state.pid.target_angle
-
             curr_error = last_telemetry.pitch_angle - context.learning_state.pid.target_angle
-            if rec_target is None:
-                adj = context.tuner.update(curr_error)
-                if adj.kp != 0 or adj.ki != 0 or adj.kd != 0:
-                    context.learning_state.pid.kp = max(0.1, context.learning_state.pid.kp + adj.kp)
-                    context.learning_state.pid.ki = max(0.0, context.learning_state.pid.ki + adj.ki)
-                    context.learning_state.pid.kd = max(0.0, context.learning_state.pid.kd + adj.kd)
-                    # We can't set config_dirty directly without agent, but config will be saved on interval
-                    tuning_params.kp, tuning_params.ki, tuning_params.kd = context.learning_state.pid.kp, context.learning_state.pid.ki, context.learning_state.pid.kd
+            adj = context.tuner.update(curr_error)
+            if adj.kp != 0 or adj.ki != 0 or adj.kd != 0:
+                context.learning_state.pid.kp = max(0.1, context.learning_state.pid.kp + adj.kp)
+                context.learning_state.pid.ki = max(0.0, context.learning_state.pid.ki + adj.ki)
+                context.learning_state.pid.kd = max(0.0, context.learning_state.pid.kd + adj.kd)
+                tuning_params.kp, tuning_params.ki, tuning_params.kd = context.learning_state.pid.kp, context.learning_state.pid.ki, context.learning_state.pid.kd
 
-            if rec_target is None and motion_req.velocity == 0.0 and motion_req.turn_rate == 0.0:
+            if motion_req.velocity == 0.0 and motion_req.turn_rate == 0.0:
                 aggression = 10.0 if not context.learning_state.balance_verified else 1.0
                 effort = last_telemetry.motor_output / context.battery.compensation_factor
                 if abs(curr_error) < 5.0 < abs(effort) and abs(last_telemetry.pitch_rate) < 20.0:
@@ -271,8 +246,8 @@ class CrashedState(BotState):
         context.recovery.update(True, context.core.pitch, context.learning_state.pid.kp)
 
         if time.monotonic() - self.crash_time > 3.0:
-            logger.info("-> Crash Timeout Expired. Transition to IDLE.")
-            return IdleState()
+            logger.info("-> Crash Timeout Expired. Transition to FATAL ERROR / HALT.")
+            return FatalErrorState()
         return self
 
 

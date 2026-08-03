@@ -13,17 +13,11 @@ homebrew robot. It relies on a deterministic, high-frequency control loop and pe
 - Interfaces with Tier 1 (`BalanceCore`), Tier 3 (`Agent`), and physical hardware abstraction (`RobotHardware`).
 """
 
-from .broken_wire_check import BrokenWireCheckStep
-from .derive_kinematics import DeriveKinematicsStep
 from .discover_buses import DiscoverBusesStep
-from .friction_threshold import FrictionThresholdStep
 from .hardware_init import HardwareInitStep
-from .kickup_dynamics import KickupDynamicsStep
-from .manual_lean_calibration import ManualLeanCalibrationStep
-from .mechanical_backlash import MechanicalBacklashStep
-from .motor_trim import MotorTrimStep
 from .pipeline import SelfDiscoveryPipeline
 from .step import CalibrationStep, StepStatus
+from .toddler_engine import ProprioceptiveToddlerStep
 
 __all__ = [
     "SelfDiscoveryPipeline",
@@ -31,11 +25,5 @@ __all__ = [
     "StepStatus",
     "DiscoverBusesStep",
     "HardwareInitStep",
-    "ManualLeanCalibrationStep",
-    "BrokenWireCheckStep",
-    "FrictionThresholdStep",
-    "DeriveKinematicsStep",
-    "MotorTrimStep",
-    "MechanicalBacklashStep",
-    "KickupDynamicsStep",
+    "ProprioceptiveToddlerStep",
 ]

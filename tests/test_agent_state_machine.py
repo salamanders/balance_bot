@@ -173,15 +173,15 @@ class TestAgentStateMachine(unittest.TestCase):
         self.agent.core.hw.stop.assert_called()  # type: ignore[attr-defined]
 
     def test_crashed_timeout(self) -> None:
-        """Test CRASHED transitions to IDLE after timeout."""
+        """Test CRASHED transitions to FATAL ERROR after timeout."""
         from balance_bot.behavior.states import CrashedState
         self.agent.state = CrashedState()
         self.agent.state.crash_time = time.monotonic() - 4.0 # 3 seconds ago
 
         self.run_agent_once()
 
-        from balance_bot.behavior.states import IdleState
-        self.assertIsInstance(self.agent.state, IdleState)
+        from balance_bot.behavior.states import FatalErrorState
+        self.assertIsInstance(self.agent.state, FatalErrorState)
 
     def test_keyboard_interrupt_graceful_shutdown(self) -> None:
         """Test that KeyboardInterrupt during main loop is handled gracefully."""

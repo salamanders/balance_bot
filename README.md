@@ -1,114 +1,84 @@
 # balance_bot
 
+Self-balancing homebrew Segway robot powered by a Raspberry Pi, 4tronix PiconZero HAT, MPU-6050 IMU, and 3D-printed/LEGO mechanical topology.
+
+> **Note for Developers and Autonomous Agents:**
+> * For engineering governance, LLM directives, Multi-Mind subsumption architecture, Tabula Rasa self-discovery, empirical hardware rules, and codebase assumptions, see [AGENTS.md](file:///Users/benhill/Desktop/hobbies/balance_bot/AGENTS.md).
+> * For the chronological log of physical experiments, hardware audits, bug investigations, and empirical lessons learned, see [JOURNAL.md](file:///Users/benhill/Desktop/hobbies/balance_bot/JOURNAL.md).
+
+---
+
 ## References
 
 ### Root Directory
 
-* [.gitignore](.gitignore): Git configuration specifying which files to ignore.
-* [.python-version](.python-version): Specifies the Python version used by the project/tools.
-* [AGENTS.md](AGENTS.md): Instructions/Context for AI agents working on this codebase, including documentation of the "Self-Discovery" protocol and implemented algorithms.
-* [AUTO_RUN.md](AUTO_RUN.md): Instructions for setting up the robot to run automatically on boot via systemd.
-* [LICENSE](LICENSE): Project license file.
-* [Makefile](Makefile): Shortcut commands for installation, linting, formatting, and running.
-* [README.md](README.md): The main entry point documentation.
-* [environment.sh](environment.sh): Script to set up the development environment (system dependencies, uv).
-* pid_config.json: Persisted storage for the tuned PID parameters.
-* [pyproject.toml](pyproject.toml): Python project configuration, dependencies, and tool settings.
-* [setup.sh](setup.sh): Initial system setup script (I2C enablement, system libraries).
-* [uv.lock](uv.lock): Dependency lock file to ensure reproducible installs.
+* [.gitignore](file:///Users/benhill/Desktop/hobbies/balance_bot/.gitignore): Git configuration specifying which files to ignore.
+* [.python-version](file:///Users/benhill/Desktop/hobbies/balance_bot/.python-version): Specifies the Python version used by the project/tools.
+* [AGENTS.md](file:///Users/benhill/Desktop/hobbies/balance_bot/AGENTS.md): Comprehensive engineering manual, LLM governance rules, system architecture, systemd auto-run instructions, and blind spot documentation.
+* [JOURNAL.md](file:///Users/benhill/Desktop/hobbies/balance_bot/JOURNAL.md): Chronological engineering log of physical experiments, empirical hardware audits, bug investigations, and learnings.
+* [LICENSE](file:///Users/benhill/Desktop/hobbies/balance_bot/LICENSE): Project license file.
+* [Makefile](file:///Users/benhill/Desktop/hobbies/balance_bot/Makefile): Shortcut commands for installation, linting, formatting, and running.
+* [README.md](file:///Users/benhill/Desktop/hobbies/balance_bot/README.md): The main entry point documentation.
+* [environment.sh](file:///Users/benhill/Desktop/hobbies/balance_bot/environment.sh): Script to set up the development environment (system dependencies, uv).
+* `pid_config.json`: Persisted storage for the tuned PID parameters.
+* [pyproject.toml](file:///Users/benhill/Desktop/hobbies/balance_bot/pyproject.toml): Python project configuration, dependencies, and tool settings.
+* [setup.sh](file:///Users/benhill/Desktop/hobbies/balance_bot/setup.sh): Initial system setup script (I2C enablement, system libraries).
+* [uv.lock](file:///Users/benhill/Desktop/hobbies/balance_bot/uv.lock): Dependency lock file to ensure reproducible installs.
 
 ### Source Code (`src/balance_bot`)
 
 **Core & Utilities**
-
-* [src/balance_bot/__init__.py](src/balance_bot/__init__.py): Package initialization.
-* [src/balance_bot/configuration.py](src/balance_bot/configuration.py): Centralized configuration (constants, dataclasses) for the
-  robot.
-* [src/balance_bot/enums.py](src/balance_bot/enums.py): Enumerations for direction and orientation.
-* [src/balance_bot/jules_client.py](src/balance_bot/jules_client.py): Client for reporting crashes to Jules.
-* [src/balance_bot/main.py](src/balance_bot/main.py): Main application entry point.
-* [src/balance_bot/utils.py](src/balance_bot/utils.py): Shared utility functions (math, timing, filtering).
-* [src/balance_bot/wiring_check.py](src/balance_bot/wiring_check.py): Interactive tool for verifying motor/sensor wiring
-  and orientation.
+* [src/balance_bot/__init__.py](file:///Users/benhill/Desktop/hobbies/balance_bot/src/balance_bot/__init__.py): Package initialization.
+* [src/balance_bot/configuration.py](file:///Users/benhill/Desktop/hobbies/balance_bot/src/balance_bot/configuration.py): Centralized configuration (constants, dataclasses) for the robot.
+* [src/balance_bot/enums.py](file:///Users/benhill/Desktop/hobbies/balance_bot/src/balance_bot/enums.py): Enumerations for direction and orientation.
+* [src/balance_bot/jules_client.py](file:///Users/benhill/Desktop/hobbies/balance_bot/src/balance_bot/jules_client.py): Client for reporting crashes to Jules.
+* [src/balance_bot/main.py](file:///Users/benhill/Desktop/hobbies/balance_bot/src/balance_bot/main.py): Main application entry point.
+* [src/balance_bot/utils.py](file:///Users/benhill/Desktop/hobbies/balance_bot/src/balance_bot/utils.py): Shared utility functions (math, timing, filtering).
+* [src/balance_bot/wiring_check.py](file:///Users/benhill/Desktop/hobbies/balance_bot/src/balance_bot/wiring_check.py): Interactive tool for verifying motor/sensor wiring and orientation.
 
 **Tier 1: Reflex (Brainstem)**
-
-* [src/balance_bot/reflex/balance_core.py](src/balance_bot/reflex/balance_core.py): The high-frequency (100Hz) balance
-  loop. Pure physics/math.
-* [src/balance_bot/reflex/pid.py](src/balance_bot/reflex/pid.py): PID controller implementation.
+* [src/balance_bot/reflex/balance_core.py](file:///Users/benhill/Desktop/hobbies/balance_bot/src/balance_bot/reflex/balance_core.py): The high-frequency (100Hz) balance loop. Pure physics/math.
+* [src/balance_bot/reflex/pid.py](file:///Users/benhill/Desktop/hobbies/balance_bot/src/balance_bot/reflex/pid.py): PID controller implementation.
 
 **Tier 2: Adaptation (Cerebellum)**
-
-* [src/balance_bot/adaptation/recovery.py](src/balance_bot/adaptation/recovery.py): Soft-start logic for recovering from
-  a crash.
-* [src/balance_bot/adaptation/tuner.py](src/balance_bot/adaptation/tuner.py): Automatic PID tuning logic (Continuous
-  Tuner) and Balance Point Finder.
-* [src/balance_bot/adaptation/battery.py](src/balance_bot/adaptation/battery.py): Logic for monitoring battery voltage
-  and estimating charge.
+* [src/balance_bot/adaptation/recovery.py](file:///Users/benhill/Desktop/hobbies/balance_bot/src/balance_bot/adaptation/recovery.py): Soft-start logic for recovering from a crash.
+* [src/balance_bot/adaptation/tuner.py](file:///Users/benhill/Desktop/hobbies/balance_bot/src/balance_bot/adaptation/tuner.py): Automatic PID tuning logic (Continuous Tuner) and Balance Point Finder.
+* [src/balance_bot/adaptation/battery.py](file:///Users/benhill/Desktop/hobbies/balance_bot/src/balance_bot/adaptation/battery.py): Logic for monitoring battery voltage and estimating charge.
 
 **Tier 3: Behavior (Cortex)**
-
-* [src/balance_bot/behavior/agent.py](src/balance_bot/behavior/agent.py): The "Brain" that orchestrates the robot.
-  Handles scheduling, state management, and high-level goals.
-* [src/balance_bot/behavior/leds.py](src/balance_bot/behavior/leds.py): Controls the Raspberry Pi status LEDs for
-  feedback.
+* [src/balance_bot/behavior/agent.py](file:///Users/benhill/Desktop/hobbies/balance_bot/src/balance_bot/behavior/agent.py): The "Brain" that orchestrates the robot. Handles scheduling, state management, and high-level goals.
+* [src/balance_bot/behavior/leds.py](file:///Users/benhill/Desktop/hobbies/balance_bot/src/balance_bot/behavior/leds.py): Controls the Raspberry Pi status LEDs for feedback.
 
 **Hardware Abstraction**
-
-* [src/balance_bot/hardware/robot_hardware.py](src/balance_bot/hardware/robot_hardware.py): Hardware Abstraction Layer (
-  HAL) managing sensors and motors.
-* [src/balance_bot/hardware/piconzero.py](src/balance_bot/hardware/piconzero.py): Driver for the Picon Zero Motor HAT.
-* [src/balance_bot/hardware/piconzero_adapter.py](src/balance_bot/hardware/piconzero_adapter.py): Adapter for Picon Zero to manage I2C retries and bus switching.
-* [src/balance_bot/hardware/mocks.py](src/balance_bot/hardware/mocks.py): Mock hardware implementations.
+* [src/balance_bot/hardware/robot_hardware.py](file:///Users/benhill/Desktop/hobbies/balance_bot/src/balance_bot/hardware/robot_hardware.py): Hardware Abstraction Layer (HAL) managing sensors and motors.
+* [src/balance_bot/hardware/piconzero.py](file:///Users/benhill/Desktop/hobbies/balance_bot/src/balance_bot/hardware/piconzero.py): Driver for the Picon Zero Motor HAT.
+* [src/balance_bot/hardware/piconzero_adapter.py](file:///Users/benhill/Desktop/hobbies/balance_bot/src/balance_bot/hardware/piconzero_adapter.py): Adapter for Picon Zero to manage I2C retries and bus switching.
+* [src/balance_bot/hardware/mocks.py](file:///Users/benhill/Desktop/hobbies/balance_bot/src/balance_bot/hardware/mocks.py): Mock hardware implementations.
 
 ### Tests (`tests/`)
-
-* [tests/benchmarks/](tests/benchmarks/): Benchmark tests for performance critical components.
-* [tests/test_balance_core_params.py](tests/test_balance_core_params.py): Tests for balance core parameters.
-* [tests/test_balance_finder.py](tests/test_balance_finder.py): Tests for the Balance Point Finder logic.
-* [tests/test_battery.py](tests/test_battery.py): Unit tests for battery estimation logic.
-* [tests/test_i2c_config.py](tests/test_i2c_config.py): Tests for I2C bus configuration logic.
-* [tests/test_imu_logic.py](tests/test_imu_logic.py): Tests for IMU math and pitch calculation.
-* [tests/test_imu_resilience.py](tests/test_imu_resilience.py): Tests for IMU error handling and resilience.
-* [tests/test_imu_yaw_roll.py](tests/test_imu_yaw_roll.py): Tests for yaw and roll calculations.
-* [tests/test_kickup_config.py](tests/test_kickup_config.py): Tests for kick-up configuration and logic.
-* [tests/test_piconzero_driver.py](tests/test_piconzero_driver.py): Tests for the Picon Zero driver.
-* [tests/test_startup_logic.py](tests/test_startup_logic.py): Tests for the robot startup sequence.
-* [tests/test_tuner.py](tests/test_tuner.py): Tests for the PID auto-tuning logic.
-* [tests/test_utils.py](tests/test_utils.py): Unit tests for helper functions (clamp, filters, etc.).
-* [tests/test_wiring_check_bus.py](tests/test_wiring_check_bus.py): Tests for the wiring check tool's bus detection.
+* [tests/benchmarks/](file:///Users/benhill/Desktop/hobbies/balance_bot/tests/benchmarks): Benchmark tests for performance critical components.
+* [tests/test_balance_core_params.py](file:///Users/benhill/Desktop/hobbies/balance_bot/tests/test_balance_core_params.py): Tests for balance core parameters.
+* [tests/test_balance_finder.py](file:///Users/benhill/Desktop/hobbies/balance_bot/tests/test_balance_finder.py): Tests for the Balance Point Finder logic.
+* [tests/test_battery.py](file:///Users/benhill/Desktop/hobbies/balance_bot/tests/test_battery.py): Unit tests for battery estimation logic.
+* [tests/test_i2c_config.py](file:///Users/benhill/Desktop/hobbies/balance_bot/tests/test_i2c_config.py): Tests for I2C bus configuration logic.
+* [tests/test_imu_logic.py](file:///Users/benhill/Desktop/hobbies/balance_bot/tests/test_imu_logic.py): Tests for IMU math and pitch calculation.
+* [tests/test_imu_resilience.py](file:///Users/benhill/Desktop/hobbies/balance_bot/tests/test_imu_resilience.py): Tests for IMU error handling and resilience.
+* [tests/test_imu_yaw_roll.py](file:///Users/benhill/Desktop/hobbies/balance_bot/tests/test_imu_yaw_roll.py): Tests for yaw and roll calculations.
+* [tests/test_kickup_config.py](file:///Users/benhill/Desktop/hobbies/balance_bot/tests/test_kickup_config.py): Tests for kick-up configuration and logic.
+* [tests/test_piconzero_driver.py](file:///Users/benhill/Desktop/hobbies/balance_bot/tests/test_piconzero_driver.py): Tests for the Picon Zero driver.
+* [tests/test_startup_logic.py](file:///Users/benhill/Desktop/hobbies/balance_bot/tests/test_startup_logic.py): Tests for the robot startup sequence.
+* [tests/test_tuner.py](file:///Users/benhill/Desktop/hobbies/balance_bot/tests/test_tuner.py): Tests for the PID auto-tuning logic.
+* [tests/test_utils.py](file:///Users/benhill/Desktop/hobbies/balance_bot/tests/test_utils.py): Unit tests for helper functions (clamp, filters, etc.).
+* [tests/test_wiring_check_bus.py](file:///Users/benhill/Desktop/hobbies/balance_bot/tests/test_wiring_check_bus.py): Tests for the wiring check tool's bus detection.
 
 ### Printed Parts (`printed_parts/`)
+* [printed_parts/dcmotor.scad](file:///Users/benhill/Desktop/hobbies/balance_bot/printed_parts/dcmotor.scad): OpenSCAD source file for motor mount.
+* [printed_parts/tpu_wheel.scad](file:///Users/benhill/Desktop/hobbies/balance_bot/printed_parts/tpu_wheel.scad): OpenSCAD source file for TPU wheel.
+* [printed_parts/wheel_v3.3mf](file:///Users/benhill/Desktop/hobbies/balance_bot/printed_parts/wheel_v3.3mf): 3D model project file (3MF) for the wheel (v3).
+* [printed_parts/wheel_v3.scad](file:///Users/benhill/Desktop/hobbies/balance_bot/printed_parts/wheel_v3.scad): OpenSCAD source file for wheel v3.
+* [printed_parts/wheel_v3_project.3mf](file:///Users/benhill/Desktop/hobbies/balance_bot/printed_parts/wheel_v3_project.3mf): Alternative/Project 3MF file for the wheel (v3).
 
-* [printed_parts/dcmotor.scad](printed_parts/dcmotor.scad): OpenSCAD source file for motor mount.
-* [printed_parts/tpu_wheel.scad](printed_parts/tpu_wheel.scad): OpenSCAD source file for TPU wheel.
-* [printed_parts/wheel_v3.3mf](printed_parts/wheel_v3.3mf): 3D model project file (3MF) for the wheel (v3).
-* [printed_parts/wheel_v3.scad](printed_parts/wheel_v3.scad): OpenSCAD source file for wheel v3.
-* [printed_parts/wheel_v3_project.3mf](printed_parts/wheel_v3_project.3mf): Alternative/Project 3MF file for the wheel (v3).
-
-## Architecture: Multi-Mind (Subsumption)
-
-The robot control is divided into three "Minds" running at different frequencies and responsibilities.
-
-### 1. The Brainstem (Reflex) - Tier 1
-
-* **Goal**: Stay Vertical.
-* **Frequency**: 100Hz.
-* **Responsibility**: Reads IMU, runs PID, sets Motors.
-* **Characteristics**: Stateless, Deterministic, Safety-Critical.
-
-### 2. The Cerebellum (Adaptation) - Tier 2
-
-* **Goal**: Optimize Mechanics.
-* **Frequency**: ~10Hz (Subsampled).
-* **Responsibility**: Analyzes performance (oscillation, drift) and tweaks PID gains or Balance Point. Handles "Soft
-  Start" recovery.
-
-### 3. The Cortex (Behavior) - Tier 3
-
-* **Goal**: Intent & Orchestration.
-* **Frequency**: Low Frequency / Event Driven.
-* **Responsibility**: Manages the Agent lifecycle, LEDs, Config saving, and future Navigation goals.
+---
 
 ## Getting Started (First Time Setup)
 
@@ -116,143 +86,75 @@ Follow these steps to get your robot up and running from a fresh Raspberry Pi in
 
 ### 0. Physical Wiring Check
 
-*Note: This section describes the physical connections required before running the software.*
-
 * **MPU-6050**: VCC to 3.3V, GND to GND, SDA to SDA, SCL to SCL.
 * **Motors**: Plugged into Motor A and Motor B on the Picon Zero.
 
-If you have a Picon Zero hat - it gets in the way!  But fear not, you can add a "bus 3" that uses some of the
-reachable GPIO pins.
-
-`sudo nano /boot/firmware/config.txt`
-
-Scroll to the bottom and add this exact line:
-
-```txt
-dtoverlay=i2c-gpio,bus=3,i2c_gpio_sda=17,i2c_gpio_scl=27,i2c_gpio_delay_us=5
-```
-
-*(Note: `i2c_gpio_delay_us=5` sets the bus speed to approximately 100kHz. Increase this value (e.g., to 10) if you still encounter I2C errors.)*
+If you have a Picon Zero HAT, it blocks standard I2C pins. You can add a software-defined "bus 3" using reachable GPIO pins:
+1. Edit boot firmware configuration:
+   ```bash
+   sudo nano /boot/firmware/config.txt
+   ```
+2. Scroll to the bottom and add this exact line:
+   ```txt
+   dtoverlay=i2c-gpio,bus=3,i2c_gpio_sda=17,i2c_gpio_scl=27,i2c_gpio_delay_us=5
+   ```
+   *(Note: `i2c_gpio_delay_us=5` sets the bus speed to approximately 100kHz. Increase to `10` if you still encounter I2C errors.)*
 
 ### 1. Clone the Repository
-
 ```bash
 git clone https://github.com/salamanders/balance_bot.git
 cd balance-bot
 ```
 
 ### 2. Install `uv`
-
-This project uses `uv` for Python dependency management.
-
+This project uses `uv` for Python dependency management:
 ```bash
 curl -LsSf https://astral.sh/uv/install.sh | sh
 ```
 
 ### 3. System Setup
-
-Run the setup script to enable I2C and install necessary system libraries.
-
+Run the setup script to enable I2C and install necessary system libraries:
 ```bash
 chmod +x setup.sh
 sudo ./setup.sh
 ```
 
 ### 4. Install Dependencies
-
 ```bash
 uv sync
 ```
 
-### 5. Verify and run
-
-Run the **Zero-Knowledge Self-Discovery Protocol**. This is a state-machine based wizard that will learn your robot's unique wiring and physics configuration.
-**Note:** The robot will wake up knowing nothing. It will automatically detect if it is unconfigured on the first run, and will ask you to place it in specific positions to learn gravity, motor direction, and friction thresholds.
-
-For a detailed explanation of the logic, see `AGENTS.md`.
-
+### 5. Verify & Run (Zero-Knowledge Self-Discovery)
+Run the **Zero-Knowledge Self-Discovery Protocol**. This state-machine wizard automatically discovers your robot's unique motor wiring, polarity, MPU orientation, and friction thresholds on first boot:
 ```bash
 uv run balance-bot
 ```
-
-The wizard is **pessimistic**: it will verify every discovery it makes (e.g., if it decides to invert a motor, it will re-test to prove the inversion was correct).
-Once the discovery process completes successfully, the main agent will wake up and start running automatically.
-
-## Additional Flags
-
-* **`--reset-brain`**
-  Wipe all learned configuration and force the robot to re-run the Zero-Knowledge Self-Discovery Protocol.
-
-* **`--auto-fix`**
-  Enables automated crash reporting. If the robot crashes, this flag captures the traceback, logs, configuration state,
-  and library versions, then submits a report to Jules for analysis.
-
-* **`--allow-mocks`**
-  Forces the use of Mock Hardware. This allows you to run the control loop and logic on a laptop or device without
-  physical sensors/motors. Useful for development and testing.
-
-* **`--repl`**
-  Start the interactive manual REPL (Read-Eval-Print Loop) to manually control the motors, view sensors, and trigger calibrations.
+* The wizard is **pessimistic**: it verifies every discovery empirically before saving to `pid_config.json`.
+* Once self-discovery completes, the main control loop wakes up and begins balancing automatically.
+* For detailed documentation of the 7 self-discovery phases, see [AGENTS.md Section 5](file:///Users/benhill/Desktop/hobbies/balance_bot/AGENTS.md#5-the-tabula-rasa-protocol-zero-knowledge-self-discovery).
 
 ---
 
-## Bootup Process
+## CLI Execution & Flags
 
-### First Run (Calibration)
+* `uv run balance-bot` — Runs standard self-discovery wizard or active balance control loop.
+* `uv run balance-bot --allow-mocks` — Runs control loop using Mock Hardware (required for CI / laptop testing without physical sensors/motors).
+* `uv run balance-bot --reset-brain` — Wipes learned `pid_config.json` and forces re-running Tabula Rasa discovery.
+* `uv run balance-bot --auto-fix` — Enables automated crash reporting and traceback submission to Jules.
+* `uv run balance-bot --repl` — Launches interactive REPL for manual motor control, IMU reads, and gyro tests.
 
-If this is the first time running (or no config exists):
+---
 
-1. The robot will perform a **Self-Calibration Sequence** ("The Flop").
-    - It will flop forward, then backward to measure its physical limits.
-    - It will calculate the mechanical balance point.
-2. Once calibrated, it will perform a **Kick-Up** maneuver to stand up and balance.
+## System Architecture, Governance & Empirical Rules
 
-### Normal Run
+To eliminate duplication across documentation files, all system architecture details, multi-mind subsumption topology, AI agent governance directives, empirical hardware rules, systemd daemon deployment, and codebase assumptions are consolidated in [AGENTS.md](file:///Users/benhill/Desktop/hobbies/balance_bot/AGENTS.md):
 
-1. The robot will detect it is resting on the back wheel.
-2. It will perform a **Kick-Up** maneuver using the saved configuration.
-3. It will begin balancing.
-
-*Note: You can also start the robot holding it upright, and it will balance immediately.*
-
-## Codebase Assumptions
-
-This code relies on several hardware, physical, and configuration assumptions. If your robot differs, you may need to
-adjust these values in the cited files.
-
-### Hardware Configuration
-
-* **I2C Addresses**: Assumes MPU-6050 is at `0x68` and Picon Zero HAT is at `0x22`.
-    * *Citation*: [src/balance_bot/hardware/robot_hardware.py](src/balance_bot/hardware/robot_hardware.py) (
-      MPU), [src/balance_bot/hardware/piconzero.py](src/balance_bot/hardware/piconzero.py) (PiconZero `I2C_ADDRESS`).
-* **Motor Channels**: Assumes motors are connected to PiconZero Motor A (0) and Motor B (1). The specific Left/Right mapping is autonomously discovered.
-    * *Citation*: [src/balance_bot/wiring_check.py](src/balance_bot/wiring_check.py) (Discovery logic).
-* **Motor Input Range**: Assumes motor driver accepts values from -100 to 100.
-    * *Citation*: [src/balance_bot/hardware/robot_hardware.py](src/balance_bot/hardware/robot_hardware.py) (
-      `MOTOR_MIN_OUTPUT`, `MOTOR_MAX_OUTPUT`).
-* **PiconZero Protocol**: The PiconZero motor driver (based on ATmega328P) does NOT support standard I2C "Block Write" commands for motor control. It requires individual "Byte Writes" for each register.
-    * *Citation*: [src/balance_bot/hardware/piconzero.py](src/balance_bot/hardware/piconzero.py) and [src/balance_bot/wiring_check.py](src/balance_bot/wiring_check.py).
-
-### Physics & Mounting
-
-* **Mounting Orientation**: Default: **None** (Discovered via Wizard).
-    * *Citation*: [src/balance_bot/configuration.py](src/balance_bot/configuration.py) (`gyro_pitch_axis` in `HardwareConfig` and `LearningState`).
-* **Fall Limit**: The robot considers itself "fallen" (and stops motors) if the pitch angle exceeds **60 degrees**.
-    * *Citation*: [src/balance_bot/configuration.py](src/balance_bot/configuration.py) (`crash_angle` in `HardwareConfig` and `LearningState`).
-* **Gravity Vector**: Pitch calculation assumes the Z-axis accelerometer measures gravity when upright.
-    * *Citation*: [src/balance_bot/utils.py](src/balance_bot/utils.py) (`calculate_pitch`).
-
-### Control System
-
-* **Loop Frequency**: The control loop is designed to run at **100 Hz** (10ms per loop).
-    * *Citation*: [src/balance_bot/configuration.py](src/balance_bot/configuration.py) (`loop_time` in `HardwareConfig` and `LearningState`).
-* **Motor Deadband**: Assumes motors require a minimum PWM of **20.0** to overcome static friction (for battery estimation). The actual physical deadband is discovered and stored as `min_power_visible`.
-    * *Citation*: [src/balance_bot/configuration.py](src/balance_bot/configuration.py) (`min_pwm` in `BatteryConfig`, `min_power_visible` in `HardwareConfig` and `LearningState`).
-* **PID Defaults**: Starts with `Kp=25.0`, `Ki=0.0`, `Kd=0.5`.
-    * *Citation*: [src/balance_bot/configuration.py](src/balance_bot/configuration.py) (`PIDParams`).
-
-### System Environment
-
-* **Status LEDs**: Assumes availability of system LEDs at `/sys/class/leds/led0/brightness` or
-  `/sys/class/leds/ACT/brightness`.
-    * *Citation*: [src/balance_bot/behavior/leds.py](src/balance_bot/behavior/leds.py) (`_find_led_path`).
+* **[Project Philosophy & Hardware Reality](file:///Users/benhill/Desktop/hobbies/balance_bot/AGENTS.md#1-project-philosophy--hardware-reality)** — Bumpers, resting state vs. crash angle, kick-up maneuvers, and persistence.
+* **[Mandatory LLM Directives & Code Standards](file:///Users/benhill/Desktop/hobbies/balance_bot/AGENTS.md#2-mandatory-llm-directives--code-standards)** — Pre-flight checks, type safety, SDD/RLVR, and anti-patterns.
+* **[Mandatory Journaling Protocol](file:///Users/benhill/Desktop/hobbies/balance_bot/AGENTS.md#3-mandatory-journaling-protocol-journalmd)** — Requirements and formatting for logging experiments in `JOURNAL.md`.
+* **[System Architecture & Multi-Mind Topology](file:///Users/benhill/Desktop/hobbies/balance_bot/AGENTS.md#4-system-architecture--multi-mind-topology)** — Tier 1 Brainstem (`100Hz`), Tier 2 Cerebellum (`~10Hz`), Tier 3 Cortex.
+* **[Tabula Rasa Zero-Knowledge Bootstrapping](file:///Users/benhill/Desktop/hobbies/balance_bot/AGENTS.md#5-the-tabula-rasa-protocol-zero-knowledge-self-discovery)** — 7-phase self-discovery sequence and future Toddler Engine.
+* **[Critical Cyber-Physical Blind Spots](file:///Users/benhill/Desktop/hobbies/balance_bot/AGENTS.md#6-critical-cyber-physical-blind-spots)** — Comprehensive comparison table of LLM biases vs. physical constraints.
+* **[Immutable Empirical Hardware Rules](file:///Users/benhill/Desktop/hobbies/balance_bot/AGENTS.md#7-immutable-empirical-hardware-rules)** — PiconZero I2C register retention trap, LEGO mechanical backlash vs. `Kp`, tilt-chasing resonance in soft recovery, and the global 4-second chaos cutoff rule.
+* **[Systemd Deployment & Automatic Startup](file:///Users/benhill/Desktop/hobbies/balance_bot/AGENTS.md#8-operations-systemd-deployment--manual-repl)** — Configuring `/etc/systemd/system/balance-bot.service` for auto-run on boot.
+* **[Codebase Assumptions & Reference Citations](file:///Users/benhill/Desktop/hobbies/balance_bot/AGENTS.md#9-codebase-assumptions--reference-citations)** — I2C addresses, motor channels A/B, loop frequency, fall limit, default PID gains, and LED paths.

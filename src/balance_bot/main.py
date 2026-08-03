@@ -84,15 +84,14 @@ def _run_discovery(watchdog: SurvivalWatchdog) -> None:
     """Run the self-discovery pipeline (Toddler Phase)."""
     print("Incomplete knowledge detected. Initiating Discovery...")
     from .discovery.pipeline import SelfDiscoveryPipeline
-    from .discovery import (
-        DiscoverBusesStep, HardwareInitStep, ManualLeanCalibrationStep, BrokenWireCheckStep, FrictionThresholdStep,
-        DeriveKinematicsStep, MotorTrimStep, MechanicalBacklashStep, KickupDynamicsStep
-    )
+    from .discovery.discover_buses import DiscoverBusesStep
+    from .discovery.hardware_init import HardwareInitStep
+    from .discovery.toddler_engine import ProprioceptiveToddlerStep
 
     steps = [
-        DiscoverBusesStep(), HardwareInitStep(), ManualLeanCalibrationStep(), BrokenWireCheckStep(),
-        FrictionThresholdStep(),
-        DeriveKinematicsStep(), MotorTrimStep(), MechanicalBacklashStep(), KickupDynamicsStep()
+        DiscoverBusesStep(),
+        HardwareInitStep(),
+        ProprioceptiveToddlerStep(),
     ]
     pipeline = SelfDiscoveryPipeline(steps, watchdog)
     pipeline.run()

@@ -224,6 +224,9 @@ class BalanceCore:
             left_motor /= battery_compensation
             right_motor /= battery_compensation
 
+        # clamp: keep motor command within [-100, 100] hardware limit
+        left_motor = max(-100.0, min(100.0, left_motor))
+        right_motor = max(-100.0, min(100.0, right_motor))
         self.hw.set_motors(left_motor, right_motor)
 
         self.current_telemetry.pitch_angle = self.pitch

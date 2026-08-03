@@ -16,6 +16,8 @@ homebrew robot. It relies on a deterministic, high-frequency control loop and pe
 import contextlib
 import logging
 import os
+import signal
+import sys
 import threading
 import time
 from collections import deque
@@ -176,6 +178,24 @@ class RobotHardware:
 
         self.initialize_drivers()
         self.start_sensor_thread()
+        self._register_disarm_signals()
+
+    def _register_disarm_signals(self) -> None:
+        """Ensure PiconZero motors are synchronously disarmed on OS signals."""
+        def _disarm_handler(signum: int, frame: Any) -> None:
+            if self.pz:
+                try:
+                    self.pz.stop()
+                except Exception:
+                    pass
+            sys.exit(0)
+
+        try:
+            signal.signal(signal.SIGTERM, _disarm_handler)
+            signal.signal(signal.SIGINT, _disarm_handler)
+        except (ValueError, OSError):
+            # Fails harmlessly when not in main thread
+            pass
 
     def start_sensor_thread(self) -> None:
         if self.sensor is None:
@@ -511,9 +531,15 @@ class RobotHardware:
             return False
 
         # Calculate range (max - min) for each axis
-        xs = [v.x for v in history]
-        ys = [v.y for v in history]
-        zs = [v.z for v in history]
+        def safe_float(val: Any) -> float:
+            try:
+                return float(val)
+            except (TypeError, ValueError):
+                return 0.0
+
+        xs = [safe_float(getattr(v, "x", 0.0)) for v in history]
+        ys = [safe_float(getattr(v, "y", 0.0)) for v in history]
+        zs = [safe_float(getattr(v, "z", 0.0)) for v in history]
 
         range_x = max(xs) - min(xs)
         range_y = max(ys) - min(ys)
@@ -579,7 +605,10 @@ class RobotHardware:
             history.append(gyro)
 
             # Calculate total rate magnitude
-            rate = abs(gyro.x) + abs(gyro.y) + abs(gyro.z)
+            try:
+                rate = float(abs(gyro.x) + abs(gyro.y) + abs(gyro.z))
+            except (TypeError, ValueError):
+                rate = 0.0
 
             if rate < threshold:
                 if start_stable_time is None:
@@ -655,3 +684,9 @@ class RobotHardware:
         """
         res = self.drive_and_measure(DriveCommand(0.0, 0.0, duration))
         return average_vector([s.accel_raw for s in res.samples if s.accel_raw])
+
+    def __del__(self) -> None:
+        try:
+            self.stop_sensor_thread()
+        except Exception:
+            pass

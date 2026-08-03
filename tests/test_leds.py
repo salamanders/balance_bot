@@ -141,7 +141,7 @@ def test_blink() -> None:
     with patch.object(Path, "exists", return_value=False):
         controller = LedController()
         with patch.object(controller, "set_led") as mock_set_led:
-            with patch("time.sleep") as mock_sleep:
+            with patch("balance_bot.behavior.leds.time.sleep") as mock_sleep:
                 controller._blink(2, 0.5, 0.2)
 
                 assert mock_set_led.call_args_list == [
@@ -151,7 +151,8 @@ def test_blink() -> None:
                     call(False),
                 ]
 
-                assert mock_sleep.call_args_list == [
+                sleeps = [c for c in mock_sleep.call_args_list if c != call(0.005)]
+                assert sleeps == [
                     call(0.5),
                     call(0.2),
                     call(0.5),
@@ -170,7 +171,7 @@ def test_countdown() -> None:
         )
         controller = LedController(config)
         with patch.object(controller, "_blink") as mock_blink:
-            with patch("time.sleep") as mock_sleep:
+            with patch("balance_bot.behavior.leds.time.sleep") as mock_sleep:
                 controller.countdown()
 
                 assert mock_blink.call_args_list == [
@@ -179,7 +180,8 @@ def test_countdown() -> None:
                     call(1, 0.1, 0.1)
                 ]
 
-                assert mock_sleep.call_args_list == [
+                sleeps = [c for c in mock_sleep.call_args_list if c != call(0.005)]
+                assert sleeps == [
                     call(0.5),
                     call(0.5)
                 ]

@@ -54,6 +54,12 @@ class PiconZero:
                     print(f"Error in {name}(): {e}, retrying")
                 time.sleep(0.005)
 
+        # If we are in real-time mode (retries <= 1), do NOT crash on transient I2C glitches
+        if self.retries <= 1:
+            if self.debug:
+                print(f"PiconZero real-time glitch ignored in {name}()")
+            return None
+
         # Explicitly try to disarm actuators on failure before raising
         if self.bus:
             try:
@@ -127,3 +133,11 @@ class PiconZero:
         """
         self.set_motor(0, motor_0_val)
         self.set_motor(1, motor_1_val)
+
+    def __del__(self) -> None:
+        try:
+            if self.bus:
+                self.bus.write_byte_data(self.I2C_ADDRESS, 0, 0)
+                self.bus.write_byte_data(self.I2C_ADDRESS, 1, 0)
+        except Exception:
+            pass

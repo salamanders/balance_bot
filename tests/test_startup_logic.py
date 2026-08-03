@@ -12,7 +12,7 @@ class TestAgentStartup(unittest.TestCase):
 
     def setUp(self) -> None:
         # Patch LEARNING_STATE_FILE
-        self.config_patcher = patch("pathlib.Path")
+        self.config_patcher = patch("balance_bot.behavior.agent.Path")
         self.mock_config_file = self.config_patcher.start()
 
         # Patch BalanceCore
@@ -46,6 +46,7 @@ class TestAgentStartup(unittest.TestCase):
 
         # Configure common mocks
         self.mock_config_file.exists.return_value = True
+        self.mock_config_file.return_value.exists.return_value = True
 
         self.mock_hw_config_instance = MagicMock()
         self.mock_hw_config_instance.loop_time = 0.01
