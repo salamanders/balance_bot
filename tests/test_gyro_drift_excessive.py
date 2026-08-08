@@ -1,17 +1,19 @@
-from typing import Generator
-from typing import Any
-import pytest
-from unittest.mock import MagicMock, patch
-import sys
 import os
+import sys
+from collections.abc import Generator
+from typing import Any
+from unittest.mock import MagicMock, patch
+
+import pytest
 
 # Mock smbus2 before import if missing
-if 'smbus2' not in sys.modules:
-    sys.modules['smbus2'] = MagicMock()
+if "smbus2" not in sys.modules:
+    sys.modules["smbus2"] = MagicMock()
+from pyglm import glm
 
-from balance_bot.hardware.robot_hardware import RobotHardware
 from balance_bot.configuration import HardwareConfig, LearningState, PIDParams
-import glm
+from balance_bot.hardware.robot_hardware import RobotHardware
+
 
 @pytest.fixture()  # type: ignore[untyped-decorator]
 def hw_fixture() -> Generator[Any, None, None]:
@@ -21,6 +23,7 @@ def hw_fixture() -> Generator[Any, None, None]:
     hw = RobotHardware(hw_config, learning_state)
     hw.sensor = MagicMock()
     yield hw
+
 
 def test_wait_for_stability_excessive_bias(hw_fixture: Any) -> None:
     """
@@ -39,4 +42,4 @@ def test_wait_for_stability_excessive_bias(hw_fixture: Any) -> None:
     # Speed up time.sleep
     with patch("time.sleep", return_value=None):
         with pytest.raises(RuntimeError, match="Excessive gyro drift"):
-             hw.wait_for_stability(duration=1.0, threshold=2.0)
+            hw.wait_for_stability(duration=1.0, threshold=2.0)

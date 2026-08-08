@@ -1,7 +1,15 @@
-import pytest
 from unittest.mock import MagicMock
-from balance_bot.reflex.balance_core import BalanceCore, MotionRequest, TuningParams, BalanceTelemetry
+
+import pytest
+
 from balance_bot.configuration import HardwareConfig, LearningState, PIDParams
+from balance_bot.reflex.balance_core import (
+    BalanceCore,
+    BalanceTelemetry,
+    MotionRequest,
+    TuningParams,
+)
+
 
 def test_balance_core_update_with_mutable_tuning_params() -> None:
     # Setup
@@ -12,7 +20,10 @@ def test_balance_core_update_with_mutable_tuning_params() -> None:
     # We use monkeypatch to avoid hardware init issues
     with pytest.MonkeyPatch.context() as m:
         # Mock init to avoid I2C bus checks
-        m.setattr("balance_bot.hardware.robot_hardware.RobotHardware.__init__", lambda self, *args, **kwargs: None)
+        m.setattr(
+            "balance_bot.hardware.robot_hardware.RobotHardware.__init__",
+            lambda self, *args, **kwargs: None,
+        )
         m.setattr("balance_bot.hardware.robot_hardware.RobotHardware.init", lambda self: None)
 
         # Mock read_imu_converted to return valid reading
@@ -20,10 +31,16 @@ def test_balance_core_update_with_mutable_tuning_params() -> None:
         dummy_reading.pitch_angle = 5.0
         dummy_reading.pitch_rate = 0.0
         dummy_reading.yaw_rate = 0.0
-        m.setattr("balance_bot.hardware.robot_hardware.RobotHardware.read_imu_converted", lambda self: dummy_reading)
+        m.setattr(
+            "balance_bot.hardware.robot_hardware.RobotHardware.read_imu_converted",
+            lambda self: dummy_reading,
+        )
 
         # Mock motor setting
-        m.setattr("balance_bot.hardware.robot_hardware.RobotHardware.set_motors", lambda self, left, right: None)
+        m.setattr(
+            "balance_bot.hardware.robot_hardware.RobotHardware.set_motors",
+            lambda self, left, right: None,
+        )
         m.setattr("balance_bot.hardware.robot_hardware.RobotHardware.stop", lambda self: None)
 
         # Initialize Core
@@ -57,6 +74,7 @@ def test_balance_core_update_with_mutable_tuning_params() -> None:
         # We can't easily check target_angle directly as it is local variable, but we can verify it ran without error.
 
         print("Integration test passed!")
+
 
 if __name__ == "__main__":
     test_balance_core_update_with_mutable_tuning_params()

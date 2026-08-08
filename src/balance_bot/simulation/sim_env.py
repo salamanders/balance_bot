@@ -16,14 +16,14 @@ homebrew robot. It relies on a deterministic, high-frequency control loop and pe
 import math
 import os
 import random
-from typing import Any
+from typing import Any, ClassVar
 
 import numpy as np
 
 try:
+    import gymnasium as gym  # type: ignore
     import pybullet as pb  # type: ignore
     import pybullet_data  # type: ignore
-    import gymnasium as gym  # type: ignore
     from gymnasium import spaces  # type: ignore
 
     _HAS_SIM = True
@@ -38,14 +38,15 @@ except ImportError:
 
 
 class BalanceBotEnv(_BaseEnv):  # type: ignore[misc,valid-type]
-    metadata = {"render_modes": ["human", "rgb_array"], "render_fps": 100}
+    metadata: ClassVar[dict[str, Any]] = {"render_modes": ["human", "rgb_array"], "render_fps": 100}
 
     def __init__(self, render_mode: str | None = None) -> None:
         self.right_joint = 2
         self.left_joint = 1
         if not _HAS_SIM:
             raise ImportError(
-                "pybullet and gymnasium are required to run the simulation environment. Install them with `uv sync --extra sim`.")
+                "pybullet and gymnasium are required to run the simulation environment. Install them with `uv sync --extra sim`."
+            )
 
         self.render_mode = render_mode
 
@@ -89,24 +90,23 @@ class BalanceBotEnv(_BaseEnv):  # type: ignore[misc,valid-type]
 
     def _get_obs(self) -> np.ndarray:
         # In URDF, position and orientation
-        pos, orn = pb.getBasePositionAndOrientation(self.robot_id, physicsClientId=self.client_id)
+        _pos, orn = pb.getBasePositionAndOrientation(self.robot_id, physicsClientId=self.client_id)
 
         # Multiply robot's orientation quaternion with IMU rotation offset
         # to find the "observed" orientation of the IMU in world space
         # (Actually, better to calculate angular velocity in local frame then apply IMU rotation)
 
         # Base velocity in WORLD frame
-        linear_vel_world, angular_vel_world = pb.getBaseVelocity(self.robot_id, physicsClientId=self.client_id)
+        _linear_vel_world, angular_vel_world = pb.getBaseVelocity(
+            self.robot_id, physicsClientId=self.client_id
+        )
 
         # Convert world angular velocity to robot BODY frame
         # Get inverse of robot orientation (conjugate of quaternion)
         inv_orn = [-orn[0], -orn[1], -orn[2], orn[3]]
 
         # pb doesn't have a direct vector rotation function using quats, so we convert vector to point, apply transform
-        ang_vel_body, _ = pb.multiplyTransforms(
-            [0, 0, 0], inv_orn,
-            angular_vel_world, [0, 0, 0, 1]
-        )
+        ang_vel_body, _ = pb.multiplyTransforms([0, 0, 0], inv_orn, angular_vel_world, [0, 0, 0, 1])
 
         # Apply random IMU mounting rotation matrix to get angular velocity in IMU frame
         ang_vel_imu = np.dot(self.imu_rotation_matrix, np.array(ang_vel_body))
@@ -115,10 +115,7 @@ class BalanceBotEnv(_BaseEnv):  # type: ignore[misc,valid-type]
         # Since the real robot just uses the raw angular velocity from the IMU, we just pass the transformed rates.
         # But we also need the absolute pitch/yaw, which is derived from gravity vector on real hardware.
         # Let's find gravity in IMU frame. World gravity is [0, 0, -1].
-        gravity_body, _ = pb.multiplyTransforms(
-            [0, 0, 0], inv_orn,
-            [0, 0, -1], [0, 0, 0, 1]
-        )
+        gravity_body, _ = pb.multiplyTransforms([0, 0, 0], inv_orn, [0, 0, -1], [0, 0, 0, 1])
         gravity_imu = np.dot(self.imu_rotation_matrix, np.array(gravity_body))
 
         # Calculate pitch and roll from gravity vector
@@ -147,7 +144,9 @@ class BalanceBotEnv(_BaseEnv):  # type: ignore[misc,valid-type]
 
         return np.array([obs_pitch, obs_pitch_rate, obs_yaw, obs_yaw_rate], dtype=np.float32)
 
-    def reset(self, seed: int | None = None, options: dict[str, Any] | None = None) -> tuple[np.ndarray, dict[str, float]]:
+    def reset(
+        self, seed: int | None = None, options: dict[str, Any] | None = None
+    ) -> tuple[np.ndarray, dict[str, float]]:
         _ = options
         super().reset(seed=seed)
 
@@ -173,10 +172,20 @@ class BalanceBotEnv(_BaseEnv):  # type: ignore[misc,valid-type]
         # 2: right_wheel_joint (continuous)
 
         # Disable default velocity control for wheels so we can use torque control
-        pb.setJointMotorControl2(self.robot_id, self.left_joint, pb.VELOCITY_CONTROL, force=0,
-                                 physicsClientId=self.client_id)
-        pb.setJointMotorControl2(self.robot_id, self.right_joint, pb.VELOCITY_CONTROL, force=0,
-                                 physicsClientId=self.client_id)
+        pb.setJointMotorControl2(
+            self.robot_id,
+            self.left_joint,
+            pb.VELOCITY_CONTROL,
+            force=0,
+            physicsClientId=self.client_id,
+        )
+        pb.setJointMotorControl2(
+            self.robot_id,
+            self.right_joint,
+            pb.VELOCITY_CONTROL,
+            force=0,
+            physicsClientId=self.client_id,
+        )
 
         # === Domain Randomization ===
         self.left_torque_mod = random.uniform(0.85, 1.15)
@@ -201,7 +210,9 @@ class BalanceBotEnv(_BaseEnv):  # type: ignore[misc,valid-type]
         info: dict[str, float] = {}
         return obs, info
 
-    def step(self, action: np.ndarray | tuple[float, float] | list[float]) -> tuple[np.ndarray, float, bool, bool, dict[str, float]]:
+    def step(
+        self, action: np.ndarray | tuple[float, float] | list[float]
+    ) -> tuple[np.ndarray, float, bool, bool, dict[str, float]]:
         left_pwm, right_pwm = action
 
         # Apply domain randomized torque modifiers
@@ -220,7 +231,7 @@ class BalanceBotEnv(_BaseEnv):  # type: ignore[misc,valid-type]
             self.left_joint,
             controlMode=pb.TORQUE_CONTROL,
             force=left_torque,
-            physicsClientId=self.client_id
+            physicsClientId=self.client_id,
         )
 
         pb.setJointMotorControl2(
@@ -228,7 +239,7 @@ class BalanceBotEnv(_BaseEnv):  # type: ignore[misc,valid-type]
             self.right_joint,
             controlMode=pb.TORQUE_CONTROL,
             force=right_torque,
-            physicsClientId=self.client_id
+            physicsClientId=self.client_id,
         )
 
         # Step physics exactly self.sim_steps_per_control times (2 times for 100Hz control at 200Hz physics)
@@ -240,10 +251,7 @@ class BalanceBotEnv(_BaseEnv):  # type: ignore[misc,valid-type]
         pitch = obs[0]
 
         # Reward: 1.0 if within +/- 15 deg, else 0.0
-        if abs(pitch) <= self.pitch_reward_limit:
-            reward = 1.0
-        else:
-            reward = 0.0
+        reward = 1.0 if abs(pitch) <= self.pitch_reward_limit else 0.0
 
         # Terminate if pitch exceeds +/- 45 deg
         terminated = bool(abs(pitch) > self.pitch_terminate_limit)

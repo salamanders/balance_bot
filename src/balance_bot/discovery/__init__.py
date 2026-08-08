@@ -20,10 +20,10 @@ from .step import CalibrationStep, StepStatus
 from .toddler_engine import ProprioceptiveToddlerStep
 
 __all__ = [
-    "SelfDiscoveryPipeline",
     "CalibrationStep",
-    "StepStatus",
     "DiscoverBusesStep",
     "HardwareInitStep",
     "ProprioceptiveToddlerStep",
+    "SelfDiscoveryPipeline",
+    "StepStatus",
 ]

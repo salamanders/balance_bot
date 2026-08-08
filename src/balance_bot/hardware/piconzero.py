@@ -14,7 +14,8 @@ homebrew robot. It relies on a deterministic, high-frequency control loop and pe
 """
 
 import time
-from typing import Callable, Any
+from collections.abc import Callable
+from typing import Any
 
 import smbus2 as smbus
 
@@ -25,6 +26,7 @@ class PiconZero:
     Implements the MotorDriver protocol.
     Replaces the legacy module-based piconzero driver and adapter.
     """
+
     I2C_ADDRESS = 0x22
     CMD_RESET = 20
 
@@ -40,7 +42,7 @@ class PiconZero:
         if self.bus:
             try:
                 self.bus.close()
-            except (OSError, IOError) as e:
+            except OSError as e:
                 print(f"PiconZero warning: {e}")
         self.bus = smbus.SMBus(self.bus_number)
 
@@ -49,7 +51,7 @@ class PiconZero:
         for _ in range(self.retries):
             try:
                 return func()
-            except (OSError, IOError) as e:
+            except OSError as e:
                 if self.debug:
                     print(f"Error in {name}(): {e}, retrying")
                 time.sleep(0.005)
@@ -64,11 +66,11 @@ class PiconZero:
         if self.bus:
             try:
                 self.bus.write_byte_data(self.I2C_ADDRESS, 0, 0)
-            except (OSError, IOError) as e:
+            except OSError as e:
                 print(f"PiconZero warning: {e}")
             try:
                 self.bus.write_byte_data(self.I2C_ADDRESS, 1, 0)
-            except (OSError, IOError) as e:
+            except OSError as e:
                 print(f"PiconZero warning: {e}")
         raise OSError(f"PiconZero {name}() failed after {self.retries} retries")
 
@@ -84,16 +86,18 @@ class PiconZero:
         """Release hardware resources."""
         # Reset the board
         try:
-            self._retry(lambda: self.bus.write_byte_data(self.I2C_ADDRESS, self.CMD_RESET, 0), "cleanup")
+            self._retry(
+                lambda: self.bus.write_byte_data(self.I2C_ADDRESS, self.CMD_RESET, 0), "cleanup"
+            )
         except OSError:
             # We must attempt to explicitly write 0 to PWMs before passing
             try:
                 self.bus.write_byte_data(self.I2C_ADDRESS, 0, 0)
-            except (OSError, IOError) as e:
+            except OSError as e:
                 print(f"PiconZero warning: {e}")
             try:
                 self.bus.write_byte_data(self.I2C_ADDRESS, 1, 0)
-            except (OSError, IOError) as e:
+            except OSError as e:
                 print(f"PiconZero warning: {e}")
             print("OSError during PiconZero cleanup. Halting.")
             raise
@@ -101,7 +105,7 @@ class PiconZero:
         if self.bus:
             try:
                 self.bus.close()
-            except (OSError, IOError) as e:
+            except OSError as e:
                 print(f"PiconZero warning: {e}")
 
     def stop(self) -> None:
@@ -122,7 +126,9 @@ class PiconZero:
         :param value: Speed (-100 to 100).
         """
         if 0 <= motor <= 1 and -128 <= value < 128:
-            self._retry(lambda: self.bus.write_byte_data(self.I2C_ADDRESS, motor, value & 0xFF), "set_motor")
+            self._retry(
+                lambda: self.bus.write_byte_data(self.I2C_ADDRESS, motor, value & 0xFF), "set_motor"
+            )
 
     def set_motors(self, motor_0_val: int, motor_1_val: int) -> None:
         """

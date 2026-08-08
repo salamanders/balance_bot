@@ -1,6 +1,8 @@
 import unittest
-from balance_bot.reflex.pid import PIDController
+
 from balance_bot.configuration import PIDParams
+from balance_bot.reflex.pid import PIDController
+
 
 class TestPIDLogic(unittest.TestCase):
     def test_proportional(self) -> None:
@@ -28,7 +30,7 @@ class TestPIDLogic(unittest.TestCase):
         # Output should stay at 20.0.
 
         output_huge = pid.update(error=5.0, dt=10.0)
-        self.assertAlmostEqual(output_huge, 200.0 if False else 20.0) # Logic check
+        self.assertAlmostEqual(output_huge, 200.0 if False else 20.0)  # Logic check
 
         self.assertAlmostEqual(output_huge, 20.0)
 
@@ -61,7 +63,7 @@ class TestPIDLogic(unittest.TestCase):
         # But measurement_rate=0 passed explicitly.
 
         output = pid.update(error=5.0, dt=0.1, measurement_rate=0.0)
-        self.assertAlmostEqual(output, 0.0) # P=0, I=0, D=-1*0=0.
+        self.assertAlmostEqual(output, 0.0)  # P=0, I=0, D=-1*0=0.
 
     def test_derivative_on_error_fallback(self) -> None:
         # Kd=1.0
@@ -93,6 +95,7 @@ class TestPIDLogic(unittest.TestCase):
 
         output = pid.update(error=1.0, dt=0.1)
         self.assertAlmostEqual(output, 10.0)
+
 
 if __name__ == "__main__":
     unittest.main()

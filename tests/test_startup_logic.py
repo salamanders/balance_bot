@@ -1,15 +1,15 @@
-from typing import Any
-import unittest
-from unittest.mock import MagicMock, patch
 import sys
+import unittest
+from typing import Any
+from unittest.mock import MagicMock, patch
 
 # Adjust path to import src
 sys.path.insert(0, "src")
 
 from balance_bot.behavior.agent import Agent
 
-class TestAgentStartup(unittest.TestCase):
 
+class TestAgentStartup(unittest.TestCase):
     def setUp(self) -> None:
         # Patch LEARNING_STATE_FILE
         self.config_patcher = patch("balance_bot.behavior.agent.Path")
@@ -53,11 +53,11 @@ class TestAgentStartup(unittest.TestCase):
 
         self.mock_learning_state_instance = MagicMock()
         self.mock_learning_state_instance.pid = MagicMock()
-        self.mock_learning_state_instance.control = MagicMock() # Ensure control config exists
-        self.mock_learning_state_instance.timing = MagicMock() # Add timing mock
+        self.mock_learning_state_instance.control = MagicMock()  # Ensure control config exists
+        self.mock_learning_state_instance.timing = MagicMock()  # Add timing mock
         self.mock_learning_state_instance.timing.setup_wait = 0.1
-        self.mock_learning_state_instance.timing.battery_log_interval = 1.0 # Also used
-        self.mock_learning_state_instance.timing.save_interval = 1.0 # Also used
+        self.mock_learning_state_instance.timing.battery_log_interval = 1.0  # Also used
+        self.mock_learning_state_instance.timing.save_interval = 1.0  # Also used
 
         # Ensure we have target_angle
         self.mock_learning_state_instance.pid.target_angle = 0.0
@@ -78,8 +78,8 @@ class TestAgentStartup(unittest.TestCase):
 
     def test_normal_run_on_back_triggers_kickup(self) -> None:
         # Arrange
-        self.mock_learning_state_instance.timing.setup_wait = 0.0 # Skip warmup loop
-        self.mock_config_file.exists.return_value = True # Saved config
+        self.mock_learning_state_instance.timing.setup_wait = 0.0  # Skip warmup loop
+        self.mock_config_file.exists.return_value = True  # Saved config
 
         agent = Agent()
         self.assertFalse(agent.first_run)
@@ -95,6 +95,7 @@ class TestAgentStartup(unittest.TestCase):
         # 2. KICKUP -> Call _incremental_kickup
 
         call_count = 0
+
         def stop_loop() -> Any:
             nonlocal call_count
             call_count += 1
@@ -102,7 +103,7 @@ class TestAgentStartup(unittest.TestCase):
                 agent.running = False
             return 0.01
 
-        with patch('balance_bot.behavior.agent.RateLimiter') as mock_rate:
+        with patch("balance_bot.behavior.agent.RateLimiter") as mock_rate:
             mock_rate.return_value.sleep.side_effect = stop_loop
             # Also mock core.update to return None or dummy telemetry so loop doesn't crash
             agent.core.update.return_value = MagicMock()
@@ -115,7 +116,7 @@ class TestAgentStartup(unittest.TestCase):
 
     def test_normal_run_upright_skips_kickup(self) -> None:
         # Arrange
-        self.mock_learning_state_instance.timing.setup_wait = 0.0 # Skip warmup
+        self.mock_learning_state_instance.timing.setup_wait = 0.0  # Skip warmup
         self.mock_config_file.exists.return_value = True
 
         agent = Agent()
@@ -129,6 +130,7 @@ class TestAgentStartup(unittest.TestCase):
 
         # Run loop once: IDLE -> BALANCING (if upright)
         call_count = 0
+
         def stop_loop() -> Any:
             nonlocal call_count
             call_count += 1
@@ -136,7 +138,7 @@ class TestAgentStartup(unittest.TestCase):
                 agent.running = False
             return 0.01
 
-        with patch('balance_bot.behavior.agent.RateLimiter') as mock_rate:
+        with patch("balance_bot.behavior.agent.RateLimiter") as mock_rate:
             mock_rate.return_value.sleep.side_effect = stop_loop
             agent.core.update.return_value = MagicMock()
 
@@ -145,6 +147,7 @@ class TestAgentStartup(unittest.TestCase):
 
         # Assert
         pass
+
 
 if __name__ == "__main__":
     unittest.main()

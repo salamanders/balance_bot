@@ -1,6 +1,8 @@
 import unittest
+
 from balance_bot.adaptation.recovery import RecoveryManager
-from balance_bot.configuration import ControlConfig, STARTUP_RAMP_SPEED
+from balance_bot.configuration import STARTUP_RAMP_SPEED, ControlConfig
+
 
 class TestRecoveryManager(unittest.TestCase):
     def setUp(self) -> None:
@@ -14,7 +16,7 @@ class TestRecoveryManager(unittest.TestCase):
 
         # Call with conditions meeting the hardcoded threshold
         current_pitch = 10.0
-        current_kp = 25.0 # > 1.0
+        current_kp = 25.0  # > 1.0
         is_crashed = False
 
         result = self.recovery.update(is_crashed, current_pitch, current_kp)
@@ -30,7 +32,7 @@ class TestRecoveryManager(unittest.TestCase):
     def test_startup_low_kp_ignored(self) -> None:
         """Test that low Kp (<1.0) prevents recovery (learning mode)."""
         current_pitch = 10.0
-        current_kp = 0.5 # < 1.0
+        current_kp = 0.5  # < 1.0
         is_crashed = False
 
         result = self.recovery.update(is_crashed, current_pitch, current_kp)
@@ -40,7 +42,7 @@ class TestRecoveryManager(unittest.TestCase):
 
     def test_startup_low_lean_ignored(self) -> None:
         """Test that low lean (<=5.0) prevents recovery (already upright)."""
-        current_pitch = 4.0 # <= 5.0
+        current_pitch = 4.0  # <= 5.0
         current_kp = 25.0
         is_crashed = False
 
@@ -62,10 +64,7 @@ class TestRecoveryManager(unittest.TestCase):
     def test_custom_config_thresholds(self) -> None:
         """Test that custom configuration changes the thresholds."""
         # Custom config: stricter Kp, looser lean
-        custom_config = ControlConfig(
-            soft_recovery_kp_threshold=50.0,
-            upright_threshold=15.0
-        )
+        custom_config = ControlConfig(soft_recovery_kp_threshold=50.0, upright_threshold=15.0)
         recovery = RecoveryManager(config=custom_config)
 
         # Case 1: Old threshold would trigger, new one shouldn't (Kp too low)
@@ -88,5 +87,6 @@ class TestRecoveryManager(unittest.TestCase):
         assert result is not None
         self.assertAlmostEqual(result, expected)
 
-if __name__ == '__main__':
+
+if __name__ == "__main__":
     unittest.main()

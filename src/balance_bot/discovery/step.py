@@ -14,7 +14,7 @@ homebrew robot. It relies on a deterministic, high-frequency control loop and pe
 """
 
 from enum import Enum, auto
-from typing import Protocol, Any
+from typing import Any, Protocol
 
 from ..configuration import HardwareConfig, LearningState
 from ..hardware.robot_hardware import RobotHardware
@@ -42,8 +42,9 @@ class CalibrationStep(Protocol):
         """
         ...
 
-    def run(self, hw: RobotHardware, config: HardwareConfig, state: LearningState) -> tuple[
-        StepStatus, dict[str, Any], dict[str, Any]]:
+    def run(
+        self, hw: RobotHardware, config: HardwareConfig, state: LearningState
+    ) -> tuple[StepStatus, dict[str, Any], dict[str, Any]]:
         """
         Execute the routine.
         Returns:

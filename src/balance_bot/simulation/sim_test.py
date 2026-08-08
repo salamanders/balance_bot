@@ -38,7 +38,7 @@ def main() -> None:
             action = [0.0, 0.0]
 
             # Step the environment
-            obs, _, terminated, truncated, _ = env.step(action)
+            obs, _, terminated, _truncated, _ = env.step(action)
 
             # Pitch is the first observation
             pitch = obs[0]

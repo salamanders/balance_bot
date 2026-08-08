@@ -16,7 +16,7 @@ homebrew robot. It relies on a deterministic, high-frequency control loop and pe
 import math
 import os
 
-import glm
+from pyglm import glm
 
 
 class MockPiconZero:
@@ -58,7 +58,7 @@ class MockMPU6050:
         # Check for external override file
         if os.path.exists("mock_pitch.txt"):
             try:
-                with open("mock_pitch.txt", "r") as f:
+                with open("mock_pitch.txt") as f:
                     content = f.read().strip()
                     if content:
                         pitch = float(content)

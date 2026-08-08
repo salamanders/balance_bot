@@ -1,21 +1,23 @@
-from typing import Generator
+from collections.abc import Generator
 from typing import Any
-import pytest
 from unittest.mock import MagicMock, patch
-import glm
-from balance_bot.hardware.robot_hardware import RobotHardware
+
+import pytest
+from pyglm import glm
+
 from balance_bot.configuration import HardwareConfig, LearningState
-from balance_bot.enums import Axis
 from balance_bot.discovery import DiscoverBusesStep, StepStatus
+from balance_bot.enums import Axis
+from balance_bot.hardware.robot_hardware import RobotHardware
+
 
 class TestFailLoud:
-
     @pytest.fixture()  # type: ignore[untyped-decorator]
     def mock_hardware_deps(self) -> Generator[Any, None, None]:
         # We only patch MPU6050Adapter because it is defined at module level.
         # PiconZero is imported locally so we don't patch it here,
         # we rely on mocking initialize_drivers and injecting hw.pz directly.
-        with patch('balance_bot.hardware.robot_hardware.MPU6050Adapter') as mock_imu:
+        with patch("balance_bot.hardware.robot_hardware.MPU6050Adapter") as mock_imu:
             yield mock_imu
 
     def test_set_motors_raises_if_unmapped(self, mock_hardware_deps: Any) -> None:
@@ -25,12 +27,15 @@ class TestFailLoud:
         state = LearningState()
 
         # We need to bypass __init__ driver init or mock it
-        with patch.object(RobotHardware, 'initialize_drivers'):
+        with patch.object(RobotHardware, "initialize_drivers"):
             hw = RobotHardware(hw_config, state)
             # Manually inject mocks so set_motors doesn't fail on missing pz
             hw.pz = MagicMock()
 
-            with pytest.raises(RuntimeError, match="CRITICAL: Attempted to actuate motors, but channels are unmapped. L:None R:None"):
+            with pytest.raises(
+                RuntimeError,
+                match="CRITICAL: Attempted to actuate motors, but channels are unmapped. L:None R:None",
+            ):
                 hw.set_motors(50, 50)
 
     def test_set_motors_raises_if_one_unmapped(self, mock_hardware_deps: Any) -> None:
@@ -38,7 +43,7 @@ class TestFailLoud:
         hw_config = HardwareConfig(motor_l=0, motor_r=None)
         state = LearningState()
 
-        with patch.object(RobotHardware, 'initialize_drivers'):
+        with patch.object(RobotHardware, "initialize_drivers"):
             hw = RobotHardware(hw_config, state)
             hw.pz = MagicMock()
 
@@ -50,7 +55,7 @@ class TestFailLoud:
         hw_config = HardwareConfig(motor_l=0, motor_r=1)
         state = LearningState()
 
-        with patch.object(RobotHardware, 'initialize_drivers'):
+        with patch.object(RobotHardware, "initialize_drivers"):
             hw = RobotHardware(hw_config, state)
             hw.pz = MagicMock()
 
@@ -58,7 +63,9 @@ class TestFailLoud:
             hw.set_motors(50, 50)
             hw.pz.set_motors.assert_called()
 
-    def test_read_imu_converted_handles_missing_yaw_in_adult_mode(self, mock_hardware_deps: Any) -> None:
+    def test_read_imu_converted_handles_missing_yaw_in_adult_mode(
+        self, mock_hardware_deps: Any
+    ) -> None:
         """
         Test that read_imu_converted handles missing Yaw/Roll in Adult Mode gracefully (returns 0.0)
         instead of crashing.
@@ -67,11 +74,11 @@ class TestFailLoud:
             accel_vertical_axis=Axis.Z,
             accel_forward_axis=Axis.Y,
             gyro_pitch_axis=Axis.X,
-            gyro_yaw_axis=None  # Missing Yaw
+            gyro_yaw_axis=None,  # Missing Yaw
         )
         state = LearningState()
 
-        with patch.object(RobotHardware, 'initialize_drivers'):
+        with patch.object(RobotHardware, "initialize_drivers"):
             hw = RobotHardware(hw_config, state)
             hw.sensor = MagicMock()
             hw.sensor.get_accel_data.return_value = glm.vec3(0, 0, 9.8)
@@ -88,12 +95,12 @@ class TestFailLoud:
         (Critical axes missing).
         """
         hw_config = HardwareConfig(
-            accel_vertical_axis=None, # Trigger Toddler Mode
-            gyro_yaw_axis=None
+            accel_vertical_axis=None,  # Trigger Toddler Mode
+            gyro_yaw_axis=None,
         )
         state = LearningState()
 
-        with patch.object(RobotHardware, 'initialize_drivers'):
+        with patch.object(RobotHardware, "initialize_drivers"):
             hw = RobotHardware(hw_config, state)
             hw.sensor = MagicMock()
             hw.sensor.get_accel_data.return_value = glm.vec3(0, 0, 9.8)
@@ -111,9 +118,9 @@ class TestFailLoud:
         state = LearningState()
 
         # Mock scan_i2c to return buses
-        with patch('balance_bot.discovery.discover_buses.scan_i2c', side_effect=[1, 1]):
+        with patch("balance_bot.discovery.discover_buses.scan_i2c", side_effect=[1, 1]):
             status, config_updates, state_updates = step.run(hw, config, state)
 
             assert status == StepStatus.SUCCESS
-            assert config_updates['motor_l'] == 0
-            assert config_updates['motor_r'] == 1
+            assert config_updates["motor_l"] == 0
+            assert config_updates["motor_r"] == 1

@@ -14,14 +14,15 @@ homebrew robot. It relies on a deterministic, high-frequency control loop and pe
 """
 
 from dataclasses import dataclass
+from typing import Any
 
 from pydantic import validate_call
 
-from .pid import PIDController
 from ..configuration import HardwareConfig, LearningState
 from ..hardware.robot_hardware import RobotHardware
 from ..utils import ComplementaryFilter, circular_difference
 from ..watchdog import SurvivalWatchdog
+from .pid import PIDController
 
 
 @dataclass(slots=True)
@@ -29,6 +30,7 @@ class MotionRequest:
     """
     Tier 3 -> Tier 1 Command Interface.
     """
+
     velocity: float = 0.0
     turn_rate: float = 0.0
     enable_control: bool = True
@@ -43,6 +45,7 @@ class BalanceTelemetry:
     rather than a @dataclass(frozen=True) to avoid significant instantiation
     overhead inside the high-frequency 100Hz reflex loop.
     """
+
     pitch_angle: float
     pitch_rate: float
     yaw_rate: float
@@ -60,6 +63,7 @@ class TuningParams:
     Tier 2 -> Tier 1 Adaptation Interface.
     Allows dynamic adjustment of PID and Balance Point.
     """
+
     kp: float
     ki: float
     kd: float
@@ -77,12 +81,19 @@ class BalanceCore:
      - Safety (Hard-coded limits).
     """
 
-    def __init__(self, hw_config: HardwareConfig, learning_state: LearningState,
-                 watchdog: SurvivalWatchdog | None = None):
+    def __init__(
+        self,
+        hw_config: HardwareConfig,
+        learning_state: LearningState,
+        watchdog: SurvivalWatchdog | None = None,
+        deadman_server: Any = None,
+    ):
         self.hw_config = hw_config
         self.learning_state = learning_state
 
-        self.hw = RobotHardware(self.hw_config, self.learning_state, watchdog=watchdog)
+        self.hw = RobotHardware(
+            self.hw_config, self.learning_state, watchdog=watchdog, deadman_server=deadman_server
+        )
         self.hw.init()
 
         # Control
@@ -102,7 +113,7 @@ class BalanceCore:
             crashed=False,
             left_pwm=0.0,
             right_pwm=0.0,
-            target_angle=0.0
+            target_angle=0.0,
         )
 
     def set_i2c_retries(self, retries: int) -> None:
@@ -111,11 +122,11 @@ class BalanceCore:
 
     @validate_call
     def update(
-            self,
-            motion: MotionRequest,
-            tuning: TuningParams,
-            loop_delta_time: float,
-            battery_compensation: float = 1.0,
+        self,
+        motion: MotionRequest,
+        tuning: TuningParams,
+        loop_delta_time: float,
+        battery_compensation: float = 1.0,
     ) -> BalanceTelemetry:
         assert loop_delta_time > 0, "Loop delta time must be positive"
         assert battery_compensation > 0, "Battery compensation must be positive"
@@ -132,9 +143,7 @@ class BalanceCore:
         reading = self.hw.read_imu_converted()
 
         # 2. Update State Estimation
-        self.pitch = self.filter.update(
-            reading.pitch_angle, reading.pitch_rate, loop_delta_time
-        )
+        self.pitch = self.filter.update(reading.pitch_angle, reading.pitch_rate, loop_delta_time)
 
         # 3. Check for Control Disable (Idle / Resting)
         if not motion.enable_control:
@@ -167,9 +176,9 @@ class BalanceCore:
         velocity_tilt = motion.velocity * self.learning_state.control.max_tilt_angle
 
         target_angle = (
-                self.learning_state.pid.target_angle  # Base mechanical setpoint
-                + tuning.target_angle_offset  # Adaptation offset
-                + velocity_tilt  # Intentional tilt
+            self.learning_state.pid.target_angle  # Base mechanical setpoint
+            + tuning.target_angle_offset  # Adaptation offset
+            + velocity_tilt  # Intentional tilt
         )
 
         # 6. Safety Cutoff
@@ -190,9 +199,7 @@ class BalanceCore:
         # 7. Calculate Control Output
         error = -circular_difference(target_angle, self.pitch)
 
-        pid_output = self.pid.update(
-            error, loop_delta_time, measurement_rate=reading.pitch_rate
-        )
+        pid_output = self.pid.update(error, loop_delta_time, measurement_rate=reading.pitch_rate)
 
         # 8. Apply Turning
         # Turn Correction: Add offset to motors to rotate.

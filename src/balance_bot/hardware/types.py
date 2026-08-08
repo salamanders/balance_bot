@@ -16,7 +16,7 @@ homebrew robot. It relies on a deterministic, high-frequency control loop and pe
 from dataclasses import dataclass
 from functools import cached_property
 
-import glm
+from pyglm import glm
 
 
 @dataclass(slots=True)
@@ -24,6 +24,7 @@ class IMUReading:
     """
     Data structure for converted IMU readings.
     """
+
     pitch_angle: float
     pitch_rate: float
     yaw_rate: float
@@ -39,6 +40,7 @@ class DriveCommand:
     """
     Command parameters for a drive and measure operation.
     """
+
     left_power: float
     right_power: float
     duration: float
@@ -53,6 +55,7 @@ class MeasureResult:
     Result of a drive-and-measure maneuver.
     Encapsulates raw samples and derived statistics.
     """
+
     duration: float
     samples: list[IMUReading]
 
@@ -72,10 +75,7 @@ class MeasureResult:
     def max_rate(self) -> float:
         if not self.samples:
             return 0.0
-        return max(
-            (abs(s.pitch_rate) + abs(s.yaw_rate) + abs(s.roll_rate))
-            for s in self.samples
-        )
+        return max((abs(s.pitch_rate) + abs(s.yaw_rate) + abs(s.roll_rate)) for s in self.samples)
 
     @cached_property
     def final_pitch(self) -> float:

@@ -1,7 +1,9 @@
 from typing import Any
 from unittest.mock import MagicMock
+
+from balance_bot.configuration import ControlConfig, HardwareConfig, LearningState, PIDParams
 from balance_bot.reflex.balance_core import BalanceCore, MotionRequest, TuningParams
-from balance_bot.configuration import HardwareConfig, LearningState, PIDParams, ControlConfig
+
 
 def create_mocked_core(monkeypatch: Any, max_tilt_angle: Any = None) -> Any:
     # Setup Config
@@ -10,22 +12,28 @@ def create_mocked_core(monkeypatch: Any, max_tilt_angle: Any = None) -> Any:
         control_config.max_tilt_angle = max_tilt_angle
 
     hw_config = HardwareConfig(motor_l=0, motor_r=1)
-    learning_state = LearningState(
-        pid=PIDParams(),
-        control=control_config
-    )
+    learning_state = LearningState(pid=PIDParams(), control=control_config)
 
     # Mock Hardware
-    monkeypatch.setattr("balance_bot.hardware.robot_hardware.RobotHardware.__init__", lambda self, *args, **kwargs: None)
+    monkeypatch.setattr(
+        "balance_bot.hardware.robot_hardware.RobotHardware.__init__",
+        lambda self, *args, **kwargs: None,
+    )
     monkeypatch.setattr("balance_bot.hardware.robot_hardware.RobotHardware.init", lambda self: None)
 
     dummy_reading = MagicMock()
     dummy_reading.pitch_angle = 0.0
     dummy_reading.pitch_rate = 0.0
     dummy_reading.yaw_rate = 0.0
-    monkeypatch.setattr("balance_bot.hardware.robot_hardware.RobotHardware.read_imu_converted", lambda self: dummy_reading)
+    monkeypatch.setattr(
+        "balance_bot.hardware.robot_hardware.RobotHardware.read_imu_converted",
+        lambda self: dummy_reading,
+    )
 
-    monkeypatch.setattr("balance_bot.hardware.robot_hardware.RobotHardware.set_motors", lambda self, left_pwm, right_pwm: None)
+    monkeypatch.setattr(
+        "balance_bot.hardware.robot_hardware.RobotHardware.set_motors",
+        lambda self, left_pwm, right_pwm: None,
+    )
     monkeypatch.setattr("balance_bot.hardware.robot_hardware.RobotHardware.stop", lambda self: None)
 
     core = BalanceCore(hw_config, learning_state)
@@ -36,17 +44,18 @@ def create_mocked_core(monkeypatch: Any, max_tilt_angle: Any = None) -> Any:
 
     # Mock PID to capture error
     core.pid = MagicMock()
-    core.pid.params = learning_state.pid # Maintain reference to params
+    core.pid.params = learning_state.pid  # Maintain reference to params
     core.pid.update.return_value = 0.0
 
     return core
+
 
 def test_max_tilt_angle_default(monkeypatch: Any) -> None:
     """Verify that the default max tilt angle is used if not specified."""
     custom_angle = 25.0
     core = create_mocked_core(monkeypatch, max_tilt_angle=custom_angle)
 
-    motion = MotionRequest(velocity=1.0) # Full speed forward
+    motion = MotionRequest(velocity=1.0)  # Full speed forward
     tuning = TuningParams(kp=1.0, ki=0.0, kd=0.0, target_angle_offset=0.0)
 
     core.update(motion, tuning, loop_delta_time=0.01)
@@ -60,12 +69,13 @@ def test_max_tilt_angle_default(monkeypatch: Any) -> None:
     # Actual error = 0 - 10.0 = -10.0
     assert error == -custom_angle
 
+
 def test_max_tilt_angle_negative_velocity(monkeypatch: Any) -> None:
     """Verify that negative velocity tilts backwards."""
     custom_angle = 20.0
     core = create_mocked_core(monkeypatch, max_tilt_angle=custom_angle)
 
-    motion = MotionRequest(velocity=-0.5) # Half speed backward
+    motion = MotionRequest(velocity=-0.5)  # Half speed backward
     tuning = TuningParams(kp=1.0, ki=0.0, kd=0.0, target_angle_offset=0.0)
 
     core.update(motion, tuning, loop_delta_time=0.01)

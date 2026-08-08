@@ -1,12 +1,14 @@
 import time
 from dataclasses import dataclass
 
+
 # Baseline: Frozen Dataclass (Simulates current implementation)
 @dataclass(frozen=True)
 class MotionRequestBaseline:
     velocity: float = 0.0
     turn_rate: float = 0.0
     enable_control: bool = True
+
 
 # Optimization 1: Mutable Dataclass
 @dataclass
@@ -15,17 +17,21 @@ class MotionRequestMutable:
     turn_rate: float = 0.0
     enable_control: bool = True
 
+
 # Optimization 2: Mutable Class with explicit __slots__
 class MotionRequestSlots:
-    __slots__ = ['velocity', 'turn_rate', 'enable_control']
+    __slots__ = ["enable_control", "turn_rate", "velocity"]
     velocity: float
     turn_rate: float
     enable_control: bool
 
-    def __init__(self, velocity: float = 0.0, turn_rate: float = 0.0, enable_control: bool = True) -> None:
+    def __init__(
+        self, velocity: float = 0.0, turn_rate: float = 0.0, enable_control: bool = True
+    ) -> None:
         self.velocity = velocity
         self.turn_rate = turn_rate
         self.enable_control = enable_control
+
 
 def benchmark() -> None:
     iterations = 1_000_000
@@ -63,6 +69,7 @@ def benchmark() -> None:
     slots_time = end - start
     print(f"Optimization 2 (Mutable Dataclass w/ slots reuse): {slots_time:.4f} s")
     print(f"Improvement: {baseline_time / slots_time:.2f}x faster")
+
 
 if __name__ == "__main__":
     benchmark()

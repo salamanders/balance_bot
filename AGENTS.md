@@ -41,9 +41,47 @@ All AI agents working on this codebase must adhere to these non-negotiable gover
 | **Hardware Reality** | Never swallow errors (except in well-documented hardware retry loops). Explicitly handle I2C crashes (ramp power to prevent Errno 5 brownouts). No hallucinated physics (e.g., "momentum swings"). Operate under strict "Data Literalism". |
 | **Bootstrapping** | Never hardcode physical constants. Remain pessimistic and verify every hardware assumption empirically. |
 | **Physical Tuning** | Practice graceful degradation. Revert to conservative baseline (`Kp=10.0`, `Ki=0.0`, `Kd=0.5`) if unable to verify states with confidence. |
+| **Anti-Hyper-Optimism & Incrementalism** | **Never claim you have "found the issue" or assume "this is the final step that will solve it."** Over 10+ sessions, one-shot definitive fixes have never worked. Real-world robotics requires incremental improvement: collect data, **confirm with the user that you are interpreting the data correctly**, and make iterative improvements for the next trial. |
+| **Physical Safety & Deadman's Switch** | **All physical experiments must be time-bounded OR protected by a Deadman's Switch (preferably BOTH).** The robot runs in a living room; never allow open-loop flailing that could damage the hardware or surroundings. |
 | **Permission & Network** | Always ask the user first before attempting network connections, SSH, or permission-sensitive operations. |
-| **Evidence & Tone** | Never use speculative language or phrases like "smoking gun". Gather sufficient verifiable data to prove a theory rather than guessing. |
+| **Evidence & Tone** | Never use speculative language, hype, or phrases like "smoking gun" or "this will definitely solve it." Gather sufficient verifiable data to prove a theory rather than guessing. |
 | **Scientific Method** | Fight the impulse to jump to an immediate solution. Make small, provable incremental improvements and empirically verify they improved behavior before moving to the next step. |
+
+
+### Code Quality and Type Safety
+
+When working on this codebase, you must proactively prevent the following categories of errors that have previously plagued the project (e.g., incorrect types, mismatched function signatures, unused imports, and unbound variables). These errors often pass syntax checks but fail strict static analysis.
+
+#### 1. The Root Cause of Past Issues
+In the past, agents introduced silent errors because they:
+*   **Assumed Function Signatures:** Called functions with incorrect arguments (e.g., passing `Literal[Direction.BACKWARD]` when a `float` was expected) without verifying the function's definition first.
+*   **Ignored Hardware Abstraction Interfaces:** Mismatched arguments when implementing or mocking hardware interfaces (e.g., `RobotHardware` vs. `SimHardware`).
+*   **Left Unused Artifacts:** Left behind unused imports and local variables (e.g., in test files) after refactoring.
+*   **Overlooked Shadowing:** Shadowed built-in names or outer scope variables.
+
+#### 2. Mandatory Pre-Flight Checklist
+Before modifying code or submitting a change, you **MUST** follow these steps:
+
+#### A. Verify Function Signatures
+Never guess a function's arguments or return type. Before calling any function or instantiating a class (especially Pydantic models like `HardwareConfig` or `LearningState`), use `read_file` or `grep` to read the actual definition in the source code.
+*   Check for required positional vs. keyword arguments.
+*   Verify the expected types (e.g., `float` vs. `Enum`, `int` vs. `float`).
+
+#### B. Handle Enums Correctly
+When performing arithmetic operations or comparisons with custom Enum types (like `Direction` or `Axis`), explicitly access their numeric `.value` attribute to avoid `TypeError`s. Do not pass an Enum object where a primitive (like `float` or `int`) is expected.
+
+#### C. Clean Up After Yourself
+When refactoring code:
+*   Remove unused imports immediately.
+*   Remove unused local variables. In benchmarking or test scripts where objects are instantiated solely for timing/side-effects, assign the result to `_` (e.g., `_ = ClassName(...)`) to satisfy linters.
+
+#### D. Run Linters and Tests
+Before calling `submit`, you must:
+1.  Run `uv run ruff check .` and fix all reported warnings (unused imports, unused variables, shadowing).
+2.  Run the full test suite with `uv run pytest tests/` to ensure no regressions were introduced.
+
+By strictly adhering to these rules, you will prevent the reintroduction of the structural and type-safety issues documented in `inspections.md`.
+
 
 ### Architectural Transformations for Autonomous Agents
 
@@ -58,6 +96,16 @@ All AI agents working on this codebase must adhere to these non-negotiable gover
 When generating control code for cyber-physical systems, AI agents frequently misapply high-level software engineering paradigms—specifically strict "fail-fast" exception handling—to low-level hardware interfaces. In a real-time physical environment, transient I/O errors (such as I2C glitches caused by motor EMI or voltage sags) are nominal operating conditions, not fatal system failures. Enforcing strict data-purity rules during a continuous actuation loop causes trivial hardware noise to collapse the entire system.
 * **Rule:** Strictly separate initialization logic (where failing fast is required) from the real-time control loop (which requires absolute fault tolerance).
 * **Rule:** Replace fatal exceptions in continuous loops with data quality metrics (e.g., returning cached data alongside an age/error counter) to keep the loop alive.
+
+### Behavioral Anti-Pattern: Hyper-Optimism & The Silver-Bullet Fallacy
+LLM agents frequently exhibit hyper-optimism—declaring after inspecting a bug or log that they have "found the root cause" and that their proposed patch is "the final step that will solve it."
+* **Historical Reality:** Across 10+ sessions of real-world testing, one-shot "definitive" fixes have never solved balancing or hardware challenges.
+* **Mandatory Protocol (The Incremental Loop):**
+  1. **Collect Empirical Data:** Gather verifiable telemetry, logs, or physical observations.
+  2. **Confirm Interpretation with User:** Explicitly verify with the human operator that your interpretation of the data is correct before jumping to conclusions.
+  3. **Make Small, Iterative Improvements:** Design targeted, incremental adjustments that improve the system for the next test run.
+  4. **Never Declare Victory Prematurely:** Do not use hyper-optimistic language or claim a problem is solved until empirical real-world testing proves stable behavior.
+
 
 ### Condensed LLM-Optimized Comments
 Focus on maximizing information density while minimizing token consumption:
@@ -161,6 +209,9 @@ LLM agents inherently bias toward idealized software refactoring. Before proposi
 | **Battery/Power Dynamics** | `src/balance_bot/adaptation/battery.py`<br>`BatteryEstimator.update` | You will assume motors output consistent torque for a given PWM command and may try to simplify PWM compensation. | **Recognize power decay.** 50% PWM at 9V is physically different from 50% PWM at 7V. Battery estimator scaling is required to boost PWM dynamically as battery drains. |
 | **System Lifecycle & Watchdog** | `src/balance_bot/watchdog.py`<br>`src/balance_bot/main.py`<br>`SurvivalWatchdog._watch` | You will view `SurvivalWatchdog` as redundant to standard `try/except` blocks or systemd restarts and attempt to deprecate it. | **Deadlocks are physical, not logical.** If the main thread hangs on a hardware read, exceptions will not fire. The Watchdog must run on a separate thread to force `KeyboardInterrupt` / exit. |
 | **Sensor Noise & Filtering** | `src/balance_bot/utils.py`<br>`ComplementaryFilter.update`<br>`RateLimiter.sleep` | You will view `ComplementaryFilter` as primitive or identify busy-waiting in `RateLimiter` as poor CPU usage, proposing Kalman filters or `time.sleep()`. | **Determinism over complexity.** Advanced math or `time.sleep()` lack microsecond precision required for 100Hz loop. Keep filters cheap and the thread busy. |
+| **Living Room Safety & Experiment Boundaries** | `src/balance_bot/main.py`<br>`src/balance_bot/watchdog.py`<br>`src/balance_bot/behavior/agent.py` | You will assume testing code in the physical world is harmless or that unbounded loops will simply be interrupted by the user pressing Ctrl+C. | **All experiments must be time-bounded OR have a Deadman's Switch (preferably both).** The robot runs in a living room; flailing around can cause physical damage. An HTTP Deadman's Switch (e.g., a web page POSTing a heartbeat every second that halts the robot within 2 seconds if closed) should protect active runs. |
+| **Hyper-Optimistic Troubleshooting** | All refactoring & debugging discussions | You will assume you have definitively found "the issue" and that your patch is the final step that will solve it. | **Never assume "this is the final step that will solve it."** Over 10+ sessions, silver-bullet fixes have never worked. Practice strict incrementalism: collect data, confirm data interpretation with the user, and make small iterative improvements. |
+
 
 ---
 

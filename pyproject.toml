@@ -17,7 +17,7 @@ dependencies = [
 sim = [
     "pybullet>=3.2.7",
     "gymnasium>=1.2.3",
-    "numpy",
+    "numpy>=2.0.0",
 ]
 
 [project.scripts]
@@ -27,10 +27,61 @@ balance-bot-repl = "balance_bot.repl:main"
 [dependency-groups]
 dev = [
     "ruff>=0.9.0",
-    "pytest>=8.3.0,<9.0.0",
+    "pytest>=8.3.0",
     "pytest-cov>=7.1.0",
+    "mypy>=1.14.0",
 ]
 
 [build-system]
 requires = ["hatchling"]
 build-backend = "hatchling.build"
+
+[[tool.uv.index]]
+url = "https://pypi.org/simple"
+default = true
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+python_files = ["test_*.py"]
+
+[tool.ruff]
+line-length = 100
+
+[tool.ruff.lint]
+select = [
+    "E",   # pycodestyle errors
+    "W",   # pycodestyle warnings
+    "F",   # pyflakes
+    "I",   # isort
+    "B",   # flake8-bugbear
+    "UP",  # pyupgrade
+    "SIM", # flake8-simplify
+    "C4",  # flake8-comprehensions
+    "RUF", # ruff-specific rules
+]
+ignore = [
+    "E501", # line length handled by formatter
+    "B008", # function calls in argument defaults (e.g. Config())
+    "SIM115", # context manager for long-lived open file handles
+]
+
+[tool.ruff.lint.per-file-ignores]
+"tests/*" = [
+    "RUF059", # Unused unpacked variables in test assertions
+    "SIM117", # Nested with statements (common with multiple mocks/patches)
+    "RUF043", # Unescaped regex in pytest.raises match=
+]
+
+
+
+[tool.mypy]
+python_version = "3.12"
+warn_return_any = true
+warn_unused_configs = true
+warn_unused_ignores = true
+disallow_untyped_defs = false
+check_untyped_defs = true
+ignore_missing_imports = true
+exclude = [
+    'balance_bot/simulation/',
+]

@@ -142,3 +142,20 @@ When appending new entries to this file, use the following Markdown template:
   3. **Fall/Stall Detection:** $N$ successive motor move commands without any corresponding change in gyro rates indicates the robot has fallen over or stalled against an obstacle $\rightarrow$ immediately halt all motors and stop.
 * **Learning / Root Cause:** Sensor disconnects and mechanical stalls require explicit watchdog detection independently of PID math.
 * **Action / Rules Updated:** Prioritize implementing consecutive failure counters for gyro I2C reads and gyro-motor correlation checks in future `SurvivalWatchdog` enhancements.
+
+---
+
+### 2026-08-08 - Linting, Formatting, and Mac/Hardware-Agnostic Static Analysis
+* **Hypothesis / Goal:** Establish robust, comprehensive linting (Ruff), code formatting, and strict type checking (MyPy) capable of running reliably in local macOS development environments without physical robot hardware or specialized device libraries attached.
+* **Experiment / What We Tried:**
+  1. Configured PyPI as the default `uv` package index (`[[tool.uv.index]] url = "https://pypi.org/simple"`) to ensure reproducible dependency syncing on macOS without failing on unauthenticated internal registries.
+  2. Integrated `mypy>=1.14.0` alongside `ruff>=0.9.0` in `[dependency-groups] dev` within [`pyproject.toml`](file:///Users/benhill/Desktop/hobbies/balance_bot/pyproject.toml). Configured MyPy to ignore missing third-party hardware modules (`smbus2`, `mpu6050`, `pybullet`, `gymnasium`).
+  3. Fixed missing `from typing import Any` and undefined names across `states.py`, `pipeline.py`, `balance_core.py`, and `watchdog.py`.
+  4. Resolved real structural and protocol issues discovered by MyPy: added missing `is_verified()` method to `ProprioceptiveToddlerStep` (`CalibrationStep` protocol compliance), removed obsolete attribute access in `sim_hardware.py`, and ensured explicit type narrowing in `pid.py` and `robot_hardware.py`.
+  5. Modernized deprecated `import glm` statements to `from pyglm import glm` across `src/` and `tests/`.
+  6. Updated [`Makefile`](file:///Users/benhill/Desktop/hobbies/balance_bot/Makefile) with `lint`, `format`, `test`, `typecheck`, and `check` targets.
+* **Observations / Empirical Evidence:** `make check` executes formatting verification (`ruff format --check`), linting (`ruff check`), static typing (`mypy src`), and the full unit test suite (`pytest tests/`), completing in ~4.5s with all 162 unit tests passing and 0 static analysis errors.
+* **Learning / Root Cause:** Static type checkers (MyPy) paired with fast linters (Ruff) catch structural protocol deviations (e.g. missing protocol methods on discovery steps) and attribute mismatches before code ever runs on the physical robot.
+* **Action / Rules Updated:** Maintained `make lint`, `make format`, and `make check` workflows for local continuous verification.
+
+

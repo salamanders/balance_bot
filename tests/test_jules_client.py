@@ -1,9 +1,11 @@
-from typing import Any
-import os
 import json
+import os
 import unittest
-from unittest.mock import patch, MagicMock
-from balance_bot.jules_client import JulesClient, CrashReport
+from typing import Any
+from unittest.mock import MagicMock, patch
+
+from balance_bot.jules_client import CrashReport, JulesClient
+
 
 class TestJulesClient(unittest.TestCase):
     def setUp(self) -> None:
@@ -66,6 +68,7 @@ class TestJulesClient(unittest.TestCase):
         # Verify timeout is passed to urlopen
         args, kwargs = mock_urlopen.call_args
         from balance_bot.jules_client import DEFAULT_TIMEOUT
+
         self.assertEqual(kwargs["timeout"], DEFAULT_TIMEOUT)
 
     @patch("urllib.request.urlopen")
@@ -112,7 +115,7 @@ class TestJulesClient(unittest.TestCase):
             logs="logs...",
             state={"pitch": 0.1},
             libs={"numpy": "1.2.3"},
-            telemetry="telemetry..."
+            telemetry="telemetry...",
         )
         success, prompt = client.report_crash(report)
 
@@ -149,7 +152,7 @@ class TestJulesClient(unittest.TestCase):
             logs="logs",
             state={"a": 1},
             libs={"lib": "1.0"},
-            telemetry="telemetry"
+            telemetry="telemetry",
         )
         rep_str = str(report)
         self.assertIn("TestError", rep_str)
@@ -159,11 +162,13 @@ class TestJulesClient(unittest.TestCase):
     def test_report_crash_http_error(self, mock_urlopen: Any) -> None:
         client = JulesClient(api_key="test_key")
 
-        from urllib.error import HTTPError
         import io
+        from urllib.error import HTTPError
 
         fp = io.BytesIO(b'{"error": "Bad Request"}')
-        mock_err = HTTPError(url="http://test", code=400, msg="Bad Request", hdrs=MagicMock(), fp=fp)
+        mock_err = HTTPError(
+            url="http://test", code=400, msg="Bad Request", hdrs=MagicMock(), fp=fp
+        )
         mock_urlopen.side_effect = mock_err
 
         report = CrashReport("err", "trace", "logs", {}, {})

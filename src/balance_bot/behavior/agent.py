@@ -13,22 +13,18 @@ homebrew robot. It relies on a deterministic, high-frequency control loop and pe
 - Interfaces with Tier 1 (`BalanceCore`), Tier 3 (`Agent`), and physical hardware abstraction (`RobotHardware`).
 """
 
-
-from concurrent.futures import ThreadPoolExecutor
 import json
 import logging
 import sys
 import time
+from concurrent.futures import ThreadPoolExecutor
 from pathlib import Path
 from typing import Any
 
-from .leds import LedController
-from .states import AgentContext, BotState, IdleState
 from ..adaptation.battery import BatteryEstimator
 from ..adaptation.recovery import RecoveryManager
-from ..adaptation.tuner import ContinuousTuner, BalancePointFinder
+from ..adaptation.tuner import BalancePointFinder, ContinuousTuner
 from ..configuration import (
-
     HardwareConfig,
     LearningState,
     PIDParams,
@@ -36,12 +32,14 @@ from ..configuration import (
 from ..reflex.balance_core import BalanceCore, MotionRequest, TuningParams
 from ..telemetry import TelemetryBlackbox
 from ..utils import (
-    RateLimiter,
     LogThrottler,
-    setup_logging,
+    RateLimiter,
     check_force_calibration_flag,
+    setup_logging,
 )
 from ..watchdog import SurvivalWatchdog
+from .leds import LedController
+from .states import AgentContext, BotState, IdleState
 
 logger = logging.getLogger(__name__)
 
@@ -52,9 +50,10 @@ class Agent:
     Orchestrates the robot's behavior, manages state, and schedules sub-systems.
     """
 
-    def __init__(self, watchdog: SurvivalWatchdog | None = None):
+    def __init__(self, watchdog: SurvivalWatchdog | None = None, deadman_server: Any = None):
         setup_logging()
         self.watchdog = watchdog
+        self.deadman_server = deadman_server
 
         # 1. Configuration
         self.force_tune = "--tune" in sys.argv
@@ -89,7 +88,12 @@ class Agent:
 
         # 2. Subsystems
         # Tier 1
-        self.core = BalanceCore(self.hw_config, self.learning_state, watchdog=self.watchdog)
+        self.core = BalanceCore(
+            self.hw_config,
+            self.learning_state,
+            watchdog=self.watchdog,
+            deadman_server=self.deadman_server,
+        )
 
         # Tier 2
         self.tuner = ContinuousTuner(self.learning_state.tuner)
@@ -118,14 +122,12 @@ class Agent:
 
         # Pre-allocated zero tuning params for waiting/measuring loops
         self._zero_tuning = TuningParams(0.0, 0.0, 0.0, 0.0)
-        self._zero_motion_enabled = MotionRequest(
-            velocity=0.0, turn_rate=0.0, enable_control=True
-        )
+        self._zero_motion_enabled = MotionRequest(velocity=0.0, turn_rate=0.0, enable_control=True)
         self._zero_motion_disabled = MotionRequest(
             velocity=0.0, turn_rate=0.0, enable_control=False
         )
 
-    def run(self) -> None:  # noqa: C901
+    def run(self) -> None:
         """
         Main Event Loop.
         """
@@ -138,9 +140,7 @@ class Agent:
             dt = self.hw_config.loop_time
             while time.perf_counter() - start_wait < self.learning_state.timing.setup_wait:
                 # We must spin the core to settle the filter
-                self.core.update(
-                    self._zero_motion_disabled, self._zero_tuning, dt
-                )
+                self.core.update(self._zero_motion_disabled, self._zero_tuning, dt)
                 self.led.update()
                 dt = rate.sleep()
 
@@ -163,9 +163,7 @@ class Agent:
 
             # Reusable objects
             tuning_params = TuningParams(0.0, 0.0, 0.0, 0.0)
-            motion_req = MotionRequest(
-                velocity=0.0, turn_rate=0.0, enable_control=True
-            )
+            motion_req = MotionRequest(velocity=0.0, turn_rate=0.0, enable_control=True)
 
             while self.running:
                 if self.watchdog:
@@ -192,7 +190,9 @@ class Agent:
                 if self.ticks % 10 == 0:
                     self.led.update()
                     if self.config_dirty and (
-                            time.monotonic() - self.last_save_time > self.learning_state.timing.save_interval):
+                        time.monotonic() - self.last_save_time
+                        > self.learning_state.timing.save_interval
+                    ):
                         try:
                             config_snapshot = self.learning_state.model_dump()
                             self.io_executor.submit(self._save_config_worker, config_snapshot)
@@ -203,11 +203,18 @@ class Agent:
 
                 # Update Battery Logic (Always run to keep voltage filter updated)
                 if self.ticks > 1:
-                    ang_accel = (self.core.current_telemetry.pitch_rate - self._last_pitch_rate) / dt
+                    ang_accel = (
+                        self.core.current_telemetry.pitch_rate - self._last_pitch_rate
+                    ) / dt
                     self._last_pitch_rate = self.core.current_telemetry.pitch_rate
-                    _comp_factor = self.battery.update(self.core.current_telemetry.motor_output, ang_accel)
-                    if float(_comp_factor) < float(
-                            self.learning_state.control.low_battery_log_threshold) and self.battery_logger.should_log():
+                    _comp_factor = self.battery.update(
+                        self.core.current_telemetry.motor_output, ang_accel
+                    )
+                    if (
+                        float(_comp_factor)
+                        < float(self.learning_state.control.low_battery_log_threshold)
+                        and self.battery_logger.should_log()
+                    ):
                         logger.warning(f"-> Low Battery? Compensating: {int(_comp_factor * 100)}%")
                 else:
                     # Fallback on first tick (no previous telemetry)
@@ -222,10 +229,13 @@ class Agent:
                     battery=self.battery,
                     recovery=self.recovery,
                     tuner=self.tuner,
-                    watchdog=self.watchdog
+                    watchdog=self.watchdog,
+                    deadman_server=self.deadman_server,
                 )
 
-                next_state = self.state.update(context, dt, motion_req, tuning_params, self.core.current_telemetry, self.ticks)
+                next_state = self.state.update(
+                    context, dt, motion_req, tuning_params, self.core.current_telemetry, self.ticks
+                )
                 if type(next_state) is not type(self.state):
                     self.state.exit(context)
                     self.state = next_state
@@ -252,7 +262,7 @@ class Agent:
                     self.core.current_telemetry.yaw_rate,
                     self.core.current_telemetry.left_pwm,
                     self.core.current_telemetry.right_pwm,
-                    self.core.current_telemetry.target_angle
+                    self.core.current_telemetry.target_angle,
                 )
 
                 dt = rate.sleep()
@@ -280,4 +290,3 @@ class Agent:
             logger.info("Config saved (Async).")
         except Exception as e:
             logger.error(f"Error saving config asynchronously: {e}")
-

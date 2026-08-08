@@ -16,9 +16,9 @@ homebrew robot. It relies on a deterministic, high-frequency control loop and pe
 import logging
 from typing import Any
 
-from .step import CalibrationStep, StepStatus
 from ..configuration import HardwareConfig, LearningState
 from ..hardware.robot_hardware import RobotHardware
+from .step import CalibrationStep, StepStatus
 
 logger = logging.getLogger(__name__)
 
@@ -31,8 +31,9 @@ class HardwareInitStep(CalibrationStep):
     def is_verified(self, state: LearningState) -> bool:
         return state.hardware_init_verified
 
-    def run(self, hw: RobotHardware, config: HardwareConfig, state: LearningState) -> tuple[
-        StepStatus, dict[str, Any], dict[str, Any]]:
+    def run(
+        self, hw: RobotHardware, config: HardwareConfig, state: LearningState
+    ) -> tuple[StepStatus, dict[str, Any], dict[str, Any]]:
         logger.info("Initializing Hardware Drivers...")
         # Force driver initialization now that buses are known
         try:
@@ -52,4 +53,4 @@ class HardwareInitStep(CalibrationStep):
             logger.error(f"  [FAILURE] Motor driver init failed: {e}")
             return StepStatus.FATAL, {}, {}
 
-        return StepStatus.SUCCESS, {}, {'hardware_init_verified': True}
+        return StepStatus.SUCCESS, {}, {"hardware_init_verified": True}

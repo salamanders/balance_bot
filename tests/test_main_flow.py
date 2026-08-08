@@ -1,11 +1,12 @@
-from typing import Any
 import sys
+from typing import Any
 from unittest.mock import MagicMock, patch
 
 # Ensure import
 sys.path.insert(0, "src")
 
 from balance_bot.main import main
+
 
 @patch("balance_bot.main.setup_logging")
 @patch("balance_bot.main.SurvivalWatchdog")
@@ -14,7 +15,15 @@ from balance_bot.main import main
 @patch("balance_bot.configuration.LearningState")
 @patch("balance_bot.configuration.HardwareConfig")
 @patch("balance_bot.discovery.pipeline.SelfDiscoveryPipeline")
-def test_main_toddler_phase(mock_pipeline: Any, _mock_hw: Any, mock_state: Any, mock_agent: Any, _mock_jules: Any, _mock_watchdog: Any, _mock_log: Any) -> None:
+def test_main_toddler_phase(
+    mock_pipeline: Any,
+    _mock_hw: Any,
+    mock_state: Any,
+    mock_agent: Any,
+    _mock_jules: Any,
+    _mock_watchdog: Any,
+    _mock_log: Any,
+) -> None:
     """Test that the main loop runs Pipeline if needs_discovery is True."""
 
     # Mock State
@@ -31,6 +40,7 @@ def test_main_toddler_phase(mock_pipeline: Any, _mock_hw: Any, mock_state: Any, 
     mock_pipeline.return_value.run.assert_called_once()
     mock_agent.assert_called_once()
 
+
 @patch("balance_bot.main.setup_logging")
 @patch("balance_bot.main.SurvivalWatchdog")
 @patch("balance_bot.main.JulesClient")
@@ -38,7 +48,15 @@ def test_main_toddler_phase(mock_pipeline: Any, _mock_hw: Any, mock_state: Any, 
 @patch("balance_bot.configuration.LearningState")
 @patch("balance_bot.configuration.HardwareConfig")
 @patch("balance_bot.discovery.pipeline.SelfDiscoveryPipeline")
-def test_main_adult_phase(mock_pipeline: Any, _mock_hw: Any, mock_state: Any, mock_agent: Any, _mock_jules: Any, _mock_watchdog: Any, _mock_log: Any) -> None:
+def test_main_adult_phase(
+    mock_pipeline: Any,
+    _mock_hw: Any,
+    mock_state: Any,
+    mock_agent: Any,
+    _mock_jules: Any,
+    _mock_watchdog: Any,
+    _mock_log: Any,
+) -> None:
     """Test that main skips Pipeline if verified."""
 
     # Mock State
@@ -54,6 +72,7 @@ def test_main_adult_phase(mock_pipeline: Any, _mock_hw: Any, mock_state: Any, mo
     mock_pipeline.assert_not_called()
     mock_agent.assert_called_once()
 
+
 @patch("balance_bot.main.setup_logging")
 @patch("balance_bot.main.SurvivalWatchdog")
 @patch("balance_bot.main.JulesClient")
@@ -64,7 +83,15 @@ def test_main_adult_phase(mock_pipeline: Any, _mock_hw: Any, mock_state: Any, mo
 @patch("builtins.open", side_effect=Exception("Disk full"))
 @patch("builtins.print")
 def test_main_crash_reporting_local_write_failure(
-    mock_print: Any, _mock_open: Any, _mock_pipeline: Any, _mock_hw: Any, mock_state: Any, mock_agent: Any, mock_jules: Any, _mock_watchdog: Any, _mock_log: Any
+    mock_print: Any,
+    _mock_open: Any,
+    _mock_pipeline: Any,
+    _mock_hw: Any,
+    mock_state: Any,
+    mock_agent: Any,
+    mock_jules: Any,
+    _mock_watchdog: Any,
+    _mock_log: Any,
 ) -> None:
     """Test that main reports local fallback write failure when Jules upload fails."""
 

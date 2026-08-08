@@ -18,15 +18,14 @@ import math
 import random
 import time
 
-import glm
 import numpy as np
-
 from pydantic import validate_call
+from pyglm import glm
 
-from .types import IMUReading, MeasureResult, DriveCommand
 from ..configuration import HardwareConfig, LearningState
 from ..simulation.sim_env import BalanceBotEnv
 from ..watchdog import SurvivalWatchdog
+from .types import DriveCommand, IMUReading, MeasureResult
 
 logger = logging.getLogger(__name__)
 
@@ -40,8 +39,13 @@ class SimHardware:
     while providing the exact same interface as RobotHardware.
     """
 
-    def __init__(self, hw_config: HardwareConfig, learning_state: LearningState,
-                 watchdog: SurvivalWatchdog | None = None, render_mode: str | None = None):
+    def __init__(
+        self,
+        hw_config: HardwareConfig,
+        learning_state: LearningState,
+        watchdog: SurvivalWatchdog | None = None,
+        render_mode: str | None = None,
+    ):
         self.config = hw_config
         self.state = learning_state
         self.watchdog = watchdog
@@ -90,7 +94,7 @@ class SimHardware:
             if elapsed < self.control_dt:
                 time.sleep(self.control_dt - elapsed)
             action = np.array([self.last_left_pwm, self.last_right_pwm], dtype=np.float32)
-            self.obs, reward, terminated, truncated, info = self.env.step(action)
+            self.obs, _, _, _, _ = self.env.step(action)
             self.last_step_time = time.time()
 
             # Return old reading with incremented error count
@@ -100,7 +104,7 @@ class SimHardware:
                 self.last_valid_imu.yaw_rate,
                 self.last_valid_imu.roll_angle,
                 self.last_valid_imu.roll_rate,
-                self.error_count
+                self.error_count,
             )
 
         self.error_count = 0
@@ -116,7 +120,7 @@ class SimHardware:
             time.sleep(self.control_dt - elapsed)
 
         action = np.array([self.last_left_pwm, self.last_right_pwm], dtype=np.float32)
-        self.obs, reward, terminated, truncated, info = self.env.step(action)
+        self.obs, _reward, _terminated, _truncated, _info = self.env.step(action)
         self.last_step_time = time.time()
 
         # PyBullet obs is in radians: [pitch, pitch_rate, yaw, yaw_rate]
@@ -135,12 +139,7 @@ class SimHardware:
 
         # Also need error_count to simulate transient I2C glitches (we can just pass 0)
         reading = IMUReading(
-            pitch_deg,
-            pitch_rate_deg,
-            yaw_rate_deg,
-            roll_deg,
-            roll_rate_deg,
-            self.error_count
+            pitch_deg, pitch_rate_deg, yaw_rate_deg, roll_deg, roll_rate_deg, self.error_count
         )
         self.last_valid_imu = reading
         return reading
@@ -202,18 +201,11 @@ class SimHardware:
         self.set_motors(0, 0)
         total_duration = sum(s[2] for s in steps)
 
-        return MeasureResult(
-            total_duration,
-            samples
-        )
+        return MeasureResult(total_duration, samples)
 
     @validate_call
     def drive_and_measure(self, command: DriveCommand) -> MeasureResult:
         assert command.duration > 0, "Duration must be positive"
         if command.wait_for_stability:
             self.wait_for_stability()
-        result = self.execute_maneuver(
-            [(command.left_power, command.right_power, command.duration)]
-        )
-        assert result.status != 'unknown', "Measure result status must be known"
-        return result
+        return self.execute_maneuver([(command.left_power, command.right_power, command.duration)])

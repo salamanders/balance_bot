@@ -1,7 +1,9 @@
 import os
 import sys
-from unittest.mock import patch, MagicMock
+from unittest.mock import MagicMock, patch
+
 from balance_bot.configuration import HardwareConfig, LearningState
+
 
 def test_config_i2c_bus_default() -> None:
     """Test that i2c buses default to None (defer to hardware default)."""
@@ -9,11 +11,13 @@ def test_config_i2c_bus_default() -> None:
     assert config.motor_i2c_bus is None
     assert config.imu_i2c_bus is None
 
+
 def test_config_i2c_bus_load_separate() -> None:
     """Test that distinct buses can be loaded from config."""
     config = HardwareConfig(motor_i2c_bus=0, imu_i2c_bus=3)
     assert config.motor_i2c_bus == 0
     assert config.imu_i2c_bus == 3
+
 
 def test_hardware_init_with_bus() -> None:
     """Test that RobotHardware initializes drivers with correct buses."""
@@ -27,10 +31,9 @@ def test_hardware_init_with_bus() -> None:
     mock_pz_pkg.PiconZero = mock_pz_class
 
     # Patch modules
-    with patch.dict(sys.modules, {
-        "mpu6050": mock_mpu_pkg,
-        "balance_bot.hardware.piconzero": mock_pz_pkg
-    }):
+    with patch.dict(
+        sys.modules, {"mpu6050": mock_mpu_pkg, "balance_bot.hardware.piconzero": mock_pz_pkg}
+    ):
         # Force reload RobotHardware to pick up mocks
         if "balance_bot.hardware.robot_hardware" in sys.modules:
             del sys.modules["balance_bot.hardware.robot_hardware"]
@@ -50,6 +53,7 @@ def test_hardware_init_with_bus() -> None:
             mock_pz_class.assert_called_once_with(bus_number=0)
             assert hw.hw_config.motor_i2c_bus == 0
 
+
 def test_hardware_init_skips_if_none() -> None:
     """Test that RobotHardware skips init if buses are None."""
     # Setup Mocks
@@ -61,10 +65,9 @@ def test_hardware_init_skips_if_none() -> None:
     mock_pz_class = MagicMock()
     mock_pz_pkg.PiconZero = mock_pz_class
 
-    with patch.dict(sys.modules, {
-        "mpu6050": mock_mpu_pkg,
-        "balance_bot.hardware.piconzero": mock_pz_pkg
-    }):
+    with patch.dict(
+        sys.modules, {"mpu6050": mock_mpu_pkg, "balance_bot.hardware.piconzero": mock_pz_pkg}
+    ):
         # Force reload RobotHardware
         if "balance_bot.hardware.robot_hardware" in sys.modules:
             del sys.modules["balance_bot.hardware.robot_hardware"]

@@ -1,12 +1,14 @@
 import time
-from typing import NamedTuple
 from dataclasses import dataclass
+from typing import NamedTuple
+
 
 class TuningParamsNT(NamedTuple):
     kp: float
     ki: float
     kd: float
     target_angle_offset: float
+
 
 @dataclass
 class TuningParamsDC:
@@ -15,13 +17,16 @@ class TuningParamsDC:
     kd: float
     target_angle_offset: float
 
+
 class TuningParamsSlots:
-    __slots__ = ['kp', 'ki', 'kd', 'target_angle_offset']
+    __slots__ = ["kd", "ki", "kp", "target_angle_offset"]
+
     def __init__(self, kp: float, ki: float, kd: float, target_angle_offset: float) -> None:
         self.kp = kp
         self.ki = ki
         self.kd = kd
         self.target_angle_offset = target_angle_offset
+
 
 def benchmark() -> None:
     iterations = 1_000_000
@@ -61,6 +66,7 @@ def benchmark() -> None:
     dc_time = end - start
     print(f"Dataclass reuse: {dc_time:.4f} s")
     print(f"Improvement (Dataclass): {nt_time / dc_time:.2f}x faster")
+
 
 if __name__ == "__main__":
     benchmark()

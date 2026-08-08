@@ -1,22 +1,26 @@
-from typing import Any
-import unittest
-from unittest.mock import MagicMock, patch, PropertyMock
 import time
+import unittest
+from typing import Any
+from unittest.mock import MagicMock, PropertyMock, patch
+
 from balance_bot.behavior.agent import Agent
+
 
 class TestAgentStateMachine(unittest.TestCase):
     def setUp(self) -> None:
         # Patch dependencies before Agent init
-        self.hw_config_patcher = patch('balance_bot.behavior.agent.HardwareConfig')
-        self.learning_state_patcher = patch('balance_bot.behavior.agent.LearningState')
-        self.core_patcher = patch('balance_bot.behavior.agent.BalanceCore')
-        self.tuner_patcher = patch('balance_bot.behavior.agent.ContinuousTuner')
-        self.finder_patcher = patch('balance_bot.behavior.agent.BalancePointFinder')
-        self.battery_patcher = patch('balance_bot.behavior.agent.BatteryEstimator')
-        self.recovery_patcher = patch('balance_bot.behavior.agent.RecoveryManager')
-        self.led_patcher = patch('balance_bot.behavior.agent.LedController')
-        self.setup_logging_patcher = patch('balance_bot.behavior.agent.setup_logging')
-        self.check_force_calib_patcher = patch('balance_bot.behavior.agent.check_force_calibration_flag')
+        self.hw_config_patcher = patch("balance_bot.behavior.agent.HardwareConfig")
+        self.learning_state_patcher = patch("balance_bot.behavior.agent.LearningState")
+        self.core_patcher = patch("balance_bot.behavior.agent.BalanceCore")
+        self.tuner_patcher = patch("balance_bot.behavior.agent.ContinuousTuner")
+        self.finder_patcher = patch("balance_bot.behavior.agent.BalancePointFinder")
+        self.battery_patcher = patch("balance_bot.behavior.agent.BatteryEstimator")
+        self.recovery_patcher = patch("balance_bot.behavior.agent.RecoveryManager")
+        self.led_patcher = patch("balance_bot.behavior.agent.LedController")
+        self.setup_logging_patcher = patch("balance_bot.behavior.agent.setup_logging")
+        self.check_force_calib_patcher = patch(
+            "balance_bot.behavior.agent.check_force_calibration_flag"
+        )
 
         self.mock_hw_config_cls = self.hw_config_patcher.start()
         self.mock_learning_state_cls = self.learning_state_patcher.start()
@@ -76,11 +80,13 @@ class TestAgentStateMachine(unittest.TestCase):
         self.agent.running = True
 
         # We patch RateLimiter.sleep to stop the loop after one call
-        with patch('balance_bot.behavior.agent.RateLimiter') as mock_rate:
+        with patch("balance_bot.behavior.agent.RateLimiter") as mock_rate:
             mock_rate_instance = mock_rate.return_value
+
             def stop_loop() -> Any:
                 self.agent.running = False
                 return 0.01
+
             mock_rate_instance.sleep.side_effect = stop_loop
 
             # We also need to mock core.update to return a dummy telemetry
@@ -96,7 +102,8 @@ class TestAgentStateMachine(unittest.TestCase):
 
     def test_idle_to_balancing(self) -> None:
         """Test transition from IDLE to BALANCING when upright."""
-        from balance_bot.behavior.states import IdleState, BalancingState
+        from balance_bot.behavior.states import BalancingState, IdleState
+
         self.agent.state = IdleState()
         # Mock pitch to be 5.0 (Upright)
         type(self.agent.core).pitch = PropertyMock(return_value=5.0)
@@ -105,10 +112,10 @@ class TestAgentStateMachine(unittest.TestCase):
 
         self.assertIsInstance(self.agent.state, BalancingState)
 
-
     def test_idle_to_kickup(self) -> None:
         """Test transition from IDLE to KICKUP when resting."""
         from balance_bot.behavior.states import IdleState, KickupState
+
         self.agent.state = IdleState()
         # Mock pitch to be 60.0 (Resting)
         type(self.agent.core).pitch = PropertyMock(return_value=60.0)
@@ -121,27 +128,28 @@ class TestAgentStateMachine(unittest.TestCase):
     def test_kickup_success(self) -> None:
         """Test KICKUP state executes sequence and transitions to BALANCING on success."""
         from balance_bot.behavior.states import KickupState
+
         self.agent.state = KickupState()
         # Mock pitch for direction check (e.g. Back)
         type(self.agent.core).pitch = PropertyMock(return_value=-60.0)
 
-        with patch.object(self.agent.state, '_incremental_kickup', return_value=True) as mock_kick:
+        with patch.object(self.agent.state, "_incremental_kickup", return_value=True) as mock_kick:
             self.run_agent_once()
 
             mock_kick.assert_called()
             from balance_bot.behavior.states import BalancingState
         self.assertIsInstance(self.agent.state, BalancingState)
 
-
     def test_kickup_failure(self) -> None:
         """Test KICKUP state transitions to IDLE on failure."""
         from balance_bot.behavior.states import KickupState
+
         self.agent.state = KickupState()
         self.agent.kickup_attempts = 0
         # Mock pitch for direction check
         type(self.agent.core).pitch = PropertyMock(return_value=-60.0)
 
-        with patch.object(self.agent.state, '_incremental_kickup', return_value=False) as mock_kick:
+        with patch.object(self.agent.state, "_incremental_kickup", return_value=False) as mock_kick:
             self.run_agent_once()
 
             mock_kick.assert_called()
@@ -151,6 +159,7 @@ class TestAgentStateMachine(unittest.TestCase):
     def test_balancing_to_crashed(self) -> None:
         """Test BALANCING transitions to CRASHED if pitch exceeds limit."""
         from balance_bot.behavior.states import BalancingState
+
         self.agent.state = BalancingState()
 
         # Last telemetry needs to be set (or the first loop iteration logic needs to be robust)
@@ -162,25 +171,28 @@ class TestAgentStateMachine(unittest.TestCase):
         # Or mock core.pitch (fallback if last_telemetry is None).
         # The code uses: current_pitch = last_telemetry.pitch_angle if last_telemetry else self.core.pitch
 
-        type(self.agent.core).pitch = PropertyMock(return_value=60.0) # > 50.0 crash angle
+        type(self.agent.core).pitch = PropertyMock(return_value=60.0)  # > 50.0 crash angle
         self.agent.core.current_telemetry = MagicMock()
         self.agent.core.current_telemetry.pitch_angle = 60.0
 
         self.run_agent_once()
 
         from balance_bot.behavior.states import CrashedState
+
         self.assertIsInstance(self.agent.state, CrashedState)
         self.agent.core.hw.stop.assert_called()  # type: ignore[attr-defined]
 
     def test_crashed_timeout(self) -> None:
         """Test CRASHED transitions to FATAL ERROR after timeout."""
         from balance_bot.behavior.states import CrashedState
+
         self.agent.state = CrashedState()
-        self.agent.state.crash_time = time.monotonic() - 4.0 # 3 seconds ago
+        self.agent.state.crash_time = time.monotonic() - 4.0  # 3 seconds ago
 
         self.run_agent_once()
 
         from balance_bot.behavior.states import FatalErrorState
+
         self.assertIsInstance(self.agent.state, FatalErrorState)
 
     def test_keyboard_interrupt_graceful_shutdown(self) -> None:
@@ -189,12 +201,13 @@ class TestAgentStateMachine(unittest.TestCase):
         self.agent.config_dirty = True
 
         # Mock the components that are cleaned up in finally block
-        with patch.object(self.agent.blackbox, 'stop') as mock_blackbox_stop, \
-             patch.object(self.agent.core, 'cleanup') as mock_core_cleanup, \
-             patch.object(self.agent.led, 'signal_off') as mock_led_off, \
-             patch.object(self.agent.io_executor, 'shutdown') as mock_io_shutdown, \
-             patch.object(self.agent.learning_state, 'save') as mock_state_save:
-
+        with (
+            patch.object(self.agent.blackbox, "stop") as mock_blackbox_stop,
+            patch.object(self.agent.core, "cleanup") as mock_core_cleanup,
+            patch.object(self.agent.led, "signal_off") as mock_led_off,
+            patch.object(self.agent.io_executor, "shutdown") as mock_io_shutdown,
+            patch.object(self.agent.learning_state, "save") as mock_state_save,
+        ):
             # Make the main loop raise KeyboardInterrupt
             self.agent.core.update.side_effect = KeyboardInterrupt()
 
@@ -211,5 +224,6 @@ class TestAgentStateMachine(unittest.TestCase):
             mock_state_save.assert_called_once()
             mock_io_shutdown.assert_called_once_with(wait=True)
 
-if __name__ == '__main__':
+
+if __name__ == "__main__":
     unittest.main()

@@ -1,10 +1,11 @@
-from typing import Any
 import unittest
-from unittest.mock import MagicMock, patch, call
-from balance_bot.utils import scan_i2c_candidates, find_threshold
+from typing import Any
+from unittest.mock import MagicMock, call, patch
+
+from balance_bot.utils import find_threshold, scan_i2c_candidates
+
 
 class TestUtilsHelpers(unittest.TestCase):
-
     @patch("balance_bot.utils.smbus")
     def test_scan_i2c_candidates_found(self, mock_smbus: Any) -> None:
         # Bus 1 has device

@@ -1,12 +1,13 @@
 from typing import Any
+from unittest.mock import MagicMock, patch
+
 import pytest
-from unittest.mock import MagicMock
+
 from balance_bot.behavior.agent import Agent
 from balance_bot.watchdog import SurvivalWatchdog
 
-from unittest.mock import patch
 
-@patch('balance_bot.behavior.agent.BalanceCore')
+@patch("balance_bot.behavior.agent.BalanceCore")
 def test_agent_watchdog_panic(_mock_balance_core: Any) -> None:
     watchdog = MagicMock(spec=SurvivalWatchdog)
     # Simulate that the watchdog triggered the interrupt
@@ -27,7 +28,8 @@ def test_agent_watchdog_panic(_mock_balance_core: Any) -> None:
     with pytest.raises(RuntimeError, match="Watchdog Panic"):
         agent.run()
 
-@patch('balance_bot.behavior.agent.BalanceCore')
+
+@patch("balance_bot.behavior.agent.BalanceCore")
 def test_agent_keyboard_interrupt_clean_exit(_mock_balance_core: Any) -> None:
     watchdog = MagicMock(spec=SurvivalWatchdog)
     # Watchdog did NOT trigger it (User pressed Ctrl+C)
@@ -50,7 +52,7 @@ def test_agent_keyboard_interrupt_clean_exit(_mock_balance_core: Any) -> None:
     agent.running = True
 
     # Inject KeyboardInterrupt in the main loop from RateLimiter.sleep
-    with patch('balance_bot.behavior.agent.RateLimiter.sleep', side_effect=KeyboardInterrupt):
+    with patch("balance_bot.behavior.agent.RateLimiter.sleep", side_effect=KeyboardInterrupt):
         # Should NOT raise RuntimeError, should catch and exit gracefully
         try:
             agent.run()

@@ -13,6 +13,7 @@ homebrew robot. It relies on a deterministic, high-frequency control loop and pe
 - Interfaces with Tier 1 (`BalanceCore`), Tier 3 (`Agent`), and physical hardware abstraction (`RobotHardware`).
 """
 
+import contextlib
 import csv
 import logging
 import time
@@ -27,35 +28,58 @@ class TelemetryBlackbox:
     def __init__(self, filename: str = "flight_data.csv") -> None:
         self.filename = Path(filename)
         self.queue: Queue[tuple[float, str, float, float, float, float, float, float]] = Queue(
-            maxsize=2000)  # Buffer to prevent I/O blocking
+            maxsize=2000
+        )  # Buffer to prevent I/O blocking
         self.running = False
         self.worker = Thread(target=self._writer_thread, daemon=True)
 
         # Initialize CSV with headers
-        with open(self.filename, 'w', newline='') as f:
+        with open(self.filename, "w", newline="") as f:
             writer = csv.writer(f)
-            writer.writerow([
-                "timestamp", "state", "pitch_angle", "pitch_rate",
-                "yaw_rate", "left_pwm", "right_pwm", "pid_target"
-            ])
+            writer.writerow(
+                [
+                    "timestamp",
+                    "state",
+                    "pitch_angle",
+                    "pitch_rate",
+                    "yaw_rate",
+                    "left_pwm",
+                    "right_pwm",
+                    "pid_target",
+                ]
+            )
 
     def start(self) -> None:
         self.running = True
         self.worker.start()
         logger.info(f"Telemetry Blackbox recording to {self.filename}")
 
-    def log_tick(self, state_name: str, pitch: float, pitch_rate: float, yaw_rate: float, left_pwm: float,
-                 right_pwm: float, pid_target: float) -> None:
+    def log_tick(
+        self,
+        state_name: str,
+        pitch: float,
+        pitch_rate: float,
+        yaw_rate: float,
+        left_pwm: float,
+        right_pwm: float,
+        pid_target: float,
+    ) -> None:
         if not self.running:
             return
 
-        try:
-            self.queue.put_nowait((
-                time.time(), state_name, round(pitch, 2), round(pitch_rate, 2),
-                round(yaw_rate, 2), left_pwm, right_pwm, round(pid_target, 2)
-            ))
-        except Exception:
-            pass  # Drop frame rather than block the 100Hz control loop
+        with contextlib.suppress(Exception):
+            self.queue.put_nowait(
+                (
+                    time.time(),
+                    state_name,
+                    round(pitch, 2),
+                    round(pitch_rate, 2),
+                    round(yaw_rate, 2),
+                    left_pwm,
+                    right_pwm,
+                    round(pid_target, 2),
+                )
+            )
 
     def _writer_thread(self) -> None:
         while self.running or not self.queue.empty():
@@ -64,7 +88,7 @@ class TelemetryBlackbox:
                 batch.append(self.queue.get())
 
             if batch:
-                with open(self.filename, 'a', newline='') as f:
+                with open(self.filename, "a", newline="") as f:
                     csv.writer(f).writerows(batch)
             else:
                 time.sleep(0.1)

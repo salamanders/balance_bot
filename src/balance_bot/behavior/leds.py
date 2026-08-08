@@ -13,6 +13,7 @@ homebrew robot. It relies on a deterministic, high-frequency control loop and pe
 - Interfaces with Tier 1 (`BalanceCore`), Tier 3 (`Agent`), and physical hardware abstraction (`RobotHardware`).
 """
 
+import contextlib
 import logging
 import time
 from pathlib import Path
@@ -69,11 +70,8 @@ class LedController:
             return
 
         val = "1" if on else "0"
-        try:
+        with contextlib.suppress(PermissionError, OSError):
             self.led_path.write_text(val)
-        except (PermissionError, OSError):
-            # Fail silently if permissions are missing (common in non-root dev)
-            pass
 
     def signal_setup(self) -> None:
         """Set mode to setup (Fast Blink)."""

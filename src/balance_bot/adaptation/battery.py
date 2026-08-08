@@ -63,9 +63,8 @@ class BatteryEstimator:
         if self.samples_collected < self.config.baseline_samples:
             # Accumulate average
             self.baseline_responsiveness = (
-                                                   (self.baseline_responsiveness * self.samples_collected)
-                                                   + raw_responsiveness
-                                           ) / (self.samples_collected + 1)
+                (self.baseline_responsiveness * self.samples_collected) + raw_responsiveness
+            ) / (self.samples_collected + 1)
             self.samples_collected += 1
             self.current_responsiveness = self.baseline_responsiveness
             return 1.0
@@ -73,8 +72,8 @@ class BatteryEstimator:
         # 2. RUNNING ESTIMATION
         # Smooth the current reading (EMA)
         self.current_responsiveness = (
-                self.config.ema_alpha * raw_responsiveness
-                + (1 - self.config.ema_alpha) * self.current_responsiveness
+            self.config.ema_alpha * raw_responsiveness
+            + (1 - self.config.ema_alpha) * self.current_responsiveness
         )
 
         # Calculate Ratio (Current / Baseline)
@@ -85,14 +84,12 @@ class BatteryEstimator:
 
         # 3. CALCULATE COMPENSATION FACTOR
         # If ratio < 1.0, battery is weak.
-        target_factor = clamp(
-            ratio, self.config.min_compensation, self.config.max_compensation
-        )
+        target_factor = clamp(ratio, self.config.min_compensation, self.config.max_compensation)
 
         # Apply slow smoothing to the factor itself to avoid feedback loops
         self.compensation_factor = (
-                self.config.factor_smoothing * target_factor
-                + (1 - self.config.factor_smoothing) * self.compensation_factor
+            self.config.factor_smoothing * target_factor
+            + (1 - self.config.factor_smoothing) * self.compensation_factor
         )
 
         return self.compensation_factor

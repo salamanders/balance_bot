@@ -1,12 +1,13 @@
-import sys
 import os
-import time
 import random
+import sys
+import time
 
-sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), '../../src')))
+sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), "../../src")))
 
 from balance_bot.adaptation.tuner import ContinuousTuner
 from balance_bot.configuration import TunerConfig
+
 
 def benchmark_zero_crossings() -> None:
     # Configure Tuner
@@ -27,6 +28,7 @@ def benchmark_zero_crossings() -> None:
 
     duration = end_time - start_time
     print(f"Time for {iterations} iterations: {duration:.4f} seconds")
+
 
 if __name__ == "__main__":
     benchmark_zero_crossings()

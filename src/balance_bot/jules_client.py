@@ -27,6 +27,7 @@ logger = logging.getLogger(__name__)
 @dataclass
 class CrashReport:
     """Data object encapsulating all information needed for a crash report."""
+
     error_msg: str
     stack_trace: str
     logs: str
@@ -55,7 +56,9 @@ class JulesClient:
         key_status = "***" if self._api_key else "None"
         return f"<{self.__class__.__name__} api_key={key_status}>"
 
-    def _make_request(self, method: str, endpoint: str, data: dict[str, Any] | None = None) -> dict[str, Any]:
+    def _make_request(
+        self, method: str, endpoint: str, data: dict[str, Any] | None = None
+    ) -> dict[str, Any]:
         if not self._api_key:
             raise ValueError("JULES_API_KEY not set.")
 
@@ -73,7 +76,8 @@ class JulesClient:
             with urllib.request.urlopen(req, timeout=DEFAULT_TIMEOUT) as response:
                 if response.status >= 300:
                     raise RuntimeError(f"Jules API Error: {response.status} {response.reason}")
-                return json.loads(response.read().decode("utf-8"))
+                payload: Any = json.loads(response.read().decode("utf-8"))
+                return dict(payload) if isinstance(payload, dict) else {}
         except urllib.error.HTTPError as e:
             error_body = e.read().decode("utf-8")
             logger.error(f"Jules API HTTP Error: {e.code} - {error_body}")
@@ -85,7 +89,8 @@ class JulesClient:
     def get_sources(self) -> list[dict[str, Any]]:
         """List available sources (verification step)."""
         resp = self._make_request("GET", "sources")
-        return resp.get("sources", [])
+        sources = resp.get("sources", [])
+        return list(sources) if isinstance(sources, list) else []
 
     def create_session(self, prompt: str) -> dict[str, Any]:
         """Create a new Jules session for the hardcoded source."""
@@ -95,17 +100,14 @@ class JulesClient:
                 "source": SOURCE_NAME,
                 "githubRepoContext": {
                     "startingBranch": "main"  # Assumption: fix on main or let Jules decide
-                }
+                },
             },
             "automationMode": "AUTO_CREATE_PR",  # As per desire to "start working on a fix PR"
-            "title": "Crash Auto-Fix"
+            "title": "Crash Auto-Fix",
         }
         return self._make_request("POST", "sessions", payload)
 
-    def report_crash(
-            self,
-            report: CrashReport
-    ) -> tuple[bool, str]:
+    def report_crash(self, report: CrashReport) -> tuple[bool, str]:
         """
         Constructs the prompt and initiates the fix session.
         Returns (success, prompt).

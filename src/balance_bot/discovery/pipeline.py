@@ -15,24 +15,30 @@ homebrew robot. It relies on a deterministic, high-frequency control loop and pe
 
 import logging
 import time
+from typing import Any
 
-from .step import CalibrationStep, StepStatus
 from ..configuration import HardwareConfig, LearningState
 from ..hardware.robot_hardware import RobotHardware
 from ..watchdog import SurvivalWatchdog
+from .step import CalibrationStep, StepStatus
 
 logger = logging.getLogger(__name__)
 
 
 class SelfDiscoveryPipeline:
-    def __init__(self, steps: list[CalibrationStep], watchdog: SurvivalWatchdog) -> None:
+    def __init__(
+        self, steps: list[CalibrationStep], watchdog: SurvivalWatchdog, deadman_server: Any = None
+    ) -> None:
         self.steps = steps
         self.watchdog = watchdog
+        self.deadman_server = deadman_server
         self.config = HardwareConfig.load()
         self.state = LearningState.load()
 
         # Instantiate HAL once.
-        self.hw = RobotHardware(self.config, self.state, watchdog=self.watchdog)
+        self.hw = RobotHardware(
+            self.config, self.state, watchdog=self.watchdog, deadman_server=self.deadman_server
+        )
 
     def run(self) -> None:
         logger.info("Starting Linear Self-Discovery Pipeline...")
@@ -62,7 +68,7 @@ class SelfDiscoveryPipeline:
             except Exception as e:
                 logger.exception(f"Unexpected error during {step.name}")
                 self.hw.stop()
-                raise RuntimeError(f"Pipeline failed at {step.name}: {e}")
+                raise RuntimeError(f"Pipeline failed at {step.name}: {e}") from e
 
             if status == StepStatus.SUCCESS:
                 logger.info(f"[{step.name}] Succeeded.")
@@ -90,9 +96,13 @@ class SelfDiscoveryPipeline:
                 self.hw.stop()
                 time.sleep(2.0)
                 if attempts >= max_retries:
-                    logger.error(f"[{step.name}] FATAL ERROR: Max retries ({max_retries}) reached. Halting pipeline.")
+                    logger.error(
+                        f"[{step.name}] FATAL ERROR: Max retries ({max_retries}) reached. Halting pipeline."
+                    )
                     self.hw.stop()
-                    raise RuntimeError(f"Pipeline halted at {step.name} after {max_retries} failed attempts")
+                    raise RuntimeError(
+                        f"Pipeline halted at {step.name} after {max_retries} failed attempts"
+                    )
                 continue  # Retry same step
 
             elif status == StepStatus.FATAL:

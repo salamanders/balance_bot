@@ -1,10 +1,13 @@
-from typing import Any
 import math
-import glm
+from typing import Any
 from unittest.mock import MagicMock
-from balance_bot.hardware.robot_hardware import RobotHardware, IMUReading
+
+from pyglm import glm
+
 from balance_bot.configuration import HardwareConfig, LearningState
 from balance_bot.enums import Axis
+from balance_bot.hardware.robot_hardware import IMUReading, RobotHardware
+
 
 def test_imu_processing_default(monkeypatch: Any) -> None:
     monkeypatch.setenv("ALLOW_MOCK_FALLBACK", "1")
@@ -17,7 +20,7 @@ def test_imu_processing_default(monkeypatch: Any) -> None:
         accel_forward_axis=Axis.Y,
         gyro_pitch_axis=Axis.X,
         gyro_yaw_axis=Axis.Z,
-        gyro_roll_axis=Axis.Y
+        gyro_roll_axis=Axis.Y,
     )
     learning_state = LearningState()
 
@@ -37,6 +40,7 @@ def test_imu_processing_default(monkeypatch: Any) -> None:
     assert math.isclose(reading.pitch_angle, 0.0)
     assert math.isclose(reading.pitch_rate, 0.0)
 
+
 def test_imu_processing_tilted(monkeypatch: Any) -> None:
     monkeypatch.setenv("ALLOW_MOCK_FALLBACK", "1")
 
@@ -47,7 +51,7 @@ def test_imu_processing_tilted(monkeypatch: Any) -> None:
         accel_forward_axis=Axis.Y,
         gyro_pitch_axis=Axis.X,
         gyro_yaw_axis=Axis.Z,
-        gyro_roll_axis=Axis.Y
+        gyro_roll_axis=Axis.Y,
     )
     learning_state = LearningState()
 
@@ -66,6 +70,7 @@ def test_imu_processing_tilted(monkeypatch: Any) -> None:
     assert math.isclose(reading.pitch_angle, 45.0, abs_tol=0.1)
     assert math.isclose(reading.pitch_rate, 10.0)
 
+
 def test_imu_processing_axis_y(monkeypatch: Any) -> None:
     monkeypatch.setenv("ALLOW_MOCK_FALLBACK", "1")
     # Axis Y means we use X accel and Y gyro.
@@ -76,7 +81,7 @@ def test_imu_processing_axis_y(monkeypatch: Any) -> None:
         accel_forward_axis=Axis.X,
         accel_vertical_axis=Axis.Z,
         gyro_yaw_axis=Axis.Z,
-        gyro_roll_axis=Axis.X
+        gyro_roll_axis=Axis.X,
     )
     learning_state = LearningState()
 
@@ -92,7 +97,8 @@ def test_imu_processing_axis_y(monkeypatch: Any) -> None:
     reading = hw.read_imu_converted()
 
     assert math.isclose(reading.pitch_angle, 45.0, abs_tol=0.1)
-    assert math.isclose(reading.pitch_rate, 5.0) # Uses Y gyro
+    assert math.isclose(reading.pitch_rate, 5.0)  # Uses Y gyro
+
 
 def test_imu_processing_invert(monkeypatch: Any) -> None:
     monkeypatch.setenv("ALLOW_MOCK_FALLBACK", "1")
@@ -106,7 +112,7 @@ def test_imu_processing_invert(monkeypatch: Any) -> None:
         accel_forward_axis=Axis.Y,
         gyro_pitch_axis=Axis.X,
         gyro_yaw_axis=Axis.Z,
-        gyro_roll_axis=Axis.Y
+        gyro_roll_axis=Axis.Y,
     )
     learning_state = LearningState()
 
@@ -125,6 +131,7 @@ def test_imu_processing_invert(monkeypatch: Any) -> None:
     assert math.isclose(reading.pitch_angle, -45.0, abs_tol=0.1)
     assert math.isclose(reading.pitch_rate, -10.0)
 
+
 def test_imu_processing_sideways(monkeypatch: Any) -> None:
     """Test sideways mounting configuration (Vertical X, Forward Y, Gyro Z)"""
     monkeypatch.setenv("ALLOW_MOCK_FALLBACK", "1")
@@ -135,7 +142,7 @@ def test_imu_processing_sideways(monkeypatch: Any) -> None:
         accel_forward_axis=Axis.Y,
         gyro_pitch_axis=Axis.Z,
         gyro_yaw_axis=Axis.X,
-        gyro_roll_axis=Axis.Y
+        gyro_roll_axis=Axis.Y,
     )
     learning_state = LearningState()
 

@@ -1,13 +1,14 @@
-from typing import Any
-import timeit
-import sys
 import os
+import sys
+import timeit
+from typing import Any
 
 # Add src to path
-sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), '../../src')))
+sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), "../../src")))
 
 from balance_bot.adaptation.tuner import ContinuousTuner
 from balance_bot.configuration import TunerConfig
+
 
 def benchmark_tuner_update() -> float:
     buffer_size = 50000
@@ -41,6 +42,7 @@ def benchmark_tuner_update() -> float:
     execution_time = timeit.timeit(run_update, number=1)
     print(f"Time taken: {execution_time:.6f} seconds")
     return execution_time
+
 
 if __name__ == "__main__":
     benchmark_tuner_update()

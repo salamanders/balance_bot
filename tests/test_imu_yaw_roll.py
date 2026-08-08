@@ -1,10 +1,13 @@
+import math
 from typing import Any
 from unittest.mock import MagicMock
-from balance_bot.hardware.robot_hardware import RobotHardware
+
+from pyglm import glm
+
 from balance_bot.configuration import HardwareConfig, LearningState, PIDParams
 from balance_bot.enums import Axis
-import glm
-import math
+from balance_bot.hardware.robot_hardware import RobotHardware
+
 
 def test_imu_yaw_roll_defaults(monkeypatch: Any) -> None:
     monkeypatch.setenv("ALLOW_MOCK_FALLBACK", "1")
@@ -17,7 +20,7 @@ def test_imu_yaw_roll_defaults(monkeypatch: Any) -> None:
         accel_vertical_axis=Axis.Z,
         accel_forward_axis=Axis.Y,
         gyro_yaw_axis=Axis.Z,
-        gyro_roll_axis=Axis.Y
+        gyro_roll_axis=Axis.Y,
     )
     learning_state = LearningState(pid=PIDParams())
 
@@ -40,6 +43,7 @@ def test_imu_yaw_roll_defaults(monkeypatch: Any) -> None:
     assert math.isclose(reading.roll_rate, 20.0)
     assert math.isclose(reading.roll_angle, math.degrees(math.atan2(0.5, 1.0)), abs_tol=0.1)
 
+
 def test_imu_yaw_roll_custom_axis_invert(monkeypatch: Any) -> None:
     monkeypatch.setenv("ALLOW_MOCK_FALLBACK", "1")
     # Set Yaw to X (invert), Roll to Z (invert)
@@ -55,7 +59,7 @@ def test_imu_yaw_roll_custom_axis_invert(monkeypatch: Any) -> None:
         gyro_roll_axis=Axis.Z,
         gyro_roll_invert=True,
         accel_vertical_axis=Axis.Z,
-        accel_forward_axis=Axis.Y
+        accel_forward_axis=Axis.Y,
     )
     learning_state = LearningState(pid=PIDParams())
 

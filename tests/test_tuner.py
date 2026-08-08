@@ -1,6 +1,7 @@
 from balance_bot.adaptation.tuner import ContinuousTuner
 from balance_bot.configuration import TunerConfig
 
+
 def test_oscillation_detection() -> None:
     # buffer_size=10 for faster testing
     # Use analysis_interval=1 to check every tick as in legacy tests
@@ -20,6 +21,7 @@ def test_oscillation_detection() -> None:
     assert kp < 0, "Should reduce Kp on oscillation"
     assert kd > 0, "Should increase Kd on oscillation"
 
+
 def test_stability_detection() -> None:
     tuner = ContinuousTuner(config=TunerConfig(analysis_interval=1), buffer_size=10)
 
@@ -33,6 +35,7 @@ def test_stability_detection() -> None:
     # Expect Kp increase
     assert kp > 0, "Should increase Kp when stable"
 
+
 def test_steady_error_detection() -> None:
     tuner = ContinuousTuner(config=TunerConfig(analysis_interval=1), buffer_size=10)
 
@@ -45,6 +48,7 @@ def test_steady_error_detection() -> None:
 
     # Expect Ki increase
     assert ki > 0, "Should increase Ki on steady error"
+
 
 def test_cooldown() -> None:
     tuner = ContinuousTuner(config=TunerConfig(analysis_interval=1), buffer_size=10)
@@ -65,6 +69,7 @@ def test_cooldown() -> None:
     assert kp == 0
     assert ki == 0
     assert kd == 0
+
 
 def test_statistics_error_handling() -> None:
     """

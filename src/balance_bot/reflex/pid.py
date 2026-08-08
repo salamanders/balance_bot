@@ -47,15 +47,15 @@ class PIDController:
             Kd=params.kd,
             setpoint=params.target_angle,
             output_limits=(None, None),  # We handle limits/clamping manually
-            differential_on_measurement=True
+            differential_on_measurement=True,
         )
         self.params = params
 
     def update(
-            self,
-            error: float,
-            dt: float,
-            measurement_rate: float | None = None,
+        self,
+        error: float,
+        dt: float,
+        measurement_rate: float | None = None,
     ) -> float:
         """
         Calculate the next control output.
@@ -84,7 +84,8 @@ class PIDController:
             self.pid.Kd = 0.0
 
             # Compute P + I (and update internal state)
-            output = self.pid(input_val, dt=dt)
+            raw_output = self.pid(input_val, dt=dt)
+            output = 0.0 if raw_output is None else float(raw_output)
 
             # Restore Kd for next time
             self.pid.Kd = real_kd
@@ -95,28 +96,29 @@ class PIDController:
         else:
             # STRATEGY: Standard PID
             # D comes from (Input - LastInput) / dt
-            output = self.pid(input_val, dt=dt)
+            raw_output = self.pid(input_val, dt=dt)
+            output = 0.0 if raw_output is None else float(raw_output)
 
         # --- Integral Clamping ---
         # "Anti-Windup" via hard clamping of the accumulated integral.
         limit = self.params.integral_limit
-        if limit > 0:
+        if limit > 0 and hasattr(self.pid, "_integral") and self.pid._integral is not None:
             # We access private member _integral to clamp it.
             # This is necessary because simple-pid only supports output clamping,
             # but we want to clamp the I-term contribution specifically.
-            if hasattr(self.pid, '_integral') and self.pid._integral is not None:
-                original_integral = self.pid._integral
-                clamped_integral = clamp(original_integral, -limit, limit)
+            original_integral = self.pid._integral
 
-                if clamped_integral != original_integral:
-                    self.pid._integral = clamped_integral
+            clamped_integral = clamp(original_integral, -limit, limit)
 
-                    # Adjust output to reflect clamping immediately.
-                    # simple-pid stores _integral ALREADY SCALED by Ki.
-                    # So _integral IS the I-term.
-                    # Delta Output = NewIntegral - OldIntegral
-                    delta_output = clamped_integral - original_integral
-                    output += delta_output
+            if clamped_integral != original_integral:
+                self.pid._integral = clamped_integral
+
+                # Adjust output to reflect clamping immediately.
+                # simple-pid stores _integral ALREADY SCALED by Ki.
+                # So _integral IS the I-term.
+                # Delta Output = NewIntegral - OldIntegral
+                delta_output = clamped_integral - original_integral
+                output += delta_output
 
         return output
 

@@ -125,14 +125,16 @@ class ContinuousTuner:
         # If crossing zero frequently (>15% of samples), Kp is likely too high.
         if zero_crossings > (self.buffer_size * self.config.oscillation_threshold):
             kp_nudge = self.config.kp_oscillation_penalty * self.current_scale
-            kd_nudge = self.config.kd_oscillation_boost * self.current_scale  # More damping might help
+            kd_nudge = (
+                self.config.kd_oscillation_boost * self.current_scale
+            )  # More damping might help
             tuned = True
 
         # 2. STABILITY (Improving over time)
         # If very stable (low variance) and upright, try to tighten control (Increase Kp).
         elif (
-                stdev_err < self.config.stability_std_dev
-                and abs(mean_err) < self.config.stability_mean_err
+            stdev_err < self.config.stability_std_dev
+            and abs(mean_err) < self.config.stability_mean_err
         ):
             kp_nudge = self.config.kp_stability_boost * self.current_scale
             tuned = True

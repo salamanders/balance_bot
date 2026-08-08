@@ -21,7 +21,7 @@ from typing import Any
 import smbus2
 
 # SHIM: Trick the mpu6050 library into using smbus2 instead of the missing smbus
-sys.modules['smbus'] = smbus2
+sys.modules["smbus"] = smbus2
 
 from mpu6050 import mpu6050  # noqa: E402
 
@@ -83,11 +83,12 @@ def monitor_imu(sensor: Any, duration: float = 1.0) -> tuple[dict[str, float], d
             gyro_readings.append(gyro_data)
             accel_readings.append(accel_data)
 
-            magnitude = (accel_data['x'] ** 2 + accel_data['y'] ** 2 + accel_data['z'] ** 2) ** 0.5
+            magnitude = (accel_data["x"] ** 2 + accel_data["y"] ** 2 + accel_data["z"] ** 2) ** 0.5
 
             print(
                 f"[{ts_ms:05d} ms] Gyro: X={gyro_data['x']:>6.2f}, Y={gyro_data['y']:>6.2f}, Z={gyro_data['z']:>6.2f} "
-                f"| Accel: X={accel_data['x']:>6.2f}, Y={accel_data['y']:>6.2f}, Z={accel_data['z']:>6.2f} | Tot G: {magnitude:.2f}")
+                f"| Accel: X={accel_data['x']:>6.2f}, Y={accel_data['y']:>6.2f}, Z={accel_data['z']:>6.2f} | Tot G: {magnitude:.2f}"
+            )
 
         except Exception as err:
             print(f"[{ts_ms:05d} ms] ERROR reading IMU: {type(err).__name__} - {err}")
@@ -99,13 +100,13 @@ def monitor_imu(sensor: Any, duration: float = 1.0) -> tuple[dict[str, float], d
         empty = {"x": 0.0, "y": 0.0, "z": 0.0}
         return empty, empty
 
-    avg_gx = sum(r['x'] for r in gyro_readings) / len(gyro_readings)
-    avg_gy = sum(r['y'] for r in gyro_readings) / len(gyro_readings)
-    avg_gz = sum(r['z'] for r in gyro_readings) / len(gyro_readings)
+    avg_gx = sum(r["x"] for r in gyro_readings) / len(gyro_readings)
+    avg_gy = sum(r["y"] for r in gyro_readings) / len(gyro_readings)
+    avg_gz = sum(r["z"] for r in gyro_readings) / len(gyro_readings)
 
-    avg_ax = sum(r['x'] for r in accel_readings) / len(accel_readings)
-    avg_ay = sum(r['y'] for r in accel_readings) / len(accel_readings)
-    avg_az = sum(r['z'] for r in accel_readings) / len(accel_readings)
+    avg_ax = sum(r["x"] for r in accel_readings) / len(accel_readings)
+    avg_ay = sum(r["y"] for r in accel_readings) / len(accel_readings)
+    avg_az = sum(r["z"] for r in accel_readings) / len(accel_readings)
 
     return {"x": avg_gx, "y": avg_gy, "z": avg_gz}, {"x": avg_ax, "y": avg_ay, "z": avg_az}
 
@@ -137,9 +138,10 @@ def main() -> None:
     try:
         print(f"\n[{get_ms():05d} ms] --- Step 2: Sitting Still (Monitoring Static Gravity) ---")
         set_motors(0, 0)
-        drift_gyro, static_accel = monitor_imu(gyro_sensor, duration=1.0)
+        _drift_gyro, static_accel = monitor_imu(gyro_sensor, duration=1.0)
         print(
-            f"[{get_ms():05d} ms] ---> Accel Averages: X={static_accel['x']:.2f}, Y={static_accel['y']:.2f}, Z={static_accel['z']:.2f}")
+            f"[{get_ms():05d} ms] ---> Accel Averages: X={static_accel['x']:.2f}, Y={static_accel['y']:.2f}, Z={static_accel['z']:.2f}"
+        )
 
         print(f"\n[{get_ms():05d} ms] --- Step 3: Motors at +30 for 1 second ---")
         set_motors(30, 30)
@@ -149,7 +151,7 @@ def main() -> None:
 
         print(f"\n[{get_ms():05d} ms] --- Step 4: Motors at -30 for 1 second ---")
         set_motors(-30, -30)
-        rev_cmd_gyro, _ = monitor_imu(gyro_sensor, duration=1.0)
+        _rev_cmd_gyro, _ = monitor_imu(gyro_sensor, duration=1.0)
         set_motors(0, 0)
         time.sleep(0.5)
 
@@ -170,7 +172,7 @@ def main() -> None:
 
     # 1. Map Axes using Static Gravity
     # max gravity = vertical, mid gravity = forward lean, min gravity = lateral
-    axes = ['x', 'y', 'z']
+    axes = ["x", "y", "z"]
     sorted_axes = sorted(axes, key=lambda a: abs(static_accel[a]))
 
     lateral_axis = sorted_axes[0]

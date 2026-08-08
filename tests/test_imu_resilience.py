@@ -1,7 +1,9 @@
 from typing import Any
 from unittest.mock import MagicMock
-from balance_bot.hardware.robot_hardware import RobotHardware
+
 from balance_bot.configuration import HardwareConfig, LearningState, PIDParams
+from balance_bot.hardware.robot_hardware import RobotHardware
+
 
 def test_imu_resilience_fail_fast(monkeypatch: Any) -> None:
     """

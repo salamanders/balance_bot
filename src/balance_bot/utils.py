@@ -20,15 +20,17 @@ import subprocess
 import sys
 import time
 from collections import deque
+from collections.abc import Callable, Sequence
 from pathlib import Path
-from typing import Union, Callable, Any, Sequence
+from typing import Any
 
-import glm
+from pyglm import glm
 
 try:
-    import smbus2 as smbus  # type: ignore
+    import smbus2 as smbus
 except ImportError:
-    smbus = None  # type: ignore
+    smbus = None  # type: ignore[assignment]
+
 
 logger = logging.getLogger(__name__)
 
@@ -43,16 +45,14 @@ class LogCaptureHandler(logging.Handler):
         super().__init__()
         self.buffer: deque[str] = deque(maxlen=capacity)
         self.setFormatter(
-            logging.Formatter(
-                "%(asctime)s [%(levelname)s] %(message)s", datefmt="%H:%M:%S"
-            )
+            logging.Formatter("%(asctime)s [%(levelname)s] %(message)s", datefmt="%H:%M:%S")
         )
 
     def emit(self, record: logging.LogRecord) -> None:
         try:
             msg = self.format(record)
             self.buffer.append(msg)
-        except (OSError, IOError, Exception):
+        except Exception:
             self.handleError(record)
 
 
@@ -83,7 +83,7 @@ class ComplementaryFilter:
         :return: The filtered angle.
         """
         self.angle = (self.alpha * (self.angle + rate * loop_delta_time)) + (
-                (1.0 - self.alpha) * new_angle
+            (1.0 - self.alpha) * new_angle
         )
         return self.angle
 
@@ -187,7 +187,7 @@ def calculate_pitch(accel_y: float, accel_z: float) -> float:
     return math.degrees(math.atan2(accel_y, accel_z))
 
 
-class StdOutToLog(object):
+class StdOutToLog:
     """File-like object that redirects writes to a logger."""
 
     def __init__(self, target_logger: logging.Logger, level: int) -> None:
@@ -196,7 +196,7 @@ class StdOutToLog(object):
         self.buffer = ""
 
     def write(self, message: str) -> None:
-        if message != '\n':
+        if message != "\n":
             self._logger.log(self.level, message.rstrip())
 
     def flush(self) -> None:
@@ -253,10 +253,10 @@ def check_force_calibration_flag() -> bool:
 
 
 def analyze_dominance(
-        data: Union[dict[str, float], glm.vec3],
-        label: str,
-        expected_axis: str | None = None,
-        threshold: float = 1.5,
+    data: dict[str, float] | glm.vec3,
+    label: str,
+    expected_axis: str | None = None,
+    threshold: float = 1.5,
 ) -> tuple[str, float, bool]:
     """
     Analyzes a dictionary of axis values to find the dominant signal.
@@ -268,7 +268,7 @@ def analyze_dominance(
     :return: Tuple (winner_axis, ratio, is_success)
     """
     if isinstance(data, glm.vec3):
-        data = {'x': data.x, 'y': data.y, 'z': data.z}
+        data = {"x": data.x, "y": data.y, "z": data.z}
 
     sorted_items = sorted(data.items(), key=lambda x: abs(x[1]), reverse=True)
     winner, winner_val = sorted_items[0]
@@ -301,6 +301,7 @@ def analyze_dominance(
 
 
 # --- Diagnostic Functions ---
+
 
 def get_i2c_failure_report(bus_id: int, address: int, device_name: str) -> str:
     """
@@ -340,7 +341,10 @@ def get_i2c_failure_report(bus_id: int, address: int, device_name: str) -> str:
 
 # --- Generic Helper Functions (Extracted from legacy WiringCheck) ---
 
-def make_i2c_check_fn(address: int, register: int = 0, expected_value: int | None = None) -> Callable[[Any], bool]:
+
+def make_i2c_check_fn(
+    address: int, register: int = 0, expected_value: int | None = None
+) -> Callable[[Any], bool]:
     """
     Creates a check function for scan_i2c.
     :param address: I2C Device Address (7-bit).
@@ -353,9 +357,9 @@ def make_i2c_check_fn(address: int, register: int = 0, expected_value: int | Non
         try:
             val = bus.read_byte_data(address, register)
             if expected_value is not None:
-                return val == expected_value
+                return bool(val == expected_value)
             return True
-        except (OSError, IOError, Exception):
+        except Exception:
             return False
 
     return check
@@ -376,7 +380,7 @@ def scan_i2c_candidates(name: str, check_fn: Callable[[Any], bool]) -> int | Non
                 if check_fn(bus):
                     logger.info(f"  [FOUND] {name} on Bus {bus_id}")
                     return bus_id
-        except (OSError, IOError, Exception) as e:
+        except Exception as e:
             logger.debug(f"I2C scan failed on bus {bus_id} for {name}: {e}")
     return None
 
@@ -406,11 +410,16 @@ def scan_i2c(name: str, check_fn: Callable[[Any], bool]) -> int | None:
     return bus
 
 
-def find_threshold(name: str, start: float, step: float, limit: float,
-                   action_fn: Callable[[float], Any],
-                   check_fn: Callable[[Any], bool],
-                   fail_action: Callable[[Any], bool] | None = None,
-                   heartbeat_fn: Callable[[], None] | None = None) -> float | None:
+def find_threshold(
+    name: str,
+    start: float,
+    step: float,
+    limit: float,
+    action_fn: Callable[[float], Any],
+    check_fn: Callable[[Any], bool],
+    fail_action: Callable[[Any], bool] | None = None,
+    heartbeat_fn: Callable[[], None] | None = None,
+) -> float | None:
     """
     Find a threshold value by incrementing.
     fail_action: Optional callback on failure. Return True to retry SAME level.

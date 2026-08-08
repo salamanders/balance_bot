@@ -21,8 +21,8 @@ import traceback
 from typing import Any
 
 from .behavior.agent import Agent
-from .jules_client import JulesClient, CrashReport
-from .utils import setup_logging, get_captured_logs
+from .jules_client import CrashReport, JulesClient
+from .utils import get_captured_logs, setup_logging
 from .watchdog import SurvivalWatchdog
 
 
@@ -30,9 +30,28 @@ def parse_args() -> argparse.Namespace:
     """Parse command line arguments."""
     parser = argparse.ArgumentParser(description="Balance Bot Control")
     parser.add_argument("--reset-brain", action="store_true", help="Wipe all learned configuration")
-    parser.add_argument("--allow-mocks", action="store_true", help="Allow fallback to mock hardware")
+    parser.add_argument(
+        "--allow-mocks", action="store_true", help="Allow fallback to mock hardware"
+    )
     parser.add_argument("--auto-fix", action="store_true", help="Report crashes to Jules")
     parser.add_argument("--repl", action="store_true", help="Start the interactive manual REPL")
+    parser.add_argument(
+        "--deadman",
+        action="store_true",
+        help="Enable HTTP Deadman's Switch web server for living room safety",
+    )
+    parser.add_argument(
+        "--deadman-port",
+        type=int,
+        default=8000,
+        help="Port for HTTP Deadman's Switch server (default: 8000)",
+    )
+    parser.add_argument(
+        "--experiment-duration",
+        type=float,
+        default=None,
+        help="Global experiment timeout budget in seconds (e.g. 4.0)",
+    )
     return parser.parse_args()
 
 
@@ -47,7 +66,7 @@ def get_tail_telemetry(filepath: str, lines: int = 100) -> str:
             header_end = mm.find(b"\n")
             if header_end == -1:
                 return "Telemetry format invalid (no newline)."
-            header = mm[:header_end + 1].decode("utf-8")
+            header = mm[: header_end + 1].decode("utf-8")
 
             # Find the last N lines efficiently without loading the whole file
             # Go to end
@@ -75,17 +94,18 @@ def _reset_robot_memory() -> None:
     """Wipe all learned configuration."""
     print("Resetting Robot Memory...")
     from .configuration import HardwareConfig, LearningState
+
     HardwareConfig().save()
     LearningState().save()
     print("Brain reset complete. Entering Toddler Phase.")
 
 
-def _run_discovery(watchdog: SurvivalWatchdog) -> None:
+def _run_discovery(watchdog: SurvivalWatchdog, deadman_server: Any = None) -> None:
     """Run the self-discovery pipeline (Toddler Phase)."""
     print("Incomplete knowledge detected. Initiating Discovery...")
-    from .discovery.pipeline import SelfDiscoveryPipeline
     from .discovery.discover_buses import DiscoverBusesStep
     from .discovery.hardware_init import HardwareInitStep
+    from .discovery.pipeline import SelfDiscoveryPipeline
     from .discovery.toddler_engine import ProprioceptiveToddlerStep
 
     steps = [
@@ -93,7 +113,7 @@ def _run_discovery(watchdog: SurvivalWatchdog) -> None:
         HardwareInitStep(),
         ProprioceptiveToddlerStep(),
     ]
-    pipeline = SelfDiscoveryPipeline(steps, watchdog)
+    pipeline = SelfDiscoveryPipeline(steps, watchdog, deadman_server=deadman_server)
     pipeline.run()
     # SelfDiscoveryPipeline finishes and cleans up the hardware locks safely.
     print("Discovery complete. Waking up Main Agent...")
@@ -117,17 +137,15 @@ def _handle_crash_reporting(e: Exception, bot_instance: Agent | None = None) -> 
             state_info = {
                 "hardware": bot_instance.hw_config.model_dump(),
                 "learning": bot_instance.learning_state.model_dump(),
-                "runtime_ticks": bot_instance.ticks
+                "runtime_ticks": bot_instance.ticks,
             }
         except (AttributeError, ValueError, TypeError):
             state_info["serialization_error"] = "Could not serialize bot config"
 
     # 4. Capture Libs
     import importlib.metadata
-    libs = {
-        dist.metadata["Name"]: dist.version
-        for dist in importlib.metadata.distributions()
-    }
+
+    libs = {dist.metadata["Name"]: dist.version for dist in importlib.metadata.distributions()}
 
     # 5. Capture Telemetry
     telemetry_data = "No telemetry data found."
@@ -142,7 +160,7 @@ def _handle_crash_reporting(e: Exception, bot_instance: Agent | None = None) -> 
         logs=logs,
         state=state_info,
         libs=libs,
-        telemetry=telemetry_data
+        telemetry=telemetry_data,
     )
     success, prompt = client.report_crash(report)
 
@@ -173,12 +191,23 @@ def main() -> None:
 
     if args.repl:
         from .repl import Repl
+
         repl = Repl(allow_mocks=args.allow_mocks)
         repl.run()
         return
 
-    # Spawn the survival instinct with a 20-second frustration limit
-    watchdog = SurvivalWatchdog(timeout=20.0)
+    # Start Deadman Switch HTTP server if requested
+    deadman_server = None
+    if args.deadman:
+        from .deadman import DeadmanServer
+
+        deadman_server = DeadmanServer(port=args.deadman_port)
+        deadman_server.start()
+
+    # Spawn the survival instinct with hang timeout and optional experiment cutoff
+    watchdog = SurvivalWatchdog(
+        timeout=20.0, experiment_duration=args.experiment_duration, deadman_server=deadman_server
+    )
     bot = None
 
     try:
@@ -188,6 +217,7 @@ def main() -> None:
 
         # 2. Check if we need to learn
         from .configuration import LearningState
+
         state = LearningState.load()
 
         # If the final discovery step hasn't been verified, it's a baby.
@@ -196,10 +226,10 @@ def main() -> None:
 
         # 3. Learn (Toddler Phase)
         if needs_discovery:
-            _run_discovery(watchdog)
+            _run_discovery(watchdog, deadman_server=deadman_server)
 
         # 4. Run (Adult Phase)
-        bot = Agent(watchdog=watchdog)
+        bot = Agent(watchdog=watchdog, deadman_server=deadman_server)
         bot.run()
 
     except Exception as e:
@@ -211,6 +241,8 @@ def main() -> None:
         raise
     finally:
         watchdog.stop()
+        if deadman_server is not None:
+            deadman_server.stop()
 
 
 if __name__ == "__main__":

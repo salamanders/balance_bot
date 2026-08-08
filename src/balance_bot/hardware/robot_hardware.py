@@ -21,23 +21,22 @@ import sys
 import threading
 import time
 from collections import deque
-from typing import Protocol, runtime_checkable, Any
-
-import glm
+from typing import Any, Protocol, runtime_checkable
 
 from pydantic import validate_call
+from pyglm import glm
 
-from .types import IMUReading, DriveCommand, MeasureResult
 from ..configuration import (
     BALANCING_THRESHOLD,
-    REST_ANGLE_MIN,
     REST_ANGLE_MAX,
+    REST_ANGLE_MIN,
     HardwareConfig,
-    LearningState
+    LearningState,
 )
 from ..enums import Axis
-from ..utils import clamp, calculate_pitch, get_i2c_failure_report, average_vector
+from ..utils import average_vector, calculate_pitch, clamp, get_i2c_failure_report
 from ..watchdog import SurvivalWatchdog
+from .types import DriveCommand, IMUReading, MeasureResult
 
 logger = logging.getLogger(__name__)
 
@@ -120,11 +119,11 @@ class MPU6050Adapter:
         self.sensor = sensor_instance
         # Open /dev/null once for the lifecycle of the adapter
         # This avoids opening/closing files 200 times a second in the 100Hz control loop
-        self._devnull = open(os.devnull, 'w')
+        self._devnull = open(os.devnull, "w")
 
     def __del__(self) -> None:
         """Cleanup the file handle when the adapter is destroyed."""
-        if hasattr(self, '_devnull') and not self._devnull.closed:
+        if hasattr(self, "_devnull") and not self._devnull.closed:
             self._devnull.close()
 
     def get_accel_data(self) -> glm.vec3:
@@ -151,18 +150,30 @@ class RobotHardware:
      - Convert raw sensor data into useful engineering units (Degrees, Deg/s).
     """
 
-    def __init__(self, hw_config: HardwareConfig, learning_state: LearningState,
-                 watchdog: SurvivalWatchdog | None = None):
+    def __init__(
+        self,
+        hw_config: HardwareConfig,
+        learning_state: LearningState,
+        watchdog: SurvivalWatchdog | None = None,
+        deadman_server: Any = None,
+    ):
         """
         Initialize the robot hardware abstraction.
         :param hw_config: The immutable HardwareConfig object.
         :param learning_state: The mutable LearningState object.
         :param watchdog: Optional SurvivalWatchdog for heartbeat pulses.
+        :param deadman_server: Optional DeadmanServer for living room safety disarm.
         """
         self.hw_config = hw_config
         self.learning_state = learning_state
         self.watchdog = watchdog
+        self.deadman_server = deadman_server
         self._imu_consecutive_errors = 0
+
+        # Wire live telemetry providers to Deadman switch web UI if attached
+        if self.deadman_server is not None:
+            self.deadman_server.posture_provider = self.get_posture_state
+            self.deadman_server.pitch_provider = lambda: self.read_imu_converted().pitch_angle
 
         # Store the "last known good" value
         self._last_accel = glm.vec3(0.0)
@@ -182,12 +193,11 @@ class RobotHardware:
 
     def _register_disarm_signals(self) -> None:
         """Ensure PiconZero motors are synchronously disarmed on OS signals."""
+
         def _disarm_handler(signum: int, frame: Any) -> None:
             if self.pz:
-                try:
+                with contextlib.suppress(Exception):
                     self.pz.stop()
-                except Exception:
-                    pass
             sys.exit(0)
 
         try:
@@ -218,7 +228,7 @@ class RobotHardware:
                 bias_vec = glm.vec3(
                     self.learning_state.gyro_bias_x,
                     self.learning_state.gyro_bias_y,
-                    self.learning_state.gyro_bias_z
+                    self.learning_state.gyro_bias_z,
                 )
                 gyro = gyro - bias_vec
 
@@ -256,7 +266,7 @@ class RobotHardware:
             used = {self.hw_config.accel_vertical_axis, self.hw_config.accel_forward_axis}
             remaining = axes - used
             if remaining:
-                return list(remaining)[0]
+                return next(iter(remaining))
             else:
                 return Axis.X  # Fallback
         return None
@@ -279,11 +289,14 @@ class RobotHardware:
             try:
                 # Shim smbus for mpu6050
                 import sys
+
                 import smbus2
-                sys.modules['smbus'] = smbus2
+
+                sys.modules["smbus"] = smbus2
+
+                from mpu6050 import mpu6050
 
                 from .piconzero import PiconZero
-                from mpu6050 import mpu6050
             except (ImportError, OSError) as e:
                 logger.error(f"CRITICAL: Required libraries not found or failed to load: {e}")
                 raise e
@@ -293,7 +306,9 @@ class RobotHardware:
                 try:
                     self.pz = PiconZero(bus_number=self.hw_config.motor_i2c_bus)
                 except (OSError, PermissionError, FileNotFoundError) as e:
-                    logger.error(f"CRITICAL: PiconZero Init Failed on Bus {self.hw_config.motor_i2c_bus}: {e}")
+                    logger.error(
+                        f"CRITICAL: PiconZero Init Failed on Bus {self.hw_config.motor_i2c_bus}: {e}"
+                    )
                     report = get_i2c_failure_report(self.hw_config.motor_i2c_bus, 0x22, "PiconZero")
                     logger.error(report)
                     raise e
@@ -305,7 +320,9 @@ class RobotHardware:
                 try:
                     self.sensor = MPU6050Adapter(mpu6050(0x68, bus=self.hw_config.imu_i2c_bus))
                 except OSError as e:
-                    logger.error(f"CRITICAL: MPU6050 Init Failed on Bus {self.hw_config.imu_i2c_bus}: {e}")
+                    logger.error(
+                        f"CRITICAL: MPU6050 Init Failed on Bus {self.hw_config.imu_i2c_bus}: {e}"
+                    )
                     report = get_i2c_failure_report(self.hw_config.imu_i2c_bus, 0x68, "MPU6050")
                     logger.error(report)
                     raise e
@@ -313,7 +330,8 @@ class RobotHardware:
                 logger.info("Skipping MPU6050 init (Bus Unknown)")
 
             logger.info(
-                f"Hardware initialized (Partial). PiconZero={self.hw_config.motor_i2c_bus}, MPU6050={self.hw_config.imu_i2c_bus}.")
+                f"Hardware initialized (Partial). PiconZero={self.hw_config.motor_i2c_bus}, MPU6050={self.hw_config.imu_i2c_bus}."
+            )
 
         except (ImportError, OSError, PermissionError, FileNotFoundError) as e:
             # Check for Fallback (if initialization failed)
@@ -326,7 +344,7 @@ class RobotHardware:
     def _init_mock_hardware(self) -> None:
         """Initialize mock hardware components."""
         logger.info("Running in Mock Mode")
-        from .mocks import MockPiconZero, MockMPU6050
+        from .mocks import MockMPU6050, MockPiconZero
 
         # Mocks must implement the Protocols
         self.pz = MockPiconZero()
@@ -354,7 +372,7 @@ class RobotHardware:
                 bias_vec = glm.vec3(
                     self.learning_state.gyro_bias_x,
                     self.learning_state.gyro_bias_y,
-                    self.learning_state.gyro_bias_z
+                    self.learning_state.gyro_bias_z,
                 )
                 gyro = gyro - bias_vec
 
@@ -373,9 +391,12 @@ class RobotHardware:
 
         if errors > self.hw_config.imu_max_retries:
             logger.error(
-                f"IMU Failed {errors} times in a row. Returning cached data indefinitely to avoid fatal crash.")
+                f"IMU Failed {errors} times in a row. Returning cached data indefinitely to avoid fatal crash."
+            )
         elif errors > 0:
-            logger.debug(f"IMU Glitch ({errors}/{self.hw_config.imu_max_retries}). Using cached data.")
+            logger.debug(
+                f"IMU Glitch ({errors}/{self.hw_config.imu_max_retries}). Using cached data."
+            )
 
         return accel, gyro
 
@@ -387,9 +408,9 @@ class RobotHardware:
         accel, gyro = self.read_imu_raw()
 
         if (
-                self.hw_config.accel_forward_axis is None
-                or self.hw_config.accel_vertical_axis is None
-                or self.hw_config.gyro_pitch_axis is None
+            self.hw_config.accel_forward_axis is None
+            or self.hw_config.accel_vertical_axis is None
+            or self.hw_config.gyro_pitch_axis is None
         ):
             # Return raw data only (Toddler Mode)
             return IMUReading(
@@ -400,7 +421,7 @@ class RobotHardware:
                 roll_rate=0.0,
                 error_count=self._imu_consecutive_errors,
                 accel_raw=accel,
-                gyro_raw=gyro
+                gyro_raw=gyro,
             )
 
         # Inlined helper logic for extracting and inverting vector components
@@ -408,7 +429,7 @@ class RobotHardware:
             if axis is None:
                 raise RuntimeError("CRITICAL: HAL attempted to read an unmapped sensor axis.")
             val = getattr(vector, axis.value)
-            return -val if invert else val
+            return float(-val if invert else val)
 
         def _get_mapped_value(vector: glm.vec3, config_name: str) -> float:
             axis: Axis | None = getattr(self.hw_config, f"{config_name}_axis")
@@ -447,7 +468,7 @@ class RobotHardware:
             roll_rate=roll_rate,
             error_count=self._imu_consecutive_errors,
             accel_raw=accel,
-            gyro_raw=gyro
+            gyro_raw=gyro,
         )
 
     def set_motor_retries(self, retries: int) -> None:
@@ -468,14 +489,20 @@ class RobotHardware:
         # FAIL LOUD: Do not silently ignore unmapped motors
         if self.hw_config.motor_l is None or self.hw_config.motor_r is None:
             raise RuntimeError(
-                f"CRITICAL: Attempted to actuate motors, but channels are unmapped. L:{self.hw_config.motor_l} R:{self.hw_config.motor_r}")
+                f"CRITICAL: Attempted to actuate motors, but channels are unmapped. L:{self.hw_config.motor_l} R:{self.hw_config.motor_r}"
+            )
+
+        # DEADMAN SWITCH PROTECTION: If a deadman server is attached and not actively alive, disarm immediately
+        if self.deadman_server is not None and not self.deadman_server.is_alive():
+            self.pz.set_motors(0, 0)
+            return
 
         trim = trim_override if trim_override is not None else self.learning_state.motor_trim
 
         if trim > 0:
-            right *= (1.0 - trim)
+            right *= 1.0 - trim
         elif trim < 0:
-            left *= (1.0 - abs(trim))
+            left *= 1.0 - abs(trim)
 
         if self.hw_config.motor_l_invert:
             left = -left
@@ -522,7 +549,9 @@ class RobotHardware:
         else:
             return "FALLING"
 
-    def _calibrate_bias_if_static(self, history: deque[glm.vec3], rate: float, threshold: float) -> bool:
+    def _calibrate_bias_if_static(
+        self, history: deque[glm.vec3], rate: float, threshold: float
+    ) -> bool:
         """
         Check if the robot is static but reading a biased rate, and auto-calibrate if so.
         Returns True if calibration was applied.
@@ -548,7 +577,9 @@ class RobotHardware:
         # If variance is low (< 0.5 deg/s noise), we are likely still.
         # But rate > threshold means we are biased.
         if max(range_x, range_y, range_z) < 0.5:
-            logger.warning(f"  [DRIFT] Rate {rate:.1f} > {threshold} but Variance is low. Auto-Calibrating...")
+            logger.warning(
+                f"  [DRIFT] Rate {rate:.1f} > {threshold} but Variance is low. Auto-Calibrating..."
+            )
 
             # Calculate observed bias (Average of current readings)
             avg_x = sum(xs) / len(xs)
@@ -556,7 +587,9 @@ class RobotHardware:
             avg_z = sum(zs) / len(zs)
 
             if max(abs(avg_x), abs(avg_y), abs(avg_z)) > 50.0:
-                logger.error(f"  [FATAL] Excessive gyro drift detected: ({avg_x:.2f}, {avg_y:.2f}, {avg_z:.2f})")
+                logger.error(
+                    f"  [FATAL] Excessive gyro drift detected: ({avg_x:.2f}, {avg_y:.2f}, {avg_z:.2f})"
+                )
                 raise RuntimeError("Excessive gyro drift")
 
             self.learning_state.gyro_bias_x += avg_x
@@ -565,7 +598,8 @@ class RobotHardware:
 
             self.learning_state.save()
             logger.info(
-                f"  [CALIBRATED] Bias Updated. New Offsets: ({self.learning_state.gyro_bias_x:.2f}, {self.learning_state.gyro_bias_y:.2f}, {self.learning_state.gyro_bias_z:.2f})")
+                f"  [CALIBRATED] Bias Updated. New Offsets: ({self.learning_state.gyro_bias_x:.2f}, {self.learning_state.gyro_bias_y:.2f}, {self.learning_state.gyro_bias_z:.2f})"
+            )
             return True
 
         return False
@@ -595,7 +629,7 @@ class RobotHardware:
             # Read sensors
             try:
                 # Use RAW data (which now includes bias correction)
-                accel, gyro = self.read_imu_raw()
+                _accel, gyro = self.read_imu_raw()
             except Exception as e:
                 logger.warning(f"  [Error reading IMU] {e}")
                 time.sleep(0.1)
@@ -632,8 +666,12 @@ class RobotHardware:
 
             time.sleep(0.05)
 
-    def execute_maneuver(self, steps: list[tuple[float, float, float]], sample_interval: float = 0.01,
-                         trim_override: float | None = None) -> MeasureResult:
+    def execute_maneuver(
+        self,
+        steps: list[tuple[float, float, float]],
+        sample_interval: float = 0.01,
+        trim_override: float | None = None,
+    ) -> MeasureResult:
         """
         Execute a sequence of motor commands and collect IMU readings throughout.
 
@@ -675,7 +713,7 @@ class RobotHardware:
         return self.execute_maneuver(
             [(command.left_power, command.right_power, command.duration)],
             command.sample_interval,
-            trim_override=command.trim_override
+            trim_override=command.trim_override,
         )
 
     def measure_gravity(self, duration: float = 1.0) -> glm.vec3:
@@ -686,7 +724,5 @@ class RobotHardware:
         return average_vector([s.accel_raw for s in res.samples if s.accel_raw])
 
     def __del__(self) -> None:
-        try:
+        with contextlib.suppress(Exception):
             self.stop_sensor_thread()
-        except Exception:
-            pass

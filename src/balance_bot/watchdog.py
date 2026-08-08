@@ -17,19 +17,31 @@ import _thread
 import logging
 import threading
 import time
+from typing import Any
 
 
 class SurvivalWatchdog:
     """
-    A high-priority background thread that monitors the main organism's "heartbeat".
+    A high-priority background thread that monitors the main organism's "heartbeat",
+    enforces global experiment duration limits, and connects to the Deadman's Switch.
+
     If the main thread fails to check in within the timeout (due to deadlock,
-    infinite loop, or blocking I/O), this watchdog triggers a panic by raising
+    infinite loop, or blocking I/O), or if the global experiment duration expires,
+    or if the Deadman switch triggers an emergency stop, this watchdog raises
     a KeyboardInterrupt in the main thread.
     """
 
-    def __init__(self, timeout: float = 15.0) -> None:
+    def __init__(
+        self,
+        timeout: float = 15.0,
+        experiment_duration: float | None = None,
+        deadman_server: Any = None,
+    ) -> None:
         self.timeout = timeout
-        self.last_heartbeat = time.monotonic()
+        self.experiment_duration = experiment_duration
+        self.deadman_server = deadman_server
+        self.start_time = time.monotonic()
+        self.last_heartbeat = self.start_time
         self.running = True
         self.triggered = False
         self.thread = threading.Thread(target=self._watch, daemon=True)
@@ -45,9 +57,36 @@ class SurvivalWatchdog:
 
     def _watch(self) -> None:
         while self.running:
-            time.sleep(1.0)
-            if time.monotonic() - self.last_heartbeat > self.timeout:
-                logging.error("WATCHDOG TRIGGERED: Organism is paralyzed/stuck! Initiating panic response.")
+            time.sleep(0.2)
+            now = time.monotonic()
+
+            # 1. Global Experiment Duration Limit (Rule 4: Global vs. Local Cutoffs)
+            if self.experiment_duration is not None and (
+                now - self.start_time > self.experiment_duration
+            ):
+                logging.info(
+                    f"EXPERIMENT TIMEOUT: Global budget ({self.experiment_duration:.1f}s) expired. Halting cleanly."
+                )
+                self.triggered = True
+                _thread.interrupt_main()
+                break
+
+            # 2. Deadman Switch E-Stop
+            if self.deadman_server is not None and getattr(
+                self.deadman_server, "estop_triggered", False
+            ):
+                logging.critical(
+                    "WATCHDOG TRIGGERED: Deadman E-Stop activated! Initiating emergency halt."
+                )
+                self.triggered = True
+                _thread.interrupt_main()
+                break
+
+            # 3. Main thread liveliness check
+            if now - self.last_heartbeat > self.timeout:
+                logging.error(
+                    "WATCHDOG TRIGGERED: Organism is paralyzed/stuck! Initiating panic response."
+                )
                 self.triggered = True
 
                 # This injects a fatal exception directly into the main thread.

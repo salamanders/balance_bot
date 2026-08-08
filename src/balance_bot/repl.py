@@ -4,15 +4,16 @@ import sys
 import termios
 import tty
 
-import glm
+from pyglm import glm
 
 from balance_bot.configuration import HardwareConfig, LearningState
 from balance_bot.hardware.robot_hardware import RobotHardware
-from balance_bot.utils import average_vector, analyze_dominance
+from balance_bot.utils import analyze_dominance, average_vector
 
 # Basic logging setup
 logging.basicConfig(level=logging.INFO, format="%(message)s")
 logger = logging.getLogger(__name__)
+
 
 def getch() -> str:
     fd = sys.stdin.fileno()
@@ -24,10 +25,12 @@ def getch() -> str:
         termios.tcsetattr(fd, termios.TCSADRAIN, old_settings)
     return ch
 
+
 class Repl:
     def __init__(self, allow_mocks: bool = False) -> None:
         if allow_mocks:
             import os
+
             os.environ["ALLOW_MOCK_FALLBACK"] = "1"
 
         self.config = HardwareConfig.load()
@@ -41,8 +44,12 @@ class Repl:
         # Force I2C buses to typical defaults if empty (Toddler Phase)
         if self.config.motor_i2c_bus is None or self.config.imu_i2c_bus is None:
             updates = {
-                "motor_i2c_bus": self.config.motor_i2c_bus if self.config.motor_i2c_bus is not None else 1,
-                "imu_i2c_bus": self.config.imu_i2c_bus if self.config.imu_i2c_bus is not None else 1,
+                "motor_i2c_bus": self.config.motor_i2c_bus
+                if self.config.motor_i2c_bus is not None
+                else 1,
+                "imu_i2c_bus": self.config.imu_i2c_bus
+                if self.config.imu_i2c_bus is not None
+                else 1,
             }
             self.config = self.config.model_copy(update=updates)
 
@@ -73,9 +80,9 @@ class Repl:
             while True:
                 print("\n> ", end="", flush=True)
                 cmd = getch().lower()
-                print(cmd) # Echo the command
+                print(cmd)  # Echo the command
 
-                if cmd in ["q", "\x03"]: # q or Ctrl+C
+                if cmd in ["q", "\x03"]:  # q or Ctrl+C
                     break
                 elif cmd == "x":
                     self._cmd_switch()
@@ -173,34 +180,36 @@ class Repl:
 
         print("3. Deducing orientation...")
         # Up Vector is the gravity baseline
-        vert_axis_name, _, _ = analyze_dominance({
-            'x': baseline_accel.x, 'y': baseline_accel.y, 'z': baseline_accel.z
-        }, "Vertical")
+        vert_axis_name, _, _ = analyze_dominance(
+            {"x": baseline_accel.x, "y": baseline_accel.y, "z": baseline_accel.z}, "Vertical"
+        )
         accel_vertical_invert = getattr(baseline_accel, vert_axis_name) < 0
 
         # Gyro Yaw is the dominant axis during the spin
-        yaw_axis_name, _, _ = analyze_dominance({
-            'x': spin_gyro.x, 'y': spin_gyro.y, 'z': spin_gyro.z
-        }, "Yaw")
+        yaw_axis_name, _, _ = analyze_dominance(
+            {"x": spin_gyro.x, "y": spin_gyro.y, "z": spin_gyro.z}, "Yaw"
+        )
         # For a left spin (counter-clockwise from above), the up vector should point OUT of the robot top.
         # So we align Yaw with Vertical conceptually.
-        gyro_yaw_invert = getattr(spin_gyro, yaw_axis_name) > 0 # Left turn typically positive rate, if negative, invert
+        gyro_yaw_invert = (
+            getattr(spin_gyro, yaw_axis_name) > 0
+        )  # Left turn typically positive rate, if negative, invert
 
         # To get forward and pitch, we'd normally pulse forward/backwards, but here we'll just guess based on Vertical and Yaw being Z.
         # Assuming Y is forward/pitch, X is left/right roll.
-        pitch_axis_name = 'y' if yaw_axis_name != 'y' else 'x'
-        fwd_axis_name = 'x' if vert_axis_name != 'x' and pitch_axis_name != 'x' else 'y'
+        pitch_axis_name = "y" if yaw_axis_name != "y" else "x"
+        fwd_axis_name = "x" if vert_axis_name != "x" and pitch_axis_name != "x" else "y"
 
         print(f"Vertical Axis: {vert_axis_name.upper()} (Invert: {accel_vertical_invert})")
         print(f"Yaw Axis:      {yaw_axis_name.upper()} (Invert: {gyro_yaw_invert})")
 
         updates = {
-            'accel_vertical_axis': Axis(vert_axis_name),
-            'accel_vertical_invert': accel_vertical_invert,
-            'gyro_yaw_axis': Axis(yaw_axis_name),
-            'gyro_yaw_invert': gyro_yaw_invert,
-            'gyro_pitch_axis': Axis(pitch_axis_name),
-            'accel_forward_axis': Axis(fwd_axis_name)
+            "accel_vertical_axis": Axis(vert_axis_name),
+            "accel_vertical_invert": accel_vertical_invert,
+            "gyro_yaw_axis": Axis(yaw_axis_name),
+            "gyro_yaw_invert": gyro_yaw_invert,
+            "gyro_pitch_axis": Axis(pitch_axis_name),
+            "accel_forward_axis": Axis(fwd_axis_name),
         }
         self.config = self.config.model_copy(update=updates)
         self.hw.apply_config(self.config)
@@ -211,7 +220,9 @@ class Repl:
         print("Hold the robot UPRIGHT. Press Enter to start reading angles...")
         input()
 
-        print("Now, slowly lean the robot FORWARD until it hits its mechanical limit (e.g. training wheels).")
+        print(
+            "Now, slowly lean the robot FORWARD until it hits its mechanical limit (e.g. training wheels)."
+        )
         print("Hold it there for a few seconds. Press Enter when done.")
 
         # Read max forward pitch
@@ -250,16 +261,22 @@ class Repl:
 
     def _cmd_status(self) -> None:
         print(f"Channels : L={self.config.motor_l}, R={self.config.motor_r}")
-        print(f"Polarity : L_invert={self.config.motor_l_invert}, R_invert={self.config.motor_r_invert}")
+        print(
+            f"Polarity : L_invert={self.config.motor_l_invert}, R_invert={self.config.motor_r_invert}"
+        )
         print(f"Speed    : {self.speed}")
+
 
 def main() -> None:
     parser = argparse.ArgumentParser()
-    parser.add_argument("--allow-mocks", action="store_true", help="Allow fallback to mock hardware")
+    parser.add_argument(
+        "--allow-mocks", action="store_true", help="Allow fallback to mock hardware"
+    )
     args = parser.parse_args()
 
     repl = Repl(allow_mocks=args.allow_mocks)
     repl.run()
+
 
 if __name__ == "__main__":
     main()

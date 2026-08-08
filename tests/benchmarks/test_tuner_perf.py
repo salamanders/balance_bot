@@ -1,14 +1,14 @@
-
-import time
+import os
 import random
 import sys
-import os
+import time
 
 # Ensure src is in path for standalone execution
-sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), '../../src')))
+sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), "../../src")))
 
 from balance_bot.adaptation.tuner import ContinuousTuner
 from balance_bot.configuration import TunerConfig
+
 
 def benchmark_tuner() -> None:
     # Setup
@@ -32,13 +32,14 @@ def benchmark_tuner() -> None:
         # So we should force cooldown to 0 every time to measure the worst case (analysis every step).
 
         tuner.update(random.uniform(-0.5, 0.5))
-        tuner.cooldown_timer = 0 # Force analysis on every step for benchmarking
+        tuner.cooldown_timer = 0  # Force analysis on every step for benchmarking
 
     end_time = time.perf_counter()
 
     duration = end_time - start_time
     print(f"Time for {iterations} iterations: {duration:.4f} seconds")
-    print(f"Average time per call: {duration/iterations*1000000:.2f} microseconds")
+    print(f"Average time per call: {duration / iterations * 1000000:.2f} microseconds")
+
 
 if __name__ == "__main__":
     benchmark_tuner()

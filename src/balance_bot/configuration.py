@@ -16,7 +16,7 @@ homebrew robot. It relies on a deterministic, high-frequency control loop and pe
 import logging
 from pathlib import Path
 
-from pydantic import BaseModel, Field, ConfigDict
+from pydantic import BaseModel, ConfigDict, Field
 
 from .enums import Axis
 
@@ -35,6 +35,7 @@ class PIDParams(BaseModel):
     """
     PID Controller Parameters.
     """
+
     kp: float = 25.0
     ki: float = 0.0
     kd: float = 0.5
@@ -46,6 +47,7 @@ class BatteryConfig(BaseModel):
     """
     Configuration for Battery Voltage Estimation and Compensation.
     """
+
     ema_alpha: float = 0.05
     factor_smoothing: float = 0.01
     min_compensation: float = 0.5
@@ -58,6 +60,7 @@ class TunerConfig(BaseModel):
     """
     Configuration for Continuous Auto-Tuner.
     """
+
     cooldown_reset: int = 50
     oscillation_threshold: float = 0.15
     kp_oscillation_penalty: float = -0.1
@@ -88,6 +91,7 @@ class LedConfig(BaseModel):
     """
     Configuration for LED timings and patterns.
     """
+
     setup_blink_interval: float = 0.05
     countdown_blink_count_3: int = 3
     countdown_blink_count_2: int = 2
@@ -101,6 +105,7 @@ class ControlConfig(BaseModel):
     """
     General Control Logic Parameters.
     """
+
     yaw_correction_factor: float = 0.5
     upright_threshold: float = 5.0
     low_battery_log_threshold: float = 0.95
@@ -116,6 +121,7 @@ class SystemTiming(BaseModel):
     """
     System-wide Timing Constants.
     """
+
     setup_wait: float = 2.0
     calibration_pause: float = 1.0
     save_interval: float = 30.0
@@ -129,6 +135,7 @@ class HardwareConfig(BaseModel):
     Defines fixed physical properties: pin assignments, bus IDs, axis mapping.
     Modifying this requires re-instantiating the object (e.g., via copy/replace).
     """
+
     model_config = ConfigDict(frozen=True)
 
     # I2C Bus Assignments
@@ -179,6 +186,7 @@ class LearningState(BaseModel):
     Mutable Learned State.
     Defines tunable parameters and calibration data.
     """
+
     # Sub-Configs
     pid: PIDParams = Field(default_factory=PIDParams)
     battery: BatteryConfig = Field(default_factory=BatteryConfig)
@@ -238,5 +246,5 @@ class LearningState(BaseModel):
         # Since we are modifying 'self', we need to reset fields.
         # Easier to just replace the object in the caller, but here we can reset fields.
         defaults = self.__class__()
-        for field in self.__class__.model_fields.keys():
+        for field in self.__class__.model_fields:
             setattr(self, field, getattr(defaults, field))
