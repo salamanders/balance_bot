@@ -138,7 +138,7 @@ uv run balance-bot
 ## CLI Execution & Flags
 
 * `uv run balance-bot` — Runs standard self-discovery wizard or active balance control loop.
-* `uv run balance-bot --deadman` — Enables the HTTP Deadman's Switch web interface (`http://<robot-ip>:8000`) for living room safety.
+* `uv run balance-bot --deadman` — Enables the HTTP Deadman's Switch web interface (`http://<robot-ip>:8090`) for living room safety.
 * `uv run balance-bot --experiment-duration 4.0` — Enforces a global experiment timeout budget (e.g., 4.0s) across all phases.
 * `uv run balance-bot --allow-mocks` — Runs control loop using Mock Hardware (required for CI / laptop testing without physical sensors/motors).
 * `uv run balance-bot --reset-brain` — Wipes learned `pid_config.json` and forces re-running Tabula Rasa discovery.

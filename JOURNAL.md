@@ -155,7 +155,20 @@ When appending new entries to this file, use the following Markdown template:
   5. Modernized deprecated `import glm` statements to `from pyglm import glm` across `src/` and `tests/`.
   6. Updated [`Makefile`](file:///Users/benhill/Desktop/hobbies/balance_bot/Makefile) with `lint`, `format`, `test`, `typecheck`, and `check` targets.
 * **Observations / Empirical Evidence:** `make check` executes formatting verification (`ruff format --check`), linting (`ruff check`), static typing (`mypy src`), and the full unit test suite (`pytest tests/`), completing in ~4.5s with all 162 unit tests passing and 0 static analysis errors.
-* **Learning / Root Cause:** Static type checkers (MyPy) paired with fast linters (Ruff) catch structural protocol deviations (e.g. missing protocol methods on discovery steps) and attribute mismatches before code ever runs on the physical robot.
 * **Action / Rules Updated:** Maintained `make lint`, `make format`, and `make check` workflows for local continuous verification.
 
+---
 
+### 2026-08-09: Cyber-Physical Bug Fixes & Control Loop Remediation
+* **Hypothesis / Goal:** Resolve verified defects from [`POSSIBLE_ISSUES.md`](file:///Users/benhill/Desktop/hobbies/balance_bot/POSSIBLE_ISSUES.md): standardize deadman switch port, fix dead no-op catch checks and gain saturation during kick-up, correct inverted gyro pitch rate D-term sign in Tier 1 PID, apply stiction deadband compensation, and remove hardcoded balancing timeouts.
+* **Experiment / What We Tried:**
+  1. Standardized HTTP Deadman Switch port to 8090 across [`main.py`](file:///Users/benhill/Desktop/hobbies/balance_bot/src/balance_bot/main.py), [`deadman.py`](file:///Users/benhill/Desktop/hobbies/balance_bot/src/balance_bot/deadman.py), [`POSSIBLE_ISSUES.md`](file:///Users/benhill/Desktop/hobbies/balance_bot/POSSIBLE_ISSUES.md), and [`README.md`](file:///Users/benhill/Desktop/hobbies/balance_bot/README.md).
+  2. Fixed dead `pass` statements in [`KickupState._attempt_catch`](file:///Users/benhill/Desktop/hobbies/balance_bot/src/balance_bot/behavior/states.py) to enable early success return upon vertical stability (`error < 5.0°` and low rate) and early abort on crash/overshoot (`error > 40.0°`).
+  3. Clamped catch PID gains (`catch_kp = min(kp, 15.0)`, `ki = 0.0`, `catch_kd >= 0.5`) to eliminate LEGO gear backlash slamming and integral windup during kick-up transitions.
+  4. Updated default `PIDParams.kp` from aggressive `25.0` to conservative baseline `10.0` in [`configuration.py`](file:///Users/benhill/Desktop/hobbies/balance_bot/src/balance_bot/configuration.py).
+  5. Corrected gyro pitch rate D-term sign in [`PIDController.update`](file:///Users/benhill/Desktop/hobbies/balance_bot/src/balance_bot/reflex/pid.py) to `output += real_kd * measurement_rate` (preventing positive feedback damping inversion).
+  6. Implemented actuator deadband feedforward compensation using `min_power_visible` in [`BalanceCore.update`](file:///Users/benhill/Desktop/hobbies/balance_bot/src/balance_bot/reflex/balance_core.py) to overcome static gear friction.
+  7. Replaced hardcoded 4.0s cutoff in [`BalancingState`](file:///Users/benhill/Desktop/hobbies/balance_bot/src/balance_bot/behavior/states.py) with dynamic checks on `experiment_duration`.
+* **Observations / Empirical Evidence:** Catch state now exits immediately when equilibrium is achieved or aborted on overshoot instead of spinning motors for 2.5s; gyro derivative acts in tandem with proportional drive rather than opposing it.
+* **Learning / Root Cause:** Derivative on measurement in an inverted pendulum differs from standard setpoint regulation: positive angular velocity away from setpoint requires additive motor command in the direction of tilt to catch the center of gravity.
+* **Action / Rules Updated:** Maintained conservative baseline gains and documented deadband feedforward scaling in Tier 1 reflex loop.

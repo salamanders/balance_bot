@@ -91,8 +91,8 @@ class PIDController:
             self.pid.Kd = real_kd
 
             # Add External D-term manually
-            # D = -Kd * rate (Negative because rate is change of input, acts against change)
-            output += -real_kd * measurement_rate
+            # Positive gyro pitch rate corresponds to falling forward (error increasing), requiring positive motor drive
+            output += real_kd * measurement_rate
         else:
             # STRATEGY: Standard PID
             # D comes from (Input - LastInput) / dt

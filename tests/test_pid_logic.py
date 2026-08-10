@@ -50,12 +50,12 @@ class TestPIDLogic(unittest.TestCase):
         params = PIDParams(kp=0.0, ki=0.0, kd=1.0, target_angle=0.0)
         pid = PIDController(params)
 
-        # Scenario: Angle (Error) is 0. Rate is 10.0.
-        # D-term should be -Kd * Rate = -10.0.
+        # Scenario: Angle (Error) is 0. Rate is 10.0 (pitch increasing).
+        # D-term should be +Kd * Rate = +10.0 (positive motor drive to counter forward fall).
         # P and I are 0.
 
         output = pid.update(error=0.0, dt=0.1, measurement_rate=10.0)
-        self.assertAlmostEqual(output, -10.0)
+        self.assertAlmostEqual(output, 10.0)
 
         # Scenario: Angle changes, Rate is 0.
         # D-term should be 0 (because we use Rate for D, not Angle diff).

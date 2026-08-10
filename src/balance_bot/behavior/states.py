@@ -129,25 +129,39 @@ class KickupState(BotState):
         logger.info("-> Attempting Catch...")
         catch_start = time.perf_counter()
 
+        # Conservative gains to prevent backlash slamming; ki=0.0 prevents integral windup
+        catch_kp = (
+            min(context.learning_state.pid.kp, 15.0) if context.learning_state.pid.kp > 0 else 10.0
+        )
+        catch_kd = max(context.learning_state.pid.kd, 0.5)
         catch_params = TuningParams(
-            kp=context.learning_state.pid.kp * 1.5,
-            ki=context.learning_state.pid.ki,
-            kd=context.learning_state.pid.kd * 2.0,
+            kp=catch_kp,
+            ki=0.0,
+            kd=catch_kd,
             target_angle_offset=0.0,
         )
 
         rate = RateLimiter(1.0 / context.config.loop_time)
         dt = context.config.loop_time
+        stable_frames = 0
         while time.perf_counter() - catch_start < 2.5:
             if context.watchdog:
                 context.watchdog.heartbeat()
             telem = context.core.update(self._catch_motion_enabled, catch_params, dt)
 
             error = abs(telem.pitch_angle - target_angle)
-            if error < 5.0 and abs(telem.pitch_rate) < 30.0:
-                pass
-            if abs(telem.pitch_angle - target_angle) > 40.0:
-                pass
+            if error < 5.0 and abs(telem.pitch_rate) < 25.0:
+                stable_frames += 1
+                if stable_frames >= 5:  # Confirmed stable near vertical
+                    logger.info("-> Catch Success (Early equilibrium caught)!")
+                    return True
+            else:
+                stable_frames = 0
+
+            if error > 40.0:
+                logger.warning(f"-> Catch Aborted: Overshot/fell (error={error:.1f}° > 40°)")
+                return False
+
             dt = rate.sleep()
 
         final_error = abs(context.core.pitch - target_angle)
@@ -257,8 +271,14 @@ class BalancingState(BotState):
             motion_req.enable_control = False
             return IdleState()
 
-        if time.monotonic() - self.start_time > 4.0:
-            logger.info("-> 4-Second Experiment Limit Reached. Halting safely.")
+        if (
+            context.watchdog is not None
+            and context.watchdog.experiment_duration is not None
+            and (time.monotonic() - self.start_time > context.watchdog.experiment_duration)
+        ):
+            logger.info(
+                f"-> Experiment Limit ({context.watchdog.experiment_duration:.1f}s) Reached. Halting safely."
+            )
             context.core.hw.stop()
             motion_req.enable_control = False
             return FatalErrorState()

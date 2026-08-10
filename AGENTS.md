@@ -44,8 +44,9 @@ All AI agents working on this codebase must adhere to these non-negotiable gover
 | **Anti-Hyper-Optimism & Incrementalism** | **Never claim you have "found the issue" or assume "this is the final step that will solve it."** Over 10+ sessions, one-shot definitive fixes have never worked. Real-world robotics requires incremental improvement: collect data, **confirm with the user that you are interpreting the data correctly**, and make iterative improvements for the next trial. |
 | **Physical Safety & Deadman's Switch** | **All physical experiments must be time-bounded OR protected by a Deadman's Switch (preferably BOTH).** The robot runs in a living room; never allow open-loop flailing that could damage the hardware or surroundings. |
 | **Permission & Network** | Always ask the user first before attempting network connections, SSH, or permission-sensitive operations. |
-| **Evidence & Tone** | Never use speculative language, hype, or phrases like "smoking gun" or "this will definitely solve it." Gather sufficient verifiable data to prove a theory rather than guessing. |
 | **Scientific Method** | Fight the impulse to jump to an immediate solution. Make small, provable incremental improvements and empirically verify they improved behavior before moving to the next step. |
+| **Verification & Markdown Exemption** | Run `make lint` and `make test` for Python code edits. **Never run `make check` or tests if the only files modified are Markdown (`.md`) documentation files.** |
+
 
 
 ### Code Quality and Type Safety
@@ -76,9 +77,11 @@ When refactoring code:
 *   Remove unused local variables. In benchmarking or test scripts where objects are instantiated solely for timing/side-effects, assign the result to `_` (e.g., `_ = ClassName(...)`) to satisfy linters.
 
 #### D. Run Linters and Tests
-Before calling `submit`, you must:
-1.  Run `uv run ruff check .` and fix all reported warnings (unused imports, unused variables, shadowing).
-2.  Run the full test suite with `uv run pytest tests/` to ensure no regressions were introduced.
+Before calling `submit` (or completing code changes):
+1. Run `make lint` (`uv run ruff check src tests` and `uv run mypy src`) and fix all reported warnings/errors.
+2. Run `make test` (`uv run pytest tests/`) to ensure no regressions were introduced.
+3. **Markdown Exemption:** There is **NO reason to run `make check` or tests if the only files modified are Markdown (`.md`) documentation files** (e.g. `JOURNAL.md`, `AGENTS.md`, `README.md`, `POSSIBLE_ISSUES.md`).
+
 
 By strictly adhering to these rules, you will prevent the reintroduction of the structural and type-safety issues documented in `inspections.md`.
 
@@ -234,6 +237,15 @@ These rules were discovered during live hardware audits and must never be violat
 ### 4. Global vs. Local Safety Cutoffs (The 4-Second Chaos Rule)
 * **Hardware Reality:** Putting safety timeout logic inside individual state classes (`BalancingState`) leaves the robot unprotected if it gets trapped in an earlier phase (such as `ProprioceptiveToddlerStep` discovery or `KickupState`).
 * **Mandatory Rule:** Hard-cutoff timers (e.g., a 4.0-second maximum experiment limit) must be enforced at the root application/watchdog level (`main.py` / `SurvivalWatchdog`), independent of state-machine transitions, ensuring the OS unconditionally terminates and resets hardware after the time budget expires.
+
+### 5. Top-of-Tower IMU Lever Arm Effect ($a = r \cdot \ddot{\theta}$)
+* **Hardware Reality:** As seen in `robot.jpg`, the MPU-6050 breakout board is mounted with adhesive at the very top of the vertical LEGO Technic tower, far above the wheel axle ($r \approx 12\text{--}15\text{cm}$). During rapid motor acceleration or kick-up, tangential acceleration ($r \ddot{\theta}$) and centripetal acceleration ($r \dot{\theta}^2$) corrupt raw accelerometer vectors.
+* **Mandatory Rule:** The Complementary Filter (`alpha = 0.98`) must rely almost exclusively on gyro rate integration for dynamic attitude estimation during active motion. Accelerometer gravity vectors ($\text{atan2}(a_y, a_z)$) may only be trusted when angular acceleration is near zero (e.g. resting or settled posture).
+
+### 6. Wheel Traction & Absence of Wheel Slip
+* **Hardware Reality:** The 3D-printed wheels with rubber/TPU bands provide solid traction on the operating surface. Physical hardware audits have never observed wheels slipping during kick-up or balancing.
+* **Mandatory Rule:** Do not hypothesize or diagnose balancing/kick-up failures as "wheel slip." Focus physical troubleshooting on motor friction deadbands (`min_power_visible`), catch timing, backlash compensation, and battery voltage sag.
+
 
 ---
 

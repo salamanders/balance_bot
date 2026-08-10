@@ -36,7 +36,7 @@ class PIDParams(BaseModel):
     PID Controller Parameters.
     """
 
-    kp: float = 25.0
+    kp: float = 10.0
     ki: float = 0.0
     kd: float = 0.5
     target_angle: float = 0.0

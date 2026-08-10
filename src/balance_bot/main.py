@@ -43,8 +43,8 @@ def parse_args() -> argparse.Namespace:
     parser.add_argument(
         "--deadman-port",
         type=int,
-        default=8000,
-        help="Port for HTTP Deadman's Switch server (default: 8000)",
+        default=8090,
+        help="Port for HTTP Deadman's Switch server (default: 8090)",
     )
     parser.add_argument(
         "--experiment-duration",

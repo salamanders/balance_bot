@@ -13,6 +13,7 @@ homebrew robot. It relies on a deterministic, high-frequency control loop and pe
 - Interfaces with Tier 1 (`BalanceCore`), Tier 3 (`Agent`), and physical hardware abstraction (`RobotHardware`).
 """
 
+import math
 from dataclasses import dataclass
 from typing import Any
 
@@ -230,6 +231,18 @@ class BalanceCore:
         if battery_compensation > 0:
             left_motor /= battery_compensation
             right_motor /= battery_compensation
+
+        # Apply Stiction / Deadband Compensation
+        min_pwr = float(self.learning_state.min_power_visible)
+        if min_pwr > 0.0:
+            if abs(left_motor) > 0.01:
+                left_motor = math.copysign(
+                    min_pwr + abs(left_motor) * (1.0 - min_pwr / 100.0), left_motor
+                )
+            if abs(right_motor) > 0.01:
+                right_motor = math.copysign(
+                    min_pwr + abs(right_motor) * (1.0 - min_pwr / 100.0), right_motor
+                )
 
         # clamp: keep motor command within [-100, 100] hardware limit
         left_motor = max(-100.0, min(100.0, left_motor))
