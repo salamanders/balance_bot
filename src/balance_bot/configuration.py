@@ -115,6 +115,12 @@ class ControlConfig(BaseModel):
     turn_gain: float = 30.0
     soft_recovery_kp_threshold: float = 1.0
     backlash_pulse_time: float = 0.0
+    rock_amplitude_step: float = 2.0
+    rock_pulse_max_duration: float = 0.40
+    rock_max_pulses: int = 6
+    crossover_zone_deg: float = 15.0
+    min_carryover_rate: float = 40.0
+    rest_settle_rate: float = 5.0
 
 
 class SystemTiming(BaseModel):
@@ -163,6 +169,8 @@ class HardwareConfig(BaseModel):
     # Loop Parameters (Fixed by Hardware Capability)
     loop_time: float = 0.01
     complementary_alpha: float = 0.98
+    gyro_rate_distrust_limit: float = 60.0
+    gyro_only_alpha: float = 0.999
     imu_max_retries: int = 5
 
     @classmethod

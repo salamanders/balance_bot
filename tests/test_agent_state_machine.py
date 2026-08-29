@@ -133,7 +133,7 @@ class TestAgentStateMachine(unittest.TestCase):
         # Mock pitch for direction check (e.g. Back)
         type(self.agent.core).pitch = PropertyMock(return_value=-60.0)
 
-        with patch.object(self.agent.state, "_incremental_kickup", return_value=True) as mock_kick:
+        with patch.object(self.agent.state, "_rock_and_flip", return_value=True) as mock_kick:
             self.run_agent_once()
 
             mock_kick.assert_called()
@@ -149,7 +149,7 @@ class TestAgentStateMachine(unittest.TestCase):
         # Mock pitch for direction check
         type(self.agent.core).pitch = PropertyMock(return_value=-60.0)
 
-        with patch.object(self.agent.state, "_incremental_kickup", return_value=False) as mock_kick:
+        with patch.object(self.agent.state, "_rock_and_flip", return_value=False) as mock_kick:
             self.run_agent_once()
 
             mock_kick.assert_called()

@@ -65,26 +65,42 @@ class ComplementaryFilter:
         Angle = alpha * (Angle + GyroRate * dt) + (1 - alpha) * AccelAngle
     """
 
-    def __init__(self, alpha: float) -> None:
+    def __init__(
+        self,
+        alpha: float,
+        gyro_only_alpha: float = 0.999,
+        rate_trust_limit: float = 60.0,
+    ) -> None:
         """
         Initialize the filter.
         :param alpha: Trust factor for Gyro (0.0 to 1.0).
                       Example: 0.98 means 98% Gyro, 2% Accel.
+        :param gyro_only_alpha: Trust factor during high-rate dynamic maneuvers.
+        :param rate_trust_limit: Gyro rate magnitude (deg/s) threshold above which accel blending pauses.
         """
         self.alpha = alpha
+        self.gyro_only_alpha = gyro_only_alpha
+        self.rate_trust_limit = rate_trust_limit
         self.angle = 0.0
 
-    def update(self, new_angle: float, rate: float, loop_delta_time: float) -> float:
+    def update(
+        self,
+        new_angle: float,
+        rate: float,
+        loop_delta_time: float,
+        accel_norm_g: float | None = None,
+    ) -> float:
         """
         Update the filter state.
         :param new_angle: The absolute angle from Accelerometer.
         :param rate: The angular rate from Gyroscope.
         :param loop_delta_time: Time delta in seconds.
+        :param accel_norm_g: Optional magnitude of acceleration in Gs.
         :return: The filtered angle.
         """
-        self.angle = (self.alpha * (self.angle + rate * loop_delta_time)) + (
-            (1.0 - self.alpha) * new_angle
-        )
+        alpha_eff = self.gyro_only_alpha if abs(rate) > self.rate_trust_limit else self.alpha
+        gyro_angle = self.angle + rate * loop_delta_time
+        self.angle = (alpha_eff * gyro_angle) + ((1.0 - alpha_eff) * new_angle)
         return self.angle
 
 

@@ -8,7 +8,7 @@ from ..adaptation.recovery import RecoveryManager
 from ..adaptation.tuner import ContinuousTuner
 from ..behavior.leds import LedController
 from ..configuration import HardwareConfig, LearningState
-from ..enums import Direction, Orientation
+from ..enums import Direction
 from ..reflex.balance_core import BalanceCore, BalanceTelemetry, MotionRequest, TuningParams
 from ..utils import RateLimiter
 from ..watchdog import SurvivalWatchdog
@@ -87,43 +87,34 @@ class IdleState(BotState):
 class KickupState(BotState):
     def __init__(self, attempts: int = 0):
         self.attempts = attempts
-        self._zero_motion_enabled = MotionRequest(velocity=0.0, turn_rate=0.0, enable_control=False)
-        self._catch_motion_enabled = MotionRequest(velocity=0.0, turn_rate=0.0, enable_control=True)
+        self._zero_motion_disabled = MotionRequest(
+            velocity=0.0, turn_rate=0.0, enable_control=False
+        )
+        self._catch_motion_enabled = MotionRequest(
+            velocity=0.0, turn_rate=0.0, enable_control=True
+        )
         self._zero_tuning = TuningParams(kp=0.0, ki=0.0, kd=0.0, target_angle_offset=0.0)
 
-    def _wait_for_settle(
-        self, context: AgentContext, duration: float = 1.0, rate_threshold: float = 10.0
-    ) -> None:
-        end_time = time.perf_counter() + duration
+    def _settle(self, context: AgentContext, timeout: float = 3.0) -> None:
+        """Loop with zero motion until the robot rests stably on its bumper."""
         rate = RateLimiter(1.0 / context.config.loop_time)
         dt = context.config.loop_time
-        while True:
+        start = time.perf_counter()
+        settle_rate_thresh = context.learning_state.control.rest_settle_rate
+        stable_count = 0
+        min_stable_ticks = 50  # 0.5s at 100Hz
+
+        while time.perf_counter() - start < timeout:
             if context.watchdog:
                 context.watchdog.heartbeat()
-            telemetry = context.core.update(self._zero_motion_enabled, self._zero_tuning, dt)
-
-            if time.perf_counter() > end_time:
-                if abs(telemetry.pitch_rate) < rate_threshold:
+            telem = context.core.update(self._zero_motion_disabled, self._zero_tuning, dt)
+            if abs(telem.pitch_rate) < settle_rate_thresh:
+                stable_count += 1
+                if stable_count >= min_stable_ticks:
                     break
-                else:
-                    end_time = time.perf_counter() + 0.5
+            else:
+                stable_count = 0
             dt = rate.sleep()
-
-    def _sleep_with_update(self, context: AgentContext, duration: float) -> None:
-        end_time = time.perf_counter() + duration
-        rate = RateLimiter(1.0 / context.config.loop_time)
-        dt = context.config.loop_time
-        while time.perf_counter() < end_time:
-            if context.watchdog:
-                context.watchdog.heartbeat()
-            context.core.update(self._zero_motion_enabled, self._zero_tuning, dt)
-            dt = rate.sleep()
-
-    def _check_and_fix_position(
-        self, context: AgentContext, kick_direction: Direction, start_label: str
-    ) -> bool:
-        # No hardcoded repositioning loop. The robot attempts kick-up directly from its resting posture.
-        return True
 
     def _attempt_catch(self, context: AgentContext, target_angle: float) -> bool:
         logger.info("-> Attempting Catch...")
@@ -170,54 +161,88 @@ class KickupState(BotState):
             return True
         return False
 
-    def _incremental_kickup(
-        self, context: AgentContext, target_angle: float, start_power: float
-    ) -> bool:
-        power = start_power
-        step = 2.0
-        max_power = 100.0
-
+    def _rock_and_flip(self, context: AgentContext, target_angle: float) -> bool:
+        ctrl = context.learning_state.control
         start_pitch = context.core.pitch
-        kick_direction = Direction.BACKWARD if start_pitch < 0 else Direction.FORWARD
+        kick_direction = Direction.FORWARD if start_pitch < 0 else Direction.BACKWARD
 
-        start_label = (
-            Orientation.BACK.upper()
-            if kick_direction == Direction.BACKWARD
-            else Orientation.FRONT.upper()
+        configured_power = (
+            ctrl.kickup_power_forward
+            if kick_direction == Direction.FORWARD
+            else ctrl.kickup_power_backward
         )
+        if configured_power > 0.0:
+            amplitude = configured_power
+        else:
+            amplitude = max(float(context.learning_state.min_power_visible) + 10.0, 15.0)
+
+        max_pulses = ctrl.rock_max_pulses
+        amplitude_step = ctrl.rock_amplitude_step
+        max_duration = ctrl.rock_pulse_max_duration
+        crossover_deg = ctrl.crossover_zone_deg
+        min_rate = ctrl.min_carryover_rate
 
         logger.info(
-            f"-> Starting Incremental Kick-Up from {start_label}. Target: {target_angle:.2f}"
+            f"-> Starting Closed-Loop Rock-and-Flip from pitch={start_pitch:.1f}°. "
+            f"Direction={kick_direction.name}, Start Amp={amplitude:.1f}%, Max Pulses={max_pulses}"
         )
 
         try:
-            while power <= max_power:
-                if context.watchdog:
-                    context.watchdog.heartbeat()
-                self._wait_for_settle(context)
+            for pulse_idx in range(max_pulses):
+                self._settle(context)
 
-                if not self._check_and_fix_position(context, kick_direction, start_label):
-                    return False
+                # Re-evaluate kick direction based on settled pitch
+                current_pitch = context.core.pitch
+                kick_direction = Direction.FORWARD if current_pitch < 0 else Direction.BACKWARD
+                drive_val = amplitude * float(kick_direction.value)
 
-                logger.info(f"-> Kick-Up Attempt: Power {power:.1f} Direction {kick_direction}")
+                logger.info(
+                    f"-> Rock Pulse #{pulse_idx + 1}/{max_pulses}: "
+                    f"Drive={drive_val:.1f}%, Pitch={current_pitch:.1f}°"
+                )
 
-                drive_val = float(power) * float(kick_direction.value)
-                context.core.hw.set_motors(drive_val, drive_val)
-                self._sleep_with_update(context, 0.25)
+                rate = RateLimiter(1.0 / context.config.loop_time)
+                dt = context.config.loop_time
+                pulse_deadline = time.perf_counter() + max_duration
 
-                if self._attempt_catch(context, target_angle):
-                    return True
+                while time.perf_counter() < pulse_deadline:
+                    if context.watchdog:
+                        context.watchdog.heartbeat()
+                    telem = context.core.pulse(drive_val, drive_val, dt)
+
+                    # Check if angular rate is moving toward vertical setpoint
+                    is_moving_toward_vert = (
+                        telem.pitch_rate > 0
+                        if kick_direction == Direction.FORWARD
+                        else telem.pitch_rate < 0
+                    )
+
+                    # Flip trigger: entered crossover zone with sufficient carryover rate
+                    if (
+                        abs(telem.pitch_angle - target_angle) < crossover_deg
+                        and is_moving_toward_vert
+                        and abs(telem.pitch_rate) >= min_rate
+                    ):
+                        logger.info(
+                            f"-> Flip Trigger Fired! Pitch={telem.pitch_angle:.1f}°, "
+                            f"Rate={telem.pitch_rate:.1f}°/s. Switching to Catch."
+                        )
+                        context.core.hw.stop()
+                        if self._attempt_catch(context, target_angle):
+                            return True
+                        break  # Catch failed, end this pulse
+
+                    dt = rate.sleep()
 
                 context.core.hw.stop()
-                logger.info("-> Catch Failed. Retrying...")
-                power += step
+                amplitude = min(100.0, amplitude + amplitude_step)
 
         except Exception as e:
-            logger.error(f"Kick-Up Exception: {e}")
+            logger.error(f"Rock-and-Flip Exception: {e}")
             context.core.hw.stop()
             return False
 
-        logger.error("-> Failed to Kick-Up (Max Power Reached).")
+        logger.error("-> Failed Rock-and-Flip: Max pulses exhausted.")
         return False
 
     def update(
@@ -229,23 +254,12 @@ class KickupState(BotState):
         last_telemetry: BalanceTelemetry | None,
         ticks: int,
     ) -> BotState:
-        pwr = (
-            context.learning_state.control.kickup_power_forward
-            if context.core.pitch < 0
-            else context.learning_state.control.kickup_power_backward
-        )
-        success = self._incremental_kickup(
-            context, context.learning_state.pid.target_angle, start_power=pwr
-        )
+        success = self._rock_and_flip(context, context.learning_state.pid.target_angle)
 
         if success:
             logger.info("-> Kick-Up Successful! Transition to BALANCING.")
             return BalancingState()
         else:
-            if (
-                context.core.pitch > 80.0
-            ):  # Fallback FATAL check for completely unrecoverable orientation
-                pass  # FATAL checks handled in next state or here
             logger.warning("-> Kick-Up Failed. Transition to IDLE.")
             return IdleState(kickup_attempts=self.attempts + 1)
 

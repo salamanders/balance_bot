@@ -21,7 +21,7 @@ from pydantic import validate_call
 
 from ..configuration import HardwareConfig, LearningState
 from ..hardware.robot_hardware import RobotHardware
-from ..utils import ComplementaryFilter, circular_difference
+from ..utils import ComplementaryFilter
 from ..watchdog import SurvivalWatchdog
 from .pid import PIDController
 
@@ -99,7 +99,11 @@ class BalanceCore:
 
         # Control
         self.pid = PIDController(learning_state.pid)
-        self.filter = ComplementaryFilter(hw_config.complementary_alpha)
+        self.filter = ComplementaryFilter(
+            alpha=hw_config.complementary_alpha,
+            gyro_only_alpha=hw_config.gyro_only_alpha,
+            rate_trust_limit=hw_config.gyro_rate_distrust_limit,
+        )
 
         # State
         self.pitch = 0.0
@@ -120,6 +124,48 @@ class BalanceCore:
     def set_i2c_retries(self, retries: int) -> None:
         """Set the I2C retry count for the motor driver."""
         self.hw.set_motor_retries(retries)
+
+    def seed_pitch_filter(self, samples: int = 100) -> None:
+        """Sample the IMU at rest to seed the complementary filter with the true starting angle."""
+        if samples <= 0:
+            return
+        readings = [self.hw.read_imu_converted().pitch_angle for _ in range(samples)]
+        mean_pitch = sum(readings) / len(readings)
+        self.filter.angle = mean_pitch
+        self.pitch = mean_pitch
+        self.current_telemetry.pitch_angle = mean_pitch
+
+    @validate_call
+    def pulse(
+        self, left_pwm: float, right_pwm: float, loop_delta_time: float
+    ) -> BalanceTelemetry:
+        assert loop_delta_time > 0, "Loop delta time must be positive"
+        """
+        Execute one open-loop actuation step with state estimation.
+        Bypasses PID and idle-stop semantics for deterministic pulse control.
+        """
+        # 1. Read Physics
+        reading = self.hw.read_imu_converted()
+
+        # 2. Update State Estimation
+        self.pitch = self.filter.update(reading.pitch_angle, reading.pitch_rate, loop_delta_time)
+
+        # 3. Clamp and apply motor drive
+        left_cmd = max(-100.0, min(100.0, float(left_pwm)))
+        right_cmd = max(-100.0, min(100.0, float(right_pwm)))
+        self.hw.set_motors(left_cmd, right_cmd)
+
+        # 4. Populate telemetry
+        self.current_telemetry.pitch_angle = self.pitch
+        self.current_telemetry.pitch_rate = reading.pitch_rate
+        self.current_telemetry.yaw_rate = reading.yaw_rate
+        self.current_telemetry.error_count = reading.error_count
+        self.current_telemetry.motor_output = 0.0
+        self.current_telemetry.crashed = False
+        self.current_telemetry.left_pwm = left_cmd
+        self.current_telemetry.right_pwm = right_cmd
+        self.current_telemetry.target_angle = self.learning_state.pid.target_angle
+        return self.current_telemetry
 
     @validate_call
     def update(

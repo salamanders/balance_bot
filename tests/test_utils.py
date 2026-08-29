@@ -89,8 +89,8 @@ def test_complementary_filter() -> None:
     res = cf.update(0.0, 0.0, 0.1)
     assert res == 0.0
 
-    # One step update
-    # new_angle = 10, rate = 10, dt = 0.1
+    # One step update below rate threshold
+    # new_angle = 10, rate = 10 (< 60.0), dt = 0.1
     # gyro_part = 0 + 10 * 0.1 = 1.0
     # accel_part = 10.0
     # result = 0.98 * 1.0 + 0.02 * 10.0 = 0.98 + 0.2 = 1.18
@@ -99,6 +99,33 @@ def test_complementary_filter() -> None:
 
     # Internal state should update
     assert cf.angle == res
+
+
+def test_complementary_filter_gyro_dominant_high_rate() -> None:
+    # High rate above rate_trust_limit (default 60.0 deg/s) suppresses accel blending
+    alpha = 0.98
+    gyro_only_alpha = 0.999
+    rate_limit = 60.0
+    cf = ComplementaryFilter(alpha, gyro_only_alpha=gyro_only_alpha, rate_trust_limit=rate_limit)
+
+    # Initial state
+    cf.angle = 0.0
+
+    # Step with high rate = 100 deg/s, corrupt accel_angle = 45 deg, dt = 0.01s
+    # gyro_part = 0.0 + 100 * 0.01 = 1.0
+    # accel_part = 45.0
+    # effective alpha = 0.999
+    # result = 0.999 * 1.0 + 0.001 * 45.0 = 0.999 + 0.045 = 1.044
+    res = cf.update(new_angle=45.0, rate=100.0, loop_delta_time=0.01)
+    assert math.isclose(res, 1.044, rel_tol=1e-6)
+
+    # Negative high rate: rate = -100 deg/s (< -60.0 deg/s)
+    cf.angle = 0.0
+    # gyro_part = 0.0 + (-100) * 0.01 = -1.0
+    # accel_part = -45.0
+    # result = 0.999 * -1.0 + 0.001 * -45.0 = -0.999 - 0.045 = -1.044
+    res_neg = cf.update(new_angle=-45.0, rate=-100.0, loop_delta_time=0.01)
+    assert math.isclose(res_neg, -1.044, rel_tol=1e-6)
 
 
 def test_calculate_pitch() -> None:

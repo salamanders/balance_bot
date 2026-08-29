@@ -133,6 +133,8 @@ class Agent:
         """
         try:
             # 1. Warmup
+            logger.info("-> Seeding pitch filter from resting orientation...")
+            self.core.seed_pitch_filter()
             logger.info("-> Warming up sensors...")
             self.led.signal_setup()
             start_wait = time.perf_counter()

@@ -76,5 +76,69 @@ def test_balance_core_update_with_mutable_tuning_params() -> None:
         print("Integration test passed!")
 
 
+def test_balance_core_seed_pitch_filter() -> None:
+    hw_config = HardwareConfig()
+    learning_state = LearningState()
+
+    with pytest.MonkeyPatch.context() as m:
+        m.setattr(
+            "balance_bot.hardware.robot_hardware.RobotHardware.__init__",
+            lambda self, *args, **kwargs: None,
+        )
+        m.setattr("balance_bot.hardware.robot_hardware.RobotHardware.init", lambda self: None)
+
+        dummy_reading = MagicMock()
+        dummy_reading.pitch_angle = -18.5
+        m.setattr(
+            "balance_bot.hardware.robot_hardware.RobotHardware.read_imu_converted",
+            lambda self: dummy_reading,
+        )
+
+        core = BalanceCore(hw_config, learning_state)
+        assert core.pitch == 0.0
+
+        core.seed_pitch_filter(samples=5)
+        assert core.pitch == -18.5
+        assert core.filter.angle == -18.5
+        assert core.current_telemetry.pitch_angle == -18.5
+
+
+def test_balance_core_pulse_actuation() -> None:
+    hw_config = HardwareConfig()
+    learning_state = LearningState()
+
+    with pytest.MonkeyPatch.context() as m:
+        m.setattr(
+            "balance_bot.hardware.robot_hardware.RobotHardware.__init__",
+            lambda self, *args, **kwargs: None,
+        )
+        m.setattr("balance_bot.hardware.robot_hardware.RobotHardware.init", lambda self: None)
+
+        dummy_reading = MagicMock()
+        dummy_reading.pitch_angle = -15.0
+        dummy_reading.pitch_rate = 35.0
+        dummy_reading.yaw_rate = 1.0
+        dummy_reading.error_count = 0
+        m.setattr(
+            "balance_bot.hardware.robot_hardware.RobotHardware.read_imu_converted",
+            lambda self: dummy_reading,
+        )
+
+        set_motors_mock = MagicMock()
+        m.setattr(
+            "balance_bot.hardware.robot_hardware.RobotHardware.set_motors",
+            set_motors_mock,
+        )
+
+        core = BalanceCore(hw_config, learning_state)
+        telem = core.pulse(left_pwm=45.0, right_pwm=45.0, loop_delta_time=0.01)
+
+        set_motors_mock.assert_called_once_with(45.0, 45.0)
+        assert telem.left_pwm == 45.0
+        assert telem.right_pwm == 45.0
+        assert telem.pitch_rate == 35.0
+
+
 if __name__ == "__main__":
     test_balance_core_update_with_mutable_tuning_params()
+

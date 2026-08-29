@@ -171,4 +171,30 @@ When appending new entries to this file, use the following Markdown template:
   7. Replaced hardcoded 4.0s cutoff in [`BalancingState`](file:///Users/benhill/Desktop/hobbies/balance_bot/src/balance_bot/behavior/states.py) with dynamic checks on `experiment_duration`.
 * **Observations / Empirical Evidence:** Catch state now exits immediately when equilibrium is achieved or aborted on overshoot instead of spinning motors for 2.5s; gyro derivative acts in tandem with proportional drive rather than opposing it.
 * **Learning / Root Cause:** Derivative on measurement in an inverted pendulum differs from standard setpoint regulation: positive angular velocity away from setpoint requires additive motor command in the direction of tilt to catch the center of gravity.
-* **Action / Rules Updated:** Maintained conservative baseline gains and documented deadband feedforward scaling in Tier 1 reflex loop.
+---
+
+### 2026-08-22 - Full-Stack Stabilization Review; F0 Kick-Up Pulse Collapse Defect Found
+* **Hypothesis / Goal:** Review entire control stack to explain operator-reported dominant failure mode ("kick-up rarely succeeds - never gets to vertical") and produce an actionable stabilization strategy (`OX.md`).
+* **Experiment / What We Tried:** Read all MD files plus Tier 1 reflex loop (`balance_core.py`, `pid.py`, `utils.py`), HAL (`robot_hardware.py`), state machine (`states.py`, `agent.py`), adaptation modules, configuration defaults, simulation environment, and telemetry writer. Traced the kick-up execution path tick-by-tick.
+* **Observations / Empirical Evidence:** Static trace found `_incremental_kickup` writes `set_motors(drive_val)` then calls `_sleep_with_update`, which loops `core.update(enable_control=False)` - and the idle branch of `BalanceCore.update` calls `hw.stop()` unconditionally every tick. The intended 250 ms kick-up pulse therefore collapses to ~one 10 ms loop period. Additional findings: no closed-loop flip timing (blind pulse + delayed catch); complementary filter blends accelerometer during high-rate dynamics and initializes at 0 deg instead of rest angle; D-term scale (Kd=0.5) far below stabilizing ratios; auto-tuner oscillation detector cannot see 1-2 Hz oscillation in a 1 s window.
+* **Learning / Root Cause:** The idle branch's unconditional `stop()` is correct for safety but fatal when callers expect it to preserve manual motor writes. Any future open-loop actuation must use a dedicated primitive that performs estimation + raw drive without PID or idle-stop semantics.
+* **Action / Rules Updated:** Wrote `OX.md` containing full diagnosis (F0-F5), phased plan (P0 blackbox forensics -> P1 estimation fixes -> P2 Rock-and-Flip kick-up -> P3 gains/damping/tuner), decision/tradeoff log (T1-T8), and validation checklist. No runtime code changed in this session. F0 falsification test defined: blackbox pulse widths should be <= 20 ms if F0 holds.
+---
+
+### 2026-08-28 - Implementation of Phase 0, 1, and 2: Closed-Loop Rock-and-Flip & State Estimation Remediation
+* **Hypothesis / Goal:** Fix the F0 pulse collapse bug, implement Phase 1 state estimation enhancements (resting pitch seeding and rate-gated gyro-dominant filtering), build Phase 0 telemetry analysis tool (`tools/analyze_blackbox.py`), and implement Phase 2 closed-loop Rock-and-Flip kickup state with real-time crossover detection in `KickupState`.
+* **Experiment / What We Tried:**
+  1. **Phase 0:** Created `tools/analyze_blackbox.py` (stdlib only) to parse telemetry logs, isolate kickup sessions, measure pulse durations and peak PWM, and classify failure modes (`NO_MOVEMENT`, `INSUFFICIENT_ENERGY`, `WRONG_TIMING`, `CAUGHT_THEN_LOST`).
+  2. **Phase 1a:** Added `BalanceCore.seed_pitch_filter(samples=100)` to measure the physical resting angle on the bumpers before sensor warmup in `Agent.run()`, preventing initial angle estimate slew transients.
+  3. **Phase 1b:** Updated `ComplementaryFilter` in `utils.py` and `HardwareConfig` in `configuration.py` with `gyro_rate_distrust_limit = 60.0 deg/s` and `gyro_only_alpha = 0.999` to suppress corrupted accelerometer readings during high-angular-rate rotation. Added unit tests in `tests/test_utils.py`.
+  4. **Phase 2a:** Implemented `BalanceCore.pulse(left_pwm, right_pwm, dt)` to execute open-loop motor actuation with real-time state estimation while eliminating the F0 `hw.stop()` cancellation bug. Added unit tests in `tests/test_balance_core_params.py`.
+  5. **Phase 2b:** Added rock-and-flip parameters (`rock_amplitude_step`, `rock_pulse_max_duration`, `rock_max_pulses`, `crossover_zone_deg`, `min_carryover_rate`, `rest_settle_rate`) to `ControlConfig` in `configuration.py`. Updated `tests/test_kickup_config.py`.
+  6. **Phase 2c:** Rewrote `KickupState` in `states.py` with closed-loop `_settle`, `_rock_and_flip`, and synchronous crossover detection that triggers `_attempt_catch` immediately when crossing into the $\pm 15^\circ$ zone with forward carryover angular rate.
+  7. **Phase 2d:** Created `tests/test_rock_flip_kickup.py` with unit tests verifying continuous pulse execution across ticks (preventing F0 regression), synchronous catch transitions, amplitude progression, and watchdog heartbeats. Updated `tests/test_agent_state_machine.py` mocks.
+* **Observations / Empirical Evidence:**
+  - `BalanceCore.pulse()` ensures actuation persists for the full duration of pulses without being cancelled by the idle branch.
+  - Settle routine ensures the robot is stationary on its bumper before applying pulse torque.
+  - Closed-loop crossover trigger synchronizes catch activation with the pendulum crossing vertical.
+* **Learning / Root Cause:** Decoupling open-loop actuation primitives from closed-loop PID updates prevents idle branch invariants (`hw.stop()`) from polluting transient state transitions, while real-time sensory gating eliminates blind time delays in cyber-physical actuation.
+* **Action / Rules Updated:** Maintained fail-fast initialization, watchdog heartbeats per tick, and conservative defaults for all newly introduced parameters.
+
