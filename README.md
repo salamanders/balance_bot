@@ -138,12 +138,21 @@ uv run balance-bot
 ## CLI Execution & Flags
 
 * `uv run balance-bot` — Runs standard self-discovery wizard or active balance control loop.
-* `uv run balance-bot --deadman` — Enables the HTTP Deadman's Switch web interface (`http://<robot-ip>:8090`) for living room safety.
+* `uv run balance-bot --deadman` — Enables the HTTP Deadman's Switch web interface (`http://<robot-ip>:8090`) for living room safety and remote data fetching.
 * `uv run balance-bot --experiment-duration 4.0` — Enforces a global experiment timeout budget (e.g., 4.0s) across all phases.
 * `uv run balance-bot --allow-mocks` — Runs control loop using Mock Hardware (required for CI / laptop testing without physical sensors/motors).
 * `uv run balance-bot --reset-brain` — Wipes learned `pid_config.json` and forces re-running Tabula Rasa discovery.
 * `uv run balance-bot --auto-fix` — Enables automated crash reporting and traceback submission to Jules.
 * `uv run balance-bot --repl` — Launches interactive REPL for manual motor control, IMU reads, and gyro tests.
+
+### Remote HTTP Data API (Port 8090)
+When `--deadman` is active, the robot serves the following data endpoints over HTTP:
+* `GET /flight_data.csv` (or `/data/flight`) — Raw 100Hz flight telemetry CSV.
+* `GET /discovery_data.csv` (or `/data/discovery`) — Raw Tabula Rasa discovery calibration CSV.
+* `GET /learning_state.json` (or `/data/learning_state`) — Current learned controller parameters and bumper angles.
+* `GET /hardware_config.json` (or `/data/hardware_config`) — Physical hardware axis/bus mappings.
+* `GET /data/analysis` — Automated blackbox forensic analysis JSON (kickup session breakdown, pulse metrics, failure classification).
+* `GET /status` — Real-time pitch, posture, and deadman arming status.
 
 
 ---

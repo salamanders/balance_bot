@@ -191,10 +191,12 @@ When appending new entries to this file, use the following Markdown template:
   5. **Phase 2b:** Added rock-and-flip parameters (`rock_amplitude_step`, `rock_pulse_max_duration`, `rock_max_pulses`, `crossover_zone_deg`, `min_carryover_rate`, `rest_settle_rate`) to `ControlConfig` in `configuration.py`. Updated `tests/test_kickup_config.py`.
   6. **Phase 2c:** Rewrote `KickupState` in `states.py` with closed-loop `_settle`, `_rock_and_flip`, and synchronous crossover detection that triggers `_attempt_catch` immediately when crossing into the $\pm 15^\circ$ zone with forward carryover angular rate.
   7. **Phase 2d:** Created `tests/test_rock_flip_kickup.py` with unit tests verifying continuous pulse execution across ticks (preventing F0 regression), synchronous catch transitions, amplitude progression, and watchdog heartbeats. Updated `tests/test_agent_state_machine.py` mocks.
+  8. **HTTP Remote Data API:** Added REST endpoints to `DeadmanHandler` in `deadman.py` (`/flight_data.csv`, `/discovery_data.csv`, `/learning_state.json`, `/hardware_config.json`, and `/data/analysis`) to enable direct telemetry and forensics fetching over HTTP by remote agents/laptops. Added unit tests in `tests/test_deadman.py`.
 * **Observations / Empirical Evidence:**
   - `BalanceCore.pulse()` ensures actuation persists for the full duration of pulses without being cancelled by the idle branch.
   - Settle routine ensures the robot is stationary on its bumper before applying pulse torque.
   - Closed-loop crossover trigger synchronizes catch activation with the pendulum crossing vertical.
+  - Remote agents can fetch raw CSVs, configurations, and automated blackbox analysis JSON via HTTP without SSH/SCP.
 * **Learning / Root Cause:** Decoupling open-loop actuation primitives from closed-loop PID updates prevents idle branch invariants (`hw.stop()`) from polluting transient state transitions, while real-time sensory gating eliminates blind time delays in cyber-physical actuation.
 * **Action / Rules Updated:** Maintained fail-fast initialization, watchdog heartbeats per tick, and conservative defaults for all newly introduced parameters.
 

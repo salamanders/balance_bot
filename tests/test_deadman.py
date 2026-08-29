@@ -125,3 +125,53 @@ def test_robot_hardware_disarms_on_deadman_inactive(monkeypatch: Any) -> None:
 
     # Hardware driver should have received (0, 0) disarm command
     hw.pz.set_motors.assert_called_with(0, 0)
+
+
+def test_deadman_http_data_endpoints(tmp_path: Any, monkeypatch: Any) -> None:
+    """Verify HTTP endpoints serve telemetry, configs, and blackbox analysis."""
+    import json
+    import urllib.request
+
+    monkeypatch.chdir(tmp_path)
+
+    # Create mock flight_data.csv and learning_state.json
+    flight_csv = tmp_path / "flight_data.csv"
+    flight_csv.write_text(
+        "timestamp,state,pitch_angle,pitch_rate,yaw_rate,left_pwm,right_pwm,pid_target\n"
+        "1.0,KickupState,-20.0,0.0,0.0,20.0,20.0,0.0\n"
+        "1.01,KickupState,-18.0,5.0,0.0,20.0,20.0,0.0\n"
+        "1.02,BalancingState,0.0,0.0,0.0,0.0,0.0,0.0\n"
+    )
+    state_json = tmp_path / "learning_state.json"
+    state_json.write_text(json.dumps({"pid": {"kp": 10.0, "ki": 0.0, "kd": 0.5}}))
+
+    server = DeadmanServer(host="127.0.0.1", port=0)
+    server.start()
+    port = server.server_port
+    base_url = f"http://127.0.0.1:{port}"
+
+    try:
+        # 1. Fetch flight CSV
+        with urllib.request.urlopen(f"{base_url}/flight_data.csv") as resp:
+            assert resp.status == 200
+            assert "text/csv" in resp.headers.get("Content-Type", "")
+            body = resp.read().decode("utf-8")
+            assert "KickupState" in body
+
+        # 2. Fetch learning state JSON
+        with urllib.request.urlopen(f"{base_url}/data/learning_state") as resp:
+            assert resp.status == 200
+            assert "application/json" in resp.headers.get("Content-Type", "")
+            data = json.loads(resp.read().decode("utf-8"))
+            assert data["pid"]["kp"] == 10.0
+
+        # 3. Fetch automated blackbox analysis JSON
+        with urllib.request.urlopen(f"{base_url}/data/analysis") as resp:
+            assert resp.status == 200
+            assert "application/json" in resp.headers.get("Content-Type", "")
+            analysis = json.loads(resp.read().decode("utf-8"))
+            assert analysis["total_sessions"] == 1
+            assert "failure_counts" in analysis
+    finally:
+        server.stop()
+

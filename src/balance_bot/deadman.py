@@ -16,6 +16,7 @@ import contextlib
 import http.server
 import json
 import logging
+from pathlib import Path
 import threading
 import time
 from typing import Any
@@ -337,16 +338,64 @@ class DeadmanHandler(http.server.BaseHTTPRequestHandler):
         self.end_headers()
         self.wfile.write(content)
 
+    def _send_file(self, filename: str, content_type: str) -> None:
+        file_path = Path(filename)
+        if not file_path.exists():
+            self.send_error(404, f"File not found: {filename}")
+            return
+        content = file_path.read_bytes()
+        self.send_response(200)
+        self.send_header("Content-Type", content_type)
+        self.send_header("Content-Length", str(len(content)))
+        self.send_header("Access-Control-Allow-Origin", "*")
+        self.end_headers()
+        self.wfile.write(content)
+
+    def _send_analysis(self) -> None:
+        file_path = Path("flight_data.csv")
+        if not file_path.exists():
+            self._send_json(404, {"error": "flight_data.csv not found", "sessions": []})
+            return
+        try:
+            import dataclasses
+            from tools.analyze_blackbox import analyze_kickup_sessions, parse_telemetry_file
+
+            rows = parse_telemetry_file(file_path)
+            sessions = analyze_kickup_sessions(rows)
+            failure_counts: dict[str, int] = {}
+            for s in sessions:
+                failure_counts[s.failure_class] = failure_counts.get(s.failure_class, 0) + 1
+
+            payload = {
+                "total_sessions": len(sessions),
+                "failure_counts": failure_counts,
+                "sessions": [dataclasses.asdict(s) for s in sessions],
+            }
+            self._send_json(200, payload)
+        except Exception as e:
+            self._send_json(500, {"error": f"Analysis error: {e}"})
+
     def do_GET(self) -> None:
         if self.path in ("/", "/index.html"):
             content = DEADMAN_HTML.encode("utf-8")
             self.send_response(200)
             self.send_header("Content-Type", "text/html; charset=utf-8")
             self.send_header("Content-Length", str(len(content)))
+            self.send_header("Access-Control-Allow-Origin", "*")
             self.end_headers()
             self.wfile.write(content)
         elif self.path == "/status":
             self._send_json(200, self.server.get_status_dict())
+        elif self.path in ("/flight_data.csv", "/data/flight"):
+            self._send_file("flight_data.csv", "text/csv; charset=utf-8")
+        elif self.path in ("/discovery_data.csv", "/data/discovery"):
+            self._send_file("discovery_data.csv", "text/csv; charset=utf-8")
+        elif self.path in ("/learning_state.json", "/data/learning_state"):
+            self._send_file("learning_state.json", "application/json; charset=utf-8")
+        elif self.path in ("/hardware_config.json", "/data/hardware_config"):
+            self._send_file("hardware_config.json", "application/json; charset=utf-8")
+        elif self.path == "/data/analysis":
+            self._send_analysis()
         else:
             self.send_error(404, "Not Found")
 
